@@ -157,41 +157,48 @@ npm run vision:review-packet:audit
 
 The generated packet is stored under
 `artifacts/vision-human-review-packet-<timestamp>`. The current packet contains
-28 unique candidates:
+29 unique candidates:
 
 - whitening: 3
 - short shot: 3
 - burn: 4
 - flash: 2
 - sink: 9
-- weld line: 5
+- weld line: 6
 - ejection: 2
 
 The Vision audit uses `/internal/vision/describe` only. It does not create SQL
 records, image-dataset rows, approvals, or Graph nodes. Completed observations
 from older packets are reused by immutable image SHA-256, so rebuilding a
-packet does not repeatedly spend Vision calls on the same bytes. The latest
-run reused 25 observations and requested only three changed or new Web Case
-image hashes.
+packet does not repeatedly spend Vision calls on the same bytes. The first
+weld-line Figure audit requested one new Vision call. The subsequent
+lineage-only packet rebuild reused all 29 observations.
 
-- source/Vision high-confidence agreement: 11
+- source/Vision high-confidence agreement: 12
 - source/Vision low-confidence agreement: 1
 - heuristic/Vision agreement requiring source confirmation: 1
 - class conflict: 5
 - unclassifiable or normal-functional image: 10
 
-The five reusable-license Web Case candidates are all priority-one source/Vision
+The six reusable-license Web Case candidates are all priority-one source/Vision
 agreements:
 
 - burn: 2 at confidence 0.90 and 0.91
 - short shot: 1 at confidence 0.97
 - sink: 2 at confidence 0.83 and 0.90
+- weld line: 1 at confidence 0.94
 
 Their Web Case ID, publisher, source URL, author, license, evidence SHA-256,
 and packet lineage are displayed in the original-image review dialog and are
 forwarded to Common Agent only after explicit human registration and approval.
-All five currently carry `CC BY-SA 4.0` from the authoritative Wikimedia
-`imageinfo/extmetadata` API. They are candidates, not benchmark truth.
+Five carry `CC BY-SA 4.0` from the authoritative Wikimedia
+`imageinfo/extmetadata` API. The weld-line optical micrograph carries
+`CC BY 4.0`, an MDPI article citation, and a non-retracted PMC open-access
+license record. They are candidates, not benchmark truth.
+
+If all six are independently confirmed, the seven-class minimum is covered.
+The clean approved count would rise from 8 to 14, so six more independent
+approved images would still be required for the 20-sample retirement gate.
 
 Open `Knowledge & Dataset Control` and select `준비된 검토 패킷`. The app
 automatically finds the latest development packet or reuses the packet pointer
