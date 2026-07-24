@@ -218,3 +218,50 @@ test('unresolved high-confidence HITL blocks fallback retirement even when bench
         1
     );
 });
+
+test('approved label and original Vision conflicts block fallback retirement', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({
+                review_status: 'approved'
+            }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [{
+                type: 'approved_label_observation_conflict',
+                caseId: 'approved-image-conflict',
+                approvedLabel: '\uC218\uCD95',
+                observationLabel: '\uBC31\uD654',
+                approvedClass: 'other:\uC218\uCD95',
+                observationClass: 'whitening'
+            }],
+            cases: [
+                ...Array.from({ length: 19 }, () => ({ status: 'active' })),
+                { status: 'needs_review' }
+            ]
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        }
+    });
+
+    assert.equal(status.approved.conflictGroups, 1);
+    assert.deepEqual(status.approved.conflicts, [{
+        contentHash: '',
+        caseIds: ['approved-image-conflict'],
+        labels: ['\uC218\uCD95', '\uBC31\uD654']
+    }]);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.equal(
+        status.blockers.find(item => item.code === 'approved_label_conflicts')?.count,
+        1
+    );
+});
