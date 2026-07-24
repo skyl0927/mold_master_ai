@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-24T09:36:41.658Z",
+  "generatedAt": "2026-07-24T11:30:01.154Z",
   "source": "http://127.0.0.1:8000/v1/datasets/images",
   "minimumSamples": 20,
   "evaluationGate": {
@@ -23,21 +23,10 @@
     "maximumUnsafeErrorRate": 5,
     "maximumCalibrationError": 15,
     "minimumQualityEligibleRate": 95,
-    "minimumVisionContractComplianceRate": 95
+    "minimumVisionContractComplianceRate": 95,
+    "minimumCaptureProtocolReadyRate": 80
   },
   "qualityIssues": [
-    {
-      "type": "duplicate_image_conflicting_labels",
-      "contentHash": "a7e3d4d1065e92b0f3406b727f5a9e280300bd92fb49c44e32a09b54df82a0f1",
-      "caseIds": [
-        "approved-image-59bec59e84dc",
-        "approved-image-66f69cc7bbed"
-      ],
-      "labels": [
-        "제팅",
-        "플로우마크"
-      ]
-    },
     {
       "type": "duplicate_image_same_label",
       "contentHash": "cc78886fe0593f9dbc6e7c374663b766e31a37cd8faf2c9afb945ee9200cc0b4",
@@ -72,9 +61,289 @@
       "observationLabel": "표면 결함",
       "approvedClass": "flash",
       "observationClass": "other:표면결함"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-ddd3da916cce",
+      "defectClass": "weld_line",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "flow_convergence_context",
+        "oblique_light"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 게이트와 유동 합류 예상 위치가 함께 보이도록 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-71c5838a88a0",
+      "defectClass": "jetting",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-d94e0f7d8733",
+      "defectClass": "other:수축",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-59bec59e84dc",
+      "defectClass": "jetting",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-0484c656265b",
+      "defectClass": "other:기포",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-c2bacc82d3cc",
+      "defectClass": "sink",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "oblique_light",
+        "reverse_geometry"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영 / 함몰 반대면의 리브, 보스 또는 후육부 형상을 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-4d238bb8a9b7",
+      "defectClass": "flash",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "parting_line_context",
+        "edge_profile"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 결함부와 파팅라인 또는 인서트 경계가 함께 보이도록 촬영 / 얇은 잉여 수지의 돌출 높이가 보이도록 측면에서 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-d6582eda4f47",
+      "defectClass": "flash",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "parting_line_context",
+        "edge_profile"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 결함부와 파팅라인 또는 인서트 경계가 함께 보이도록 촬영 / 얇은 잉여 수지의 돌출 높이가 보이도록 측면에서 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-1a90cbbdd9d6",
+      "defectClass": "short_shot",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "fill_end_context",
+        "reference_part"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 게이트부터 충전 말단까지의 위치 관계가 보이도록 촬영 / 동일 각도와 조명에서 정상품을 함께 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-193d77ecf09a",
+      "defectClass": "burn",
+      "status": "not_visually_verifiable",
+      "imageKind": "document_or_diagram",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "fill_end_context",
+        "vent_context"
+      ],
+      "recommendation": "도면이나 설명 자료가 아닌 실제 성형품 사진을 등록하세요."
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-de3687164124",
+      "defectClass": "sink",
+      "status": "not_visually_verifiable",
+      "imageKind": "document_or_diagram",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "oblique_light",
+        "reverse_geometry"
+      ],
+      "recommendation": "도면이나 설명 자료가 아닌 실제 성형품 사진을 등록하세요."
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-0f49e07ea1f9",
+      "defectClass": "ejection",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "ejection_location",
+        "release_sequence"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 밀핀, 리브, 보스 및 취출 접촉 위치가 함께 보이도록 촬영 / 금형 개방 직후와 취출 완료 후 상태를 각각 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-287a816430b5",
+      "defectClass": "short_shot",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "fill_end_context",
+        "reference_part"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 게이트부터 충전 말단까지의 위치 관계가 보이도록 촬영 / 동일 각도와 조명에서 정상품을 함께 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-b00ca4a30e10",
+      "defectClass": "whitening",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "oblique_light",
+        "ejection_location"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영 / 밀핀, 리브, 보스 및 취출 접촉 위치가 함께 보이도록 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-80520cd398d6",
+      "defectClass": "whitening",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "oblique_light",
+        "ejection_location"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영 / 밀핀, 리브, 보스 및 취출 접촉 위치가 함께 보이도록 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-cbd68609e4b8",
+      "defectClass": "weld_line",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "flow_convergence_context",
+        "oblique_light"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 게이트와 유동 합류 예상 위치가 함께 보이도록 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-248911741b7a",
+      "defectClass": "weld_line",
+      "status": "needs_views",
+      "imageKind": "physical_product",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "flow_convergence_context",
+        "oblique_light"
+      ],
+      "recommendation": "제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 게이트와 유동 합류 예상 위치가 함께 보이도록 촬영 / 표면 높이와 광택 차이가 드러나도록 사선광으로 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-027934361081",
+      "defectClass": "ejection",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "ejection_location",
+        "release_sequence"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 밀핀, 리브, 보스 및 취출 접촉 위치가 함께 보이도록 촬영 / 금형 개방 직후와 취출 완료 후 상태를 각각 촬영"
+    },
+    {
+      "type": "capture_protocol_incomplete",
+      "caseId": "approved-image-6ed00c53f0ee",
+      "defectClass": "flash",
+      "status": "needs_metadata",
+      "imageKind": "unknown",
+      "missingViews": [
+        "full_part_context",
+        "defect_closeup",
+        "parting_line_context",
+        "edge_profile"
+      ],
+      "recommendation": "이미지 종류를 실제 성형품 사진으로 확인하고 촬영 시점 태그를 지정하세요. / 제품 전체와 결함 위치가 함께 보이도록 촬영 / 결함 경계와 주변 정상면이 함께 보이도록 근접 촬영 / 결함부와 파팅라인 또는 인서트 경계가 함께 보이도록 촬영 / 얇은 잉여 수지의 돌출 높이가 보이도록 측면에서 촬영"
     }
   ],
   "cases": [
+    {
+      "id": "approved-image-ddd3da916cce",
+      "file": "image-ddd3da916cce.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph",
+        "capture-needs_metadata"
+      ]
+    },
+    {
+      "id": "approved-image-71c5838a88a0",
+      "file": "image-71c5838a88a0.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph",
+        "capture-needs_views"
+      ]
+    },
     {
       "id": "approved-image-d94e0f7d8733",
       "file": "image-d94e0f7d8733.json",
@@ -83,29 +352,19 @@
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict"
+        "vision-label-conflict",
+        "capture-needs_metadata"
       ]
     },
     {
       "id": "approved-image-59bec59e84dc",
       "file": "image-59bec59e84dc.json",
-      "status": "needs_review",
+      "status": "active",
       "tags": [
         "approved-image",
         "vision",
         "graph",
-        "duplicate-label-conflict"
-      ]
-    },
-    {
-      "id": "approved-image-66f69cc7bbed",
-      "file": "image-66f69cc7bbed.json",
-      "status": "needs_review",
-      "tags": [
-        "approved-image",
-        "vision",
-        "graph",
-        "duplicate-label-conflict"
+        "capture-needs_views"
       ]
     },
     {
@@ -115,7 +374,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_metadata"
       ]
     },
     {
@@ -125,7 +385,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_views"
       ]
     },
     {
@@ -135,7 +396,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_metadata"
       ]
     },
     {
@@ -145,7 +407,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_metadata"
       ]
     },
     {
@@ -155,27 +418,32 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_metadata"
       ]
     },
     {
       "id": "approved-image-193d77ecf09a",
       "file": "image-193d77ecf09a.json",
-      "status": "active",
+      "status": "needs_review",
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-not_visually_verifiable",
+        "non-physical-vision-evidence"
       ]
     },
     {
       "id": "approved-image-de3687164124",
       "file": "image-de3687164124.json",
-      "status": "active",
+      "status": "needs_review",
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-not_visually_verifiable",
+        "non-physical-vision-evidence"
       ]
     },
     {
@@ -185,7 +453,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_views"
       ]
     },
     {
@@ -195,7 +464,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_metadata"
       ]
     },
     {
@@ -205,7 +475,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_views"
       ]
     },
     {
@@ -215,7 +486,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_views"
       ]
     },
     {
@@ -226,7 +498,8 @@
         "approved-image",
         "vision",
         "graph",
-        "duplicate-same-image"
+        "duplicate-same-image",
+        "capture-needs_views"
       ]
     },
     {
@@ -236,7 +509,8 @@
       "tags": [
         "approved-image",
         "vision",
-        "graph"
+        "graph",
+        "capture-needs_views"
       ]
     },
     {
@@ -247,7 +521,8 @@
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict"
+        "vision-label-conflict",
+        "capture-needs_metadata"
       ]
     },
     {
@@ -258,7 +533,8 @@
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict"
+        "vision-label-conflict",
+        "capture-needs_metadata"
       ]
     }
   ]

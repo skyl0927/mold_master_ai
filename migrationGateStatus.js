@@ -184,7 +184,9 @@ const buildMigrationGateStatus = ({
             httpSuccessRate: Number(benchmarkSummary.httpSuccessRate) || 0,
             classifiableRate: Number(benchmarkSummary.classifiableRate) || 0,
             defectAccuracy: Number(benchmarkSummary.defectAccuracy) || 0,
-            graphGroundedRate: Number(benchmarkSummary.graphGroundedRate) || 0
+            graphGroundedRate: Number(benchmarkSummary.graphGroundedRate) || 0,
+            captureProtocolReadyRate:
+                Number(benchmarkSummary.captureProtocolReadyRate) || 0
         },
         gate: {
             minimumSamples,
@@ -198,7 +200,9 @@ const buildMigrationGateStatus = ({
             ? '안전 게이트가 충족되었습니다. 직접 LLM fallback 제거 변경을 별도 릴리스로 검증하세요.'
             : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
-                : '명확한 제조 결함 표본을 추가 수집한 뒤 승인 Vision 벤치마크를 다시 실행하세요.',
+                : failedChecks.includes('captureProtocol')
+                    ? '결함별 필수 촬영 시점과 실제 성형품 여부를 보완한 뒤 Vision 벤치마크를 다시 실행하세요.'
+                    : '명확한 제조 결함 표본을 추가 수집한 뒤 승인 Vision 벤치마크를 다시 실행하세요.',
         writesPerformed: false
     };
 };

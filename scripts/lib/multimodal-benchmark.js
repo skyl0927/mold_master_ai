@@ -6,6 +6,9 @@ const {
   isClassifiableDefectLabel
 } = require('../../shared/defect-taxonomy');
 const { normalizeVisionObservation } = require('../../visionObservation');
+const {
+  assessVisionCaptureProtocol
+} = require('../../visionCaptureProtocol');
 
 const normalize = value => String(value || '')
   .toLocaleLowerCase()
@@ -185,6 +188,7 @@ const evaluateVisionResult = (testCase, execution) => {
   const visionContractCompliant =
     Array.isArray(rawCandidates)
     && Array.isArray(observation.visible_features || observation.visibleFeatures);
+  const captureProtocol = assessVisionCaptureProtocol(testCase);
   const checks = {
     http: Boolean(execution.httpOk),
     classifiable,
@@ -223,6 +227,7 @@ const evaluateVisionResult = (testCase, execution) => {
     qualityStatus,
     qualityEligible,
     visionContractCompliant,
+    captureProtocol,
     confidence: visionConfidence,
     visionConfidence,
     retrievalConfidence,
@@ -300,6 +305,8 @@ const summarizeVisionBenchmark = (results, minimumSamples = 20, options = {}) =>
   const minimumQualityEligibleRate = options.minimumQualityEligibleRate ?? 95;
   const minimumVisionContractComplianceRate =
     options.minimumVisionContractComplianceRate ?? 95;
+  const minimumCaptureProtocolReadyRate =
+    options.minimumCaptureProtocolReadyRate ?? 80;
   const total = results.length;
   const passed = results.filter(result => result.passed).length;
   const httpSuccess = results.filter(result => result.httpOk).length;
@@ -340,6 +347,29 @@ const summarizeVisionBenchmark = (results, minimumSamples = 20, options = {}) =>
   const visionContractCompliant = results.filter(result =>
     result.visionContractCompliant !== false
   ).length;
+  const captureProtocolAssessed = results.filter(result =>
+    result.captureProtocol && typeof result.captureProtocol.ready === 'boolean'
+  );
+  const captureProtocolReady = captureProtocolAssessed.filter(result =>
+    result.captureProtocol.ready
+  ).length;
+  const captureProtocolReadyRate = captureProtocolAssessed.length > 0
+    ? percentage(captureProtocolReady, captureProtocolAssessed.length)
+    : 100;
+  const captureProtocolStatusCounts = captureProtocolAssessed.reduce((counts, result) => {
+    const status = result.captureProtocol.status || 'unknown';
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+  const missingCaptureViewCounts = new Map();
+  for (const result of captureProtocolAssessed) {
+    for (const view of result.captureProtocol.missingViews || []) {
+      missingCaptureViewCounts.set(view, (missingCaptureViewCounts.get(view) || 0) + 1);
+    }
+  }
+  const missingCaptureViews = [...missingCaptureViewCounts.entries()]
+    .map(([view, count]) => ({ view, count }))
+    .sort((left, right) => right.count - left.count || left.view.localeCompare(right.view));
   const top1Accuracy = percentage(top1Accurate, total);
   const top3Accuracy = percentage(top3Accurate, total);
   const selectiveCoverage = percentage(acceptedResults.length, total);
@@ -401,7 +431,9 @@ const summarizeVisionBenchmark = (results, minimumSamples = 20, options = {}) =>
     calibration: calibration.expectedCalibrationError <= maximumCalibrationError,
     qualityEligibility: qualityEligibleRate >= minimumQualityEligibleRate,
     visionContract:
-      visionContractComplianceRate >= minimumVisionContractComplianceRate
+      visionContractComplianceRate >= minimumVisionContractComplianceRate,
+    captureProtocol:
+      captureProtocolReadyRate >= minimumCaptureProtocolReadyRate
   };
 
   return {
@@ -433,6 +465,12 @@ const summarizeVisionBenchmark = (results, minimumSamples = 20, options = {}) =>
     visionContractCompliant,
     visionContractComplianceRate,
     minimumVisionContractComplianceRate,
+    captureProtocolAssessed: captureProtocolAssessed.length,
+    captureProtocolReady,
+    captureProtocolReadyRate,
+    minimumCaptureProtocolReadyRate,
+    captureProtocolStatusCounts,
+    missingCaptureViews,
     maximumCalibrationError,
     ...calibration,
     minimumVisionConfidence,

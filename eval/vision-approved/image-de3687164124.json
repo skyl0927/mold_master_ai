@@ -6,6 +6,12 @@
   "mimeType": "image/png",
   "contentHash": "ccc8a7c158f2f6ffd1122d4c9f552351112b2708ff92b85ea74faac26269b0e3",
   "inputNotes": "커브 게이트 설계 표준 - 커브 게이트 설계 시 참고 하여 - 외관면 게이트 설치 금지 - 절단 자국 (절단 시 함몰) - 게이트 절단 부의 이물 잔존 시, 상대물 회피 및 외관 노출 방지 형상 적용 Source document: 몰드사업부 개발 표준_Ver. 0000-00-00 - 1.pptx",
+  "captureProtocol": {
+    "imageKind": "document_or_diagram",
+    "availableViews": [],
+    "roiConfirmed": false,
+    "metadataSource": "common-agent-approved-image"
+  },
   "expected": {
     "defectType": "싱크마크",
     "defectClass": "sink",

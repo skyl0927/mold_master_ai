@@ -6,6 +6,12 @@
   "mimeType": "image/png",
   "contentHash": "f1dca00523aa4a813f5c30b012529cae3bdea2ce6425f1c3df511efeff78414e",
   "inputNotes": "원문 카드: #9 · 제품 캐비티측으로 딸려감 - 조립 · 보통 · Open 원문 현상: 제품 상측 딸려감은 상측 금형의 흡착력·수축 물림·표면 걸림이 하측 유지력보다 커져 제품이 상측에 붙어 이동하는 사출 불량 현상이다.상측 제품이 붙어서 제품 파손 그림 문맥: - 사진 번호: P9-02 · 대표/부분 사진 - 사진 번호: P9-01 · 대표 사진 - 원본 이미지 없음",
+  "captureProtocol": {
+    "imageKind": "physical_product",
+    "availableViews": [],
+    "roiConfirmed": false,
+    "metadataSource": "common-agent-approved-image"
+  },
   "expected": {
     "defectType": "취출/이형",
     "defectClass": "ejection",

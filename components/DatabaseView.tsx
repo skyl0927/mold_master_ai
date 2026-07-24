@@ -84,7 +84,8 @@ const benchmarkGateLabel: Record<string, string> = {
     unsafeError: '확신 오답률 5% 이하',
     calibration: '신뢰도 보정 오차 15% 이하',
     qualityEligibility: '사진 품질 적합률 95%',
-    visionContract: '구조화 Vision 계약 준수율 95%'
+    visionContract: '구조화 Vision 계약 준수율 95%',
+    captureProtocol: '결함별 촬영 프로토콜 준비율 80%'
 };
 
 const migrationBlockerLabel: Record<string, string> = {
@@ -108,8 +109,34 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_unsafeError: '확신 오답률 초과',
     benchmark_calibration: '신뢰도 보정 불량',
     benchmark_qualityEligibility: '사진 품질 적합률 부족',
-    benchmark_visionContract: 'Top-3 구조화 응답 미지원'
+    benchmark_visionContract: 'Top-3 구조화 응답 미지원',
+    benchmark_captureProtocol: '결함별 필수 촬영 시점 부족'
 };
+
+const captureViewLabel: Record<string, string> = {
+    full_part_context: '제품 전체 위치',
+    defect_closeup: '결함 근접',
+    oblique_light: '사선광',
+    ejection_location: '취출 기능부 위치',
+    fill_end_context: '충전 말단/유동 경로',
+    reference_part: '정상품 비교',
+    vent_context: '벤트/가스 배출 위치',
+    parting_line_context: '파팅라인 위치',
+    edge_profile: '경계 측면',
+    reverse_geometry: '반대면 후육 형상',
+    flow_convergence_context: '유동 합류 위치',
+    release_sequence: '취출 전후 상태'
+};
+
+type CaptureProtocolEdit = {
+    imageKind: 'unknown' | 'physical_product' | 'document_or_diagram';
+    availableViews: string[];
+};
+
+const normalizeCaptureImageKind = (value: unknown): CaptureProtocolEdit['imageKind'] =>
+    ['physical_product', 'document_or_diagram'].includes(String(value))
+        ? value as CaptureProtocolEdit['imageKind']
+        : 'unknown';
 
 const VISION_REVIEW_DECISION_REASONS = [
     '정상 형상/결함 미확인',
@@ -142,6 +169,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     const [benchmarkResult, setBenchmarkResult] = useState<VisionBenchmarkRunResult | null>(null);
     const [suggestingImageId, setSuggestingImageId] = useState<string | null>(null);
     const [labelSuggestions, setLabelSuggestions] = useState<Record<string, VisionLabelSuggestion>>({});
+    const [captureProtocolEdits, setCaptureProtocolEdits] = useState<Record<string, CaptureProtocolEdit>>({});
     const [localCandidateScan, setLocalCandidateScan] = useState<LocalVisionCandidateScan | null>(null);
     const [localCandidateLabels, setLocalCandidateLabels] = useState<Record<string, string>>({});
     const [localCandidateContexts, setLocalCandidateContexts] = useState<Record<string, string>>({});
@@ -191,6 +219,19 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                     String(item.metadata?.proposed_defect_type || item.defect_type || '')
                 ])
             ));
+            setCaptureProtocolEdits(Object.fromEntries(items.map(item => [
+                item.image_id,
+                {
+                    imageKind: (
+                        normalizeCaptureImageKind(
+                            item.metadata?.vision_image_kind || item.metadata?.image_kind
+                        )
+                    ),
+                    availableViews: Array.isArray(item.metadata?.capture_view_tags)
+                        ? item.metadata.capture_view_tags
+                        : []
+                }
+            ])));
         } catch (error) {
             setVisionStatus(
                 error instanceof Error ? `Common Agent 조회 실패: ${error.message}` : 'Common Agent 조회 실패'
@@ -352,6 +393,33 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
             setVisionStatus(error instanceof Error ? `벤치마크 실패: ${error.message}` : '벤치마크 실패');
         } finally {
             setIsRunningBenchmark(false);
+        }
+    };
+
+    const saveCaptureProtocol = async (item: VisionDatasetItem) => {
+        const edit = captureProtocolEdits[item.image_id] || {
+            imageKind: 'unknown',
+            availableViews: []
+        };
+        setUpdatingImageId(item.image_id);
+        setVisionStatus(`${item.image_id} 촬영 메타데이터 저장 중...`);
+        try {
+            await CommonAgentApiService.updateImageDatasetMetadata(item.image_id, {
+                vision_image_kind: edit.imageKind,
+                capture_view_tags: edit.availableViews,
+                capture_protocol_reviewed_at: new Date().toISOString(),
+                capture_protocol_reviewed_from: 'mold-master-ai-dataset-manager'
+            });
+            setVisionStatus('촬영 메타데이터를 저장했습니다. 다음 벤치마크 동기화부터 반영됩니다.');
+            await fetchVisionData({ clearStatus: false });
+        } catch (error) {
+            setVisionStatus(
+                error instanceof Error
+                    ? `촬영 메타데이터 저장 실패: ${error.message}`
+                    : '촬영 메타데이터 저장 실패'
+            );
+        } finally {
+            setUpdatingImageId(null);
         }
     };
 
@@ -1447,8 +1515,39 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                 {benchmarkResult.report.summary.visionContractComplianceRate}%
                                             </strong>
                                         </span>
+                                        <span>
+                                            촬영 프로토콜{' '}
+                                            <strong className={
+                                                benchmarkResult.report.summary.captureProtocolReadyRate
+                                                    >= benchmarkResult.report.summary.minimumCaptureProtocolReadyRate
+                                                    ? 'text-emerald-300'
+                                                    : 'text-red-300'
+                                            }>
+                                                {benchmarkResult.report.summary.captureProtocolReadyRate}%
+                                            </strong>
+                                        </span>
                                         <span>Brier <strong className="text-white">{benchmarkResult.report.summary.brierScore}</strong></span>
                                     </div>
+                                    {benchmarkResult.report.summary.missingCaptureViews.length > 0 && (
+                                        <div className="mt-3 rounded-lg border border-orange-800/70 bg-orange-950/20 p-3">
+                                            <p className="text-xs font-bold text-orange-100">
+                                                데이터 수집 우선순위
+                                            </p>
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {benchmarkResult.report.summary.missingCaptureViews
+                                                    .slice(0, 8)
+                                                    .map(item => (
+                                                        <span
+                                                            key={item.view}
+                                                            className="rounded border border-orange-700/70 bg-gray-950/60 px-2 py-1 text-[10px] text-orange-200"
+                                                        >
+                                                            {captureViewLabel[item.view] || item.view}{' '}
+                                                            <strong>{item.count}건</strong>
+                                                        </span>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     {benchmarkResult.report.summary.failedGateChecks.length > 0 && (
                                         <p className="mt-2 text-[10px] text-amber-300">
                                             미통과 조건: {benchmarkResult.report.summary.failedGateChecks
@@ -1561,7 +1660,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                         ))}
                                     </div>
                                     {benchmarkResult.report.results?.some(result =>
-                                        result.top1Accurate === false || result.httpOk === false
+                                        result.top1Accurate === false
+                                        || result.httpOk === false
+                                        || result.captureProtocol?.ready === false
                                     ) && (
                                         <div className="mt-3 rounded-lg border border-amber-900/70 bg-amber-950/20 p-3">
                                             <p className="text-xs font-bold text-amber-200">
@@ -1570,7 +1671,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                             <div className="mt-2 space-y-2">
                                                 {benchmarkResult.report.results
                                                     .filter(result =>
-                                                        result.top1Accurate === false || result.httpOk === false
+                                                        result.top1Accurate === false
+                                                        || result.httpOk === false
+                                                        || result.captureProtocol?.ready === false
                                                     )
                                                     .slice(0, 6)
                                                     .map(result => (
@@ -1596,6 +1699,17 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                 && result.requiredAdditionalViews.length > 0 && (
                                                                 <p className="mt-1 text-amber-200">
                                                                     추가 촬영: {result.requiredAdditionalViews.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            {Array.isArray(result.captureProtocol?.missingViewLabels)
+                                                                && result.captureProtocol.missingViewLabels.length > 0 && (
+                                                                <p className="mt-1 text-orange-200">
+                                                                    데이터 보완: {result.captureProtocol.missingViewLabels.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            {result.captureProtocol?.recommendation && (
+                                                                <p className="mt-1 text-gray-400">
+                                                                    촬영 지시: {String(result.captureProtocol.recommendation)}
                                                                 </p>
                                                             )}
                                                             {result.abstentionReason && (
@@ -1689,6 +1803,74 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                         <p className="mt-2 line-clamp-2 text-xs text-gray-400">
                                                             {item.observation?.summary || item.question || '현상 설명 없음'}
                                                         </p>
+                                                        <details className="mt-3 rounded border border-gray-700 bg-gray-900/50 p-2">
+                                                            <summary className="cursor-pointer text-[10px] font-bold text-orange-200">
+                                                                촬영 메타데이터
+                                                            </summary>
+                                                            <label className="mt-2 block text-[10px] text-gray-400">
+                                                                이미지 종류
+                                                            </label>
+                                                            <select
+                                                                aria-label={`${item.image_id} image kind`}
+                                                                value={captureProtocolEdits[item.image_id]?.imageKind || 'unknown'}
+                                                                onChange={event => setCaptureProtocolEdits(current => ({
+                                                                    ...current,
+                                                                    [item.image_id]: {
+                                                                        imageKind: event.target.value as CaptureProtocolEdit['imageKind'],
+                                                                        availableViews: current[item.image_id]?.availableViews || []
+                                                                    }
+                                                                }))}
+                                                                className="mt-1 w-full rounded border border-gray-600 bg-gray-950 px-2 py-1.5 text-xs text-white"
+                                                            >
+                                                                <option value="unknown">확인 필요</option>
+                                                                <option value="physical_product">실제 성형품 사진</option>
+                                                                <option value="document_or_diagram">문서/CAD/도면</option>
+                                                            </select>
+                                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                                {Object.entries(captureViewLabel).map(([view, label]) => {
+                                                                    const selected = captureProtocolEdits[
+                                                                        item.image_id
+                                                                    ]?.availableViews.includes(view) || false;
+                                                                    return (
+                                                                        <button
+                                                                            key={view}
+                                                                            type="button"
+                                                                            aria-pressed={selected}
+                                                                            onClick={() => setCaptureProtocolEdits(current => {
+                                                                                const existing = current[item.image_id] || {
+                                                                                    imageKind: 'unknown',
+                                                                                    availableViews: []
+                                                                                };
+                                                                                return {
+                                                                                    ...current,
+                                                                                    [item.image_id]: {
+                                                                                        ...existing,
+                                                                                        availableViews: selected
+                                                                                            ? existing.availableViews.filter(value => value !== view)
+                                                                                            : [...existing.availableViews, view]
+                                                                                    }
+                                                                                };
+                                                                            })}
+                                                                            className={`rounded border px-2 py-1 text-[9px] ${
+                                                                                selected
+                                                                                    ? 'border-orange-500 bg-orange-700 text-white'
+                                                                                    : 'border-gray-600 bg-gray-800 text-gray-400'
+                                                                            }`}
+                                                                        >
+                                                                            {label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void saveCaptureProtocol(item)}
+                                                                disabled={isUpdating}
+                                                                className="mt-2 rounded bg-orange-700 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-orange-600 disabled:opacity-40"
+                                                            >
+                                                                촬영 정보 저장
+                                                            </button>
+                                                        </details>
                                                         {suggestion && (
                                                             <div className={`mt-2 rounded border p-2 text-[10px] ${
                                                                 suggestion.classifiable

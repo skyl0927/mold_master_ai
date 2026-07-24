@@ -6,6 +6,12 @@
   "mimeType": "image/jpeg",
   "contentHash": "db23b38c9017ccf185e4323b1d578803d852007c10fdc362522262e1a8d1add6",
   "inputNotes": "이 사진의 문제 원인과 확인 항목, 조치 방향을 알려줘",
+  "captureProtocol": {
+    "imageKind": "unknown",
+    "availableViews": [],
+    "roiConfirmed": false,
+    "metadataSource": "common-agent-approved-image"
+  },
   "expected": {
     "defectType": "플래시",
     "defectClass": "flash",

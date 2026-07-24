@@ -288,7 +288,8 @@ const run = async () => {
     `Top-1=${summary.top1Accuracy}% Top-3=${summary.top3Accuracy}% `
     + `selective=${summary.selectiveAccuracy}%@${summary.selectiveCoverage}% coverage `
     + `unsafe=${summary.unsafeErrorRate}% ECE=${summary.expectedCalibrationError}% `
-    + `contract=${summary.visionContractComplianceRate}%`
+    + `contract=${summary.visionContractComplianceRate}% `
+    + `capture-protocol=${summary.captureProtocolReadyRate}%`
   );
   console.log(
     `Classes observed=${summary.observedDefectClasses}/${summary.requiredDefectClasses.length} `

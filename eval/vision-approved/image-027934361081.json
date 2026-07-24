@@ -12,6 +12,12 @@
     "height": 0.5184135977337111
   },
   "inputNotes": "이 현장 이미지의 문제 원인과 확인 항목, 조치 방향을 알려줘",
+  "captureProtocol": {
+    "imageKind": "unknown",
+    "availableViews": [],
+    "roiConfirmed": true,
+    "metadataSource": "common-agent-approved-image"
+  },
   "expected": {
     "defectType": "밀핀 자국",
     "defectClass": "ejection",

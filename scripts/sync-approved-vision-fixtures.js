@@ -10,6 +10,11 @@ const {
   extractOriginalVisionDefectType,
   findObservationLabelConflict
 } = require('./lib/approved-vision-fixture-quality');
+const {
+  assessVisionCaptureProtocol,
+  inferVisionImageKind,
+  normalizeViewTags
+} = require('../visionCaptureProtocol');
 
 const root = process.cwd();
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
@@ -27,6 +32,11 @@ const isClassifiable = value => {
 };
 
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
+const asArray = value => Array.isArray(value)
+  ? value
+  : value === undefined || value === null || value === ''
+    ? []
+    : [value];
 
 const run = async () => {
   const response = await fetch(
@@ -85,9 +95,45 @@ const run = async () => {
   const observationConflictIssues = items
     .map(findObservationLabelConflict)
     .filter(Boolean);
+  const captureProtocolByImageId = new Map(items.map(item => {
+    const captureProtocol = {
+      imageKind: inferVisionImageKind(item),
+      availableViews: normalizeViewTags([
+        ...asArray(item.metadata?.capture_view_tags),
+        ...asArray(item.metadata?.vision_capture_views),
+        ...asArray(item.metadata?.available_views)
+      ]),
+      roiConfirmed: Boolean(item.roiNormalized),
+      metadataSource: 'common-agent-approved-image'
+    };
+    return [item.image_id, {
+      captureProtocol,
+      assessment: assessVisionCaptureProtocol({
+        expected: {
+          defectType: item.defect_type,
+          defectClass: canonicalDefectClass(item.defect_type)
+        },
+        captureProtocol
+      })
+    }];
+  }));
+  const captureProtocolIssues = items.map(item => {
+    const assessment = captureProtocolByImageId.get(item.image_id)?.assessment;
+    if (!assessment || assessment.ready) return null;
+    return {
+      type: 'capture_protocol_incomplete',
+      caseId: `approved-${item.image_id}`,
+      defectClass: assessment.defectClass,
+      status: assessment.status,
+      imageKind: assessment.imageKind,
+      missingViews: assessment.missingViews,
+      recommendation: assessment.recommendation
+    };
+  }).filter(Boolean);
   const qualityIssues = [
     ...duplicateQualityIssues,
-    ...observationConflictIssues
+    ...observationConflictIssues,
+    ...captureProtocolIssues
   ];
   const duplicateConflictedCaseIds = new Set(
     duplicateConflictIssues.flatMap(issue => issue.caseIds)
@@ -115,7 +161,8 @@ const run = async () => {
       maximumUnsafeErrorRate: 5,
       maximumCalibrationError: 15,
       minimumQualityEligibleRate: 95,
-      minimumVisionContractComplianceRate: 95
+      minimumVisionContractComplianceRate: 95,
+      minimumCaptureProtocolReadyRate: 80
     },
     qualityIssues,
     cases: []
@@ -128,6 +175,7 @@ const run = async () => {
       compact(item.question),
       compact(item.metadata?.review_comment)
     ].filter(Boolean).join(' / ');
+    const captureEntry = captureProtocolByImageId.get(item.image_id);
     const fixture = {
       id: `approved-${item.image_id}`,
       title: `${item.defect_type} approved image`,
@@ -137,6 +185,7 @@ const run = async () => {
       contentHash: item.contentHash,
       roiNormalized: item.roiNormalized,
       inputNotes: context,
+      captureProtocol: captureEntry.captureProtocol,
       expected: {
         defectType: item.defect_type,
         defectClass: canonicalDefectClass(item.defect_type),
@@ -162,17 +211,25 @@ const run = async () => {
     const isObservationConflict = observationConflictedCaseIds.has(fixture.id);
     const isConflict = isDuplicateConflict || isObservationConflict;
     const isDuplicate = duplicateCaseIds.has(fixture.id);
+    const isNonVisualEvidence =
+      captureEntry.assessment.status === 'not_visually_verifiable';
     manifest.cases.push({
       id: fixture.id,
       file: fixtureName,
-      status: isConflict ? 'needs_review' : isDuplicate ? 'duplicate' : 'active',
+      status: isConflict || isNonVisualEvidence
+        ? 'needs_review'
+        : isDuplicate
+          ? 'duplicate'
+          : 'active',
       tags: [
         'approved-image',
         'vision',
         'graph',
         ...(isDuplicateConflict ? ['duplicate-label-conflict'] : []),
         ...(isObservationConflict ? ['vision-label-conflict'] : []),
-        ...(isDuplicate ? ['duplicate-same-image'] : [])
+        ...(isDuplicate ? ['duplicate-same-image'] : []),
+        `capture-${captureEntry.assessment.status}`,
+        ...(isNonVisualEvidence ? ['non-physical-vision-evidence'] : [])
       ]
     });
   }
@@ -190,6 +247,18 @@ const run = async () => {
   );
   console.log(`Vision-label conflicts quarantined: ${observationConflictIssues.length}`);
   console.log(`Same-label duplicate fixtures excluded: ${duplicateCaseIds.size}`);
+  console.log(
+    `Capture protocol ready: ${
+      items.length - captureProtocolIssues.length
+    }/${items.length}`
+  );
+  console.log(
+    `Non-physical Vision evidence quarantined: ${
+      captureProtocolIssues.filter(issue =>
+        issue.status === 'not_visually_verifiable'
+      ).length
+    }`
+  );
   console.log(`Manifest: ${path.join(outputDir, 'manifest.json')}`);
   const runnableCount = manifest.cases.filter(item => item.status === 'active').length;
   console.log(`Runnable approved fixtures: ${runnableCount}`);

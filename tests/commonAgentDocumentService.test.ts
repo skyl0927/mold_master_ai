@@ -608,6 +608,41 @@ test('HITL image review writes corrected fields and promotes approved data to Gr
     assert.equal(capturedBody.metadata.content_sha256, 'hash-1');
 });
 
+test('capture protocol metadata uses a non-destructive dataset patch', async () => {
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    let capturedUrl = '';
+    let capturedMethod = '';
+    let capturedBody: any;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedMethod = String(init?.method);
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({
+            image_id: 'image-1',
+            review_status: 'approved',
+            metadata: capturedBody.metadata
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    await CommonAgentApiService.updateImageDatasetMetadata('image-1', {
+        vision_image_kind: 'physical_product',
+        capture_view_tags: ['full_part_context', 'defect_closeup']
+    });
+
+    assert.equal(capturedUrl, 'http://agent.test/v1/datasets/images/image-1');
+    assert.equal(capturedMethod, 'PATCH');
+    assert.equal(capturedBody.review_status, undefined);
+    assert.deepEqual(capturedBody.metadata.capture_view_tags, [
+        'full_part_context',
+        'defect_closeup'
+    ]);
+    assert.equal(capturedBody.metadata.source_app, 'mold-master-ai');
+});
+
 test('HITL conflict check detects an approved identical image with another label', async () => {
     (globalThis as any).window = {
         electronAPI: {

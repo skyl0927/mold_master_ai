@@ -265,6 +265,15 @@ export interface VisionBenchmarkRunResult {
       reviewCaptureRate: number;
       qualityEligibleRate: number;
       visionContractComplianceRate: number;
+      captureProtocolAssessed: number;
+      captureProtocolReady: number;
+      captureProtocolReadyRate: number;
+      minimumCaptureProtocolReadyRate: number;
+      captureProtocolStatusCounts: Record<string, number>;
+      missingCaptureViews: Array<{
+        view: string;
+        count: number;
+      }>;
       expectedCalibrationError: number;
       brierScore: number;
       confidentRate: number;

@@ -1,4 +1,5 @@
 const { _electron: electron } = require('playwright');
+const fs = require('node:fs');
 const path = require('node:path');
 
 (async () => {
@@ -6,6 +7,14 @@ const path = require('node:path');
   const agentServerUrl = process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000';
   const visionQaServerUrl = process.env.COMMON_AGENT_QA_URL || 'http://127.0.0.1:8103';
   const executablePath = process.env.ELECTRON_EXECUTABLE_PATH;
+  fs.mkdirSync(profilePath, { recursive: true });
+  fs.writeFileSync(path.join(profilePath, 'apiConfig.json'), JSON.stringify({
+    provider: 'openai',
+    aiOrchestrationMode: 'dual_validation',
+    agentServerUrl,
+    visionQaServerUrl,
+    shortcut: 'CommandOrControl+Shift+C'
+  }, null, 2));
   let app;
   try {
     const launchOptions = {
@@ -59,6 +68,8 @@ const path = require('node:path');
         graph: (text.match(/Graph \uADFC\uAC70\s+\d+(?:\.\d+)?%/) || [])[0],
         coverage: (text.match(/\uACB0\uD568\uAD70\s+\d+\/\d+/) || [])[0],
         confidence: (text.match(/Vision \uC2E0\uB8B0\s+\d+(?:\.\d+)?%/) || [])[0],
+        captureProtocol: (text.match(/촬영 프로토콜\s+\d+(?:\.\d+)?%/) || [])[0],
+        capturePriorityVisible: text.includes('데이터 수집 우선순위'),
         ejectionTarget: (text.match(/\uCDE8\uCD9C\/\uC774\uD615\s+\d+\/\d+/) || [])[0],
         readOnlyGate: text.includes('조회 전용 · 자동 승인 없음'),
         unresolvedHitl: (text.match(/미해소 HITL\s+\d+/) || [])[0],
@@ -71,9 +82,14 @@ const path = require('node:path');
     const gateStatusPath = await page.locator('p.font-mono')
       .filter({ hasText: 'latest-gate-status.json' })
       .innerText();
-    await page.locator('div.flex-grow.overflow-y-auto').evaluate(element => {
-      element.scrollTop = 0;
-    });
+    const scrollContainer = page.locator('.overflow-y-auto').last();
+    if (await scrollContainer.count()) {
+      await scrollContainer.evaluate(element => {
+        element.scrollTop = 0;
+      });
+    } else {
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
     const screenshot = path.join(process.cwd(), 'artifacts', 'electron-vision-benchmark-live.png');
     await page.screenshot({ path: screenshot, fullPage: true });
 
@@ -93,6 +109,8 @@ const path = require('node:path');
       || !result.graph
       || !result.coverage
       || !result.confidence
+      || !result.captureProtocol
+      || !result.capturePriorityVisible
       || !result.ejectionTarget
       || !result.readOnlyGate
       || !result.unresolvedHitl

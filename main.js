@@ -16,6 +16,7 @@ const { spawn } = require('child_process');
 const { isClassifiableDefectLabel } = require('./shared/defect-taxonomy');
 const { scanLocalVisionCandidates } = require('./localVisionCandidate');
 const { buildMigrationGateStatus } = require('./migrationGateStatus');
+const { retryAsync } = require('./retryAsync');
 const {
     createVisionReviewDecisionLedger
 } = require('./visionReviewDecisionLedger');
@@ -1009,7 +1010,10 @@ ipcMain.handle('RUN_VISION_BENCHMARK', async () => {
             return {
                 online: true,
                 url: baseUrl,
-                detail: await probeJson(`${baseUrl}/healthz`, 8000)
+                detail: await retryAsync(
+                    () => probeJson(`${baseUrl}/healthz`, 15000),
+                    { attempts: 3, delayMs: 1000 }
+                )
             };
         } catch (error) {
             return {
@@ -1019,17 +1023,21 @@ ipcMain.handle('RUN_VISION_BENCHMARK', async () => {
             };
         }
     };
-    const [agentHealth, qaHealth, dataset] = await Promise.all([
+    const [agentHealth, qaHealth] = await Promise.all([
         probeHealth(agentUrl),
-        probeHealth(qaUrl),
-        probeJson(
-            `${agentUrl}/v1/datasets/images?include_hidden=true&limit=500`
-        ).catch(error => ({
-            total: 0,
-            items: [],
-            error: error instanceof Error ? error.message : String(error)
-        }))
+        probeHealth(qaUrl)
     ]);
+    const dataset = await retryAsync(
+        () => probeJson(
+            `${agentUrl}/v1/datasets/images?include_hidden=true&limit=500`,
+            30000
+        ),
+        { attempts: 2, delayMs: 1000 }
+    ).catch(error => ({
+        total: 0,
+        items: [],
+        error: error instanceof Error ? error.message : String(error)
+    }));
     const approvedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     let reviewManifest = {};
     let reviewPacketPath = null;

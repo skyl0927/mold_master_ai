@@ -265,3 +265,30 @@ test('approved label and original Vision conflicts block fallback retirement', (
         1
     );
 });
+
+test('capture protocol failure recommends collecting the missing views', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: { items: [] },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: []
+        },
+        benchmarkReport: {
+            summary: {
+                captureProtocolReadyRate: 25,
+                failedGateChecks: ['captureProtocol'],
+                readyToDisableLegacyFallback: false
+            }
+        }
+    });
+
+    assert.equal(status.benchmark.captureProtocolReadyRate, 25);
+    assert.equal(
+        status.blockers.some(item => item.code === 'benchmark_captureProtocol'),
+        true
+    );
+    assert.match(status.recommendedAction, /필수 촬영 시점/);
+});

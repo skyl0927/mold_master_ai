@@ -192,6 +192,23 @@ const postJson = async <T>(path: string, payload: unknown): Promise<T> => {
     return await response.json() as T;
 };
 
+const patchJson = async <T>(path: string, payload: unknown): Promise<T> => {
+    const response = await fetch(await getAgentUrl(path), {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Common Agent request failed: ${response.status} ${response.statusText} - ${detail}`);
+    }
+
+    return await response.json() as T;
+};
+
 const getJson = async <T>(path: string): Promise<T> => {
     const response = await fetch(await getAgentUrl(path));
     if (!response.ok) {
@@ -346,6 +363,21 @@ export class CommonAgentApiService {
                 metadata: {
                     source_app: 'mold-master-ai',
                     ...payload.metadata
+                }
+            }
+        );
+    }
+
+    static async updateImageDatasetMetadata(
+        imageId: string,
+        metadata: Record<string, any>
+    ): Promise<VisionDatasetItem> {
+        return await patchJson<VisionDatasetItem>(
+            `/v1/datasets/images/${encodeURIComponent(imageId)}`,
+            {
+                metadata: {
+                    source_app: 'mold-master-ai',
+                    ...metadata
                 }
             }
         );
