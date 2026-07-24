@@ -167,3 +167,44 @@ test('dataset query failure blocks fallback retirement even when benchmark passe
         'dataset timeout'
     );
 });
+
+test('unresolved high-confidence HITL blocks fallback retirement even when benchmark passes', () => {
+    const unresolvedHash = 'd'.repeat(64);
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({
+                review_status: 'approved'
+            }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        reviewManifest: {
+            policy: { approval: 'human_required' },
+            candidates: [{
+                reviewBucket: 'agreement_high_confidence',
+                defectClass: 'burn',
+                contentSha256: unresolvedHash
+            }]
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        }
+    });
+
+    assert.equal(status.hitl.unresolvedHighConfidence, 1);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.equal(
+        status.blockers.find(item => item.code === 'human_review_required')?.count,
+        1
+    );
+});
