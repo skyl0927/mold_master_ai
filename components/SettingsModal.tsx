@@ -17,12 +17,25 @@ import {
   VisionDatasetReadiness
 } from '../services/visionDatasetReadinessService';
 import { DEFECT_CLASS_LABELS } from '../shared/defect-taxonomy';
+import {
+  readVisionOperationalReleaseReport,
+  VisionOperationalReleaseReport
+} from '../services/visionOperationalReleaseGate';
 
 interface SettingsModalProps {
   onClose: () => void;
   onSave: (config: ApiConfig) => void;
   initialConfig: ApiConfig | null;
 }
+
+const releaseDecisionLabel = (
+  report: VisionOperationalReleaseReport | null
+): string => {
+  if (!report) return 'Shadow 평가 보고서 필요';
+  if (report.decision === 'promote_candidate') return '후보 버전 승격 가능';
+  if (report.decision === 'rollback_required') return '직전 버전 롤백 필요';
+  return 'Shadow 모드 유지';
+};
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialConfig }) => {
   const [provider, setProvider] = useState<ApiProvider>(initialConfig?.provider || 'gemini');
@@ -45,6 +58,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [diagnosisObservability, setDiagnosisObservability] = useState(() =>
     calculateDiagnosisObservability(readDiagnosisComparisons())
   );
+  const [operationalRelease] = useState(() => readVisionOperationalReleaseReport());
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
   const [knowledgeMigrationStatus, setKnowledgeMigrationStatus] = useState('');
   const [visionReadiness, setVisionReadiness] = useState<VisionDatasetReadiness | null>(null);
@@ -158,6 +172,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       generatedAt: new Date().toISOString(),
       readiness: calculateTransitionReadiness(records),
       observability: calculateDiagnosisObservability(records),
+      operationalRelease,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -333,6 +348,102 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   </div>
                 )}
               </div>
+            </div>
+            <div
+              aria-label="비전 릴리스 게이트"
+              className="mt-3 rounded-lg border border-sky-900/70 bg-sky-950/25 p-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-sky-100">비전 릴리스 게이트</p>
+                  <p className={`mt-1 text-xs font-semibold ${
+                    operationalRelease?.decision === 'promote_candidate'
+                      ? 'text-emerald-300'
+                      : operationalRelease?.decision === 'rollback_required'
+                        ? 'text-red-300'
+                        : 'text-amber-300'
+                  }`}>
+                    {releaseDecisionLabel(operationalRelease)}
+                  </p>
+                </div>
+                {operationalRelease && (
+                  <span className="text-[9px] text-gray-500">
+                    {new Date(operationalRelease.generatedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {operationalRelease ? (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-gray-300">
+                    <span>
+                      Top-1{' '}
+                      <strong className="text-white">
+                        {(operationalRelease.candidate.top1Accuracy * 100).toFixed(1)}%
+                      </strong>
+                    </span>
+                    <span>
+                      Top-3{' '}
+                      <strong className="text-white">
+                        {(operationalRelease.candidate.top3Accuracy * 100).toFixed(1)}%
+                      </strong>
+                    </span>
+                    <span>
+                      선택 정확도{' '}
+                      <strong className="text-white">
+                        {(operationalRelease.candidate.selectiveAccuracy * 100).toFixed(1)}%
+                      </strong>
+                    </span>
+                    <span>
+                      위험 오판{' '}
+                      <strong className={
+                        operationalRelease.candidate.unsafeFalsePositiveRate > 0.05
+                          ? 'text-red-300'
+                          : 'text-white'
+                      }>
+                        {(operationalRelease.candidate.unsafeFalsePositiveRate * 100).toFixed(1)}%
+                      </strong>
+                    </span>
+                    <span>
+                      ECE{' '}
+                      <strong className={
+                        operationalRelease.candidate.expectedCalibrationError > 0.08
+                          ? 'text-red-300'
+                          : 'text-white'
+                      }>
+                        {operationalRelease.candidate.expectedCalibrationError.toFixed(4)}
+                      </strong>
+                    </span>
+                    <span>
+                      P95{' '}
+                      <strong className="text-white">
+                        {operationalRelease.candidate.p95LatencyMs}ms
+                      </strong>
+                    </span>
+                  </div>
+                  <p className="mt-2 break-words text-[9px] text-sky-200/70">
+                    후보: {operationalRelease.candidateVersion.modelVersion} /{' '}
+                    {operationalRelease.candidateVersion.promptVersion} /{' '}
+                    {operationalRelease.candidateVersion.graphVersion}
+                  </p>
+                  {operationalRelease.rollbackTarget && (
+                    <p className="mt-1 break-words text-[9px] text-red-200">
+                      롤백 대상: {operationalRelease.rollbackTarget.modelVersion} /{' '}
+                      {operationalRelease.rollbackTarget.promptVersion} /{' '}
+                      {operationalRelease.rollbackTarget.graphVersion}
+                    </p>
+                  )}
+                  {operationalRelease.blockingReasons.length > 0 && (
+                    <p className="mt-1 break-words text-[9px] text-amber-200">
+                      차단 기준: {operationalRelease.blockingReasons.join(', ')}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
+                  baseline과 후보를 같은 holdout 코호트에서 비교한 보고서를 등록하기 전에는
+                  현재 운영 버전을 유지합니다.
+                </p>
+              )}
             </div>
             {aiOrchestrationMode !== 'legacy' && (
               <div className="mt-3 rounded-lg border border-emerald-900/70 bg-emerald-950/20 p-3">
