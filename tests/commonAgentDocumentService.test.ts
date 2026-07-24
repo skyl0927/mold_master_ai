@@ -729,6 +729,11 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
             file_name: 'sample.png',
             mime_type: 'image/png',
             source_system: 'mold-master-ai',
+            metadata: {
+                vision_model_version: 'vision-model-2026.07',
+                vision_prompt_version: 'vision-prompt-v6',
+                vision_graph_version: 'approved-graph-43'
+            },
             observation: {
                 contract_version: 'vision-observation/v2',
                 image_kind: 'physical_product',
@@ -908,6 +913,11 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(result.comparison.visionCandidateCount, 1);
         assert.equal(result.comparison.visionViewCount, 2);
         assert.equal(result.comparison.visionDisagreementScore, 0.12);
+        assert.deepEqual(result.comparison.commonAgentVersionSnapshot, {
+            modelVersion: 'vision-model-2026.07',
+            promptVersion: 'vision-prompt-v6',
+            graphVersion: 'approved-graph-43'
+        });
         assert.equal(
             result.commonAgentImageIdsByLocalId?.['local-image-full'],
             'server-close'
