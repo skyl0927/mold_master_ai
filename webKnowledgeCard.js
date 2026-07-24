@@ -8,7 +8,10 @@ const ALLOWED_SOURCE_HOSTS = new Set([
   'solutions.covestro.com',
   'www.celanese.com',
   'celanese.com',
-  'zenodo.org'
+  'zenodo.org',
+  'www.mdpi.com',
+  'mdpi-res.com',
+  'www.ncbi.nlm.nih.gov'
 ]);
 
 const REUSABLE_LICENSE = /^(?:cc0|public domain|cc by(?:-sa)?(?:-nc)?\s+\d)/i;

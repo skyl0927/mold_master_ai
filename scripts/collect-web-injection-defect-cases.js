@@ -3,8 +3,10 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const {
+  OPEN_ACCESS_FIGURE_MAPPINGS,
   WIKIMEDIA_CASE_MAPPINGS,
   assembleCandidateCollection,
+  parsePmcOpenAccessRecord,
   parseWikimediaApiResponse,
   wikimediaThumbnailUrl
 } = require('../webDefectCaseCollector');
@@ -212,7 +214,7 @@ const main = async () => {
         updatedAt: new Date().toISOString(),
         currentFile: mapping.fileName,
         completedImages: downloadedImages.size,
-        targetImages: WIKIMEDIA_CASE_MAPPINGS.length,
+        targetImages: WIKIMEDIA_CASE_MAPPINGS.length + OPEN_ACCESS_FIGURE_MAPPINGS.length,
         networkAudit: client.report(),
         commonAgentSqlWrites: false,
         graphWrites: false,
@@ -222,12 +224,55 @@ const main = async () => {
     );
   }
 
+  const openAccessFigureRecords = new Map();
+  const downloadedOpenAccessImages = new Map();
+  for (const [index, mapping] of OPEN_ACCESS_FIGURE_MAPPINGS.entries()) {
+    const licenseResponse = await client.fetch(mapping.licenseVerificationUrl, {
+      accept: 'application/xml'
+    });
+    if (!licenseResponse.ok) {
+      throw new Error(
+        `Open-access license record failed: HTTP ${licenseResponse.status} ${mapping.pmcId}`
+      );
+    }
+    const record = parsePmcOpenAccessRecord(await licenseResponse.text(), mapping);
+    openAccessFigureRecords.set(mapping.id, record);
+
+    const fileName = [
+      String(WIKIMEDIA_CASE_MAPPINGS.length + index + 1).padStart(2, '0'),
+      safeFileName(mapping.id)
+    ].join('-') + '.jpg';
+    const relativePath = path.posix.join('images', fileName);
+    const absolutePath = path.join(outputRoot, relativePath);
+    let bytes = await fs.readFile(absolutePath).catch(() => null);
+    let mimeType = '';
+    if (!bytes || bytes.length === 0) {
+      const imageResponse = await client.fetch(mapping.assetUrl, {
+        accept: 'image/*',
+        timeoutMs: 120000
+      });
+      bytes = await readResponseBytes(imageResponse);
+      mimeType = imageResponse.headers.get('content-type') || 'application/octet-stream';
+      await fs.writeFile(absolutePath, bytes);
+    }
+    downloadedOpenAccessImages.set(mapping.id, {
+      localFile: relativePath,
+      contentSha256: sha256(bytes),
+      sizeBytes: bytes.length,
+      mimeType: mimeType || 'image/jpeg',
+      downloadUrl: mapping.assetUrl,
+      variant: 'publisher-550px-derivative'
+    });
+  }
+
   const collection = assembleCandidateCollection({
     basfLinks,
     parsedPages,
     basfPdfSha256: pdfSha256,
     wikimediaPages,
     downloadedImages,
+    openAccessFigureRecords,
+    downloadedOpenAccessImages,
     retrievedAt,
     targetCards
   });
@@ -240,7 +285,9 @@ const main = async () => {
       basfDefectLinks: basfLinks.length,
       basfPdfPages: pdf.numPages,
       wikimediaFilePages: wikimediaPages.length,
-      wikimediaSelectedImages: downloadedImages.size
+      wikimediaSelectedImages: downloadedImages.size,
+      openAccessLicenseRecords: openAccessFigureRecords.size,
+      openAccessSelectedImages: downloadedOpenAccessImages.size
     },
     collection: collection.summary,
     invalid: collection.invalid,

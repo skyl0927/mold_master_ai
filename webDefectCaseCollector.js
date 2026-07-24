@@ -68,10 +68,6 @@ const WIKIMEDIA_CASE_MAPPINGS = [
     sourceDefectTitle: 'Jetting'
   },
   {
-    fileName: 'Jetting (Injection Molding Defect).png',
-    sourceDefectTitle: 'Jetting'
-  },
-  {
     fileName: 'Defek Isian Kurang Penuh.png',
     sourceDefectTitle: 'Short shot'
   },
@@ -100,6 +96,30 @@ const WIKIMEDIA_CASE_MAPPINGS = [
     sourceDefectTitle: 'Warpage'
   }
 ];
+
+const OPEN_ACCESS_FIGURE_MAPPINGS = [{
+  id: 'mdpi-ma16176053-figure-5',
+  pmcId: 'PMC10489043',
+  sourceDefectTitle: 'Weld line',
+  title: 'Figure 5. Optical micrographs of the weld-line area',
+  publisher: 'Materials (MDPI)',
+  sourceUrl: 'https://www.mdpi.com/1996-1944/16/17/6053',
+  licenseVerificationUrl: [
+    'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
+    '?id=PMC10489043'
+  ].join(''),
+  assetUrl: [
+    'https://mdpi-res.com/d_attachment/materials/materials-16-06053/',
+    'article_deploy/html/images/materials-16-06053-g005-550.jpg'
+  ].join(''),
+  author: 'Sara Liparoti, Giorgia De Piano, Rita Salomone, Roberto Pantani',
+  expectedLicense: 'CC BY 4.0',
+  licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+  description: [
+    'Optical micrographs of micro-injection-molded specimens at 100, 110,',
+    'and 115 degrees Celsius in the weld-line area.'
+  ].join(' ')
+}];
 
 const compactWhitespace = value => String(value || '').replace(/\s+/g, ' ').trim();
 const uniqueStrings = values => [...new Set(
@@ -203,6 +223,37 @@ const parseWikimediaApiResponse = (payload, fileName) => {
         || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(fileName)}`,
       extmetadata: metadata
     }]
+  };
+};
+
+const xmlAttribute = (tag, name) => String(tag || '').match(
+  new RegExp(`\\b${name}=["']([^"']+)["']`, 'i')
+)?.[1] || '';
+
+const parsePmcOpenAccessRecord = (xml, mapping) => {
+  const recordTags = String(xml || '').match(/<record\b[^>]*>/gi) || [];
+  const recordTag = recordTags.find(tag =>
+    xmlAttribute(tag, 'id') === mapping?.pmcId
+  );
+  if (!recordTag) {
+    throw new Error(`PMC open-access record not found: ${mapping?.pmcId || 'unknown'}`);
+  }
+  const retracted = xmlAttribute(recordTag, 'retracted').toLocaleLowerCase() !== 'no';
+  if (retracted) {
+    throw new Error(`PMC source is retracted: ${mapping.pmcId}`);
+  }
+  const sourceLicense = compactWhitespace(xmlAttribute(recordTag, 'license'));
+  if (!/^CC BY$/i.test(sourceLicense)) {
+    throw new Error(`PMC source license is not CC BY: ${sourceLicense || 'missing'}`);
+  }
+  return {
+    pmcId: mapping.pmcId,
+    citation: compactWhitespace(xmlAttribute(recordTag, 'citation')),
+    sourceLicense,
+    license: mapping.expectedLicense,
+    licenseUrl: mapping.licenseUrl,
+    retracted: false,
+    verifiedAt: new Date().toISOString()
   };
 };
 
@@ -379,12 +430,76 @@ const buildWikimediaCards = ({
   return cards;
 };
 
+const buildOpenAccessFigureCards = ({
+  mappings = OPEN_ACCESS_FIGURE_MAPPINGS,
+  records,
+  basfCards,
+  downloadedImages,
+  retrievedAt
+}) => {
+  const basfByTitle = new Map((basfCards || []).map(card => [
+    card.metadata.sourceDefectTitle,
+    card
+  ]));
+  const cards = [];
+  for (const mapping of mappings || []) {
+    const base = basfByTitle.get(mapping.sourceDefectTitle);
+    const record = records?.get(mapping.id);
+    const downloaded = downloadedImages?.get(mapping.id);
+    if (!base || !record || !downloaded || record.retracted) continue;
+    const figureEvidence = {
+      publisher: mapping.publisher,
+      title: mapping.title,
+      sourceUrl: mapping.sourceUrl,
+      assetUrl: mapping.assetUrl,
+      downloadUrl: downloaded.downloadUrl || mapping.assetUrl,
+      localFile: downloaded.localFile,
+      retrievedAt,
+      reuseMode: 'licensed_copy',
+      license: record.license,
+      licenseUrl: record.licenseUrl,
+      author: mapping.author,
+      contentSha256: downloaded.contentSha256,
+      evidenceExcerpt: mapping.description,
+      licenseVerificationUrl: mapping.licenseVerificationUrl,
+      sourceRecordId: record.pmcId,
+      sourceCitation: record.citation,
+      modifications: downloaded.variant
+        ? [`Publisher ${downloaded.variant} derivative used for review.`]
+        : []
+    };
+    cards.push({
+      ...base,
+      caseId: `web-open-access-${safeId(mapping.id)}`,
+      sourceKind: 'licensed_image',
+      phenomenon: `${mapping.description} ${base.phenomenon}`.slice(0, 2400),
+      evidence: [figureEvidence, ...base.evidence],
+      review: candidateReview(),
+      metadata: {
+        ...base.metadata,
+        sourceFigureId: mapping.id,
+        sourceRecordId: record.pmcId,
+        sourceDefectTitle: mapping.sourceDefectTitle,
+        visionBenchmarkEligible: false,
+        benchmarkBlockers: [
+          'external_label_requires_hitl',
+          'photographic_evidence_not_confirmed'
+        ],
+        knowledgeScope: 'diagnostic_candidate'
+      }
+    });
+  }
+  return cards;
+};
+
 const assembleCandidateCollection = ({
   basfLinks,
   parsedPages,
   basfPdfSha256,
   wikimediaPages,
   downloadedImages,
+  openAccessFigureRecords,
+  downloadedOpenAccessImages,
   retrievedAt,
   targetCards = 40
 }) => {
@@ -400,7 +515,17 @@ const assembleCandidateCollection = ({
     downloadedImages,
     retrievedAt
   });
-  const deduplicated = deduplicateKnowledgeCards([...basfCards, ...wikimediaCards]);
+  const openAccessFigureCards = buildOpenAccessFigureCards({
+    records: openAccessFigureRecords,
+    basfCards,
+    downloadedImages: downloadedOpenAccessImages,
+    retrievedAt
+  });
+  const deduplicated = deduplicateKnowledgeCards([
+    ...basfCards,
+    ...wikimediaCards,
+    ...openAccessFigureCards
+  ]);
   const invalid = deduplicated.cards
     .map(card => ({ card, validation: validateKnowledgeCard(card) }))
     .filter(item => !item.validation.valid)
@@ -437,10 +562,13 @@ const assembleCandidateCollection = ({
 
 module.exports = {
   BASF_DEFECT_LABELS,
+  OPEN_ACCESS_FIGURE_MAPPINGS,
   WIKIMEDIA_CASE_MAPPINGS,
   assembleCandidateCollection,
   buildBasfCards,
+  buildOpenAccessFigureCards,
   buildWikimediaCards,
+  parsePmcOpenAccessRecord,
   parseWikimediaApiResponse,
   parseWikimediaFilePage,
   wikimediaThumbnailUrl
