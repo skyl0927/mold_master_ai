@@ -15,6 +15,20 @@ const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
 
+const isUnclassifiableLabel = value => {
+  const normalized = normalizedKey(value);
+  return [
+    'unknown',
+    'unclassified',
+    '판정불가',
+    '분류불가',
+    '미판정',
+    '불분명',
+    '확인불가',
+    '결함미확인'
+  ].some(marker => normalized.includes(normalizedKey(marker)));
+};
+
 const normalizeCandidate = candidate => {
   const defectType = compact(
     candidate?.defectType
@@ -22,7 +36,7 @@ const normalizeCandidate = candidate => {
     || candidate?.label
     || candidate?.name
   );
-  if (!defectType) return null;
+  if (!defectType || isUnclassifiableLabel(defectType)) return null;
   return {
     defectType,
     confidence: confidenceValue(
@@ -82,6 +96,14 @@ const normalizeVisionObservation = input => {
       supporting_features: input?.visible_features || input?.visibleFeatures
     }];
   }
+  const explicitUnclassifiable = rawCandidates.some(candidate =>
+    isUnclassifiableLabel(
+      candidate?.defectType
+      || candidate?.defect_type
+      || candidate?.label
+      || candidate?.name
+    )
+  );
   const deduplicated = new Map();
   for (const rawCandidate of rawCandidates) {
     const candidate = normalizeCandidate(rawCandidate);
@@ -105,7 +127,8 @@ const normalizeVisionObservation = input => {
       input?.requiredAdditionalViews || input?.required_additional_views
     ),
     qualityConcerns: stringList(input?.qualityConcerns || input?.quality_concerns),
-    abstentionReason: compact(input?.abstentionReason || input?.abstention_reason),
+    abstentionReason: compact(input?.abstentionReason || input?.abstention_reason)
+      || (explicitUnclassifiable ? 'vision_model_abstained' : ''),
     ...decision
   };
 };

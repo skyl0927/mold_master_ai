@@ -108,7 +108,14 @@ const run = async () => {
       minimumSamplesPerClass: 2,
       minimumVisionConfidence: 0.6,
       minimumConfidentRate: 80,
-      minimumClassAccuracy: 50
+      minimumClassAccuracy: 50,
+      minimumTop3Accuracy: 90,
+      minimumSelectiveAccuracy: 90,
+      minimumSelectiveCoverage: 60,
+      maximumUnsafeErrorRate: 5,
+      maximumCalibrationError: 15,
+      minimumQualityEligibleRate: 95,
+      minimumVisionContractComplianceRate: 95
     },
     qualityIssues,
     cases: []

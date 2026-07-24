@@ -78,6 +78,18 @@ test('normalizes a Common Agent observation that only contains defect_type', () 
   assert.equal(observation.decisionStatus, 'needs_review');
 });
 
+test('treats an explicit unclassifiable label as abstention, not as a defect candidate', () => {
+  const observation = normalizeVisionObservation({
+    defect_type: '\uD310\uC815 \uBD88\uAC00',
+    confidence: 0.93,
+    summary: '\uACB0\uD568 \uD615\uC0C1\uC744 \uAD6C\uBD84\uD560 \uC218 \uC5C6\uC74C'
+  });
+
+  assert.equal(observation.candidates.length, 0);
+  assert.equal(observation.primaryCandidate, null);
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+});
+
 test('builds Graph retrieval from observations and all candidates, not only Top-1', () => {
   const observation = normalizeVisionObservation({
     visible_features: ['\uC6D0\uD615 \uACBD\uACC4', '\uCDE8\uCD9C\uBD80 \uC8FC\uBCC0 \uBC31\uD654'],

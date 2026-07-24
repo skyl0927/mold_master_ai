@@ -486,8 +486,8 @@ const App: React.FC = () => {
                 analysis: result,
                 visionQuality,
                 commonAgentImageId: diagnosis.commonAgentImageId || img.commonAgentImageId,
-                commonAgentStatus: diagnosis.source === 'common_agent' ? 'synced' : img.commonAgentStatus,
-                commonAgentLastSyncAt: diagnosis.source === 'common_agent' ? Date.now() : img.commonAgentLastSyncAt
+                commonAgentStatus: diagnosis.commonAgentImageId ? 'synced' : img.commonAgentStatus,
+                commonAgentLastSyncAt: diagnosis.commonAgentImageId ? Date.now() : img.commonAgentLastSyncAt
             } : img));
 
         } catch (err) {

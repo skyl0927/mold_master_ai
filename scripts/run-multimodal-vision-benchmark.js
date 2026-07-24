@@ -7,6 +7,7 @@ const {
   summarizeVisionBenchmark,
   validateVisionCases
 } = require('./lib/multimodal-benchmark');
+const { normalizeVisionObservation } = require('../visionObservation');
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -75,6 +76,9 @@ const buildQuestion = testCase => [
   `혼동하기 쉬운 형상은 다음 기준으로 구분하세요: ${visualDiscriminationGuide}.`,
   'ROI 안에 여러 흔적이 있으면 금형 기능 형상과 직접 연관된 지배 결함을 우선 분류하세요.',
   '영상 근거로 구분할 수 없으면 "판정 불가"로 답하고 추가 촬영 조건을 제시하세요.',
+  '단일 결함명만 단정하지 말고 candidates 배열에 최대 3개 후보를 신뢰도 순으로 반환하세요.',
+  '각 후보는 defect_type, confidence(0~1), supporting_features, contradicting_features를 포함해야 합니다.',
+  '관찰 결과에는 visible_features, required_additional_views, quality_concerns, abstention_reason도 포함하세요.',
   '관찰 사실과 추론을 구분하고 불량명, 원인 후보, 확인 항목을 제시하세요.',
   '원인과 대책은 승인된 Graph DB 근거를 우선 사용하고 부족한 부분만 LLM 지식으로 보조하세요.'
 ].join('\n\n');
@@ -160,10 +164,22 @@ const executeCase = async testCase => {
     if (!visionResponse.ok) {
       throw new Error(`QA Vision failed: ${visionResponse.status} ${JSON.stringify(observation)}`);
     }
+    const visionSummary = normalizeVisionObservation(observation);
+    const candidateLines = visionSummary.candidates.map((candidate, index) => [
+      `${index + 1}. ${candidate.defectType} (${Math.round(candidate.confidence * 100)}%)`,
+      candidate.supportingFeatures.length > 0
+        ? `일치 근거: ${candidate.supportingFeatures.join(', ')}`
+        : '',
+      candidate.contradictingFeatures.length > 0
+        ? `불일치 근거: ${candidate.contradictingFeatures.join(', ')}`
+        : ''
+    ].filter(Boolean).join(' | '));
 
     const retrievalQuestion = [
       question,
-      `Vision defect: ${observation.defect_type || 'unclassified'}`,
+      `Vision decision status: ${visionSummary.decisionStatus}`,
+      `Vision candidates:\n${candidateLines.join('\n') || 'unclassified'}`,
+      `Visible features: ${visionSummary.visibleFeatures.join(', ')}`,
       `Vision summary: ${observation.summary || ''}`,
       `Possible causes: ${(observation.possible_causes || []).join(', ')}`
     ].join('\n');
@@ -190,8 +206,11 @@ const executeCase = async testCase => {
       observation,
       answer: askPayload.answer,
       evidence: askPayload.evidence || [],
-      confidence: observation.confidence || 0,
-      visionConfidence: observation.confidence || 0,
+      confidence: visionSummary.primaryCandidate?.confidence || observation.confidence || 0,
+      visionConfidence: visionSummary.primaryCandidate?.confidence || observation.confidence || 0,
+      visionDecisionStatus: visionSummary.decisionStatus,
+      qualityStatus: observation.quality_status
+        || (visionSummary.qualityConcerns.length > 0 ? 'warn' : 'pass'),
       retrievalConfidence: askPayload.confidence || 0,
       reasoning_trace: trace,
       graph_policy_applied: trace.some(item =>
@@ -202,7 +221,9 @@ const executeCase = async testCase => {
       httpOk: visionResponse.ok && askResponse.ok,
       latencyMs: Date.now() - startedAt,
       response: payload,
-      error: askResponse.ok ? undefined : JSON.stringify(askPayload)
+      error: askResponse.ok
+        ? undefined
+        : `Common Agent ask failed: ${askResponse.status} ${JSON.stringify(askPayload)}`
     });
   } catch (error) {
     return evaluateVisionResult(testCase, {
@@ -262,6 +283,12 @@ const run = async () => {
   console.log(
     `HTTP=${summary.httpSuccessRate}% classifiable=${summary.classifiableRate}% `
     + `defect=${summary.defectAccuracy}% graph=${summary.graphGroundedRate}%`
+  );
+  console.log(
+    `Top-1=${summary.top1Accuracy}% Top-3=${summary.top3Accuracy}% `
+    + `selective=${summary.selectiveAccuracy}%@${summary.selectiveCoverage}% coverage `
+    + `unsafe=${summary.unsafeErrorRate}% ECE=${summary.expectedCalibrationError}% `
+    + `contract=${summary.visionContractComplianceRate}%`
   );
   console.log(
     `Classes observed=${summary.observedDefectClasses}/${summary.requiredDefectClasses.length} `

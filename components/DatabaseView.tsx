@@ -77,7 +77,14 @@ const benchmarkGateLabel: Record<string, string> = {
     passRate: '전체 통과율 80%',
     classCoverage: '필수 결함군별 2건',
     classAccuracy: '결함군별 최저 정확도 50%',
-    visionConfidence: 'Vision 신뢰도 0.6 이상 비율 80%'
+    visionConfidence: 'Vision 신뢰도 0.6 이상 비율 80%',
+    top3Accuracy: 'Top-3 정확도 90%',
+    selectiveAccuracy: '자동 판정 정확도 90%',
+    selectiveCoverage: '자동 판정 커버리지 60%',
+    unsafeError: '확신 오답률 5% 이하',
+    calibration: '신뢰도 보정 오차 15% 이하',
+    qualityEligibility: '사진 품질 적합률 95%',
+    visionContract: '구조화 Vision 계약 준수율 95%'
 };
 
 const migrationBlockerLabel: Record<string, string> = {
@@ -94,7 +101,14 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_passRate: '전체 통과율 부족',
     benchmark_classCoverage: '필수 결함군 표본 부족',
     benchmark_classAccuracy: '결함군별 정확도 부족',
-    benchmark_visionConfidence: 'Vision 신뢰도 부족'
+    benchmark_visionConfidence: 'Vision 신뢰도 부족',
+    benchmark_top3Accuracy: 'Top-3 정확도 부족',
+    benchmark_selectiveAccuracy: '자동 판정 정확도 부족',
+    benchmark_selectiveCoverage: '과도한 판정 보류',
+    benchmark_unsafeError: '확신 오답률 초과',
+    benchmark_calibration: '신뢰도 보정 불량',
+    benchmark_qualityEligibility: '사진 품질 적합률 부족',
+    benchmark_visionContract: 'Top-3 구조화 응답 미지원'
 };
 
 const VISION_REVIEW_DECISION_REASONS = [
@@ -1394,6 +1408,47 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                         </span>
                                         <span>Vision 신뢰 <strong className="text-white">{benchmarkResult.report.summary.confidentRate}%</strong></span>
                                     </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-gray-700 bg-gray-900/50 p-3 text-xs text-gray-300 md:grid-cols-4 xl:grid-cols-7">
+                                        <span>Top-1 <strong className="text-white">{benchmarkResult.report.summary.top1Accuracy}%</strong></span>
+                                        <span>Top-3 <strong className="text-cyan-200">{benchmarkResult.report.summary.top3Accuracy}%</strong></span>
+                                        <span>
+                                            자동 판정 정확도{' '}
+                                            <strong className={benchmarkResult.report.summary.selectiveAccuracy >= 90
+                                                ? 'text-emerald-300'
+                                                : 'text-amber-300'}>
+                                                {benchmarkResult.report.summary.selectiveAccuracy}%
+                                            </strong>
+                                        </span>
+                                        <span>자동 판정 범위 <strong className="text-white">{benchmarkResult.report.summary.selectiveCoverage}%</strong></span>
+                                        <span>판정 보류 <strong className="text-white">{benchmarkResult.report.summary.abstentionRate}%</strong></span>
+                                        <span>
+                                            확신 오답{' '}
+                                            <strong className={benchmarkResult.report.summary.unsafeErrorRate <= 5
+                                                ? 'text-emerald-300'
+                                                : 'text-red-300'}>
+                                                {benchmarkResult.report.summary.unsafeErrorRate}%
+                                            </strong>
+                                        </span>
+                                        <span>
+                                            신뢰도 보정 오차{' '}
+                                            <strong className={benchmarkResult.report.summary.expectedCalibrationError <= 15
+                                                ? 'text-emerald-300'
+                                                : 'text-red-300'}>
+                                                {benchmarkResult.report.summary.expectedCalibrationError}%
+                                            </strong>
+                                        </span>
+                                        <span>오답 검토 포착 <strong className="text-white">{benchmarkResult.report.summary.reviewCaptureRate}%</strong></span>
+                                        <span>사진 품질 적합 <strong className="text-white">{benchmarkResult.report.summary.qualityEligibleRate}%</strong></span>
+                                        <span>
+                                            구조화 계약{' '}
+                                            <strong className={benchmarkResult.report.summary.visionContractComplianceRate >= 95
+                                                ? 'text-emerald-300'
+                                                : 'text-red-300'}>
+                                                {benchmarkResult.report.summary.visionContractComplianceRate}%
+                                            </strong>
+                                        </span>
+                                        <span>Brier <strong className="text-white">{benchmarkResult.report.summary.brierScore}</strong></span>
+                                    </div>
                                     {benchmarkResult.report.summary.failedGateChecks.length > 0 && (
                                         <p className="mt-2 text-[10px] text-amber-300">
                                             미통과 조건: {benchmarkResult.report.summary.failedGateChecks
@@ -1499,10 +1554,65 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                             >
                                                 {DEFECT_CLASS_LABELS[item.defectClass] || item.defectClass}{' '}
                                                 <strong>{item.total}/{item.requiredSamples}</strong>
-                                                {item.total > 0 && <span> · 정확도 {item.accuracy}%</span>}
+                                                {item.total > 0 && (
+                                                    <span> · Top-1 {item.accuracy}% · Top-3 {item.top3Accuracy}%</span>
+                                                )}
                                             </span>
                                         ))}
                                     </div>
+                                    {benchmarkResult.report.results?.some(result =>
+                                        result.top1Accurate === false || result.httpOk === false
+                                    ) && (
+                                        <div className="mt-3 rounded-lg border border-amber-900/70 bg-amber-950/20 p-3">
+                                            <p className="text-xs font-bold text-amber-200">
+                                                우선 보완 사례
+                                            </p>
+                                            <div className="mt-2 space-y-2">
+                                                {benchmarkResult.report.results
+                                                    .filter(result =>
+                                                        result.top1Accurate === false || result.httpOk === false
+                                                    )
+                                                    .slice(0, 6)
+                                                    .map(result => (
+                                                        <div
+                                                            key={String(result.id)}
+                                                            className="rounded border border-gray-700 bg-gray-900/70 px-3 py-2 text-[10px] text-gray-300"
+                                                        >
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <span className="font-semibold text-white">
+                                                                    {String(result.expectedDefectType || result.id)}
+                                                                </span>
+                                                                <span className={result.httpOk === false
+                                                                    ? 'text-red-300'
+                                                                    : result.decisionStatus === 'unclassifiable'
+                                                                        ? 'text-amber-300'
+                                                                        : 'text-cyan-300'}>
+                                                                    {result.httpOk === false
+                                                                        ? '호출 실패'
+                                                                        : result.actualDefectType || '판정 보류'}
+                                                                </span>
+                                                            </div>
+                                                            {Array.isArray(result.requiredAdditionalViews)
+                                                                && result.requiredAdditionalViews.length > 0 && (
+                                                                <p className="mt-1 text-amber-200">
+                                                                    추가 촬영: {result.requiredAdditionalViews.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            {result.abstentionReason && (
+                                                                <p className="mt-1 text-gray-400">
+                                                                    보류 사유: {String(result.abstentionReason)}
+                                                                </p>
+                                                            )}
+                                                            {result.error && (
+                                                                <p className="mt-1 break-all text-red-300">
+                                                                    {String(result.error)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     <p className="mt-2 break-all font-mono text-[10px] text-gray-500">{benchmarkResult.reportPath}</p>
                                 </div>
                             )}

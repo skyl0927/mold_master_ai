@@ -52,6 +52,7 @@ export interface DiagnosisComparisonRecord {
     visionQualityIssueCodes?: string[];
     visionDecisionStatus?: VisionDecisionStatus;
     visionCandidateCount?: number;
+    selectionReason?: 'strategy_default' | 'richer_vision_contract';
 }
 
 export interface DiagnosisGatewayResult {
@@ -127,6 +128,33 @@ interface DiagnosisExecution {
     legacyError?: string;
     fallbackUsed: boolean;
 }
+
+export const selectValidatedDiagnosis = (
+    execution: DiagnosisExecution
+): {
+    candidate: DiagnosisCandidate;
+    reason: 'strategy_default' | 'richer_vision_contract';
+} => {
+    const commonAgentCandidates =
+        execution.commonAgent?.analysis.visionSummary?.candidates.length || 0;
+    const legacyCandidates =
+        execution.legacy?.analysis.visionSummary?.candidates.length || 0;
+    if (
+        execution.selected.source === 'common_agent'
+        && execution.legacy
+        && commonAgentCandidates < 2
+        && legacyCandidates >= 2
+    ) {
+        return {
+            candidate: execution.legacy,
+            reason: 'richer_vision_contract'
+        };
+    }
+    return {
+        candidate: execution.selected,
+        reason: 'strategy_default'
+    };
+};
 
 const normalizeText = (value?: string): string =>
     (value || '').toLocaleLowerCase().replace(/[\s()[\]{}_\-.,:;/'"]/g, '');
@@ -496,6 +524,8 @@ export class CommonAgentGateway {
                 )
             })
         );
+        const validatedSelection = selectValidatedDiagnosis(execution);
+        const selectedCandidate = validatedSelection.candidate;
 
         const commonAgentDefectType = execution.commonAgent?.analysis.defectType;
         const legacyDefectType = execution.legacy?.analysis.defectType;
@@ -507,23 +537,23 @@ export class CommonAgentGateway {
                 legacyDefectType
             )
             : undefined;
-        const selectedAnalysis = defectTypeAgreement === false && execution.selected.analysis.visionSummary
+        const selectedAnalysis = defectTypeAgreement === false && selectedCandidate.analysis.visionSummary
             ? {
-                ...execution.selected.analysis,
+                ...selectedCandidate.analysis,
                 visionSummary: {
-                    ...execution.selected.analysis.visionSummary,
+                    ...selectedCandidate.analysis.visionSummary,
                     decisionStatus: 'needs_review' as const,
                     decisionReason: 'dual_model_disagreement'
                 }
             }
-            : execution.selected.analysis;
+            : selectedCandidate.analysis;
         const comparisonId = `comparison-${options.imageId}-${Date.now()}`;
         const comparison: DiagnosisComparisonRecord = {
             id: comparisonId,
             imageId: options.imageId,
             createdAt: new Date().toISOString(),
             strategy,
-            selectedSource: execution.selected.source,
+            selectedSource: selectedCandidate.source,
             fallbackUsed: execution.fallbackUsed,
             commonAgentSuccess: Boolean(execution.commonAgent),
             legacySuccess: Boolean(execution.legacy),
@@ -548,7 +578,8 @@ export class CommonAgentGateway {
             visionQualityScore: options.visionQuality?.score,
             visionQualityIssueCodes: options.visionQuality?.issues.map(issue => issue.code),
             visionDecisionStatus: selectedAnalysis.visionSummary?.decisionStatus,
-            visionCandidateCount: selectedAnalysis.visionSummary?.candidates.length
+            visionCandidateCount: selectedAnalysis.visionSummary?.candidates.length,
+            selectionReason: validatedSelection.reason
         };
         persistComparison(comparison);
 
@@ -557,13 +588,14 @@ export class CommonAgentGateway {
                 ...selectedAnalysis,
                 orchestrationSummary: {
                     strategy,
-                    selectedSource: execution.selected.source,
+                    selectedSource: selectedCandidate.source,
                     fallbackUsed: execution.fallbackUsed,
+                    selectionReason: validatedSelection.reason,
                     comparisonId,
                     defectTypeAgreement
                 }
             },
-            source: execution.selected.source,
+            source: selectedCandidate.source,
             commonAgentImageId: execution.commonAgent?.commonAgentImageId,
             comparison
         };

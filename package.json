@@ -142,6 +142,10 @@
       {
         "from": "shared/defect-taxonomy.js",
         "to": "shared/defect-taxonomy.js"
+      },
+      {
+        "from": "visionObservation.js",
+        "to": "visionObservation.js"
       }
     ],
     "win": {

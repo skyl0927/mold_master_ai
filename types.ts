@@ -109,6 +109,7 @@ export interface DefectAnalysis {
     strategy: AiOrchestrationMode;
     selectedSource: 'common_agent' | 'legacy';
     fallbackUsed: boolean;
+    selectionReason?: 'strategy_default' | 'richer_vision_contract';
     comparisonId?: string;
     defectTypeAgreement?: boolean;
   };
@@ -254,6 +255,18 @@ export interface VisionBenchmarkRunResult {
       classifiableRate: number;
       graphGroundedRate: number;
       defectAccuracy: number;
+      top1Accuracy: number;
+      top3Accuracy: number;
+      selectiveCoverage: number;
+      selectiveAccuracy: number;
+      abstentionRate: number;
+      unsafeAcceptedErrors: number;
+      unsafeErrorRate: number;
+      reviewCaptureRate: number;
+      qualityEligibleRate: number;
+      visionContractComplianceRate: number;
+      expectedCalibrationError: number;
+      brierScore: number;
       confidentRate: number;
       observedDefectClasses: number;
       coveredDefectClasses: number;
@@ -265,8 +278,17 @@ export interface VisionBenchmarkRunResult {
         total: number;
         accurate: number;
         accuracy: number;
+        top3Accurate: number;
+        top3Accuracy: number;
         requiredSamples: number;
         covered: boolean;
+      }>;
+      reliabilityBins: Array<{
+        lowerBound: number;
+        upperBound: number;
+        count: number;
+        averageConfidence: number;
+        accuracy: number;
       }>;
       failedGateChecks: string[];
       readyToDisableLegacyFallback: boolean;

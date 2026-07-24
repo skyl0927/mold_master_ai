@@ -76,6 +76,136 @@ test('vision result scoring requires classification, expected terms, and graph e
   assert.equal(result.checks.countermeasures, true);
 });
 
+test('vision scoring records Top-3 recovery when Top-1 is incorrect', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 900,
+    response: {
+      observation: {
+        defect_type: '밀핀 자국',
+        visible_features: ['리브 주변 원형 경계와 유백색 변색'],
+        candidates: [
+          { defect_type: '밀핀 자국', confidence: 0.48 },
+          { defect_type: '백화', confidence: 0.39 },
+          { defect_type: '싱크마크', confidence: 0.13 }
+        ],
+        possible_causes: ['취출 저항']
+      },
+      answer: '구배를 확인하세요.',
+      evidence: [{
+        review_status: 'approved',
+        source_ref: 'graph:path-top3'
+      }]
+    }
+  });
+
+  assert.equal(result.top1Accurate, false);
+  assert.equal(result.top3Accurate, true);
+  assert.equal(result.expectedCandidateRank, 2);
+  assert.equal(result.decisionStatus, 'needs_review');
+  assert.equal(result.acceptedPrediction, false);
+  assert.equal(result.visionContractCompliant, true);
+});
+
+test('vision scoring treats a separated high-confidence candidate as an accepted prediction', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 700,
+    response: {
+      observation: {
+        visible_features: ['리브 기부의 유백색 응력 변색'],
+        candidates: [
+          { defect_type: '백화', confidence: 0.86 },
+          { defect_type: '싱크마크', confidence: 0.12 }
+        ],
+        possible_causes: ['취출 저항']
+      },
+      answer: '구배를 확인하세요.',
+      evidence: [{
+        review_status: 'approved',
+        source_type: 'knowledge_path'
+      }]
+    }
+  });
+
+  assert.equal(result.top1Accurate, true);
+  assert.equal(result.decisionStatus, 'probable');
+  assert.equal(result.acceptedPrediction, true);
+  assert.equal(result.unsafeAcceptedError, false);
+});
+
+test('vision benchmark reports selective risk and confidence calibration', () => {
+  const results = [
+    {
+      id: 'correct-accepted',
+      passed: true,
+      httpOk: true,
+      classifiable: true,
+      graphGrounded: true,
+      expectedDefectClass: 'whitening',
+      visionConfidence: 0.9,
+      top1Accurate: true,
+      top3Accurate: true,
+      acceptedPrediction: true,
+      unsafeAcceptedError: false,
+      visionContractCompliant: true,
+      qualityEligible: true,
+      checks: { defectType: true }
+    },
+    {
+      id: 'wrong-accepted',
+      passed: false,
+      httpOk: true,
+      classifiable: true,
+      graphGrounded: true,
+      expectedDefectClass: 'whitening',
+      visionConfidence: 0.9,
+      top1Accurate: false,
+      top3Accurate: true,
+      acceptedPrediction: true,
+      unsafeAcceptedError: true,
+      visionContractCompliant: true,
+      qualityEligible: true,
+      checks: { defectType: false }
+    },
+    {
+      id: 'wrong-abstained',
+      passed: false,
+      httpOk: true,
+      classifiable: true,
+      graphGrounded: true,
+      expectedDefectClass: 'whitening',
+      visionConfidence: 0.51,
+      top1Accurate: false,
+      top3Accurate: true,
+      acceptedPrediction: false,
+      unsafeAcceptedError: false,
+      visionContractCompliant: false,
+      qualityEligible: true,
+      checks: { defectType: false }
+    }
+  ];
+
+  const summary = summarizeVisionBenchmark(results, 3, {
+    requiredDefectClasses: ['whitening'],
+    minimumSamplesPerClass: 1,
+    minimumClassAccuracy: 0,
+    minimumConfidentRate: 0
+  });
+
+  assert.equal(summary.top1Accuracy, 33.3);
+  assert.equal(summary.top3Accuracy, 100);
+  assert.equal(summary.selectiveCoverage, 66.7);
+  assert.equal(summary.selectiveAccuracy, 50);
+  assert.equal(summary.unsafeErrorRate, 33.3);
+  assert.equal(summary.reviewCaptureRate, 50);
+  assert.equal(summary.visionContractComplianceRate, 66.7);
+  assert.ok(summary.expectedCalibrationError > 30);
+  assert.equal(summary.gateChecks.unsafeError, false);
+  assert.equal(summary.gateChecks.calibration, false);
+  assert.equal(summary.gateChecks.visionContract, false);
+});
+
 test('approved graph entities count as graph-grounded evidence', () => {
   const result = evaluateVisionResult(validCase, {
     httpOk: true,

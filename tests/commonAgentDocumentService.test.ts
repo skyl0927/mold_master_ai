@@ -13,7 +13,8 @@ import {
     CommonAgentGateway,
     defectTypesAgree,
     executeDiagnosisStrategy,
-    isUsableDefectType
+    isUsableDefectType,
+    selectValidatedDiagnosis
 } from '../services/commonAgentGateway';
 import { CommonAgentApiService } from '../services/commonAgentApiService';
 import { buildMultimodalDiagnosisContext } from '../services/diagnosisContextService';
@@ -123,6 +124,78 @@ test('dual validation selects Common Agent while retaining the legacy comparison
     assert.equal(execution.legacy?.analysis.defectType, 'Whitening defect');
     assert.equal(execution.fallbackUsed, false);
     assert.equal(defectTypesAgree('Whitening', 'Whitening defect'), true);
+});
+
+test('dual validation prefers the analysis with a richer structured Vision contract', async () => {
+    const execution = await executeDiagnosisStrategy(
+        'dual_validation',
+        async () => ({
+            ...diagnosisCandidate('common_agent', '백화'),
+            analysis: {
+                ...diagnosisCandidate('common_agent', '백화').analysis,
+                visionSummary: {
+                    visibleFeatures: ['유백색 변색'],
+                    candidates: [{
+                        defectType: '백화',
+                        confidence: 0.7,
+                        supportingFeatures: ['유백색'],
+                        contradictingFeatures: []
+                    }],
+                    primaryCandidate: {
+                        defectType: '백화',
+                        confidence: 0.7,
+                        supportingFeatures: ['유백색'],
+                        contradictingFeatures: []
+                    },
+                    requiredAdditionalViews: [],
+                    qualityConcerns: [],
+                    abstentionReason: '',
+                    decisionStatus: 'needs_review',
+                    decisionReason: 'single_candidate_requires_review'
+                }
+            }
+        }),
+        async () => ({
+            ...diagnosisCandidate('legacy', '밀핀 자국'),
+            analysis: {
+                ...diagnosisCandidate('legacy', '밀핀 자국').analysis,
+                visionSummary: {
+                    visibleFeatures: ['원형 경계', '유백색 변색'],
+                    candidates: [
+                        {
+                            defectType: '밀핀 자국',
+                            confidence: 0.52,
+                            supportingFeatures: ['원형 경계'],
+                            contradictingFeatures: ['밀핀 위치 미확인']
+                        },
+                        {
+                            defectType: '백화',
+                            confidence: 0.38,
+                            supportingFeatures: ['유백색 변색'],
+                            contradictingFeatures: []
+                        }
+                    ],
+                    primaryCandidate: {
+                        defectType: '밀핀 자국',
+                        confidence: 0.52,
+                        supportingFeatures: ['원형 경계'],
+                        contradictingFeatures: ['밀핀 위치 미확인']
+                    },
+                    requiredAdditionalViews: ['사광 확대 사진'],
+                    qualityConcerns: [],
+                    abstentionReason: '',
+                    decisionStatus: 'needs_review',
+                    decisionReason: 'confidence_or_margin_gate'
+                }
+            }
+        })
+    );
+
+    const selection = selectValidatedDiagnosis(execution);
+
+    assert.equal(selection.candidate.source, 'legacy');
+    assert.equal(selection.reason, 'richer_vision_contract');
+    assert.equal(selection.candidate.analysis.visionSummary?.candidates.length, 2);
 });
 
 test('diagnosis observability summarizes latency, graph usage, context, sources, and failures', () => {
