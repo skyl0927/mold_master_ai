@@ -13,6 +13,12 @@ const {
 const {
   buildShadowReleaseInput
 } = require('../scripts/lib/vision-operational-release-input');
+const {
+  applyVisionRuntimeGate,
+  assessVisionRuntimeStatus,
+  buildBlindVisionQuestion,
+  buildGraphRetrievalQuestion
+} = require('../scripts/lib/vision-benchmark-harness');
 
 const validCase = {
   id: 'whitening-rib-01',
@@ -26,6 +32,69 @@ const validCase = {
     minEvidenceCount: 1
   }
 };
+
+test('blind Vision prompt excludes field notes, expected labels, and Graph instructions', () => {
+  const question = buildBlindVisionQuestion({
+    inputNotes: 'FIELD_CONTEXT_SENTINEL',
+    expected: { defectType: 'EXPECTED_LABEL_SENTINEL' },
+    roiNormalized: { x: 0.1, y: 0.1, width: 0.5, height: 0.5 }
+  });
+
+  assert.match(question, /pixels|픽셀/i);
+  assert.doesNotMatch(question, /FIELD_CONTEXT_SENTINEL/);
+  assert.doesNotMatch(question, /EXPECTED_LABEL_SENTINEL/);
+  assert.doesNotMatch(question, /Graph DB|원인과 대책/);
+});
+
+test('Graph retrieval prompt adds field context only after blind observations', () => {
+  const question = buildGraphRetrievalQuestion({
+    testCase: { inputNotes: 'FIELD_CONTEXT_SENTINEL' },
+    visionSummary: {
+      decisionStatus: 'needs_review',
+      candidates: [{
+        defectType: '백화',
+        confidence: 0.62,
+        supportingFeatures: ['리브 주변 유백색 변색'],
+        contradictingFeatures: []
+      }],
+      visibleFeatures: ['리브 주변 유백색 변색']
+    },
+    observation: {
+      summary: '픽셀 관찰 결과',
+      possible_causes: ['VISION_CAUSE_MUST_NOT_PROPAGATE']
+    }
+  });
+
+  assert.match(question, /FIELD_CONTEXT_SENTINEL/);
+  assert.match(question, /백화/);
+  assert.match(question, /픽셀 관찰 결과/);
+  assert.doesNotMatch(question, /VISION_CAUSE_MUST_NOT_PROPAGATE/);
+});
+
+test('runtime attestation fails closed when model lineage is incomplete', () => {
+  const ready = assessVisionRuntimeStatus({
+    vision_model: 'gpt-5.6-terra',
+    vision_prompt_version: 'vision-observation-v3',
+    vision_image_detail: 'auto'
+  });
+  const missingPrompt = assessVisionRuntimeStatus({
+    vision_model: 'gpt-5.6-terra',
+    vision_image_detail: 'auto'
+  });
+
+  assert.equal(ready.ready, true);
+  assert.equal(missingPrompt.ready, false);
+  assert.deepEqual(missingPrompt.missingFields, ['vision_prompt_version']);
+
+  const gated = applyVisionRuntimeGate({
+    gateChecks: { defectAccuracy: true },
+    failedGateChecks: [],
+    readyToDisableLegacyFallback: true
+  }, missingPrompt);
+  assert.equal(gated.gateChecks.runtimeAttestation, false);
+  assert.deepEqual(gated.failedGateChecks, ['runtimeAttestation']);
+  assert.equal(gated.readyToDisableLegacyFallback, false);
+});
 
 test('vision fixture validation reports missing and placeholder image paths', () => {
   const validation = validateVisionCases([
