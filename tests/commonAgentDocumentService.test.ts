@@ -545,7 +545,27 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
                     capture_available_views: ['full_part_context', 'defect_closeup'],
                     capture_missing_views: []
                 }
-            }
+            },
+            sessionImages: [
+                {
+                    imageId: 'local-image-1',
+                    dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+                    fileName: 'local-image-1.png',
+                    captureViewTag: 'defect_closeup',
+                    captureImageKind: 'physical_product',
+                    captureSource: 'camera',
+                    isPrimary: true
+                },
+                {
+                    imageId: 'local-image-full',
+                    dataUrl: 'data:image/png;base64,AQID',
+                    fileName: 'local-image-full.png',
+                    captureViewTag: 'full_part_context',
+                    captureImageKind: 'physical_product',
+                    captureSource: 'camera',
+                    isPrimary: false
+                }
+            ]
         });
 
         assert.equal(receivedOptions?.question, '현상 설명: 리브 주변 백화');
@@ -556,6 +576,9 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(receivedOptions?.metadata?.vision_quality_score, 88);
         assert.deepEqual(receivedOptions?.metadata?.vision_quality_issue_codes, ['resolution_low']);
         assert.equal(receivedOptions?.sessionId, 'capture-camera-session-1');
+        assert.equal(receivedOptions?.sessionViews?.length, 1);
+        assert.equal(receivedOptions?.sessionViews?.[0].localImageId, 'local-image-full');
+        assert.equal(receivedOptions?.sessionViews?.[0].captureViewTag, 'full_part_context');
         assert.deepEqual(receivedOptions?.metadata?.capture_view_tags, ['defect_closeup']);
         assert.equal(receivedOptions?.metadata?.capture_protocol_ready, true);
         assert.equal(result.analysis.visionSummary?.primaryCandidate?.defectType, '백화');
@@ -564,6 +587,69 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
     } finally {
         CommonAgentApiService.diagnoseImage = originalDiagnose;
     }
+});
+
+test('Vision diagnose sends additional session views and an ordered lineage manifest', async () => {
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    let capturedForm: FormData | undefined;
+    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+        capturedForm = init?.body as FormData;
+        return new Response(JSON.stringify({
+            image_id: 'server-primary',
+            file_name: 'primary.png',
+            mime_type: 'image/png',
+            source_system: 'mold-master-ai',
+            observation: {
+                contract_version: 'vision-observation/v2',
+                image_kind: 'physical_product',
+                normality_status: 'uncertain',
+                observations: [],
+                candidates: []
+            },
+            evidence: []
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const primary = new File([new Uint8Array([1])], 'primary.png', { type: 'image/png' });
+    const closeup = new File([new Uint8Array([2])], 'closeup.png', { type: 'image/png' });
+    const oblique = new File([new Uint8Array([3])], 'oblique.png', { type: 'image/png' });
+    await CommonAgentApiService.diagnoseImage(primary, {
+        metadata: {
+            local_image_id: 'local-primary',
+            capture_view_tags: ['full_part_context']
+        },
+        sessionViews: [
+            {
+                file: closeup,
+                localImageId: 'local-closeup',
+                captureViewTag: 'defect_closeup',
+                imageKind: 'physical_product',
+                captureSource: 'camera'
+            },
+            {
+                file: oblique,
+                localImageId: 'local-oblique',
+                captureViewTag: 'oblique_light',
+                imageKind: 'physical_product',
+                captureSource: 'camera'
+            }
+        ]
+    });
+
+    assert.equal(capturedForm?.getAll('view_files').length, 2);
+    const manifest = JSON.parse(String(capturedForm?.get('view_manifest_json')));
+    assert.deepEqual(
+        manifest.map((item: any) => [item.local_image_id, item.capture_view_tag, item.is_primary]),
+        [
+            ['local-primary', 'full_part_context', true],
+            ['local-closeup', 'defect_closeup', false],
+            ['local-oblique', 'oblique_light', false]
+        ]
+    );
 });
 
 test('Vision diagnose sends persistence policy and omits quarantined dataset ids', async () => {

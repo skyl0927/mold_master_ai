@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   assessCaptureImageForDiagnosis,
   buildCaptureMetadata,
+  collectSessionDiagnosisImages,
   createCaptureSessionId,
   summarizeCaptureSession
 } = require('../captureSessionProtocol');
@@ -126,6 +127,45 @@ test('capture metadata preserves session lineage for Common Agent', () => {
     capture_available_views: ['full_part_context', 'defect_closeup'],
     capture_missing_views: []
   });
+});
+
+test('session diagnosis collects every physical view with the selected image first', () => {
+  const selected = image({
+    id: 'image-closeup',
+    captureViewTag: 'defect_closeup'
+  });
+  const full = image({
+    id: 'image-full',
+    captureViewTag: 'full_part_context'
+  });
+  const oblique = image({
+    id: 'image-oblique',
+    captureViewTag: 'oblique_light'
+  });
+  const document = image({
+    id: 'image-document',
+    captureViewTag: 'reference_part',
+    captureImageKind: 'document_or_diagram'
+  });
+  const otherSession = image({
+    id: 'image-other-session',
+    captureSessionId: 'session-2',
+    captureViewTag: 'reference_part'
+  });
+
+  const collected = collectSessionDiagnosisImages(
+    selected,
+    [full, document, selected, otherSession, oblique]
+  );
+
+  assert.deepEqual(
+    collected.map(item => item.id),
+    ['image-closeup', 'image-full', 'image-oblique']
+  );
+  assert.deepEqual(
+    collected.map(item => item.captureViewTag),
+    ['defect_closeup', 'full_part_context', 'oblique_light']
+  );
 });
 
 test('unknown capture values are normalized to safe metadata defaults', () => {
