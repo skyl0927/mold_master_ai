@@ -1,10 +1,26 @@
-import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
+import {
+    DefectAnalysis,
+    RetrievalMode,
+    VisionObservationCategory,
+    VisionObservationSummary
+} from '../types';
 import { normalizeVisionObservation } from '../visionObservation';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
 
 export interface CommonAgentObservation {
+    contract_version?: string;
+    image_kind?: 'physical_product' | 'document_or_diagram' | 'unknown';
+    normality_status?: 'defect_visible' | 'no_defect_visible' | 'uncertain';
+    observations?: Array<{
+        observation_id: string;
+        category: VisionObservationCategory;
+        description: string;
+        region?: string;
+        confidence?: number;
+        source?: 'image';
+    }>;
     summary?: string;
     defect_type?: string;
     process_area?: string;
@@ -538,21 +554,23 @@ export class CommonAgentApiService {
 
     static toDefectAnalysis(response: CommonAgentVisionDiagnosis, modeUsed: RetrievalMode = 'graph_only'): DefectAnalysis {
         const observation = response.observation || {};
-        const possibleCauses = observation.possible_causes || [];
-        const recommendedChecks = observation.recommended_checks || [];
         const evidence = response.evidence || [];
         const metadataCandidates = response.metadata?.vision_candidates || response.metadata?.top_candidates;
         const visionSummary = normalizeVisionObservation({
             ...observation,
             candidates: observation.candidates || observation.top_candidates || metadataCandidates
         }) as VisionObservationSummary;
+        const isGroundedV2 = visionSummary.contractVersion === 'vision-observation/v2';
+        const possibleCauses = isGroundedV2 ? [] : observation.possible_causes || [];
+        const recommendedChecks = isGroundedV2 ? [] : observation.recommended_checks || [];
+        const visualDescription = visionSummary.visibleFeatures.join('; ');
 
         return compactDefectAnalysis({
             defectType: visionSummary.primaryCandidate?.defectType
-                || observation.defect_type
+                || (!isGroundedV2 ? observation.defect_type : undefined)
                 || '판정 불가 (사람 검토 필요)',
             severity: observation.severity || 'Medium',
-            description: observation.summary || response.answer || '',
+            description: visualDescription || observation.summary || '',
             possibleCauses: possibleCauses.length > 0 ? possibleCauses.join('\n') : '',
             countermeasures: recommendedChecks.join('\n'),
             rawOutput: JSON.stringify(response, null, 2),

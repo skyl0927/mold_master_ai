@@ -2,11 +2,6 @@ const { _electron: electron } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SAMPLE_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=',
-  'base64'
-);
-
 (async () => {
   let app;
   let originalConfig;
@@ -14,8 +9,7 @@ const SAMPLE_PNG = Buffer.from(
   try {
     const artifactsDir = path.join(process.cwd(), 'artifacts');
     fs.mkdirSync(artifactsDir, { recursive: true });
-    const samplePath = path.join(artifactsDir, 'multimodal-smoke-sample.png');
-    fs.writeFileSync(samplePath, SAMPLE_PNG);
+    const samplePath = path.join(process.cwd(), 'assets', 'icon.png');
 
     app = await electron.launch({ args: ['.'], cwd: process.cwd(), artifactsDir });
     const page = await app.firstWindow();
@@ -35,11 +29,42 @@ const SAMPLE_PNG = Buffer.from(
           source_system: 'mold-master-ai',
           question: 'captured',
           observation: {
-            defect_type: '백화',
-            severity: 'Medium',
-            summary: '리브 주변에 백화가 관찰됨',
-            possible_causes: ['취출 저항'],
-            recommended_checks: ['구배와 이젝터 밸런스 확인']
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product',
+            normality_status: 'defect_visible',
+            observations: [
+              {
+                observation_id: 'obs-color-1',
+                category: 'color',
+                description: '리브 기부에 유백색 영역이 보임',
+                region: '리브 기부',
+                confidence: 0.92
+              },
+              {
+                observation_id: 'obs-boundary-1',
+                category: 'boundary',
+                description: '유백색 영역의 경계가 리브 방향으로 이어짐',
+                region: '리브 주변',
+                confidence: 0.78
+              }
+            ],
+            defect_type: '비전 단계에서 신뢰하면 안 되는 라벨',
+            candidates: [
+              {
+                defect_type: '백화',
+                confidence: 0.76,
+                supporting_observation_ids: ['obs-color-1'],
+                contradicting_observation_ids: []
+              },
+              {
+                defect_type: '스크래치',
+                confidence: 0.31,
+                supporting_observation_ids: ['obs-boundary-1'],
+                contradicting_observation_ids: ['obs-color-1']
+              }
+            ],
+            possible_causes: ['비전이 생성한 미검증 원인'],
+            recommended_checks: ['비전이 생성한 미검증 대책']
           },
           answer: '승인된 Graph 근거를 우선 확인하세요.',
           confidence: 0.86,
@@ -79,11 +104,19 @@ const SAMPLE_PNG = Buffer.from(
       aiOrchestrationMode: 'common_agent_primary'
     }), originalConfig || {});
 
-    await page.locator('input[type="file"][accept="image/*"]').setInputFiles(samplePath);
+    const imageInput = page.locator('input[type="file"][accept="image/*"]');
+    await imageInput.setInputFiles(samplePath);
+    await page.getByLabel('Sample 1 이미지 종류').selectOption('physical_product');
+    await page.getByLabel('Sample 1 촬영 시점').selectOption('full_part_context');
+    await imageInput.setInputFiles(samplePath);
+    await page.getByLabel('Sample 2 이미지 종류').selectOption('physical_product');
+    await page.getByLabel('Sample 2 촬영 시점').selectOption('defect_closeup');
+    await page.getByText('촬영 프로토콜 충족').first().waitFor();
     const fieldContext = '리브 주변 백화, 취출 시 딱 소리와 함께 제품이 튕김';
     await page.getByLabel('Sample 1 현상 설명').fill(fieldContext);
-    await page.getByRole('button', { name: 'AI 진단' }).click();
+    await page.getByRole('button', { name: 'AI 진단' }).first().click();
     await page.getByText('진단 완료').waitFor({ timeout: 15000 });
+    await page.getByText('구조화 Vision 관찰 및 Top-3').waitFor({ timeout: 10000 });
 
     const screenshotPath = path.join(artifactsDir, 'electron-multimodal-diagnosis.png');
     await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -94,6 +127,12 @@ const SAMPLE_PNG = Buffer.from(
       questionContainsFieldContext: capturedForm.question.includes(fieldContext),
       metadataContainsContextFlag: capturedMetadata.context_provided === true,
       resultRendered: bodyText.includes('백화') && bodyText.includes('진단 완료'),
+      groundedObservationRendered: bodyText.includes('vision-observation/v2')
+        && bodyText.includes('obs-color-1')
+        && bodyText.includes('리브 기부에 유백색 영역이 보임'),
+      visionInferenceRejected: !bodyText.includes('비전이 생성한 미검증 원인')
+        && !bodyText.includes('비전이 생성한 미검증 대책')
+        && !bodyText.includes('비전 단계에서 신뢰하면 안 되는 라벨'),
       screenshot: screenshotPath,
       consoleErrors
     };
@@ -103,6 +142,8 @@ const SAMPLE_PNG = Buffer.from(
       !result.questionContainsFieldContext
       || !result.metadataContainsContextFlag
       || !result.resultRendered
+      || !result.groundedObservationRendered
+      || !result.visionInferenceRejected
       || consoleErrors.length > 0
     ) {
       process.exitCode = 1;

@@ -113,12 +113,28 @@ test('vision scoring treats a separated high-confidence candidate as an accepted
     latencyMs: 700,
     response: {
       observation: {
-        visible_features: ['리브 기부의 유백색 응력 변색'],
+        contract_version: 'vision-observation/v2',
+        image_kind: 'physical_product',
+        normality_status: 'defect_visible',
+        observations: [{
+          observation_id: 'obs-color-1',
+          category: 'color',
+          description: '리브 기부의 유백색 응력 변색',
+          region: '리브 기부',
+          confidence: 0.92
+        }],
         candidates: [
-          { defect_type: '백화', confidence: 0.86 },
-          { defect_type: '싱크마크', confidence: 0.12 }
-        ],
-        possible_causes: ['취출 저항']
+          {
+            defect_type: '백화',
+            confidence: 0.86,
+            supporting_observation_ids: ['obs-color-1']
+          },
+          {
+            defect_type: '싱크마크',
+            confidence: 0.12,
+            supporting_observation_ids: ['obs-color-1']
+          }
+        ]
       },
       answer: '구배를 확인하세요.',
       evidence: [{

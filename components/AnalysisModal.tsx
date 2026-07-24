@@ -444,7 +444,7 @@ ${data.countermeasures}
                                         <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <h4 className="text-sm font-semibold uppercase tracking-wider text-cyan-300">
-                                                    Vision Top-3 관찰
+                                                    구조화 Vision 관찰 및 Top-3
                                                 </h4>
                                                 <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                                                     editableData.visionSummary.decisionStatus === 'probable'
@@ -458,6 +458,41 @@ ${data.countermeasures}
                                                             : '판정 보류'}
                                                 </span>
                                             </div>
+                                            <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                                                <span className={`rounded-full border px-2 py-1 ${
+                                                    editableData.visionSummary.groundingStatus === 'grounded'
+                                                        ? 'border-emerald-700 text-emerald-200'
+                                                        : editableData.visionSummary.groundingStatus === 'invalid'
+                                                            ? 'border-red-700 text-red-200'
+                                                            : 'border-amber-700 text-amber-200'
+                                                }`}>
+                                                    {editableData.visionSummary.contractVersion}
+                                                </span>
+                                                <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-300">
+                                                    {editableData.visionSummary.imageKind}
+                                                </span>
+                                                <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-300">
+                                                    {editableData.visionSummary.normalityStatus}
+                                                </span>
+                                            </div>
+                                            {editableData.visionSummary.visualObservations.length > 0 && (
+                                                <div className="mt-3 grid gap-2">
+                                                    {editableData.visionSummary.visualObservations.map(observation => (
+                                                        <div
+                                                            key={observation.observationId}
+                                                            className="rounded-lg border border-gray-700 bg-gray-900/70 px-3 py-2"
+                                                        >
+                                                            <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                                                <span className="font-mono text-cyan-300">{observation.observationId}</span>
+                                                                <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-cyan-200">{observation.category}</span>
+                                                                {observation.region && <span className="text-gray-500">{observation.region}</span>}
+                                                                <span className="ml-auto text-gray-500">{Math.round(observation.confidence * 100)}%</span>
+                                                            </div>
+                                                            <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {editableData.visionSummary.visibleFeatures.length > 0 && (
                                                 <p className="mt-3 text-xs leading-relaxed text-gray-300">
                                                     관찰 특징: {editableData.visionSummary.visibleFeatures.join(', ')}
@@ -485,6 +520,11 @@ ${data.countermeasures}
                                                                 일치: {candidate.supportingFeatures.join(', ')}
                                                             </p>
                                                         )}
+                                                        {candidate.supportingObservationIds.length > 0 && (
+                                                            <p className="mt-1 font-mono text-[10px] text-cyan-400">
+                                                                관찰 근거: {candidate.supportingObservationIds.join(', ')}
+                                                            </p>
+                                                        )}
                                                         {candidate.contradictingFeatures.length > 0 && (
                                                             <p className="mt-1 text-xs text-amber-200">
                                                                 불일치/미확인: {candidate.contradictingFeatures.join(', ')}
@@ -501,6 +541,11 @@ ${data.countermeasures}
                                             {editableData.visionSummary.abstentionReason && (
                                                 <p className="mt-3 text-xs text-red-200">
                                                     판정 보류 사유: {editableData.visionSummary.abstentionReason}
+                                                </p>
+                                            )}
+                                            {editableData.visionSummary.validationIssues.length > 0 && (
+                                                <p className="mt-3 text-xs text-red-200">
+                                                    관찰 계약 오류: {editableData.visionSummary.validationIssues.join(', ')}
                                                 </p>
                                             )}
                                         </div>

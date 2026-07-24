@@ -100,6 +100,48 @@ test('Common Agent diagnosis keeps verbose answer as raw evidence but not as a c
     assert.match(analysis.rawOutput, /긴 추론 과정/);
 });
 
+test('grounded Vision v2 rejects unlinked candidates and does not inject causes or actions', () => {
+    const response = {
+        image_id: 'image-v2',
+        file_name: 'normal-rib.png',
+        mime_type: 'image/png',
+        source_system: 'test',
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product' as const,
+            normality_status: 'uncertain' as const,
+            observations: [{
+                observation_id: 'obs-1',
+                category: 'geometry' as const,
+                description: '동일 간격으로 반복되는 리브가 보임',
+                region: '제품 중앙',
+                confidence: 0.91
+            }],
+            defect_type: '백화',
+            candidates: [{
+                defect_type: '백화',
+                confidence: 0.94,
+                supporting_observation_ids: ['missing-observation'],
+                contradicting_observation_ids: []
+            }],
+            possible_causes: ['이형 저항 증가'],
+            recommended_checks: ['구배를 수정한다']
+        },
+        answer: '원인과 대책을 생성한 잘못된 Vision 응답'
+    };
+
+    const analysis = CommonAgentApiService.toDefectAnalysis(response);
+
+    assert.equal(analysis.defectType, '판정 불가 (사람 검토 필요)');
+    assert.equal(analysis.description, '동일 간격으로 반복되는 리브가 보임');
+    assert.equal(analysis.possibleCauses, '');
+    assert.equal(analysis.countermeasures, '');
+    assert.deepEqual(
+        analysis.visionSummary?.validationIssues,
+        ['candidate_without_observation_evidence']
+    );
+});
+
 const diagnosisCandidate = (source: 'common_agent' | 'legacy', defectType: string) => ({
     source,
     analysis: {
@@ -134,22 +176,39 @@ test('dual validation prefers the analysis with a richer structured Vision contr
             analysis: {
                 ...diagnosisCandidate('common_agent', '백화').analysis,
                 visionSummary: {
+                    contractVersion: 'vision-observation/v2',
+                    imageKind: 'physical_product',
+                    normalityStatus: 'defect_visible',
+                    visualObservations: [{
+                        observationId: 'obs-1',
+                        category: 'color',
+                        description: '유백색 변색',
+                        region: '리브 주변',
+                        confidence: 0.7,
+                        source: 'image'
+                    }],
                     visibleFeatures: ['유백색 변색'],
                     candidates: [{
                         defectType: '백화',
                         confidence: 0.7,
                         supportingFeatures: ['유백색'],
-                        contradictingFeatures: []
+                        contradictingFeatures: [],
+                        supportingObservationIds: ['obs-1'],
+                        contradictingObservationIds: []
                     }],
                     primaryCandidate: {
                         defectType: '백화',
                         confidence: 0.7,
                         supportingFeatures: ['유백색'],
-                        contradictingFeatures: []
+                        contradictingFeatures: [],
+                        supportingObservationIds: ['obs-1'],
+                        contradictingObservationIds: []
                     },
                     requiredAdditionalViews: [],
                     qualityConcerns: [],
                     abstentionReason: '',
+                    validationIssues: [],
+                    groundingStatus: 'grounded',
                     decisionStatus: 'needs_review',
                     decisionReason: 'single_candidate_requires_review'
                 }
@@ -160,30 +219,59 @@ test('dual validation prefers the analysis with a richer structured Vision contr
             analysis: {
                 ...diagnosisCandidate('legacy', '밀핀 자국').analysis,
                 visionSummary: {
+                    contractVersion: 'vision-observation/v2',
+                    imageKind: 'physical_product',
+                    normalityStatus: 'defect_visible',
+                    visualObservations: [
+                        {
+                            observationId: 'obs-1',
+                            category: 'geometry',
+                            description: '원형 경계',
+                            region: '제품 표면',
+                            confidence: 0.52,
+                            source: 'image'
+                        },
+                        {
+                            observationId: 'obs-2',
+                            category: 'color',
+                            description: '유백색 변색',
+                            region: '원형 경계 주변',
+                            confidence: 0.38,
+                            source: 'image'
+                        }
+                    ],
                     visibleFeatures: ['원형 경계', '유백색 변색'],
                     candidates: [
                         {
                             defectType: '밀핀 자국',
                             confidence: 0.52,
                             supportingFeatures: ['원형 경계'],
-                            contradictingFeatures: ['밀핀 위치 미확인']
+                            contradictingFeatures: ['밀핀 위치 미확인'],
+                            supportingObservationIds: ['obs-1'],
+                            contradictingObservationIds: []
                         },
                         {
                             defectType: '백화',
                             confidence: 0.38,
                             supportingFeatures: ['유백색 변색'],
-                            contradictingFeatures: []
+                            contradictingFeatures: [],
+                            supportingObservationIds: ['obs-2'],
+                            contradictingObservationIds: []
                         }
                     ],
                     primaryCandidate: {
                         defectType: '밀핀 자국',
                         confidence: 0.52,
                         supportingFeatures: ['원형 경계'],
-                        contradictingFeatures: ['밀핀 위치 미확인']
+                        contradictingFeatures: ['밀핀 위치 미확인'],
+                        supportingObservationIds: ['obs-1'],
+                        contradictingObservationIds: []
                     },
                     requiredAdditionalViews: ['사광 확대 사진'],
                     qualityConcerns: [],
                     abstentionReason: '',
+                    validationIssues: [],
+                    groundingStatus: 'grounded',
                     decisionStatus: 'needs_review',
                     decisionReason: 'confidence_or_margin_gate'
                 }

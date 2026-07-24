@@ -99,24 +99,38 @@ const analyzeImageWithVisionModel = async (
 You are an expert injection molding visual inspector.
 Perform a blind visual observation of this image. Do not use field context and do not infer hidden process causes.
 
-Requirements:
-- Output in Korean.
-- Describe only visible color, texture, shape, boundary, location, direction, and repetition features.
-- Return up to 3 competing injection-molding defect candidates, sorted by confidence.
-- For every candidate, provide visible supporting and contradicting features.
-- Confidence is a number from 0 to 1 and is not a final judgment.
-- If the image is insufficient, use an empty candidate list and explain abstention_reason.
-- State which additional views or lighting would distinguish the candidates.
-- Return only valid JSON in this exact shape:
-{
-  "visible_features": ["string"],
-  "candidates": [
-    {
-      "defect_type": "string",
-      "confidence": 0.0,
-      "supporting_features": ["string"],
-      "contradicting_features": ["string"]
-    }
+ Requirements:
+ - Output in Korean.
+ - Use only pixels in the image. Do not infer process settings, root causes, hidden geometry, checks, or countermeasures.
+ - Classify documents, CAD, diagrams, and screenshots as document_or_diagram and return no physical defect candidate.
+ - Treat repeated, symmetric, and mold-functional geometry as normal unless an actual abnormality is visible.
+ - Describe only visible color, surface, geometry, boundary, location, orientation, repetition, and contrast.
+ - Give each observation a unique observation_id and return up to 3 competing defect candidates.
+ - Every candidate must cite one or more valid supporting_observation_ids.
+ - Confidence is a number from 0 to 1 and is not a final judgment.
+ - If the image is insufficient, use an empty candidate list and explain abstention_reason.
+ - State which additional views or lighting would distinguish the candidates.
+ - Return only valid JSON in this exact shape:
+ {
+   "contract_version": "vision-observation/v2",
+   "image_kind": "physical_product | document_or_diagram | unknown",
+   "normality_status": "defect_visible | no_defect_visible | uncertain",
+   "observations": [
+     {
+       "observation_id": "obs-1",
+       "category": "color | boundary | geometry | surface | location | repetition | orientation | contrast | other",
+       "description": "string",
+       "region": "string",
+       "confidence": 0.0
+     }
+   ],
+   "candidates": [
+     {
+       "defect_type": "string",
+       "confidence": 0.0,
+       "supporting_observation_ids": ["obs-1"],
+       "contradicting_observation_ids": []
+     }
   ],
   "required_additional_views": ["string"],
   "quality_concerns": ["string"],

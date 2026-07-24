@@ -209,6 +209,29 @@ test('rejects a V2 defect candidate that cites no valid visual observation', () 
   assert.ok(observation.validationIssues.includes('candidate_without_observation_evidence'));
 });
 
+test('V2 observations without an explicit ID cannot be used as defect evidence', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [{
+      category: 'color',
+      description: '\uC720\uBC31\uC0C9 \uBCC0\uC0C9',
+      confidence: 0.9
+    }],
+    candidates: [{
+      defect_type: '\uBC31\uD654',
+      confidence: 0.94,
+      supporting_observation_ids: ['obs-1']
+    }]
+  });
+
+  assert.equal(observation.visualObservations.length, 0);
+  assert.equal(observation.candidates.length, 0);
+  assert.equal(observation.groundingStatus, 'invalid');
+  assert.ok(observation.validationIssues.includes('missing_visual_observations'));
+});
+
 test('hard-negative normal evidence overrides a high-confidence defect guess', () => {
   const observation = normalizeVisionObservation({
     contract_version: 'vision-observation/v2',

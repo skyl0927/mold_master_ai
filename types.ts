@@ -45,21 +45,48 @@ export interface Shape {
 }
 
 export type VisionDecisionStatus = 'probable' | 'needs_review' | 'unclassifiable';
+export type VisionObservationCategory =
+  | 'color'
+  | 'boundary'
+  | 'geometry'
+  | 'surface'
+  | 'location'
+  | 'repetition'
+  | 'orientation'
+  | 'contrast'
+  | 'other';
+
+export interface VisionVisualObservation {
+  observationId: string;
+  category: VisionObservationCategory;
+  description: string;
+  region: string;
+  confidence: number;
+  source: 'image';
+}
 
 export interface VisionHypothesis {
   defectType: string;
   confidence: number;
   supportingFeatures: string[];
   contradictingFeatures: string[];
+  supportingObservationIds: string[];
+  contradictingObservationIds: string[];
 }
 
 export interface VisionObservationSummary {
+  contractVersion: string;
+  imageKind: 'physical_product' | 'document_or_diagram' | 'unknown';
+  normalityStatus: 'defect_visible' | 'no_defect_visible' | 'uncertain';
+  visualObservations: VisionVisualObservation[];
   visibleFeatures: string[];
   candidates: VisionHypothesis[];
   primaryCandidate: VisionHypothesis | null;
   requiredAdditionalViews: string[];
   qualityConcerns: string[];
   abstentionReason: string;
+  validationIssues: string[];
+  groundingStatus: 'grounded' | 'legacy' | 'invalid';
   decisionStatus: VisionDecisionStatus;
   decisionReason: string;
 }
