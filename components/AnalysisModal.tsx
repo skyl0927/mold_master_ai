@@ -3,6 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { CapturedImage, DefectAnalysis } from '../types';
 import { CloseIcon, ClipboardIcon, SparklesIcon, SaveIcon, LockIcon } from './Icons';
+import {
+    resolveVisionHitlDecision,
+    VisionHitlDecision
+} from '../services/visionHitlDecisionProtocol';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -10,7 +14,7 @@ interface AnalysisModalProps {
   onClose: () => void;
   onTryAgain: () => void;
   // Function to save corrected analysis to knowledge base
-  onTrainAI: (correctedAnalysis: DefectAnalysis, status: 'approved' | 'pending' | 'rejected') => Promise<void> | void;
+  onTrainAI: (correctedAnalysis: DefectAnalysis, status: VisionHitlDecision) => Promise<void> | void;
   isAdmin: boolean;
 }
 
@@ -180,12 +184,13 @@ ${data.countermeasures}
         }
     };
 
-    const handleTrain = async (status: 'approved' | 'pending') => {
+    const handleTrain = async (status: VisionHitlDecision) => {
         if (editableData) {
+            const decision = resolveVisionHitlDecision(status);
             setTrainStatus(status === 'approved' ? '저장 중...' : '제출 중...');
             try {
                 await onTrainAI(editableData, status);
-                setTrainStatus(status === 'approved' ? 'Common Agent 검토 승인 및 Graph 등록 완료!' : 'Common Agent 검토 요청 완료!');
+                setTrainStatus(decision.successMessage);
                 setTimeout(() => setTrainStatus(''), 3000);
                 setIsEditing(false);
             } catch {
@@ -787,26 +792,35 @@ ${data.countermeasures}
 
                 {/* Footer */}
                 {editableData && !isLoading && (
-                    <footer className="p-4 border-t border-gray-700 bg-gray-900 flex justify-between items-center">
+                    <footer className="p-4 border-t border-gray-700 bg-gray-900 flex flex-wrap justify-between items-center gap-3">
                         <div className="flex items-center gap-4">
                             <span className={`text-sm font-bold text-green-400 transition-opacity flex items-center gap-2 ${trainStatus || copySuccess ? 'opacity-100' : 'opacity-0'}`}>
                                 {trainStatus || copySuccess}
                             </span>
                         </div>
-                        <div className="flex gap-3">
-                            {/* Conditional Actions based on Admin Role */}
-                            {isAdmin ? (
-                                <button onClick={() => handleTrain('approved')} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-6 rounded-md transition-colors shadow-lg">
-                                    <SaveIcon className="w-5 h-5"/> [승인] Graph 학습 데이터 등록
+                        <div className="flex flex-wrap justify-end gap-2">
+                            {isAdmin && (
+                                <button onClick={() => handleTrain('approved')} className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                    <SaveIcon className="w-4 h-4"/> 승인·Graph 승격
                                 </button>
-                            ) : (
-                                <button onClick={() => handleTrain('pending')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition-colors shadow-lg">
-                                    <div className="rotate-180"><SaveIcon className="w-5 h-5"/></div> [검토 요청] Submit for Review
+                            )}
+                            <button onClick={() => handleTrain('corrected')} className="flex items-center gap-2 bg-sky-700 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                <SaveIcon className="w-4 h-4"/> 교정 저장
+                            </button>
+                            <button onClick={() => handleTrain('recapture')} className="flex items-center gap-2 bg-amber-700 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                재촬영 요청
+                            </button>
+                            <button onClick={() => handleTrain('rejected')} className="flex items-center gap-2 bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                반려
+                            </button>
+                            {!isAdmin && (
+                                <button onClick={() => handleTrain('pending')} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                    <div className="rotate-180"><SaveIcon className="w-4 h-4"/></div> 검토 요청
                                 </button>
                             )}
 
-                            <button onClick={handleCopyReport} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors shadow-lg">
-                                <ClipboardIcon className="w-5 h-5"/> 보고서 텍스트 복사
+                            <button onClick={handleCopyReport} className="flex items-center gap-2 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                                <ClipboardIcon className="w-4 h-4"/> 보고서 복사
                             </button>
                         </div>
                     </footer>

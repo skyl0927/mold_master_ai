@@ -279,6 +279,10 @@ const path = require('node:path');
         && bodyText.includes('path-whitening-release')
         && bodyText.includes('과도한 이형 저항')
         && bodyText.includes('리브 구배 및 표면 거칠기 점검'),
+      hitlActionsRendered: bodyText.includes('교정 저장')
+        && bodyText.includes('재촬영 요청')
+        && bodyText.includes('반려')
+        && bodyText.includes('검토 요청'),
       visionInferenceRejected: !bodyText.includes('비전이 생성한 미검증 원인')
         && !bodyText.includes('비전이 생성한 미검증 대책')
         && !bodyText.includes('비전 단계에서 신뢰하면 안 되는 라벨'),
@@ -297,6 +301,7 @@ const path = require('node:path');
       || !result.groundedObservationRendered
       || !result.multiviewFusionRendered
       || !result.graphCrossValidationRendered
+      || !result.hitlActionsRendered
       || !result.visionInferenceRejected
       || consoleErrors.length > 0
     ) {

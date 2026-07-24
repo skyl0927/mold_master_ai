@@ -102,7 +102,7 @@ export interface CommonAgentFeedbackResponse {
 }
 
 export interface CommonAgentImageReviewRequest {
-    decision: 'approve' | 'needs_review' | 'reject' | 'edit';
+    decision: 'approve' | 'needs_review' | 'reject' | 'edit' | 'recapture';
     defectType: string;
     observationSummary: string;
     visibleFeatures?: string[];

@@ -26,6 +26,10 @@ import DefectDashboard from './components/DefectDashboard';
 import ReportWizard from './components/ReportWizard';
 import { generatePptxReport, generateXlsxReport, ReportItem } from './services/reportService';
 import { CommonAgentGateway } from './services/commonAgentGateway';
+import {
+    resolveVisionHitlDecision,
+    VisionHitlDecision
+} from './services/visionHitlDecisionProtocol';
 import { buildMultimodalDiagnosisContext } from './services/diagnosisContextService';
 import { CommonAgentApiService, CommonAgentAnnotationRequest, NormalizedBbox } from './services/commonAgentApiService';
 import { CommonAgentDocumentService, buildDocumentDraftSyncPayload } from './services/commonAgentDocumentService';
@@ -776,14 +780,15 @@ const App: React.FC = () => {
         }
     };
 
-    const handleTrainAI = async (correctedData: DefectAnalysis, status: 'approved' | 'pending' | 'rejected') => {
+    const handleTrainAI = async (correctedData: DefectAnalysis, status: VisionHitlDecision) => {
         try {
+            const decision = resolveVisionHitlDecision(status);
             if (modalImageId) {
                 const image = capturedImages.find(img => img.id === modalImageId);
                 if (image) {
                     try {
                         const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
-                        if (status === 'approved' && !captureAssessment.ready) {
+                        if (decision.promoteToGraph && !captureAssessment.ready) {
                             throw new Error(`승인 전 촬영 프로토콜 확인 필요: ${captureAssessment.message}`);
                         }
                         const captureMetadata = buildCaptureMetadata(image, capturedImages);
@@ -816,7 +821,7 @@ const App: React.FC = () => {
 
                         const imageBlob = dataURItoBlob(image.dataUrl);
                         const contentSha256 = await sha256Hex(imageBlob);
-                        if (status === 'approved') {
+                        if (decision.promoteToGraph) {
                             const conflicts = await CommonAgentApiService.findApprovedImageLabelConflicts({
                                 contentSha256,
                                 defectType: correctedData.defectType,
@@ -831,11 +836,7 @@ const App: React.FC = () => {
                             }
                         }
                         await CommonAgentApiService.reviewImageDataset(commonAgentImageId, {
-                            decision: status === 'approved'
-                                ? 'approve'
-                                : status === 'rejected'
-                                    ? 'reject'
-                                    : 'needs_review',
+                            decision: decision.apiDecision,
                             defectType: correctedData.defectType,
                             observationSummary: correctedData.description,
                             possibleCauses: splitReviewLines(correctedData.possibleCauses),
@@ -847,15 +848,28 @@ const App: React.FC = () => {
                             answer: correctedData.rawOutput,
                             comment: status === 'approved'
                                 ? 'Mold Master AI에서 교정된 진단으로 승인 및 Graph 승격'
-                                : status === 'rejected'
-                                    ? 'Mold Master AI에서 진단 반려'
-                                    : 'Mold Master AI에서 사람 검토 요청',
-                            promoteToGraph: status === 'approved',
+                                : status === 'corrected'
+                                    ? 'Mold Master AI에서 사람 교정본 저장 및 재평가 요청'
+                                    : status === 'rejected'
+                                        ? 'Mold Master AI에서 진단 반려'
+                                        : status === 'recapture'
+                                            ? 'Mold Master AI에서 추가 시점 재촬영 요청'
+                                            : 'Mold Master AI에서 사람 검토 요청',
+                            promoteToGraph: decision.promoteToGraph,
                             metadata: {
                                 local_image_id: modalImageId,
                                 content_sha256: contentSha256,
                                 corrected_analysis: correctedData,
                                 original_analysis: image.analysis,
+                                actor_id: isAdmin
+                                    ? 'mold-master-ai-admin'
+                                    : 'mold-master-ai-reviewer',
+                                source_app: 'mold-master-ai',
+                                human_review_decision: status,
+                                human_correction_applied: status === 'corrected',
+                                recapture_required: status === 'recapture',
+                                learning_candidate_eligible: status === 'approved',
+                                fine_tuning_auto_start_allowed: false,
                                 orchestration: correctedData.orchestrationSummary,
                                 ...captureMetadata
                             }
@@ -872,12 +886,31 @@ const App: React.FC = () => {
                 await window.electronAPI.saveUserFeedback(
                     correctedData,
                     modalImageId,
-                    status,
-                    status === 'approved',
-                    image?.dataUrl
+                    decision.localStatus,
+                    decision.localLearningVerified,
+                    image?.dataUrl,
+                    { knowledgeScope: decision.knowledgeScope }
                 );
+                const reviewedAnalysis = status === 'approved'
+                    ? correctedData
+                    : {
+                        ...correctedData,
+                        visionSummary: correctedData.visionSummary
+                            ? {
+                                ...correctedData.visionSummary,
+                                decisionStatus: 'needs_review' as const,
+                                decisionReason: status === 'corrected'
+                                    ? 'human_correction_pending_re_evaluation'
+                                    : status === 'recapture'
+                                        ? 'human_recapture_requested'
+                                        : status === 'rejected'
+                                            ? 'human_rejected'
+                                            : 'human_review_requested'
+                            }
+                            : correctedData.visionSummary
+                    };
                 setCapturedImages(prev => prev.map(img =>
-                    img.id === modalImageId ? { ...img, analysis: correctedData } : img
+                    img.id === modalImageId ? { ...img, analysis: reviewedAnalysis } : img
                 ));
                 const stats = await window.electronAPI.getDBStats();
                 setDbStats(stats);
