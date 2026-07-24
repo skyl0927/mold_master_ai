@@ -7,6 +7,7 @@ const {
   assembleCandidateCollection,
   buildBasfCards,
   buildWikimediaCards,
+  parseWikimediaApiResponse,
   parseWikimediaFilePage,
   wikimediaThumbnailUrl
 } = require('../webDefectCaseCollector');
@@ -111,6 +112,44 @@ test('Wikimedia file HTML yields image, author, description, and license metadat
   assert.equal(page.imageinfo[0].extmetadata.LicenseShortName.value, 'CC BY-SA 4.0');
   assert.equal(page.imageinfo[0].extmetadata.Artist.value, 'Encik Tekateki');
   assert.match(page.imageinfo[0].extmetadata.ImageDescription.value, /Burning defects/);
+});
+
+test('Wikimedia API metadata is authoritative for license and strips author HTML', () => {
+  const page = parseWikimediaApiResponse({
+    query: {
+      pages: {
+        123: {
+          title: 'File:Sink marks.jpg',
+          imageinfo: [{
+            url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Sink_marks.jpg',
+            descriptionurl: 'https://commons.wikimedia.org/wiki/File:Sink_marks.jpg',
+            extmetadata: {
+              LicenseShortName: { value: 'CC BY-SA 4.0' },
+              LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' },
+              Artist: {
+                value: '<span class="vcard"><a href="/wiki/User:Nalbarian">Nalbarian</a></span>'
+              },
+              ImageDescription: {
+                value: '<div>Sink marks are an injection moulding defect.</div>'
+              }
+            }
+          }]
+        }
+      }
+    }
+  }, 'Sink marks.jpg');
+
+  assert.equal(page.title, 'File:Sink marks.jpg');
+  assert.equal(page.imageinfo[0].extmetadata.LicenseShortName.value, 'CC BY-SA 4.0');
+  assert.equal(
+    page.imageinfo[0].extmetadata.LicenseUrl.value,
+    'https://creativecommons.org/licenses/by-sa/4.0'
+  );
+  assert.equal(page.imageinfo[0].extmetadata.Artist.value, 'Nalbarian');
+  assert.equal(
+    page.imageinfo[0].extmetadata.ImageDescription.value,
+    'Sink marks are an injection moulding defect.'
+  );
 });
 
 test('Wikimedia originals are converted to documented bandwidth-saving thumbnails', () => {
