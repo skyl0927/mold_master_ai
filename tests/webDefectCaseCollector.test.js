@@ -3,10 +3,13 @@ const test = require('node:test');
 
 const {
   BASF_DEFECT_LABELS,
+  OPEN_ACCESS_FIGURE_MAPPINGS,
   WIKIMEDIA_CASE_MAPPINGS,
   assembleCandidateCollection,
   buildBasfCards,
+  buildOpenAccessFigureCards,
   buildWikimediaCards,
+  parsePmcOpenAccessRecord,
   parseWikimediaApiResponse,
   parseWikimediaFilePage,
   wikimediaThumbnailUrl
@@ -169,7 +172,7 @@ test('Wikimedia originals are converted to documented bandwidth-saving thumbnail
   );
 });
 
-test('Wikimedia connector selects 16 licensed visual cards without auto-qualifying Vision truth', () => {
+test('Wikimedia connector selects 15 licensed visual cards without auto-qualifying Vision truth', () => {
   const basfCards = buildBasfCards({
     links: basfLinks,
     parsedPages,
@@ -188,11 +191,60 @@ test('Wikimedia connector selects 16 licensed visual cards without auto-qualifyi
     ])),
     retrievedAt
   });
-  assert.equal(cards.length, 16);
+  assert.equal(cards.length, 15);
   assert.ok(cards.every(card => card.sourceKind === 'licensed_image'));
   assert.ok(cards.every(card => card.review.requiresHumanReview === true));
   assert.ok(cards.every(card => card.metadata.visionBenchmarkEligible === false));
   assert.ok(cards.every(card => card.evidence[0].localFile.startsWith('images/')));
+});
+
+test('PMC open-access record creates one CC BY weld-line figure candidate', () => {
+  const [mapping] = OPEN_ACCESS_FIGURE_MAPPINGS;
+  const record = parsePmcOpenAccessRecord(`
+    <OA>
+      <record
+        id="PMC10489043"
+        citation="Materials (Basel). 2023 Sep 3; 16(17):6053"
+        license="CC BY"
+        retracted="no">
+        <link format="tgz" href="ftp://ftp.ncbi.nlm.nih.gov/example.tar.gz" />
+      </record>
+    </OA>
+  `, mapping);
+  assert.equal(record.pmcId, 'PMC10489043');
+  assert.equal(record.license, 'CC BY 4.0');
+  assert.equal(record.retracted, false);
+
+  const basfCards = buildBasfCards({
+    links: basfLinks,
+    parsedPages,
+    pdfSha256: basfPdfSha256,
+    retrievedAt
+  });
+  const cards = buildOpenAccessFigureCards({
+    mappings: OPEN_ACCESS_FIGURE_MAPPINGS,
+    records: new Map([[mapping.id, record]]),
+    basfCards,
+    downloadedImages: new Map([[
+      mapping.id,
+      {
+        localFile: 'images/16-mdpi-weld-line-figure-5.jpg',
+        contentSha256: 'f'.repeat(64),
+        sizeBytes: 78685,
+        mimeType: 'image/jpeg',
+        downloadUrl: mapping.assetUrl,
+        variant: 'publisher-550px-derivative'
+      }
+    ]]),
+    retrievedAt
+  });
+
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].defectClass, 'weld_line');
+  assert.equal(cards[0].evidence[0].license, 'CC BY 4.0');
+  assert.equal(cards[0].evidence[0].licenseUrl, 'https://creativecommons.org/licenses/by/4.0/');
+  assert.equal(cards[0].review.autoApprovalAllowed, false);
+  assert.equal(cards[0].metadata.visionBenchmarkEligible, false);
 });
 
 test('Wikimedia coverage keeps two independent sink examples and trims redundant flash examples', () => {
@@ -203,7 +255,7 @@ test('Wikimedia coverage keeps two independent sink examples and trims redundant
     mapping => mapping.sourceDefectTitle === 'Flash'
   );
 
-  assert.equal(WIKIMEDIA_CASE_MAPPINGS.length, 16);
+  assert.equal(WIKIMEDIA_CASE_MAPPINGS.length, 15);
   assert.deepEqual(
     sinkMappings.map(mapping => mapping.fileName).sort(),
     ['Defek Kecut.png', 'Sink marks.jpg']
@@ -222,6 +274,27 @@ test('assembled collection reaches 40 valid cards with no approval or Graph writ
       {
         localFile: `images/${mapping.fileName}`,
         contentSha256: String(index + 1).padStart(64, '0')
+      }
+    ])),
+    openAccessFigureRecords: new Map(OPEN_ACCESS_FIGURE_MAPPINGS.map(mapping => [
+      mapping.id,
+      {
+        pmcId: mapping.pmcId,
+        citation: 'Materials (Basel). 2023 Sep 3; 16(17):6053',
+        license: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        retracted: false
+      }
+    ])),
+    downloadedOpenAccessImages: new Map(OPEN_ACCESS_FIGURE_MAPPINGS.map(mapping => [
+      mapping.id,
+      {
+        localFile: 'images/16-mdpi-weld-line-figure-5.jpg',
+        contentSha256: 'f'.repeat(64),
+        sizeBytes: 78685,
+        mimeType: 'image/jpeg',
+        downloadUrl: mapping.assetUrl,
+        variant: 'publisher-550px-derivative'
       }
     ])),
     retrievedAt,
