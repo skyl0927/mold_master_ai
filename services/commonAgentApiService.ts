@@ -274,6 +274,46 @@ export interface CommonAgentAnnotation {
     metadata?: Record<string, any>;
 }
 
+export interface CommonAgentLearningReadyVisionExportItem {
+    image_id: string;
+    file_name: string;
+    mime_type: string;
+    file_url: string;
+    review_status: 'approved' | 'candidate' | 'needs_review' | 'rejected';
+    split: 'train' | 'val' | 'test';
+    split_key?: string;
+    class_name: string;
+    labels: string[];
+    defect_type?: string;
+    process_area?: string;
+    severity?: string;
+    capture_session_id?: string;
+    capture_view_tag?: string;
+    capture_protocol_ready: boolean;
+    learning_candidate_eligible: boolean;
+    content_hash?: string;
+    product_family?: string;
+    mold_id?: string;
+    confidence?: number;
+    vision_confidence?: number;
+    graph_document_id?: string;
+    annotation_count: number;
+}
+
+export interface CommonAgentLearningReadyVisionExport {
+    dataset_name: string;
+    format: 'classification_manifest';
+    learning_ready_only: boolean;
+    capture_ready_count: number;
+    excluded_counts: Record<string, number>;
+    items: CommonAgentLearningReadyVisionExportItem[];
+    total: number;
+    split_counts: Record<string, number>;
+    defect_type_counts: Record<string, number>;
+    warnings: string[];
+    generated_at?: string;
+}
+
 const getAgentUrl = async (path: string): Promise<string> => {
     const baseUrl = await getAgentServerBaseUrl();
     return `${baseUrl}${path}`;
@@ -592,6 +632,32 @@ export class CommonAgentApiService {
 
     static async getImageDatasetFileUrl(imageId: string): Promise<string> {
         return await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(imageId)}/file`);
+    }
+
+    static async loadLearningReadyVisionExport(options: {
+        minConfidence?: number;
+        minVisionConfidence?: number;
+        limit?: number;
+        workspaceId?: string;
+        projectId?: string;
+    } = {}): Promise<CommonAgentLearningReadyVisionExport> {
+        const query = new URLSearchParams({
+            review_status: 'approved',
+            learning_ready_only: 'true',
+            limit: String(options.limit || 500)
+        });
+        if (options.minConfidence !== undefined) {
+            query.set('min_confidence', String(options.minConfidence));
+        }
+        if (options.minVisionConfidence !== undefined) {
+            query.set('min_vision_confidence', String(options.minVisionConfidence));
+        }
+        if (options.workspaceId) query.set('workspace_id', options.workspaceId);
+        if (options.projectId) query.set('project_id', options.projectId);
+
+        return await getJson<CommonAgentLearningReadyVisionExport>(
+            `/v1/datasets/images/export?${query.toString()}`
+        );
     }
 
     static async ingestDocument(
