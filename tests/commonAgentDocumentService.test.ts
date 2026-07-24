@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import './visionOperationalReleaseGate.test';
 import {
     CommonAgentDocumentService,
     buildDocumentDraftSyncPayload
