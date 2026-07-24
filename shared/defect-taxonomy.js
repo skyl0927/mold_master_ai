@@ -40,7 +40,13 @@ const DEFECT_CLASS_ALIASES = [
   ['air_trap', ['\uACF5\uAE30\uAC07\uD798', '\uACF5\uAE30\uD3EC\uD68D', 'airentrapment', 'airtrap']],
   ['void', ['\uBCF4\uC774\uB4DC', 'void', 'porosity']],
   ['dull_spot', ['\uBB34\uAD11\uBC18\uC810', 'dullspot']],
-  ['flow_mark', ['\uC720\uB3D9\uC790\uAD6D', 'flowmark', 'recordgroove']],
+  ['flow_mark', [
+    '\uC720\uB3D9\uC790\uAD6D',
+    '\uD750\uB984\uC790\uAD6D',
+    '\uD50C\uB85C\uC6B0\uB9C8\uD06C',
+    'flowmark',
+    'recordgroove'
+  ]],
   ['color_streak', ['\uCC29\uC0C9\uC904\uBB34\uB2AC', 'coloredstreak', 'colourstreak']],
   ['silver_streak', ['\uC740\uC904', '\uC218\uBD84\uC904\uBB34\uB2AC', 'moisturestreak', 'silverstreak', 'splay']],
   ['reinforcement_streak', ['\uBCF4\uAC15\uC7AC\uC904\uBB34\uB2AC', 'reinforcementstreak']],

@@ -109,14 +109,24 @@ const buildMigrationGateStatus = ({
     );
     const cleanRunnable = approvedCases.filter(item => item.status === 'active').length;
     const conflictIssues = asArray(approvedManifest.qualityIssues).filter(
-        issue => issue.type === 'duplicate_image_conflicting_labels'
+        issue => [
+            'duplicate_image_conflicting_labels',
+            'approved_label_observation_conflict'
+        ].includes(issue.type)
     );
     const conflictGroups = conflictIssues.length;
-    const conflicts = conflictIssues.map(issue => ({
-        contentHash: normalizedHash(issue.contentHash),
-        caseIds: asArray(issue.caseIds).map(String),
-        labels: asArray(issue.labels).map(String)
-    }));
+    const conflicts = conflictIssues.map(issue => issue.type === 'approved_label_observation_conflict'
+        ? {
+            contentHash: '',
+            caseIds: [String(issue.caseId || '')].filter(Boolean),
+            labels: [issue.approvedLabel, issue.observationLabel].map(String)
+        }
+        : {
+            contentHash: normalizedHash(issue.contentHash),
+            caseIds: asArray(issue.caseIds).map(String),
+            labels: asArray(issue.labels).map(String)
+        }
+    );
     const minimumSamples = Number(
         benchmarkSummary.minimumSamples || approvedManifest.minimumSamples || 20
     );

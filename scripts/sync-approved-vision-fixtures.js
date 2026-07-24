@@ -6,6 +6,10 @@ const {
   canonicalDefectClass,
   findDuplicateImageGroups
 } = require('./lib/multimodal-benchmark');
+const {
+  extractOriginalVisionDefectType,
+  findObservationLabelConflict
+} = require('./lib/approved-vision-fixture-quality');
 
 const root = process.cwd();
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
@@ -71,14 +75,26 @@ const run = async () => {
     contentHash: item.contentHash,
     expected: { defectType: item.defect_type }
   }));
-  const qualityIssues = findDuplicateImageGroups(fixtureDrafts);
-  const conflictIssues = qualityIssues.filter(
+  const duplicateQualityIssues = findDuplicateImageGroups(fixtureDrafts);
+  const duplicateConflictIssues = duplicateQualityIssues.filter(
     issue => issue.type === 'duplicate_image_conflicting_labels'
   );
-  const sameLabelDuplicateIssues = qualityIssues.filter(
+  const sameLabelDuplicateIssues = duplicateQualityIssues.filter(
     issue => issue.type === 'duplicate_image_same_label'
   );
-  const conflictedCaseIds = new Set(conflictIssues.flatMap(issue => issue.caseIds));
+  const observationConflictIssues = items
+    .map(findObservationLabelConflict)
+    .filter(Boolean);
+  const qualityIssues = [
+    ...duplicateQualityIssues,
+    ...observationConflictIssues
+  ];
+  const duplicateConflictedCaseIds = new Set(
+    duplicateConflictIssues.flatMap(issue => issue.caseIds)
+  );
+  const observationConflictedCaseIds = new Set(
+    observationConflictIssues.map(issue => issue.caseId)
+  );
   const duplicateCaseIds = new Set(sameLabelDuplicateIssues.flatMap(
     issue => [...issue.caseIds].sort().slice(1)
   ));
@@ -126,6 +142,7 @@ const run = async () => {
         reviewedAt: item.metadata?.last_reviewed_at,
         sourceSystem: item.source_system,
         priorObservationDefectType: observation.defect_type,
+        originalVisionDefectType: extractOriginalVisionDefectType(item),
         priorObservationSummary: observation.summary
       }
     };
@@ -134,7 +151,9 @@ const run = async () => {
       `${JSON.stringify(fixture, null, 2)}\n`,
       'utf8'
     );
-    const isConflict = conflictedCaseIds.has(fixture.id);
+    const isDuplicateConflict = duplicateConflictedCaseIds.has(fixture.id);
+    const isObservationConflict = observationConflictedCaseIds.has(fixture.id);
+    const isConflict = isDuplicateConflict || isObservationConflict;
     const isDuplicate = duplicateCaseIds.has(fixture.id);
     manifest.cases.push({
       id: fixture.id,
@@ -144,7 +163,8 @@ const run = async () => {
         'approved-image',
         'vision',
         'graph',
-        ...(isConflict ? ['duplicate-label-conflict'] : []),
+        ...(isDuplicateConflict ? ['duplicate-label-conflict'] : []),
+        ...(isObservationConflict ? ['vision-label-conflict'] : []),
         ...(isDuplicate ? ['duplicate-same-image'] : [])
       ]
     });
@@ -156,7 +176,12 @@ const run = async () => {
     'utf8'
   );
   console.log(`Approved Vision fixtures: ${items.length}`);
-  console.log(`Label conflicts requiring HITL: ${conflictIssues.length}`);
+  console.log(
+    `Label conflicts requiring HITL: ${
+      duplicateConflictIssues.length + observationConflictIssues.length
+    }`
+  );
+  console.log(`Vision-label conflicts quarantined: ${observationConflictIssues.length}`);
   console.log(`Same-label duplicate fixtures excluded: ${duplicateCaseIds.size}`);
   console.log(`Manifest: ${path.join(outputDir, 'manifest.json')}`);
   const runnableCount = manifest.cases.filter(item => item.status === 'active').length;

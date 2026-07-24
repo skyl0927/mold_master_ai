@@ -34,6 +34,7 @@
     "test:review-packet": "node --test tests/visionHumanReviewPacket.test.js",
     "test:vision-hitl-authorization": "node --test tests/visionHitlAuthorization.test.js",
     "test:vision-approval": "node --test tests/localVisionApproval.test.js",
+    "test:vision-fixture-quality": "node --test tests/approvedVisionFixtureQuality.test.js",
     "test:review-decisions": "node --test tests/visionReviewDecisionLedger.test.js",
     "test:report-basic-info": "node --test tests/reportBasicInfo.test.js",
     "test:migration-gate-status": "node --test tests/migrationGateStatus.test.js",
@@ -132,6 +133,7 @@
           "run-multimodal-vision-benchmark.js",
           "sync-approved-vision-fixtures.js",
           "crop-benchmark-roi.py",
+          "lib/approved-vision-fixture-quality.js",
           "lib/multimodal-benchmark.js"
         ]
       },
