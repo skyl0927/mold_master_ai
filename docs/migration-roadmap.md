@@ -408,12 +408,23 @@ Multimodal retirement benchmark:
 npm run eval:vision:sync-approved
 npm run eval:vision:approved
 npm run migration:gate-status
+npm run migration:verify-post-hitl
 ```
 
 `migration:gate-status` is read-only. It combines Common Agent and QA health,
 live dataset review states, approved-fixture conflicts, the latest HITL packet,
 and the latest Vision benchmark into
 `artifacts/migration-gate-status.json`.
+
+`migration:verify-post-hitl` is the guarded end-to-end runner. It refreshes the
+approved fixture manifest, rebuilds a preflight gate, and executes the Vision
+and approved-only Graph benchmarks only when all services are online, 20 clean
+unique fixtures are available, approved-label conflicts are zero, and every
+high-confidence HITL hash has a terminal human review. If any condition is
+missing, it writes `artifacts/post-hitl-verification-report.json` and exits
+without model benchmark calls or persistent service writes. A passing Vision
+score can no longer authorize fallback retirement while HITL remains
+unresolved.
 
 The in-app action `DATABASE TREE -> Vision 벤치마크 실행` now performs the
 approved-fixture synchronization, live Vision/Graph benchmark, service and
@@ -434,6 +445,8 @@ Current measured baseline:
   (11 approved, 8 candidate, 1 needs review, 2 rejected)
 - Common Agent approved images: 11
 - duplicate-image label conflicts requiring HITL: 1 group / 2 records
+  (`db23b38c...add6`: `image-6ed00c53f0ee` is `표면 결함`,
+  `image-84d73acb3435` is `플래시`)
 - same-image same-label duplicates excluded from independent sample counts: 1
 - clean runnable fixtures: 8 of 20
 - HTTP success: 100%
@@ -461,10 +474,16 @@ Current measured baseline:
   twelve hashes from the live dataset and packet digest; its default pending
   state is rejected by the live approval runner before Electron or any write
 - remaining class minimums: short shot 1, burn 2, sink 2, and weld line 1
+- the guarded post-HITL runner currently reports
+  `waiting_for_human_hitl`, skips both model benchmarks, and records
+  `serviceWritesPerformed=false`
 - repeatability warning: one intermediate packaged run classified the single
-  short-shot fixture as unclassifiable (7/8), while the preceding and latest
-  runs classified all eight fixtures correctly; this is another reason not to
-  retire fallback before more independent samples are collected
+  short-shot fixture as unclassifiable (7/8), while packaged v16 classified all
+  eight fixtures correctly; this is another reason not to retire fallback
+  before more independent samples are collected
+- latest development Electron retest: 7/8 passed, HTTP 100%, Graph grounding
+  100%, defect accuracy 87.5%, and classifiable rate 87.5%; approved image
+  `image-b00ca4a30e10` was returned as `판정 불가` at Vision confidence 0.52
 - three earlier unapproved records were non-persistently audited as software
   error screenshots rather than manufacturing images; five newer records carry
   user-entered labels (`기포`, `제팅`, `흐름 자국`, `백화`, `밀핀 자국`) and

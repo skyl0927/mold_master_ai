@@ -108,9 +108,15 @@ const buildMigrationGateStatus = ({
         highConfidenceAgreements - resolvedKnownHighConfidence
     );
     const cleanRunnable = approvedCases.filter(item => item.status === 'active').length;
-    const conflictGroups = asArray(approvedManifest.qualityIssues).filter(
+    const conflictIssues = asArray(approvedManifest.qualityIssues).filter(
         issue => issue.type === 'duplicate_image_conflicting_labels'
-    ).length;
+    );
+    const conflictGroups = conflictIssues.length;
+    const conflicts = conflictIssues.map(issue => ({
+        contentHash: normalizedHash(issue.contentHash),
+        caseIds: asArray(issue.caseIds).map(String),
+        labels: asArray(issue.labels).map(String)
+    }));
     const minimumSamples = Number(
         benchmarkSummary.minimumSamples || approvedManifest.minimumSamples || 20
     );
@@ -130,7 +136,8 @@ const buildMigrationGateStatus = ({
         && agent.online
         && qa.online
         && !dataset.error
-        && conflictGroups === 0;
+        && conflictGroups === 0
+        && hitl.unresolvedHighConfidence === 0;
     const blockers = buildBlockers({
         agent,
         qa,
@@ -157,7 +164,8 @@ const buildMigrationGateStatus = ({
             cleanRunnable,
             needsReview: approvedCases.filter(item => item.status === 'needs_review').length,
             duplicatesExcluded: approvedCases.filter(item => item.status === 'duplicate').length,
-            conflictGroups
+            conflictGroups,
+            conflicts
         },
         hitl,
         benchmark: {

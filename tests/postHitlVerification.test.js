@@ -162,3 +162,36 @@ test('waiting report preserves blockers and does not claim benchmark completion'
   assert.equal(report.benchmarksExecuted, false);
   assert.deepEqual(report.blockers, preflight.blockers);
 });
+
+test('missing preflight and missing benchmark reports fail closed', () => {
+  const missingPreflight = buildPostHitlVerificationReport({});
+  assert.equal(missingPreflight.status, 'waiting_for_human_hitl');
+  assert.deepEqual(missingPreflight.blockers, [{ code: 'preflight_missing' }]);
+
+  const missingReports = buildPostHitlVerificationReport({
+    preflight: assessPostHitlPreflight(readyGate())
+  });
+  assert.equal(missingReports.status, 'failed');
+  assert.deepEqual(
+    missingReports.blockers.map(item => item.code),
+    [
+      'vision_benchmark_failed',
+      'graph_benchmark_failed',
+      'migration_gate_failed'
+    ]
+  );
+  assert.equal(missingReports.graph, null);
+});
+
+test('empty gate data fails closed with default minimums', () => {
+  const assessment = assessPostHitlPreflight({});
+
+  assert.equal(assessment.readyForBenchmarks, false);
+  assert.equal(assessment.requiredSamples, 20);
+  assert.equal(assessment.currentSamples, 0);
+  assert.equal(assessment.additionalSamplesRequired, 20);
+  assert.deepEqual(
+    assessment.blockers.map(item => item.code),
+    ['common_agent_offline', 'qa_agent_offline', 'approved_sample_count']
+  );
+});

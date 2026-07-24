@@ -258,3 +258,13 @@ only when all of the following are true:
 - Graph grounding rate at least 80%
 - every observed class accuracy at least 50%
 - Vision confidence of at least 0.6 on at least 80% of samples
+
+The CLI equivalent is:
+
+```powershell
+npm run migration:verify-post-hitl
+```
+
+It synchronizes approved fixtures first, so a stale prior benchmark cannot hide
+newly approved samples. It does not run the Vision or Graph benchmark until the
+sample, conflict, service, and human-review preflight is clean.
