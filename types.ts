@@ -269,6 +269,7 @@ export interface CapturedImage {
 
 export type ApiProvider = 'gemini' | 'openai';
 export type AiOrchestrationMode = 'common_agent_primary' | 'dual_validation' | 'legacy';
+export type VisionReferenceBenchmarkGateMode = 'off' | 'shadow' | 'enforce';
 
 export interface ApiConfig {
   provider: ApiProvider;
@@ -281,6 +282,13 @@ export interface ApiConfig {
   shortcut?: string;
   agentServerUrl?: string;
   visionQaServerUrl?: string;
+  visionReferenceBenchmarkGateMode?: VisionReferenceBenchmarkGateMode;
+  visionReferenceBenchmarkModelVersion?: string;
+  visionReferenceBenchmarkRequiredDefectTypes?: string[];
+  visionReferenceBenchmarkMinimumSamples?: number;
+  visionReferenceBenchmarkMinimumSamplesPerClass?: number;
+  visionReferenceBenchmarkMinimumTop1Accuracy?: number;
+  visionReferenceBenchmarkMinimumTop3Accuracy?: number;
 }
 
 export interface DocumentChunk {

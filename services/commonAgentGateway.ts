@@ -7,6 +7,7 @@ import {
     CaptureViewTag,
     VisionDecisionStatus,
     VisionImageQualityReport,
+    VisionReferenceBenchmarkGateMode,
     VisionRuntimeVersionSnapshot
 } from '../types';
 import { analyzeMoldDefect } from './aiService';
@@ -162,6 +163,14 @@ interface DiagnosisExecution {
     fallbackUsed: boolean;
 }
 
+export interface VisionReferenceBenchmarkGateResult {
+    mode: VisionReferenceBenchmarkGateMode;
+    checked: boolean;
+    ready: boolean;
+    failedChecks: string[];
+    message?: string;
+}
+
 export const selectValidatedDiagnosis = (
     execution: DiagnosisExecution
 ): {
@@ -222,6 +231,72 @@ const runTimed = async (executor: () => Promise<DiagnosisCandidate>): Promise<Di
     const startedAt = performance.now();
     const result = await executor();
     return { ...result, durationMs: Math.round(performance.now() - startedAt) };
+};
+
+const benchmarkGateMessage = (
+    failedChecks: string[],
+    evaluatedCount?: number
+): string => [
+    'Common Agent Vision reference benchmark gate failed.',
+    failedChecks.length > 0 ? `failed=${failedChecks.join(',')}` : '',
+    typeof evaluatedCount === 'number' ? `evaluated=${evaluatedCount}` : ''
+].filter(Boolean).join(' ');
+
+export const assertVisionReferenceBenchmarkReady = async (
+    config: Awaited<ReturnType<typeof getRuntimeConfig>>
+): Promise<VisionReferenceBenchmarkGateResult> => {
+    const mode = config?.visionReferenceBenchmarkGateMode || 'off';
+    if (mode === 'off') {
+        return {
+            mode,
+            checked: false,
+            ready: true,
+            failedChecks: []
+        };
+    }
+    if (!config?.visionReferenceBenchmarkModelVersion) {
+        const message = 'Common Agent Vision reference benchmark model version is not configured.';
+        if (mode === 'enforce') throw new Error(message);
+        console.warn(`[CommonAgentGateway] ${message}`);
+        return {
+            mode,
+            checked: false,
+            ready: false,
+            failedChecks: ['modelVersionMissing'],
+            message
+        };
+    }
+
+    const report = await CommonAgentApiService.benchmarkCurrentVisionReferences({
+        embedding_model_version: config.visionReferenceBenchmarkModelVersion,
+        minimum_samples: config.visionReferenceBenchmarkMinimumSamples,
+        required_defect_types: config.visionReferenceBenchmarkRequiredDefectTypes,
+        minimum_samples_per_class: config.visionReferenceBenchmarkMinimumSamplesPerClass,
+        minimum_top1_accuracy: config.visionReferenceBenchmarkMinimumTop1Accuracy,
+        minimum_top3_accuracy: config.visionReferenceBenchmarkMinimumTop3Accuracy
+    });
+    if (report.ready_for_graph_retrieval) {
+        return {
+            mode,
+            checked: true,
+            ready: true,
+            failedChecks: []
+        };
+    }
+
+    const message = benchmarkGateMessage(
+        report.failed_gate_checks || [],
+        report.evaluated_count
+    );
+    if (mode === 'enforce') throw new Error(message);
+    console.warn(`[CommonAgentGateway] ${message}`);
+    return {
+        mode,
+        checked: true,
+        ready: false,
+        failedChecks: report.failed_gate_checks || [],
+        message
+    };
 };
 
 export const executeDiagnosisStrategy = async (
@@ -555,6 +630,7 @@ export class CommonAgentGateway {
         const execution = await executeDiagnosisStrategy(
             strategy,
             async () => {
+                await assertVisionReferenceBenchmarkReady(config);
                 const sessionViews = (options.sessionImages || [])
                     .filter(item => !item.isPrimary && item.imageId !== options.imageId)
                     .map(item => ({

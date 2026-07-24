@@ -12,6 +12,7 @@ import {
     calculateDiagnosisObservability,
     calculateTransitionReadiness,
     CommonAgentGateway,
+    assertVisionReferenceBenchmarkReady,
     defectTypesAgree,
     executeDiagnosisStrategy,
     isUsableDefectType,
@@ -1769,4 +1770,124 @@ test('learning-ready Vision export is requested from Common Agent with strict ga
     assert.equal(exportResult.items[0].split_key, 'capture-session-1');
     assert.equal(exportResult.items[0].capture_view_tag, 'full_part_context');
     assert.equal(exportResult.excluded_counts.missing_required_views, 1);
+});
+
+test('current Vision reference benchmark is requested from Common Agent with release gates', async () => {
+    let capturedUrl = '';
+    let capturedBody: any;
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedBody = JSON.parse(String(init?.body || '{}'));
+        return new Response(JSON.stringify({
+            embedding_model_version: 'dinov2-reference-v1',
+            reference_count: 40,
+            evaluated_count: 40,
+            top1_accuracy: 0.9,
+            top3_accuracy: 0.97,
+            required_defect_types: ['whitening', 'flash'],
+            per_class: [],
+            gate_checks: { top1Accuracy: true, top3Accuracy: true },
+            failed_gate_checks: [],
+            ready_for_graph_retrieval: true,
+            warnings: []
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const report = await CommonAgentApiService.benchmarkCurrentVisionReferences({
+        embedding_model_version: 'dinov2-reference-v1',
+        minimum_samples: 20,
+        required_defect_types: ['whitening', 'flash'],
+        minimum_samples_per_class: 2,
+        minimum_top1_accuracy: 0.8,
+        minimum_top3_accuracy: 0.9
+    });
+
+    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/benchmark-current');
+    assert.deepEqual(capturedBody, {
+        embedding_model_version: 'dinov2-reference-v1',
+        minimum_samples: 20,
+        required_defect_types: ['whitening', 'flash'],
+        minimum_samples_per_class: 2,
+        minimum_top1_accuracy: 0.8,
+        minimum_top3_accuracy: 0.9
+    });
+    assert.equal(report.ready_for_graph_retrieval, true);
+});
+
+test('enforced Vision reference benchmark gate blocks Common Agent graph path before diagnosis', async () => {
+    const originalBenchmark = CommonAgentApiService.benchmarkCurrentVisionReferences;
+    let diagnoseCalled = false;
+    CommonAgentApiService.benchmarkCurrentVisionReferences = async () => ({
+        embedding_model_version: 'dinov2-reference-v1',
+        reference_count: 6,
+        evaluated_count: 6,
+        top1_accuracy: 0.33,
+        top3_accuracy: 0.66,
+        required_defect_types: ['whitening', 'flash'],
+        per_class: [],
+        gate_checks: { top1Accuracy: false, top3Accuracy: false },
+        failed_gate_checks: ['top1Accuracy', 'top3Accuracy'],
+        ready_for_graph_retrieval: false,
+        warnings: []
+    });
+
+    try {
+        const execution = await executeDiagnosisStrategy(
+            'common_agent_primary',
+            async () => {
+                await assertVisionReferenceBenchmarkReady({
+                    provider: 'openai',
+                    aiOrchestrationMode: 'common_agent_primary',
+                    visionReferenceBenchmarkGateMode: 'enforce',
+                    visionReferenceBenchmarkModelVersion: 'dinov2-reference-v1'
+                });
+                diagnoseCalled = true;
+                return diagnosisCandidate('common_agent', 'whitening');
+            },
+            async () => diagnosisCandidate('legacy', 'legacy-safe-review')
+        );
+
+        assert.equal(diagnoseCalled, false);
+        assert.equal(execution.selected.source, 'legacy');
+        assert.equal(execution.fallbackUsed, true);
+        assert.match(execution.commonAgentError || '', /top1Accuracy/);
+    } finally {
+        CommonAgentApiService.benchmarkCurrentVisionReferences = originalBenchmark;
+    }
+});
+
+test('shadow Vision reference benchmark gate records failure without blocking diagnosis', async () => {
+    const originalBenchmark = CommonAgentApiService.benchmarkCurrentVisionReferences;
+    CommonAgentApiService.benchmarkCurrentVisionReferences = async () => ({
+        embedding_model_version: 'dinov2-reference-v1',
+        reference_count: 6,
+        evaluated_count: 6,
+        top1_accuracy: 0.33,
+        top3_accuracy: 0.66,
+        required_defect_types: ['whitening', 'flash'],
+        per_class: [],
+        gate_checks: { top1Accuracy: false },
+        failed_gate_checks: ['top1Accuracy'],
+        ready_for_graph_retrieval: false,
+        warnings: []
+    });
+
+    try {
+        const gate = await assertVisionReferenceBenchmarkReady({
+            provider: 'openai',
+            visionReferenceBenchmarkGateMode: 'shadow',
+            visionReferenceBenchmarkModelVersion: 'dinov2-reference-v1'
+        });
+
+        assert.equal(gate.checked, true);
+        assert.equal(gate.ready, false);
+        assert.deepEqual(gate.failedChecks, ['top1Accuracy']);
+    } finally {
+        CommonAgentApiService.benchmarkCurrentVisionReferences = originalBenchmark;
+    }
 });

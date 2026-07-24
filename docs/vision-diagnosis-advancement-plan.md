@@ -225,9 +225,12 @@ temperature/isotonic calibration과 목표 정확도 측정은 운영 검증 대
 기간: 데이터 확보 후 2~4주
 
 개발 상태: 2026-07-24 Common Agent에 `VLM + 참조 이미지 분류기` 합의
-계약과 Graph 검색 차단 로직을 구현했다. 실제 임베딩 모델과 학습 헤드는
-승인 다중 시점 데이터가 클래스별 최소 30세션에 도달하기 전까지 연결하지
-않는다.
+계약과 Graph 검색 차단 로직을 구현했다. 2026-07-25 Mold Master AI의
+Common Agent 진단 진입점에도 승인 참조 이미지 벤치마크 게이트를 연결했다.
+설정 화면에서 `off`, `shadow`, `enforce` 모드를 선택하고 모델 버전,
+필수 결함군, 샘플 수, Top-1/Top-3 기준을 저장할 수 있다. 실제 임베딩 모델과
+학습 헤드는 승인 다중 시점 데이터가 클래스별 최소 30세션에 도달하기 전까지
+연결하지 않는다.
 
 개발:
 
@@ -237,6 +240,9 @@ temperature/isotonic calibration과 목표 정확도 측정은 운영 검증 대
 - 참조 이미지 ID, encoder 버전, 거리, 클래스 표본 수를 추론 결과에 저장
 - VLM과 분류기 불일치 시 원인·대책 Graph 검색을 시작하지 않음
 - 정상/불량 쌍이 없는 클래스는 자동 확정 대상에서 제외
+- Common Agent의 `/v1/vision/classifier/benchmark-current` 결과가 기준
+  미달이면 `enforce` 모드에서 Mold Master AI가 Graph 진단을 차단하고 기존
+  AI fallback 또는 HITL 검토로 전환
 
 합격 기준:
 
@@ -386,6 +392,19 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 
 실제 승인 사진으로 촬영 준비도 80%와 클래스별 calibration을 달성하기
 전에는 `vision-fusion/v1`의 자동 확정 임계값을 완화하지 않는다.
+
+2026-07-25 이후 다음 개발 단위:
+
+1. Common Agent에 DINOv2/SigLIP2 실제 임베딩 런타임을 연결하고 현재
+   mock/prototype benchmark를 실측 benchmark로 교체
+2. Mold Master 설정의 Vision 벤치마크 게이트를 `shadow`로 전환해 진단
+   실패 없이 기준 미달 항목을 수집
+3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행
+   후 `enforce`로 승격
+4. 벤치마크 결과와 운영 릴리스 보고서를 하나의 카드로 통합해 담당자가 앱
+   안에서 승격, 보류, 롤백을 결정
+5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
+   반대 근거, 추가 촬영 요구를 함께 저장
 
 ## 9. 참고 기술 기준
 

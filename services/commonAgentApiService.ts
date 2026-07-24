@@ -314,6 +314,41 @@ export interface CommonAgentLearningReadyVisionExport {
     generated_at?: string;
 }
 
+export interface CommonAgentVisionReferenceBenchmarkRequest {
+    embedding_model_version: string;
+    top_k?: number;
+    minimum_reference_support?: number;
+    minimum_samples?: number;
+    required_defect_types?: string[];
+    minimum_samples_per_class?: number;
+    minimum_top1_accuracy?: number;
+    minimum_top3_accuracy?: number;
+}
+
+export interface CommonAgentVisionReferenceBenchmarkResponse {
+    embedding_model_version: string;
+    reference_count: number;
+    evaluated_count: number;
+    top1_accuracy: number;
+    top3_accuracy: number;
+    required_defect_types: string[];
+    per_class: Array<{
+        defect_type: string;
+        total: number;
+        top1_correct: number;
+        top3_correct: number;
+        top1_accuracy: number;
+        top3_accuracy: number;
+        required_samples: number;
+        covered: boolean;
+    }>;
+    gate_checks: Record<string, boolean>;
+    failed_gate_checks: string[];
+    ready_for_graph_retrieval: boolean;
+    results?: Array<Record<string, any>>;
+    warnings: string[];
+}
+
 const getAgentUrl = async (path: string): Promise<string> => {
     const baseUrl = await getAgentServerBaseUrl();
     return `${baseUrl}${path}`;
@@ -657,6 +692,15 @@ export class CommonAgentApiService {
 
         return await getJson<CommonAgentLearningReadyVisionExport>(
             `/v1/datasets/images/export?${query.toString()}`
+        );
+    }
+
+    static async benchmarkCurrentVisionReferences(
+        payload: CommonAgentVisionReferenceBenchmarkRequest
+    ): Promise<CommonAgentVisionReferenceBenchmarkResponse> {
+        return await postJson<CommonAgentVisionReferenceBenchmarkResponse>(
+            '/v1/vision/classifier/benchmark-current',
+            payload
         );
     }
 

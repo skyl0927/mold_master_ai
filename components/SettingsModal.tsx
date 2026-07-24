@@ -1,7 +1,12 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { AiOrchestrationMode, ApiProvider, ApiConfig } from '../types';
+import {
+  AiOrchestrationMode,
+  ApiProvider,
+  ApiConfig,
+  VisionReferenceBenchmarkGateMode
+} from '../types';
 import { CloseIcon, SaveIcon, InfoIcon, LockIcon } from './Icons';
 import { DEFAULT_AGENT_SERVER_URL } from '../services/runtimeConfig';
 import {
@@ -39,6 +44,21 @@ const releaseDecisionLabel = (
   return 'Shadow 모드 유지';
 };
 
+const optionalNumber = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const optionalCsv = (value: string): string[] | undefined => {
+  const items = value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : undefined;
+};
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialConfig }) => {
   const [provider, setProvider] = useState<ApiProvider>(initialConfig?.provider || 'gemini');
   const [aiOrchestrationMode, setAiOrchestrationMode] = useState<AiOrchestrationMode>(
@@ -52,6 +72,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [shortcut, setShortcut] = useState(initialConfig?.shortcut || 'CommandOrControl+Shift+C');
   const [agentServerUrl, setAgentServerUrl] = useState(initialConfig?.agentServerUrl || '');
   const [visionQaServerUrl, setVisionQaServerUrl] = useState(initialConfig?.visionQaServerUrl || '');
+  const [visionReferenceBenchmarkGateMode, setVisionReferenceBenchmarkGateMode] =
+    useState<VisionReferenceBenchmarkGateMode>(
+      initialConfig?.visionReferenceBenchmarkGateMode || 'off'
+    );
+  const [visionReferenceBenchmarkModelVersion, setVisionReferenceBenchmarkModelVersion] =
+    useState(initialConfig?.visionReferenceBenchmarkModelVersion || '');
+  const [visionReferenceBenchmarkRequiredDefectTypes, setVisionReferenceBenchmarkRequiredDefectTypes] =
+    useState(initialConfig?.visionReferenceBenchmarkRequiredDefectTypes?.join(', ') || '');
+  const [visionReferenceBenchmarkMinimumSamples, setVisionReferenceBenchmarkMinimumSamples] =
+    useState(
+      initialConfig?.visionReferenceBenchmarkMinimumSamples === undefined
+        ? ''
+        : String(initialConfig.visionReferenceBenchmarkMinimumSamples)
+    );
+  const [visionReferenceBenchmarkMinimumSamplesPerClass, setVisionReferenceBenchmarkMinimumSamplesPerClass] =
+    useState(
+      initialConfig?.visionReferenceBenchmarkMinimumSamplesPerClass === undefined
+        ? ''
+        : String(initialConfig.visionReferenceBenchmarkMinimumSamplesPerClass)
+    );
+  const [visionReferenceBenchmarkMinimumTop1Accuracy, setVisionReferenceBenchmarkMinimumTop1Accuracy] =
+    useState(
+      initialConfig?.visionReferenceBenchmarkMinimumTop1Accuracy === undefined
+        ? ''
+        : String(initialConfig.visionReferenceBenchmarkMinimumTop1Accuracy)
+    );
+  const [visionReferenceBenchmarkMinimumTop3Accuracy, setVisionReferenceBenchmarkMinimumTop3Accuracy] =
+    useState(
+      initialConfig?.visionReferenceBenchmarkMinimumTop3Accuracy === undefined
+        ? ''
+        : String(initialConfig.visionReferenceBenchmarkMinimumTop3Accuracy)
+    );
   const [isRecording, setIsRecording] = useState(false);
   const [status, setStatus] = useState('');
   const [transitionReadiness, setTransitionReadiness] = useState(() =>
@@ -142,6 +194,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
         shortcut,
         agentServerUrl,
         visionQaServerUrl,
+        visionReferenceBenchmarkGateMode,
+        visionReferenceBenchmarkModelVersion: visionReferenceBenchmarkModelVersion.trim() || undefined,
+        visionReferenceBenchmarkRequiredDefectTypes: optionalCsv(visionReferenceBenchmarkRequiredDefectTypes),
+        visionReferenceBenchmarkMinimumSamples: optionalNumber(visionReferenceBenchmarkMinimumSamples),
+        visionReferenceBenchmarkMinimumSamplesPerClass: optionalNumber(visionReferenceBenchmarkMinimumSamplesPerClass),
+        visionReferenceBenchmarkMinimumTop1Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop1Accuracy),
+        visionReferenceBenchmarkMinimumTop3Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop3Accuracy),
         adminPassword: newAdminPassword || initialConfig?.adminPassword // Update only if new one provided
     };
 
@@ -734,6 +793,108 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
             <p className="mt-1 text-xs text-gray-500">
               비워두면 로컬 8000 구성은 8103으로, 통합 외부 서버 구성은 Common Agent URL과 동일하게 추론합니다.
             </p>
+            <div className="mt-4 rounded-lg border border-sky-900/70 bg-sky-950/20 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-sky-100">Vision 기준 샘플 벤치마크 게이트</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+                    Common Agent Graph 진단 전에 승인 이미지 기준 샘플로 현재 Vision 모델을 검증합니다.
+                    Shadow는 경고만 남기고, Enforce는 기준 미달 시 기존 AI 경로로 대체합니다.
+                  </p>
+                </div>
+                <span className={`shrink-0 rounded px-2 py-1 text-[9px] font-bold ${
+                  visionReferenceBenchmarkGateMode === 'enforce'
+                    ? 'bg-red-900/60 text-red-100'
+                    : visionReferenceBenchmarkGateMode === 'shadow'
+                      ? 'bg-amber-900/60 text-amber-100'
+                      : 'bg-gray-700 text-gray-300'
+                }`}>
+                  {visionReferenceBenchmarkGateMode.toUpperCase()}
+                </span>
+              </div>
+
+              <label htmlFor="vision-reference-benchmark-gate-mode" className="mt-3 block text-[11px] font-medium text-gray-300">
+                게이트 모드
+              </label>
+              <select
+                id="vision-reference-benchmark-gate-mode"
+                value={visionReferenceBenchmarkGateMode}
+                onChange={(event) =>
+                  setVisionReferenceBenchmarkGateMode(event.target.value as VisionReferenceBenchmarkGateMode)
+                }
+                className="mt-1 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="off">Off - 진단 차단 없음</option>
+                <option value="shadow">Shadow - 실패 경고만 기록</option>
+                <option value="enforce">Enforce - 기준 미달 시 Graph 진단 차단</option>
+              </select>
+
+              <label htmlFor="vision-reference-benchmark-model-version" className="mt-3 block text-[11px] font-medium text-gray-300">
+                모델 버전
+              </label>
+              <input
+                id="vision-reference-benchmark-model-version"
+                type="text"
+                value={visionReferenceBenchmarkModelVersion}
+                onChange={(event) => setVisionReferenceBenchmarkModelVersion(event.target.value)}
+                placeholder="예: dinov2-reference-v1"
+                className="mt-1 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+
+              <label htmlFor="vision-reference-benchmark-required-defects" className="mt-3 block text-[11px] font-medium text-gray-300">
+                필수 결함군
+              </label>
+              <input
+                id="vision-reference-benchmark-required-defects"
+                type="text"
+                value={visionReferenceBenchmarkRequiredDefectTypes}
+                onChange={(event) => setVisionReferenceBenchmarkRequiredDefectTypes(event.target.value)}
+                placeholder="예: whitening, sink_mark, weld_line"
+                className="mt-1 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={visionReferenceBenchmarkMinimumSamples}
+                  onChange={(event) => setVisionReferenceBenchmarkMinimumSamples(event.target.value)}
+                  placeholder="최소 샘플 수"
+                  className="rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  value={visionReferenceBenchmarkMinimumSamplesPerClass}
+                  onChange={(event) => setVisionReferenceBenchmarkMinimumSamplesPerClass(event.target.value)}
+                  placeholder="결함군별 최소 수"
+                  className="rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={visionReferenceBenchmarkMinimumTop1Accuracy}
+                  onChange={(event) => setVisionReferenceBenchmarkMinimumTop1Accuracy(event.target.value)}
+                  placeholder="Top-1 기준 예: 0.85"
+                  className="rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={visionReferenceBenchmarkMinimumTop3Accuracy}
+                  onChange={(event) => setVisionReferenceBenchmarkMinimumTop3Accuracy(event.target.value)}
+                  placeholder="Top-3 기준 예: 0.95"
+                  className="rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-gray-500">
+                값이 비어 있으면 Common Agent의 서버 기본값을 사용합니다. 운영 전환 전에는 Shadow로 누적 로그를 확인한 뒤 Enforce로 승격하는 흐름을 권장합니다.
+              </p>
+            </div>
           </div>
         </main>
 
