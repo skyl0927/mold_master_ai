@@ -18,6 +18,18 @@ if (!packetRoot) {
 const manifest = JSON.parse(
     fs.readFileSync(path.join(packetRoot, 'vision-candidates.json'), 'utf8')
 );
+const webPreviewCandidate = manifest.candidates.find(
+    candidate => candidate.sourceLineage?.packetSourceKind === 'web-case'
+);
+if (!webPreviewCandidate) {
+    throw new Error('The review packet does not contain a Web Case candidate.');
+}
+const webPreviewFileName = path.basename(webPreviewCandidate.relativePath);
+const webPreviewLicense = webPreviewCandidate.sourceLineage?.license;
+const webPreviewCaseId = webPreviewCandidate.sourceLineage?.webCaseId;
+if (!webPreviewLicense || !webPreviewCaseId) {
+    throw new Error('Web Case source lineage is missing a license or case ID.');
+}
 
 const sendJson = (response, status, payload) => {
     response.writeHead(status, {
@@ -145,7 +157,7 @@ const sendJson = (response, status, payload) => {
         const webSourceBadges = page.getByText('Web Case 출처', { exact: true });
         const webSourceBadgeCount = await webSourceBadges.count();
         const webPreviewButton = page.getByRole('button', {
-            name: /^확대 보기 04-Defek-terbakar\.png$/
+            name: `확대 보기 ${webPreviewFileName}`
         });
         await webPreviewButton.waitFor({ timeout: 15000 });
         await webPreviewButton.click();
@@ -154,13 +166,13 @@ const sendJson = (response, status, payload) => {
             .getByText('Web Case 출처·라이선스', { exact: true })
             .isVisible();
         const webLicenseVisible = await previewDialog
-            .getByText('CC0', { exact: true })
+            .getByText(webPreviewLicense, { exact: true })
             .isVisible();
         const webSourceLinkVisible = await previewDialog
             .getByRole('link', { name: '원문 출처 열기' })
             .isVisible();
         const webCaseIdVisible = await previewDialog
-            .getByText('web-wikimedia-defek-terbakar-png', { exact: true })
+            .getByText(webPreviewCaseId, { exact: true })
             .isVisible();
         await previewDialog.getByRole('button', { name: '확대 보기 닫기' }).click();
         await previewDialog.waitFor({ state: 'hidden', timeout: 15000 });

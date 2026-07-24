@@ -157,13 +157,13 @@ npm run vision:review-packet:audit
 
 The generated packet is stored under
 `artifacts/vision-human-review-packet-<timestamp>`. The current packet contains
-27 unique candidates:
+28 unique candidates:
 
 - whitening: 3
 - short shot: 3
 - burn: 4
 - flash: 2
-- sink: 8
+- sink: 9
 - weld line: 5
 - ejection: 2
 
@@ -171,26 +171,27 @@ The Vision audit uses `/internal/vision/describe` only. It does not create SQL
 records, image-dataset rows, approvals, or Graph nodes. Completed observations
 from older packets are reused by immutable image SHA-256, so rebuilding a
 packet does not repeatedly spend Vision calls on the same bytes. The latest
-run reused the previous 23 observations and requested only the four new Web
-Case images.
+run reused 25 observations and requested only three changed or new Web Case
+image hashes.
 
-- source/Vision high-confidence agreement: 10
+- source/Vision high-confidence agreement: 11
 - source/Vision low-confidence agreement: 1
 - heuristic/Vision agreement requiring source confirmation: 1
 - class conflict: 5
 - unclassifiable or normal-functional image: 10
 
-The four new CC0 Web Case candidates are all priority-one source/Vision
+The five reusable-license Web Case candidates are all priority-one source/Vision
 agreements:
 
-- burn: 2 at confidence 0.86 and 0.90
+- burn: 2 at confidence 0.90 and 0.91
 - short shot: 1 at confidence 0.97
-- sink: 1 at confidence 0.90
+- sink: 2 at confidence 0.83 and 0.90
 
 Their Web Case ID, publisher, source URL, author, license, evidence SHA-256,
 and packet lineage are displayed in the original-image review dialog and are
 forwarded to Common Agent only after explicit human registration and approval.
-They are candidates, not benchmark truth.
+All five currently carry `CC BY-SA 4.0` from the authoritative Wikimedia
+`imageinfo/extmetadata` API. They are candidates, not benchmark truth.
 
 Open `Knowledge & Dataset Control` and select `준비된 검토 패킷`. The app
 automatically finds the latest development packet or reuses the packet pointer

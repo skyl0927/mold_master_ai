@@ -53,9 +53,10 @@ npm run vision:review-packet
 npm run vision:review-packet:audit
 ```
 
-현재 승인 fixture 기준으로 `short shot 1`, `burn 2`, `sink 1`의 CC0
-이미지 네 건이 선택됐다. 이전 23건의 감사 결과는 SHA-256으로
-재사용하고 신규 네 건만 비저장 Vision 감사를 실행했다. 네 건 모두
+현재 승인 fixture 기준으로 `short shot 1`, `burn 2`, `sink 2`의
+재사용 가능 이미지 다섯 건이 선택됐다. 최신 패킷에서는 이전 결과
+25건을 SHA-256으로 재사용하고 변경 또는 신규 해시 세 건만 비저장
+Vision 감사를 실행했다. 다섯 건 모두
 원문 라벨과 Vision 제안이 일치했지만 사람 승인 전에는 SQL, Graph,
 학습 데이터에 기록되지 않는다.
 
@@ -87,7 +88,7 @@ npm run test:electron:web-knowledge-hitl
 
 ## 감사 파일
 
-- 수집 보고서: `artifacts/web-injection-defect-cases-20260724T045605/collection-report.json`
+- 수집 보고서: `artifacts/web-injection-defect-cases-20260724T072144/collection-report.json`
 - Common Agent 비저장 검증: `artifacts/web-knowledge-common-agent-validation.json`
 - 카드 내용 품질 감사: `artifacts/web-knowledge-quality-audit.json`
 - Electron 왕복 화면: `artifacts/electron-web-knowledge-hitl.png`
@@ -97,6 +98,7 @@ npm run test:electron:web-knowledge-hitl
 ## 보안 및 제한
 
 - 크롤러는 HTTPS와 허용 호스트 목록, robots 정책, 호스트별 속도 제한, 제한된 재시도를 적용한다.
+- Wikimedia 라이선스는 HTML 문구 추정이 아니라 공식 `imageinfo/extmetadata` API로 확인한다. 정확한 Commons API 호스트·경로·조회 동작만 API 모드로 허용하고 일반 웹 경로는 계속 robots 정책을 따른다.
 - 현재 PC의 `NODE_TLS_REJECT_UNAUTHORIZED=0` 환경은 수집 보고서에 보안 경고로 기록된다. 사내 인증서 체인을 Node 신뢰 저장소에 등록한 뒤 이 설정을 제거해야 한다.
 - BASF 원문은 저작권 자료이므로 전문 복제 없이 인용 메타데이터와 제한된 근거 문장만 사용한다.
 - 원인 라벨과 확인 항목 자동 제안은 검토 편의 기능이며 승인 판정이 아니다.

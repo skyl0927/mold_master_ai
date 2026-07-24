@@ -445,18 +445,18 @@ Current measured baseline:
   (`whitening`, `flash`, `ejection`)
 - Vision confidence >= 0.6 rate: 100% in the latest packaged v16 run
 - additional independent approved images required: 12
-- latest non-persisting HITL packet: 27 SHA-256-verified candidates, ten
+- latest non-persisting HITL packet: 28 SHA-256-verified candidates, eleven
   high-confidence source/Vision class agreements, five class conflicts, ten
   unclassifiable images, and zero automatic approvals
 - the six previously confirmed priority-one candidates remain approved and
-  Graph-promoted; four new CC0 Web Case candidates are still pending human
-  review: burn 2, short shot 1, and sink 1
-- the four Web Case candidates were the only new Vision calls in the latest
-  audit; 23 prior observations were reused by immutable SHA-256
-- if all four are independently confirmed, class minimums improve to short
-  shot 2/2, burn 2/2, and sink 1/2; one additional sink and one independent
-  weld-line sample still remain mandatory
-- HITL hash resolution: 6 of 6 resolved; unresolved priority-one candidates: 0
+  Graph-promoted; five reusable-license Web Case candidates are still pending
+  human review: burn 2, short shot 1, and sink 2
+- the latest audit reused 25 immutable SHA-256 observations and requested only
+  three changed or new Web Case hashes
+- if all five are independently confirmed, class minimums improve to short
+  shot 2/2, burn 2/2, and sink 2/2; one independent weld-line sample still
+  remains mandatory
+- HITL hash resolution: 6 of 11 resolved; unresolved priority-one candidates: 5
 - remaining class minimums: short shot 1, burn 2, sink 2, and weld line 1
 - repeatability warning: one intermediate packaged run classified the single
   short-shot fixture as unclassifiable (7/8), while the preceding and latest
