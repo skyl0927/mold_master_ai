@@ -1,0 +1,52 @@
+{
+  "baselineVersion": {
+    "modelVersion": "vision-model-YYYY.MM-baseline",
+    "promptVersion": "vision-prompt-v1",
+    "graphVersion": "approved-graph-001"
+  },
+  "candidateVersion": {
+    "modelVersion": "vision-model-YYYY.MM-candidate",
+    "promptVersion": "vision-prompt-v2",
+    "graphVersion": "approved-graph-002"
+  },
+  "latencyTargetP95Ms": 1500,
+  "minimumSamples": 20,
+  "minimumHumanVerifiedPerNewProduct": 30,
+  "newProductFamilies": [
+    "NEW-PRODUCT-FAMILY"
+  ],
+  "splitSamples": [
+    {
+      "caseId": "train-case-example",
+      "split": "train",
+      "capturedAt": "2026-06-01T09:00:00.000Z",
+      "productFamily": "TRAIN-PRODUCT-FAMILY",
+      "moldId": "TRAIN-MOLD-001",
+      "cameraId": "TRAIN-CAMERA-001",
+      "captureSessionId": "TRAIN-SESSION-001",
+      "contentHash": "TRAIN-SHA256"
+    },
+    {
+      "caseId": "holdout-case-example",
+      "split": "holdout",
+      "capturedAt": "2026-07-01T09:00:00.000Z",
+      "productFamily": "NEW-PRODUCT-FAMILY",
+      "moldId": "HOLDOUT-MOLD-001",
+      "cameraId": "HOLDOUT-CAMERA-001",
+      "captureSessionId": "HOLDOUT-SESSION-001",
+      "contentHash": "HOLDOUT-SHA256"
+    }
+  ],
+  "caseMetadata": {
+    "holdout-case-example": {
+      "evaluatedAt": "2026-07-01T10:00:00.000Z",
+      "productFamily": "NEW-PRODUCT-FAMILY",
+      "moldId": "HOLDOUT-MOLD-001",
+      "cameraId": "HOLDOUT-CAMERA-001",
+      "captureSessionId": "HOLDOUT-SESSION-001",
+      "contentHash": "HOLDOUT-SHA256",
+      "expectedDefectClass": "whitening",
+      "humanVerified": true
+    }
+  }
+}

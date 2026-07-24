@@ -285,11 +285,15 @@ const summarizePredictions = (
     };
 };
 
+const isPinnedVersion = (value: string): boolean =>
+    Boolean(value.trim())
+    && !/(?:^|[-_/])(unconfigured|unknown|unpinned|latest)(?:$|[-_/])/i.test(value);
+
 const hasCompleteVersion = (snapshot: VisionVersionSnapshot): boolean =>
     Boolean(
-        snapshot.modelVersion.trim()
-        && snapshot.promptVersion.trim()
-        && snapshot.graphVersion.trim()
+        isPinnedVersion(snapshot.modelVersion)
+        && isPinnedVersion(snapshot.promptVersion)
+        && isPinnedVersion(snapshot.graphVersion)
     );
 
 const versionsDiffer = (
@@ -429,10 +433,75 @@ export const saveVisionOperationalReleaseReport = (
     }
 };
 
+const isVersionSnapshot = (value: unknown): value is VisionVersionSnapshot => {
+    if (!value || typeof value !== 'object') return false;
+    const snapshot = value as Partial<VisionVersionSnapshot>;
+    return typeof snapshot.modelVersion === 'string'
+        && typeof snapshot.promptVersion === 'string'
+        && typeof snapshot.graphVersion === 'string';
+};
+
+const isOperationalMetrics = (value: unknown): value is VisionOperationalMetrics => {
+    if (!value || typeof value !== 'object') return false;
+    const metrics = value as Partial<VisionOperationalMetrics>;
+    return [
+        metrics.samples,
+        metrics.top1Accuracy,
+        metrics.top3Accuracy,
+        metrics.selectiveCoverage,
+        metrics.selectiveAccuracy,
+        metrics.unsafeFalsePositiveRate,
+        metrics.expectedCalibrationError,
+        metrics.p95LatencyMs
+    ].every(item => typeof item === 'number' && Number.isFinite(item));
+};
+
+export const parseVisionOperationalReleaseReport = (
+    raw: string
+): VisionOperationalReleaseReport => {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new Error('Invalid Vision operational release report: JSON parse failed.');
+    }
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid Vision operational release report: object required.');
+    }
+    const report = parsed as Partial<VisionOperationalReleaseReport>;
+    const validDecision = report.decision === 'promote_candidate'
+        || report.decision === 'hold_shadow'
+        || report.decision === 'rollback_required';
+    if (
+        report.schemaVersion !== 'vision-operational-release/v1'
+        || !validDecision
+        || typeof report.generatedAt !== 'string'
+        || typeof report.releaseAllowed !== 'boolean'
+        || !isVersionSnapshot(report.baselineVersion)
+        || !isVersionSnapshot(report.candidateVersion)
+        || !isOperationalMetrics(report.baseline)
+        || !isOperationalMetrics(report.candidate)
+        || !report.splitAudit
+        || typeof report.splitAudit.passed !== 'boolean'
+        || !Array.isArray(report.cohorts)
+        || !report.checks
+        || !Array.isArray(report.blockingReasons)
+    ) {
+        throw new Error('Invalid Vision operational release report: required fields are missing.');
+    }
+    if (
+        report.decision === 'rollback_required'
+        && !isVersionSnapshot(report.rollbackTarget)
+    ) {
+        throw new Error('Invalid Vision operational release report: rollback target is missing.');
+    }
+    return report as VisionOperationalReleaseReport;
+};
+
 export const readVisionOperationalReleaseReport = (): VisionOperationalReleaseReport | null => {
     try {
         const value = localStorage.getItem(VISION_OPERATIONAL_RELEASE_STORAGE_KEY);
-        return value ? JSON.parse(value) as VisionOperationalReleaseReport : null;
+        return value ? parseVisionOperationalReleaseReport(value) : null;
     } catch {
         return null;
     }

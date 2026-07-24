@@ -18,7 +18,9 @@ import {
 } from '../services/visionDatasetReadinessService';
 import { DEFECT_CLASS_LABELS } from '../shared/defect-taxonomy';
 import {
+  parseVisionOperationalReleaseReport,
   readVisionOperationalReleaseReport,
+  saveVisionOperationalReleaseReport,
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
 
@@ -58,7 +60,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [diagnosisObservability, setDiagnosisObservability] = useState(() =>
     calculateDiagnosisObservability(readDiagnosisComparisons())
   );
-  const [operationalRelease] = useState(() => readVisionOperationalReleaseReport());
+  const [operationalRelease, setOperationalRelease] = useState(
+    () => readVisionOperationalReleaseReport()
+  );
+  const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
   const [knowledgeMigrationStatus, setKnowledgeMigrationStatus] = useState('');
   const [visionReadiness, setVisionReadiness] = useState<VisionDatasetReadiness | null>(null);
@@ -186,6 +191,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleOperationalReleaseImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const report = parseVisionOperationalReleaseReport(await file.text());
+      saveVisionOperationalReleaseReport(report);
+      setOperationalRelease(report);
+      setReleaseImportStatus('운영 평가 보고서를 검증하고 등록했습니다.');
+    } catch (error) {
+      setReleaseImportStatus(
+        error instanceof Error ? `보고서 등록 실패: ${error.message}` : '보고서 등록 실패'
+      );
+    }
   };
 
   return (
@@ -366,12 +389,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     {releaseDecisionLabel(operationalRelease)}
                   </p>
                 </div>
-                {operationalRelease && (
-                  <span className="text-[9px] text-gray-500">
-                    {new Date(operationalRelease.generatedAt).toLocaleString()}
-                  </span>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <label className="cursor-pointer rounded bg-sky-800 px-2 py-1 text-[9px] text-sky-100 hover:bg-sky-700">
+                    평가 보고서 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalReleaseImport}
+                    />
+                  </label>
+                  {operationalRelease && (
+                    <span className="text-[9px] text-gray-500">
+                      {new Date(operationalRelease.generatedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
               </div>
+              {releaseImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  releaseImportStatus.startsWith('보고서 등록 실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {releaseImportStatus}
+                </p>
+              )}
               {operationalRelease ? (
                 <>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-gray-300">
