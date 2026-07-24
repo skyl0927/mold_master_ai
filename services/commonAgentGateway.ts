@@ -2,6 +2,9 @@ import {
     AiOrchestrationMode,
     DefectAnalysis,
     RetrievalMode,
+    CaptureImageKind,
+    CaptureSource,
+    CaptureViewTag,
     VisionDecisionStatus,
     VisionImageQualityReport
 } from '../types';
@@ -18,6 +21,7 @@ export interface DiagnosisCandidate {
     source: 'common_agent' | 'legacy';
     analysis: DefectAnalysis;
     commonAgentImageId?: string;
+    commonAgentImageIdsByLocalId?: Record<string, string>;
     durationMs?: number;
 }
 
@@ -52,6 +56,9 @@ export interface DiagnosisComparisonRecord {
     visionQualityIssueCodes?: string[];
     visionDecisionStatus?: VisionDecisionStatus;
     visionCandidateCount?: number;
+    visionViewCount?: number;
+    visionDisagreementScore?: number;
+    visionFusionDecisionReason?: string;
     selectionReason?: 'strategy_default' | 'richer_vision_contract';
 }
 
@@ -59,7 +66,19 @@ export interface DiagnosisGatewayResult {
     analysis: DefectAnalysis;
     source: DiagnosisCandidate['source'];
     commonAgentImageId?: string;
+    commonAgentImageIdsByLocalId?: Record<string, string>;
     comparison: DiagnosisComparisonRecord;
+}
+
+export interface DiagnosisSessionImage {
+    imageId: string;
+    dataUrl: string;
+    fileName?: string;
+    captureViewTag: CaptureViewTag;
+    captureImageKind: CaptureImageKind;
+    captureSource: CaptureSource;
+    isPrimary: boolean;
+    visionQuality?: VisionImageQualityReport;
 }
 
 export interface DiagnosisTransitionReadiness {
@@ -480,6 +499,7 @@ export class CommonAgentGateway {
         strategy?: AiOrchestrationMode;
         diagnosisContext?: MultimodalDiagnosisContext;
         visionQuality?: VisionImageQualityReport;
+        sessionImages?: DiagnosisSessionImage[];
     }): Promise<DiagnosisGatewayResult> {
         const config = await getRuntimeConfig();
         const strategy = options.strategy || config?.aiOrchestrationMode || 'dual_validation';
@@ -489,6 +509,18 @@ export class CommonAgentGateway {
         const execution = await executeDiagnosisStrategy(
             strategy,
             async () => {
+                const sessionViews = (options.sessionImages || [])
+                    .filter(item => !item.isPrimary && item.imageId !== options.imageId)
+                    .map(item => ({
+                        file: dataUrlToFile(
+                            item.dataUrl,
+                            item.fileName || `${item.imageId}.png`
+                        ),
+                        localImageId: item.imageId,
+                        captureViewTag: item.captureViewTag,
+                        imageKind: item.captureImageKind,
+                        captureSource: item.captureSource
+                    }));
                 const response = await CommonAgentApiService.diagnoseImage(
                     dataUrlToFile(options.dataUrl, fileName),
                     {
@@ -496,6 +528,7 @@ export class CommonAgentGateway {
                         sourceSystem: 'mold-master-ai',
                         processArea: 'injection-molding',
                         persistMode: 'classifiable_only',
+                        sessionViews,
                         sessionId: typeof options.diagnosisContext?.metadata.capture_session_id === 'string'
                             ? options.diagnosisContext.metadata.capture_session_id
                             : undefined,
@@ -506,6 +539,10 @@ export class CommonAgentGateway {
                             vision_quality_status: options.visionQuality?.status,
                             vision_quality_score: options.visionQuality?.score,
                             vision_quality_issue_codes: options.visionQuality?.issues.map(issue => issue.code),
+                            multiview_requested: sessionViews.length > 0,
+                            multiview_view_count: sessionViews.length + 1,
+                            multiview_view_tags: (options.sessionImages || [])
+                                .map(item => item.captureViewTag),
                             ...options.diagnosisContext?.metadata
                         }
                     }
@@ -515,7 +552,12 @@ export class CommonAgentGateway {
                     analysis: CommonAgentApiService.toDefectAnalysis(response, retrievalMode),
                     commonAgentImageId: response.metadata?.persisted_to_dataset === false
                         ? undefined
-                        : response.image_id
+                        : response.image_id,
+                    commonAgentImageIdsByLocalId: Object.fromEntries(
+                        (response.view_observations || [])
+                            .filter(item => item.local_image_id && item.image_id)
+                            .map(item => [item.local_image_id as string, item.image_id as string])
+                    )
                 };
             },
             async () => ({
@@ -582,6 +624,9 @@ export class CommonAgentGateway {
             visionQualityIssueCodes: options.visionQuality?.issues.map(issue => issue.code),
             visionDecisionStatus: selectedAnalysis.visionSummary?.decisionStatus,
             visionCandidateCount: selectedAnalysis.visionSummary?.candidates.length,
+            visionViewCount: selectedAnalysis.visionSummary?.fusionSummary?.validViewCount,
+            visionDisagreementScore: selectedAnalysis.visionSummary?.fusionSummary?.disagreementScore,
+            visionFusionDecisionReason: selectedAnalysis.visionSummary?.fusionSummary?.decisionReason,
             selectionReason: validatedSelection.reason
         };
         persistComparison(comparison);
@@ -600,6 +645,7 @@ export class CommonAgentGateway {
             },
             source: selectedCandidate.source,
             commonAgentImageId: execution.commonAgent?.commonAgentImageId,
+            commonAgentImageIdsByLocalId: execution.commonAgent?.commonAgentImageIdsByLocalId,
             comparison
         };
     }

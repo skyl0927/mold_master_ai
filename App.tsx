@@ -41,7 +41,9 @@ import {
     CAPTURE_VIEW_OPTIONS,
     assessCaptureImageForDiagnosis,
     buildCaptureMetadata,
+    collectSessionDiagnosisImages,
     createCaptureSessionId,
+    selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
 
@@ -504,7 +506,13 @@ const App: React.FC = () => {
 
     const runDiagnosis = useCallback(async (imageId: string, retrievalMode: RetrievalMode = 'hybrid') => {
         const image = capturedImages.find(img => img.id === imageId);
-        if (!image || isAnalyzing.has(imageId)) return;
+        if (!image) return;
+        const sessionImages = collectSessionDiagnosisImages(image, capturedImages);
+        const sessionImageIds = sessionImages.map(item => item.id);
+        if (
+            sessionImages.length === 0
+            || sessionImageIds.some(id => isAnalyzing.has(id))
+        ) return;
 
         const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
         if (!captureAssessment.ready) {
@@ -520,46 +528,102 @@ const App: React.FC = () => {
             return;
         }
 
-        setIsAnalyzing(prev => new Set(prev).add(imageId));
-        setCapturedImages(prev => prev.map(img => img.id === imageId ? { ...img, analysisError: undefined } : img));
+        setIsAnalyzing(prev => {
+            const next = new Set(prev);
+            sessionImageIds.forEach(id => next.add(id));
+            return next;
+        });
+        setCapturedImages(prev => prev.map(img => sessionImageIds.includes(img.id)
+            ? { ...img, analysisError: undefined }
+            : img
+        ));
 
         try {
-            const croppedDataUrl = await cropImageToShapes(image.dataUrl, image.shapes || [], image.annotations || []);
-            const visionQuality = await inspectVisionImageQuality(croppedDataUrl) as VisionImageQualityReport;
-            setCapturedImages(prev => prev.map(img => img.id === imageId
-                ? { ...img, visionQuality }
+            const preparedViews = await Promise.all(sessionImages.map(async sessionImage => {
+                const croppedDataUrl = await cropImageToShapes(
+                    sessionImage.dataUrl,
+                    sessionImage.shapes || [],
+                    sessionImage.annotations || []
+                );
+                const visionQuality = await inspectVisionImageQuality(
+                    croppedDataUrl
+                ) as VisionImageQualityReport;
+                return { image: sessionImage, croppedDataUrl, visionQuality };
+            }));
+            const qualityByImageId = new Map(
+                preparedViews.map(item => [item.image.id, item.visionQuality])
+            );
+            setCapturedImages(prev => prev.map(img => qualityByImageId.has(img.id)
+                ? { ...img, visionQuality: qualityByImageId.get(img.id) }
                 : img
             ));
-            if (!visionQuality.canAnalyze) {
-                throw new Error(`사진 품질 확인 필요: ${formatVisionQualityMessage(visionQuality)}`);
+            const rejectedViews = preparedViews.filter(item => !item.visionQuality.canAnalyze);
+            if (rejectedViews.length > 0) {
+                const details = rejectedViews.map(item => [
+                    item.image.captureViewTag,
+                    formatVisionQualityMessage(item.visionQuality)
+                ].filter(Boolean).join(': '));
+                throw new Error(`다중 시점 사진 품질 확인 필요: ${details.join(' / ')}`);
             }
-            const captureMetadata = buildCaptureMetadata(image, capturedImages);
+            const usableImages = preparedViews.map(item => item.image);
+            const usableAssessment = summarizeCaptureSession(
+                usableImages,
+                image.captureSessionId
+            );
+            if (!usableAssessment.ready) {
+                throw new Error(`다중 시점 촬영 확인 필요: ${usableAssessment.message}`);
+            }
+            const primaryView = preparedViews.find(item => item.image.id === imageId);
+            if (!primaryView) {
+                throw new Error('선택한 대표 이미지를 다중 시점 세션에서 찾지 못했습니다.');
+            }
+            const captureMetadata = buildCaptureMetadata(image, usableImages);
             const diagnosisContext = buildMultimodalDiagnosisContext(image, captureMetadata);
             const diagnosis = await CommonAgentGateway.diagnoseImage({
                 imageId,
-                dataUrl: croppedDataUrl,
+                dataUrl: primaryView.croppedDataUrl,
                 fileName: `${imageId}.png`,
                 retrievalMode,
                 diagnosisContext,
-                visionQuality
+                visionQuality: primaryView.visionQuality,
+                sessionImages: preparedViews.map(item => ({
+                    imageId: item.image.id,
+                    dataUrl: item.croppedDataUrl,
+                    fileName: `${item.image.id}.png`,
+                    captureViewTag: item.image.captureViewTag!,
+                    captureImageKind: item.image.captureImageKind!,
+                    captureSource: item.image.captureSource || 'file',
+                    isPrimary: item.image.id === imageId,
+                    visionQuality: item.visionQuality
+                }))
             });
             const result = diagnosis.analysis;
-            setCapturedImages(prev => prev.map(img => img.id === imageId ? {
+            const serverIds = diagnosis.commonAgentImageIdsByLocalId || {};
+            setCapturedImages(prev => prev.map(img => sessionImageIds.includes(img.id) ? {
                 ...img,
                 analysis: result,
-                visionQuality,
-                commonAgentImageId: diagnosis.commonAgentImageId || img.commonAgentImageId,
-                commonAgentStatus: diagnosis.commonAgentImageId ? 'synced' : img.commonAgentStatus,
-                commonAgentLastSyncAt: diagnosis.commonAgentImageId ? Date.now() : img.commonAgentLastSyncAt
+                visionQuality: qualityByImageId.get(img.id) || img.visionQuality,
+                commonAgentImageId: serverIds[img.id]
+                    || (img.id === imageId ? diagnosis.commonAgentImageId : undefined)
+                    || img.commonAgentImageId,
+                commonAgentStatus: serverIds[img.id] || (img.id === imageId && diagnosis.commonAgentImageId)
+                    ? 'synced'
+                    : img.commonAgentStatus,
+                commonAgentLastSyncAt: serverIds[img.id] || (img.id === imageId && diagnosis.commonAgentImageId)
+                    ? Date.now()
+                    : img.commonAgentLastSyncAt
             } : img));
 
         } catch (err) {
             const msg = err instanceof Error ? err.message : '진단 실패';
-            setCapturedImages(prev => prev.map(img => img.id === imageId ? { ...img, analysisError: msg } : img));
+            setCapturedImages(prev => prev.map(img => sessionImageIds.includes(img.id)
+                ? { ...img, analysisError: msg }
+                : img
+            ));
         } finally {
             setIsAnalyzing(prev => {
                 const next = new Set(prev);
-                next.delete(imageId);
+                sessionImageIds.forEach(id => next.delete(id));
                 return next;
             });
         }
@@ -697,9 +761,11 @@ const App: React.FC = () => {
         if (selectedImageIds.size === 0) return;
         setIsBatchProcessing(true);
 
-        const idsToProcess = Array.from(selectedImageIds).filter(id => {
-            return !isAnalyzing.has(id);
-        });
+        const idsToProcess = selectDiagnosisTargetIds(
+            capturedImages,
+            Array.from(selectedImageIds),
+            Array.from(isAnalyzing)
+        );
 
         try {
             await Promise.all(idsToProcess.map(id => runDiagnosis(id)));

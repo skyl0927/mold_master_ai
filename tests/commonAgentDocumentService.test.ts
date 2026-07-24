@@ -134,6 +134,7 @@ test('grounded Vision v2 rejects unlinked candidates and does not inject causes 
 
     assert.equal(analysis.defectType, '판정 불가 (사람 검토 필요)');
     assert.equal(analysis.description, '동일 간격으로 반복되는 리브가 보임');
+    assert.equal(analysis.severity, '-');
     assert.equal(analysis.possibleCauses, '');
     assert.equal(analysis.countermeasures, '');
     assert.deepEqual(
@@ -495,11 +496,95 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
             mime_type: 'image/png',
             source_system: 'mold-master-ai',
             observation: {
+                contract_version: 'vision-observation/v2',
+                image_kind: 'physical_product',
+                normality_status: 'defect_visible',
+                observations: [{
+                    observation_id: 'full::obs-1',
+                    category: 'color',
+                    description: '리브 주변 유백색 영역',
+                    region: '리브 기부',
+                    confidence: 0.82
+                }],
+                candidates: [{
+                    defect_type: '백화',
+                    confidence: 0.74,
+                    supporting_observation_ids: ['full::obs-1']
+                }],
                 defect_type: '백화',
                 severity: 'Medium',
                 summary: '리브 주변 백화가 관찰됨'
             },
-            evidence: []
+            evidence: [],
+            view_observations: [
+                {
+                    view_id: 'view-full',
+                    local_image_id: 'local-image-1',
+                    image_id: 'server-full',
+                    file_name: 'full.png',
+                    capture_view_tag: 'full_part_context',
+                    is_primary: true,
+                    observation: {
+                        contract_version: 'vision-observation/v2',
+                        image_kind: 'physical_product',
+                        normality_status: 'defect_visible',
+                        observations: [{
+                            observation_id: 'obs-1',
+                            category: 'color',
+                            description: '리브 주변 유백색 영역',
+                            confidence: 0.82
+                        }],
+                        candidates: [{
+                            defect_type: '백화',
+                            confidence: 0.74,
+                            supporting_observation_ids: ['obs-1']
+                        }]
+                    }
+                },
+                {
+                    view_id: 'view-close',
+                    local_image_id: 'local-image-full',
+                    image_id: 'server-close',
+                    file_name: 'close.png',
+                    capture_view_tag: 'defect_closeup',
+                    is_primary: false,
+                    observation: {
+                        contract_version: 'vision-observation/v2',
+                        image_kind: 'physical_product',
+                        normality_status: 'defect_visible',
+                        observations: [{
+                            observation_id: 'obs-2',
+                            category: 'surface',
+                            description: '근접 표면 변색',
+                            confidence: 0.8
+                        }],
+                        candidates: [{
+                            defect_type: '백화',
+                            confidence: 0.7,
+                            supporting_observation_ids: ['obs-2']
+                        }]
+                    }
+                }
+            ],
+            fusion_report: {
+                contract_version: 'vision-fusion/v1',
+                requested_view_count: 2,
+                valid_view_count: 2,
+                available_view_tags: ['full_part_context', 'defect_closeup'],
+                missing_required_views: [],
+                disagreement_score: 0.12,
+                candidate_support: [{
+                    defect_type: '백화',
+                    fused_confidence: 0.74,
+                    supporting_view_ids: ['view-full', 'view-close'],
+                    contradicting_view_ids: [],
+                    supporting_view_count: 2,
+                    supporting_observation_ids: ['full::obs-1'],
+                    contradicting_observation_ids: []
+                }],
+                decision_status: 'needs_review',
+                decision_reason: 'insufficient_multiview_consensus'
+            }
         };
     };
 
@@ -583,7 +668,16 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(receivedOptions?.metadata?.capture_protocol_ready, true);
         assert.equal(result.analysis.visionSummary?.primaryCandidate?.defectType, '백화');
         assert.equal(result.analysis.visionSummary?.decisionStatus, 'needs_review');
+        assert.equal(result.analysis.visionSummary?.fusionSummary?.validViewCount, 2);
+        assert.equal(result.analysis.visionSummary?.fusionSummary?.disagreementScore, 0.12);
+        assert.equal(result.analysis.visionSummary?.viewEvidence?.length, 2);
         assert.equal(result.comparison.visionCandidateCount, 1);
+        assert.equal(result.comparison.visionViewCount, 2);
+        assert.equal(result.comparison.visionDisagreementScore, 0.12);
+        assert.equal(
+            result.commonAgentImageIdsByLocalId?.['local-image-full'],
+            'server-close'
+        );
     } finally {
         CommonAgentApiService.diagnoseImage = originalDiagnose;
     }

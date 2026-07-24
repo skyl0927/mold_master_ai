@@ -89,6 +89,41 @@ export interface VisionObservationSummary {
   groundingStatus: 'grounded' | 'legacy' | 'invalid';
   decisionStatus: VisionDecisionStatus;
   decisionReason: string;
+  fusionSummary?: VisionFusionSummary;
+  viewEvidence?: VisionViewEvidence[];
+}
+
+export interface VisionFusionCandidateSupport {
+  defectType: string;
+  fusedConfidence: number;
+  supportingViewIds: string[];
+  contradictingViewIds: string[];
+  supportingViewCount: number;
+}
+
+export interface VisionFusionSummary {
+  contractVersion: 'vision-fusion/v1';
+  requestedViewCount: number;
+  validViewCount: number;
+  availableViewTags: string[];
+  missingRequiredViews: string[];
+  disagreementScore: number;
+  candidateSupport: VisionFusionCandidateSupport[];
+  decisionStatus: VisionDecisionStatus;
+  decisionReason: string;
+}
+
+export interface VisionViewEvidence {
+  viewId: string;
+  localImageId?: string;
+  serverImageId?: string;
+  fileName: string;
+  captureViewTag: string;
+  isPrimary: boolean;
+  observationCount: number;
+  topCandidate?: string;
+  confidence: number;
+  decisionStatus?: VisionDecisionStatus;
 }
 
 export interface VisionImageQualityIssue {

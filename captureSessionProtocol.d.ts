@@ -59,3 +59,15 @@ export function buildCaptureMetadata(
   image: Partial<CapturedImage>,
   images: Array<Partial<CapturedImage>>
 ): CaptureMetadata;
+
+export function collectSessionDiagnosisImages<T extends Partial<CapturedImage>>(
+  selectedImage: T,
+  images: T[],
+  maxViews?: number
+): T[];
+
+export function selectDiagnosisTargetIds(
+  images: Array<Partial<CapturedImage>>,
+  selectedIds: string[],
+  busyIds?: string[]
+): string[];

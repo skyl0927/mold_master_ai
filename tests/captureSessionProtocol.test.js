@@ -6,6 +6,7 @@ const {
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  selectDiagnosisTargetIds,
   summarizeCaptureSession
 } = require('../captureSessionProtocol');
 
@@ -166,6 +167,40 @@ test('session diagnosis collects every physical view with the selected image fir
     collected.map(item => item.captureViewTag),
     ['defect_closeup', 'full_part_context', 'oblique_light']
   );
+});
+
+test('batch diagnosis selects one representative per session and skips busy sessions', () => {
+  const images = [
+    image({ id: 'session-1-full' }),
+    image({ id: 'session-1-close', captureViewTag: 'defect_closeup' }),
+    image({
+      id: 'session-2-full',
+      captureSessionId: 'session-2'
+    }),
+    image({
+      id: 'session-2-close',
+      captureSessionId: 'session-2',
+      captureViewTag: 'defect_closeup'
+    }),
+    image({
+      id: 'session-3-full',
+      captureSessionId: 'session-3'
+    })
+  ];
+
+  const targets = selectDiagnosisTargetIds(
+    images,
+    [
+      'session-1-full',
+      'session-1-close',
+      'session-2-full',
+      'session-2-close',
+      'session-3-full'
+    ],
+    ['session-2-close']
+  );
+
+  assert.deepEqual(targets, ['session-1-full', 'session-3-full']);
 });
 
 test('unknown capture values are normalized to safe metadata defaults', () => {

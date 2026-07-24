@@ -158,12 +158,74 @@ const buildCaptureMetadata = (image, images) => {
   };
 };
 
+const collectSessionDiagnosisImages = (selectedImage, images, maxViews = 8) => {
+  if (
+    !selectedImage
+    || !selectedImage.captureSessionId
+    || normalizeImageKind(selectedImage.captureImageKind) !== 'physical_product'
+  ) {
+    return [];
+  }
+
+  const candidates = [selectedImage, ...(Array.isArray(images) ? images : [])];
+  const viewLimit = Math.min(8, Math.max(2, Number(maxViews) || 8));
+  const seenIds = new Set();
+  const collected = [];
+  for (const image of candidates) {
+    if (
+      !image?.id
+      || seenIds.has(image.id)
+      || image.captureSessionId !== selectedImage.captureSessionId
+      || normalizeImageKind(image.captureImageKind) !== 'physical_product'
+      || normalizeViewTags(image.captureViewTag).length === 0
+    ) {
+      continue;
+    }
+    seenIds.add(image.id);
+    collected.push(image);
+    if (collected.length >= viewLimit) break;
+  }
+  return collected;
+};
+
+const selectDiagnosisTargetIds = (images, selectedIds, busyIds = []) => {
+  const imageById = new Map(
+    (Array.isArray(images) ? images : [])
+      .filter(image => image?.id)
+      .map(image => [image.id, image])
+  );
+  const busySessionKeys = new Set(
+    (Array.isArray(busyIds) ? busyIds : [])
+      .map(id => imageById.get(id))
+      .filter(Boolean)
+      .map(image => image.captureSessionId || `image:${image.id}`)
+  );
+  const selectedSessionKeys = new Set();
+  const targets = [];
+  for (const id of Array.isArray(selectedIds) ? selectedIds : []) {
+    const image = imageById.get(id);
+    if (!image) continue;
+    const sessionKey = image.captureSessionId || `image:${image.id}`;
+    if (
+      busySessionKeys.has(sessionKey)
+      || selectedSessionKeys.has(sessionKey)
+    ) {
+      continue;
+    }
+    selectedSessionKeys.add(sessionKey);
+    targets.push(image.id);
+  }
+  return targets;
+};
+
 module.exports = {
   CAPTURE_VIEW_OPTIONS,
   VALID_CAPTURE_SOURCES,
   VALID_IMAGE_KINDS,
   assessCaptureImageForDiagnosis,
   buildCaptureMetadata,
+  collectSessionDiagnosisImages,
   createCaptureSessionId,
+  selectDiagnosisTargetIds,
   summarizeCaptureSession
 };

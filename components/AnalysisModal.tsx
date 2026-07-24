@@ -475,6 +475,63 @@ ${data.countermeasures}
                                                     {editableData.visionSummary.normalityStatus}
                                                 </span>
                                             </div>
+                                            {editableData.visionSummary.fusionSummary && (
+                                                <div className="mt-3 rounded-lg border border-sky-700/60 bg-sky-950/40 p-3">
+                                                    <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                                        <span className="font-semibold uppercase tracking-wider text-sky-200">
+                                                            Multi-view Fusion
+                                                        </span>
+                                                        <span className="rounded-full border border-sky-700 px-2 py-0.5 text-sky-200">
+                                                            {editableData.visionSummary.fusionSummary.validViewCount}/
+                                                            {editableData.visionSummary.fusionSummary.requestedViewCount} 유효
+                                                        </span>
+                                                        <span className={`rounded-full border px-2 py-0.5 ${
+                                                            editableData.visionSummary.fusionSummary.disagreementScore >= 0.35
+                                                                ? 'border-amber-600 text-amber-200'
+                                                                : 'border-emerald-700 text-emerald-200'
+                                                        }`}>
+                                                            불일치 {Math.round(editableData.visionSummary.fusionSummary.disagreementScore * 100)}%
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-2 text-xs text-gray-300">
+                                                        확보 시점: {editableData.visionSummary.fusionSummary.availableViewTags.join(', ')}
+                                                    </p>
+                                                    {editableData.visionSummary.fusionSummary.candidateSupport.map(item => (
+                                                        <p key={item.defectType} className="mt-1 text-xs text-sky-200">
+                                                            {item.defectType}: {item.supportingViewCount}개 시점 합의
+                                                            {item.contradictingViewIds.length > 0
+                                                                ? ` · 반대 ${item.contradictingViewIds.length}개`
+                                                                : ''}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {editableData.visionSummary.viewEvidence
+                                                && editableData.visionSummary.viewEvidence.length > 1 && (
+                                                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                                    {editableData.visionSummary.viewEvidence.map(view => (
+                                                        <div
+                                                            key={view.viewId}
+                                                            className="rounded-lg border border-gray-700 bg-gray-950/70 px-3 py-2 text-xs"
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="font-mono text-cyan-300">
+                                                                    {view.captureViewTag}
+                                                                </span>
+                                                                <span className="text-gray-500">
+                                                                    관찰 {view.observationCount}
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-1 text-gray-300">
+                                                                {view.topCandidate || '판정 보류'}
+                                                                {view.topCandidate
+                                                                    ? ` · ${Math.round(view.confidence * 100)}%`
+                                                                    : ''}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {editableData.visionSummary.visualObservations.length > 0 && (
                                                 <div className="mt-3 grid gap-2">
                                                     {editableData.visionSummary.visualObservations.map(observation => (

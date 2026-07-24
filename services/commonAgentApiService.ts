@@ -2,7 +2,9 @@ import {
     DefectAnalysis,
     RetrievalMode,
     VisionObservationCategory,
-    VisionObservationSummary
+    VisionObservationSummary,
+    VisionFusionSummary,
+    VisionViewEvidence
 } from '../types';
 import { normalizeVisionObservation } from '../visionObservation';
 import { getAgentServerBaseUrl } from './runtimeConfig';
@@ -154,7 +156,47 @@ export interface CommonAgentVisionDiagnosis {
     evidence?: CommonAgentEvidence[];
     review_status?: string;
     metadata?: Record<string, any>;
+    view_observations?: CommonAgentVisionViewObservation[];
+    fusion_report?: CommonAgentVisionFusionReport;
     created_at?: string;
+}
+
+export interface CommonAgentVisionViewObservation {
+    view_id: string;
+    local_image_id?: string;
+    image_id?: string;
+    file_name: string;
+    capture_view_tag: string;
+    is_primary: boolean;
+    observation: CommonAgentObservation;
+}
+
+export interface CommonAgentVisionFusionReport {
+    contract_version: 'vision-fusion/v1';
+    requested_view_count: number;
+    valid_view_count: number;
+    available_view_tags: string[];
+    missing_required_views: string[];
+    disagreement_score: number;
+    candidate_support: Array<{
+        defect_type: string;
+        fused_confidence: number;
+        supporting_view_ids: string[];
+        contradicting_view_ids: string[];
+        supporting_view_count: number;
+        supporting_observation_ids: string[];
+        contradicting_observation_ids: string[];
+    }>;
+    decision_status: 'probable' | 'needs_review' | 'unclassifiable';
+    decision_reason: string;
+}
+
+export interface CommonAgentSessionViewUpload {
+    file: File;
+    localImageId: string;
+    captureViewTag: string;
+    imageKind: 'physical_product' | 'document_or_diagram' | 'unknown';
+    captureSource: 'camera' | 'screen' | 'file' | 'mobile';
 }
 
 export interface NormalizedBbox {
@@ -264,6 +306,7 @@ export class CommonAgentApiService {
             metadata?: Record<string, any>;
             sessionId?: string;
             persistMode?: 'always' | 'classifiable_only';
+            sessionViews?: CommonAgentSessionViewUpload[];
         } = {}
     ): Promise<CommonAgentVisionDiagnosis> {
         const formData = new FormData();
@@ -281,6 +324,29 @@ export class CommonAgentApiService {
         if (options.ragCategory) formData.append('rag_category', options.ragCategory);
         if (options.sessionId) formData.append('session_id', options.sessionId);
         if (options.metadata) formData.append('metadata_json', JSON.stringify(options.metadata));
+        const primaryViewTag = Array.isArray(options.metadata?.capture_view_tags)
+            ? String(options.metadata.capture_view_tags[0] || '')
+            : '';
+        const viewManifest = [{
+            local_image_id: String(options.metadata?.local_image_id || imageFile.name),
+            capture_view_tag: primaryViewTag,
+            image_kind: String(options.metadata?.vision_image_kind || 'unknown'),
+            capture_source: String(options.metadata?.capture_source || 'file'),
+            is_primary: true
+        }];
+        for (const sessionView of options.sessionViews || []) {
+            formData.append('view_files', sessionView.file);
+            viewManifest.push({
+                local_image_id: sessionView.localImageId,
+                capture_view_tag: sessionView.captureViewTag,
+                image_kind: sessionView.imageKind,
+                capture_source: sessionView.captureSource,
+                is_primary: false
+            });
+        }
+        if ((options.sessionViews || []).length > 0) {
+            formData.append('view_manifest_json', JSON.stringify(viewManifest));
+        }
 
         const response = await fetch(await getAgentUrl('/v1/vision/diagnose'), {
             method: 'POST',
@@ -564,17 +630,56 @@ export class CommonAgentApiService {
         const possibleCauses = isGroundedV2 ? [] : observation.possible_causes || [];
         const recommendedChecks = isGroundedV2 ? [] : observation.recommended_checks || [];
         const visualDescription = visionSummary.visibleFeatures.join('; ');
+        const fusionSummary: VisionFusionSummary | undefined = response.fusion_report
+            ? {
+                contractVersion: response.fusion_report.contract_version,
+                requestedViewCount: response.fusion_report.requested_view_count,
+                validViewCount: response.fusion_report.valid_view_count,
+                availableViewTags: response.fusion_report.available_view_tags,
+                missingRequiredViews: response.fusion_report.missing_required_views,
+                disagreementScore: response.fusion_report.disagreement_score,
+                candidateSupport: response.fusion_report.candidate_support.map(item => ({
+                    defectType: item.defect_type,
+                    fusedConfidence: item.fused_confidence,
+                    supportingViewIds: item.supporting_view_ids,
+                    contradictingViewIds: item.contradicting_view_ids,
+                    supportingViewCount: item.supporting_view_count
+                })),
+                decisionStatus: response.fusion_report.decision_status,
+                decisionReason: response.fusion_report.decision_reason
+            }
+            : undefined;
+        const viewEvidence: VisionViewEvidence[] | undefined = response.view_observations?.map(item => {
+            const normalized = normalizeVisionObservation(item.observation) as VisionObservationSummary;
+            return {
+                viewId: item.view_id,
+                localImageId: item.local_image_id,
+                serverImageId: item.image_id,
+                fileName: item.file_name,
+                captureViewTag: item.capture_view_tag,
+                isPrimary: item.is_primary,
+                observationCount: normalized.visualObservations.length,
+                topCandidate: normalized.primaryCandidate?.defectType,
+                confidence: normalized.primaryCandidate?.confidence || 0,
+                decisionStatus: normalized.decisionStatus
+            };
+        });
+        const enrichedVisionSummary: VisionObservationSummary = {
+            ...visionSummary,
+            fusionSummary,
+            viewEvidence
+        };
 
         return compactDefectAnalysis({
             defectType: visionSummary.primaryCandidate?.defectType
                 || (!isGroundedV2 ? observation.defect_type : undefined)
                 || '판정 불가 (사람 검토 필요)',
-            severity: observation.severity || 'Medium',
+            severity: observation.severity || (isGroundedV2 ? '-' : 'Medium'),
             description: visualDescription || observation.summary || '',
             possibleCauses: possibleCauses.length > 0 ? possibleCauses.join('\n') : '',
             countermeasures: recommendedChecks.join('\n'),
             rawOutput: JSON.stringify(response, null, 2),
-            visionSummary,
+            visionSummary: enrichedVisionSummary,
             retrievalSummary: {
                 modeUsed,
                 citations: evidence.map(item => item.source_ref || item.node_id || '').filter(Boolean),
