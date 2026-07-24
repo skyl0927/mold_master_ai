@@ -496,6 +496,9 @@ export class CommonAgentGateway {
                         sourceSystem: 'mold-master-ai',
                         processArea: 'injection-molding',
                         persistMode: 'classifiable_only',
+                        sessionId: typeof options.diagnosisContext?.metadata.capture_session_id === 'string'
+                            ? options.diagnosisContext.metadata.capture_session_id
+                            : undefined,
                         metadata: {
                             local_image_id: options.imageId,
                             retrieval_mode: retrievalMode,

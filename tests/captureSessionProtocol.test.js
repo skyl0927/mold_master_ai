@@ -75,6 +75,26 @@ test('document images are not eligible for physical defect diagnosis', () => {
   assert.match(assessment.message, /실제 성형품/);
 });
 
+test('a document-only session is quarantined before target selection', () => {
+  const summary = summarizeCaptureSession([
+    image({
+      captureImageKind: 'document_or_diagram'
+    })
+  ], 'session-1');
+
+  assert.equal(summary.ready, false);
+  assert.equal(summary.status, 'not_visually_verifiable');
+  assert.equal(summary.physicalImageCount, 0);
+});
+
+test('an empty named session still requests capture metadata', () => {
+  const summary = summarizeCaptureSession([], 'empty-session');
+
+  assert.equal(summary.ready, false);
+  assert.equal(summary.status, 'needs_metadata');
+  assert.equal(summary.imageCount, 0);
+});
+
 test('untracked images fail closed instead of bypassing the protocol', () => {
   const assessment = assessCaptureImageForDiagnosis(image({
     captureSessionId: undefined,
@@ -108,6 +128,19 @@ test('capture metadata preserves session lineage for Common Agent', () => {
   });
 });
 
+test('unknown capture values are normalized to safe metadata defaults', () => {
+  const metadata = buildCaptureMetadata(image({
+    captureImageKind: 'other',
+    captureSource: 'clipboard',
+    captureViewTag: 'not-a-view'
+  }), []);
+
+  assert.equal(metadata.vision_image_kind, 'unknown');
+  assert.equal(metadata.capture_source, 'file');
+  assert.deepEqual(metadata.capture_view_tags, []);
+  assert.equal(metadata.capture_protocol_ready, false);
+});
+
 test('capture session IDs are source-prefixed and collision resistant', () => {
   const first = createCaptureSessionId('camera', 1721800000000, () => 0.123456789);
   const second = createCaptureSessionId('screen', 1721800000000, () => 0.987654321);
@@ -115,4 +148,10 @@ test('capture session IDs are source-prefixed and collision resistant', () => {
   assert.match(first, /^capture-camera-/);
   assert.match(second, /^capture-screen-/);
   assert.notEqual(first, second);
+});
+
+test('capture session IDs sanitize an empty source', () => {
+  const sessionId = createCaptureSessionId('', 1721800000000, () => 0);
+
+  assert.match(sessionId, /^capture-capture-/);
 });

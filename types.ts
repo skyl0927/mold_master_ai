@@ -115,6 +115,23 @@ export interface DefectAnalysis {
   };
 }
 
+export type CaptureViewTag =
+  | 'full_part_context'
+  | 'defect_closeup'
+  | 'oblique_light'
+  | 'ejection_location'
+  | 'fill_end_context'
+  | 'reference_part'
+  | 'vent_context'
+  | 'parting_line_context'
+  | 'edge_profile'
+  | 'reverse_geometry'
+  | 'flow_convergence_context'
+  | 'release_sequence';
+
+export type CaptureImageKind = 'physical_product' | 'document_or_diagram' | 'unknown';
+export type CaptureSource = 'camera' | 'screen' | 'file' | 'mobile';
+
 export interface CapturedImage {
   id: string;
   dataUrl: string;
@@ -130,6 +147,10 @@ export interface CapturedImage {
   commonAgentStatus?: 'idle' | 'syncing' | 'synced' | 'error';
   commonAgentLastSyncAt?: number;
   commonAgentAnnotationCount?: number;
+  captureSessionId?: string;
+  captureViewTag?: CaptureViewTag;
+  captureImageKind?: CaptureImageKind;
+  captureSource?: CaptureSource;
 }
 
 export type ApiProvider = 'gemini' | 'openai';

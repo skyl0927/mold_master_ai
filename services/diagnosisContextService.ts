@@ -1,4 +1,5 @@
 import { CapturedImage, Shape } from '../types';
+import { CAPTURE_VIEW_OPTIONS, CaptureMetadata } from '../captureSessionProtocol';
 
 const MAX_FIELD_TEXT = 1200;
 const MAX_OCR_TEXT = 800;
@@ -57,11 +58,19 @@ export interface MultimodalDiagnosisContext {
         annotation_count: number;
         roi_count: number;
         ocr_provided: boolean;
+        capture_session_id?: string;
+        capture_view_tags?: string[];
+        vision_image_kind?: string;
+        capture_source?: string;
+        capture_protocol_ready?: boolean;
+        capture_available_views?: string[];
+        capture_missing_views?: string[];
     };
 }
 
 export const buildMultimodalDiagnosisContext = (
-    image: Pick<CapturedImage, 'phenomenonDescription' | 'ocrText' | 'annotations' | 'shapes'>
+    image: Pick<CapturedImage, 'phenomenonDescription' | 'ocrText' | 'annotations' | 'shapes'>,
+    captureMetadata?: CaptureMetadata
 ): MultimodalDiagnosisContext => {
     const phenomenon = compact(image.phenomenonDescription);
     const ocrText = compact(image.ocrText, MAX_OCR_TEXT);
@@ -73,12 +82,28 @@ export const buildMultimodalDiagnosisContext = (
         .slice(0, MAX_ROI_ITEMS)
         .map(summarizeShape)
         .join('\n');
+    const captureViewLabels = new Map(
+        CAPTURE_VIEW_OPTIONS.map(option => [option.value, option.label])
+    );
+    const currentViewLabels = (captureMetadata?.capture_view_tags || [])
+        .map(view => captureViewLabels.get(view) || view);
+    const availableViewLabels = (captureMetadata?.capture_available_views || [])
+        .map(view => captureViewLabels.get(view) || view);
+    const captureSummary = captureMetadata?.capture_session_id
+        ? [
+            `촬영 세션: ${captureMetadata.capture_session_id}`,
+            `현재 이미지 시점: ${currentViewLabels.join(', ') || '미지정'}`,
+            `세션 확보 시점: ${availableViewLabels.join(', ') || '없음'}`,
+            `기본 촬영 프로토콜: ${captureMetadata.capture_protocol_ready ? '충족' : '미충족'}`
+        ].join('\n')
+        : '';
 
     const evidenceSections = [
         phenomenon ? `현장 현상 설명:\n${phenomenon}` : '',
         annotationText ? `이미지 주석:\n${annotationText}` : '',
         ocrText ? `이미지 OCR 텍스트:\n${ocrText}` : '',
-        roiSummary ? `사용자 지정 ROI:\n${roiSummary}` : ''
+        roiSummary ? `사용자 지정 ROI:\n${roiSummary}` : '',
+        captureSummary ? `촬영 프로토콜:\n${captureSummary}` : ''
     ].filter(Boolean);
 
     const question = [
@@ -104,7 +129,8 @@ export const buildMultimodalDiagnosisContext = (
             phenomenon_description_length: phenomenon.length,
             annotation_count: annotations.length,
             roi_count: image.shapes?.length || 0,
-            ocr_provided: Boolean(ocrText)
+            ocr_provided: Boolean(ocrText),
+            ...captureMetadata
         }
     };
 };

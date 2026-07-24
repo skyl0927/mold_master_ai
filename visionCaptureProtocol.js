@@ -4,7 +4,7 @@ const {
 
 const VIEW_DEFINITIONS = {
   full_part_context: {
-    label: '제품 전체 위치 사진',
+    label: '전체 제품 사진',
     instruction: '제품 전체와 결함 위치가 함께 보이도록 촬영'
   },
   defect_closeup: {

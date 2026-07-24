@@ -10,14 +10,17 @@ import {
     DBStats,
     MobileConnectionData,
     RetrievalMode,
-    VisionImageQualityReport
+    VisionImageQualityReport,
+    CaptureImageKind,
+    CaptureSource,
+    CaptureViewTag
 } from './types';
 import { formatVisionQualityMessage, inspectVisionImageQuality } from './visionImageQuality';
 import AnnotationCanvas from './components/AnnotationCanvas';
 import AnalysisModal from './components/AnalysisModal';
 import Chatbot from './components/Chatbot';
 import SettingsModal from './components/SettingsModal';
-import CameraCapture from './components/CameraCapture';
+import CameraCapture, { CameraCaptureMetadata } from './components/CameraCapture';
 import DatabaseView from './components/DatabaseView';
 import DefectDashboard from './components/DefectDashboard';
 import ReportWizard from './components/ReportWizard';
@@ -34,12 +37,23 @@ import {
 import { checkServerHealth, ServerHealthStatus } from './services/serverHealthService';
 import { CameraIcon, PptIcon, ExcelIcon, TrashIcon, EditIcon, SparklesIcon, SpinnerIcon, DragHandleIcon, ChatIcon, SettingsIcon, WifiOffIcon, CopyIcon, UploadIcon, BotIcon, WifiIcon, QrCodeIcon, CloseIcon, LockIcon, UnlockIcon } from './components/Icons';
 import QRCode from 'qrcode';
+import {
+    CAPTURE_VIEW_OPTIONS,
+    assessCaptureImageForDiagnosis,
+    buildCaptureMetadata,
+    createCaptureSessionId,
+    summarizeCaptureSession
+} from './captureSessionProtocol';
 
 interface EditingState {
     id?: string;
     baseImageUrl: string;
     annotations: TextAnnotation[];
     shapes?: Shape[];
+    captureSessionId?: string;
+    captureViewTag?: CaptureViewTag;
+    captureImageKind?: CaptureImageKind;
+    captureSource?: CaptureSource;
 }
 
 const dataURItoBlob = (dataURI: string): Blob => {
@@ -131,7 +145,11 @@ const buildCommonAgentAnnotationPayloads = async (image: CapturedImage): Promise
                     local_image_id: image.id,
                     local_shape_id: shape.id,
                     local_shape_tool: shape.tool,
-                    local_shape_color: shape.color
+                    local_shape_color: shape.color,
+                    capture_session_id: image.captureSessionId,
+                    capture_view_tags: image.captureViewTag ? [image.captureViewTag] : [],
+                    vision_image_kind: image.captureImageKind,
+                    capture_source: image.captureSource
                 }
             };
             return payload;
@@ -174,6 +192,12 @@ const App: React.FC = () => {
     const [isChatbotOpen, setIsChatbotOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [activeCaptureSessionId, setActiveCaptureSessionId] = useState(
+        () => createCaptureSessionId('workspace')
+    );
+    const activeCaptureSessionIdRef = useRef(activeCaptureSessionId);
+    const [screenCaptureViewTag, setScreenCaptureViewTag] = useState<CaptureViewTag>('full_part_context');
+    const screenCaptureViewTagRef = useRef<CaptureViewTag>('full_part_context');
     const [isDBViewOpen, setIsDBViewOpen] = useState(false);
     const [isDashboardOpen, setIsDashboardOpen] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -201,6 +225,20 @@ const App: React.FC = () => {
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
 
+    const activeCaptureSummary = summarizeCaptureSession(capturedImages, activeCaptureSessionId);
+
+    const startNewCaptureSession = useCallback((source = 'workspace') => {
+        const nextSessionId = createCaptureSessionId(source);
+        activeCaptureSessionIdRef.current = nextSessionId;
+        setActiveCaptureSessionId(nextSessionId);
+        return nextSessionId;
+    }, []);
+
+    const updateScreenCaptureViewTag = (viewTag: CaptureViewTag) => {
+        screenCaptureViewTagRef.current = viewTag;
+        setScreenCaptureViewTag(viewTag);
+    };
+
     useEffect(() => {
         const refreshManualDocuments = () => {
             setLoadedDocs(listManualDocuments().map(document => document.fileName));
@@ -219,7 +257,15 @@ const App: React.FC = () => {
         window.addEventListener('offline', handleOffline);
 
         const unsubEditor = window.electronAPI.onShowAnnotationEditor((dataUrl) => {
-            setEditingState({ baseImageUrl: dataUrl, annotations: [], shapes: [] });
+            setEditingState({
+                baseImageUrl: dataUrl,
+                annotations: [],
+                shapes: [],
+                captureSessionId: activeCaptureSessionIdRef.current,
+                captureViewTag: screenCaptureViewTagRef.current,
+                captureImageKind: 'physical_product',
+                captureSource: 'screen'
+            });
             setStatus('idle');
         });
 
@@ -235,7 +281,10 @@ const App: React.FC = () => {
                     baseImageUrl: payload.dataUrl,
                     dataUrl: payload.dataUrl,
                     annotations: [],
-                    shapes: []
+                    shapes: [],
+                    captureSessionId: activeCaptureSessionIdRef.current,
+                    captureImageKind: 'physical_product',
+                    captureSource: 'mobile'
                 }];
             });
             setCopyNotification(`모바일에서 파일이 수신되었습니다: ${payload.filename}`);
@@ -369,6 +418,10 @@ const App: React.FC = () => {
                 dataUrl: savedData.dataUrl,
                 annotations: savedData.annotations,
                 shapes: savedData.shapes,
+                captureSessionId: editingState?.captureSessionId || activeCaptureSessionIdRef.current,
+                captureViewTag: editingState?.captureViewTag || screenCaptureViewTagRef.current,
+                captureImageKind: editingState?.captureImageKind || 'physical_product',
+                captureSource: editingState?.captureSource || 'screen'
             };
             setCapturedImages(prev => [...prev, newImage]);
         }
@@ -450,13 +503,22 @@ const App: React.FC = () => {
     };
 
     const runDiagnosis = useCallback(async (imageId: string, retrievalMode: RetrievalMode = 'hybrid') => {
+        const image = capturedImages.find(img => img.id === imageId);
+        if (!image || isAnalyzing.has(imageId)) return;
+
+        const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
+        if (!captureAssessment.ready) {
+            setCapturedImages(prev => prev.map(img => img.id === imageId
+                ? { ...img, analysisError: `촬영 프로토콜 확인 필요: ${captureAssessment.message}` }
+                : img
+            ));
+            return;
+        }
+
         if (!isOnline) {
             setCapturedImages(prev => prev.map(img => img.id === imageId ? { ...img, analysisError: "인터넷 연결 필요" } : img));
             return;
         }
-
-        const image = capturedImages.find(img => img.id === imageId);
-        if (!image || isAnalyzing.has(imageId)) return;
 
         setIsAnalyzing(prev => new Set(prev).add(imageId));
         setCapturedImages(prev => prev.map(img => img.id === imageId ? { ...img, analysisError: undefined } : img));
@@ -471,7 +533,8 @@ const App: React.FC = () => {
             if (!visionQuality.canAnalyze) {
                 throw new Error(`사진 품질 확인 필요: ${formatVisionQualityMessage(visionQuality)}`);
             }
-            const diagnosisContext = buildMultimodalDiagnosisContext(image);
+            const captureMetadata = buildCaptureMetadata(image, capturedImages);
+            const diagnosisContext = buildMultimodalDiagnosisContext(image, captureMetadata);
             const diagnosis = await CommonAgentGateway.diagnoseImage({
                 imageId,
                 dataUrl: croppedDataUrl,
@@ -516,6 +579,19 @@ const App: React.FC = () => {
     };
 
     const handleCommonAgentSync = useCallback(async (imageId: string) => {
+        const image = capturedImages.find(img => img.id === imageId);
+        if (!image || isAnalyzing.has(imageId)) return;
+
+        const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
+        if (!captureAssessment.ready) {
+            setCapturedImages(prev => prev.map(img => img.id === imageId ? {
+                ...img,
+                commonAgentStatus: 'error',
+                analysisError: `촬영 프로토콜 확인 필요: ${captureAssessment.message}`
+            } : img));
+            return;
+        }
+
         if (!isOnline) {
             setCapturedImages(prev => prev.map(img => img.id === imageId ? {
                 ...img,
@@ -524,9 +600,6 @@ const App: React.FC = () => {
             } : img));
             return;
         }
-
-        const image = capturedImages.find(img => img.id === imageId);
-        if (!image || isAnalyzing.has(imageId)) return;
 
         setIsAnalyzing(prev => new Set(prev).add(imageId));
         setCapturedImages(prev => prev.map(img => img.id === imageId ? {
@@ -551,7 +624,10 @@ const App: React.FC = () => {
                 }
                 const fileExt = uploadDataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
                 const file = dataUrlToFile(uploadDataUrl, `${image.id}.${fileExt}`);
+                const captureMetadata = buildCaptureMetadata(image, capturedImages);
+                const diagnosisContext = buildMultimodalDiagnosisContext(image, captureMetadata);
                 const diagnosis = await CommonAgentApiService.diagnoseImage(file, {
+                    question: diagnosisContext.question,
                     sourceSystem: 'mold-master-ai',
                     processArea: image.analysis?.defectType ? undefined : '품질',
                     persistMode: 'classifiable_only',
@@ -561,9 +637,10 @@ const App: React.FC = () => {
                         local_shape_count: image.shapes?.length || 0,
                         vision_quality_status: visionQuality.status,
                         vision_quality_score: visionQuality.score,
-                        vision_quality_issue_codes: visionQuality.issues.map(issue => issue.code)
+                        vision_quality_issue_codes: visionQuality.issues.map(issue => issue.code),
+                        ...diagnosisContext.metadata
                     },
-                    sessionId: `mold-master-${image.id}`
+                    sessionId: image.captureSessionId
                 });
                 if (diagnosis.metadata?.persisted_to_dataset === false) {
                     throw new Error('제조 결함을 판정할 수 없어 Common Agent 학습 큐에 저장하지 않았습니다.');
@@ -639,11 +716,16 @@ const App: React.FC = () => {
                 const image = capturedImages.find(img => img.id === modalImageId);
                 if (image) {
                     try {
+                        const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
+                        if (status === 'approved' && !captureAssessment.ready) {
+                            throw new Error(`승인 전 촬영 프로토콜 확인 필요: ${captureAssessment.message}`);
+                        }
+                        const captureMetadata = buildCaptureMetadata(image, capturedImages);
                         let commonAgentImageId = image.commonAgentImageId;
                         if (!commonAgentImageId) {
                             const blob = dataURItoBlob(image.dataUrl);
                             const file = new File([blob], `${modalImageId}.png`, { type: blob.type || 'image/png' });
-                            const diagnosisContext = buildMultimodalDiagnosisContext(image);
+                            const diagnosisContext = buildMultimodalDiagnosisContext(image, captureMetadata);
                             const diagnosis = await CommonAgentApiService.diagnoseImage(file, {
                                 question: diagnosisContext.question,
                                 sourceSystem: 'mold-master-ai',
@@ -655,7 +737,7 @@ const App: React.FC = () => {
                                     upload_reason: 'hitl_feedback',
                                     ...diagnosisContext.metadata
                                 },
-                                sessionId: `mold-master-hitl-${modalImageId}`
+                                sessionId: image.captureSessionId
                             });
                             commonAgentImageId = diagnosis.image_id;
                             setCapturedImages(prev => prev.map(img => img.id === modalImageId ? {
@@ -708,7 +790,8 @@ const App: React.FC = () => {
                                 content_sha256: contentSha256,
                                 corrected_analysis: correctedData,
                                 original_analysis: image.analysis,
-                                orchestration: correctedData.orchestrationSummary
+                                orchestration: correctedData.orchestrationSummary,
+                                ...captureMetadata
                             }
                         });
                         console.log('Successfully submitted HITL feedback to Common Agent');
@@ -854,15 +937,42 @@ const App: React.FC = () => {
         setTimeout(() => setError(null), 3000);
     };
 
-    const handleCameraCapture = (dataUrl: string) => {
+    const handleCameraCapture = (dataUrl: string, metadata: CameraCaptureMetadata) => {
         setCapturedImages(prev => [...prev, {
-            id: Date.now().toString(),
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             baseImageUrl: dataUrl,
             dataUrl: dataUrl,
             annotations: [],
-            shapes: []
+            shapes: [],
+            ...metadata
         }]);
-        setIsCameraOpen(false);
+    };
+
+    const handleNewCaptureSession = (source = 'workspace') => {
+        const sessionId = startNewCaptureSession(source);
+        setCopyNotification(`새 촬영 세션 시작: ${sessionId.slice(-12)}`);
+        setTimeout(() => setCopyNotification(''), 3000);
+    };
+
+    const updateImageCaptureMetadata = (
+        imageId: string,
+        patch: Partial<Pick<CapturedImage, 'captureViewTag' | 'captureImageKind'>>
+    ) => {
+        setCapturedImages(previous => previous.map(image =>
+            image.id === imageId
+                ? {
+                    ...image,
+                    ...patch,
+                    analysis: undefined,
+                    analysisError: undefined,
+                    visionQuality: undefined,
+                    commonAgentImageId: undefined,
+                    commonAgentStatus: 'idle',
+                    commonAgentLastSyncAt: undefined,
+                    commonAgentAnnotationCount: undefined
+                }
+                : image
+        ));
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -877,7 +987,10 @@ const App: React.FC = () => {
                                 baseImageUrl: ev.target!.result as string,
                                 dataUrl: ev.target!.result as string,
                                 annotations: [],
-                                shapes: []
+                                shapes: [],
+                                captureSessionId: activeCaptureSessionIdRef.current,
+                                captureImageKind: 'unknown',
+                                captureSource: 'file'
                             }]);
                         }
                     };
@@ -1062,7 +1175,18 @@ const App: React.FC = () => {
                 Array.from(e.dataTransfer.files).filter((f: any) => f.type.startsWith('image/')).forEach((file: any) => {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                        if (ev.target?.result) setCapturedImages(prev => [...prev, { id: Date.now().toString() + Math.random(), baseImageUrl: ev.target!.result as string, dataUrl: ev.target!.result as string, annotations: [], shapes: [] }]);
+                        if (ev.target?.result) {
+                            setCapturedImages(prev => [...prev, {
+                                id: Date.now().toString() + Math.random(),
+                                baseImageUrl: ev.target!.result as string,
+                                dataUrl: ev.target!.result as string,
+                                annotations: [],
+                                shapes: [],
+                                captureSessionId: activeCaptureSessionIdRef.current,
+                                captureImageKind: 'unknown',
+                                captureSource: 'file'
+                            }]);
+                        }
                     };
                     reader.readAsDataURL(file);
                 });
@@ -1080,7 +1204,15 @@ const App: React.FC = () => {
             {!isOnline && <div className="bg-red-600 text-white text-xs text-center p-1">오프라인 상태입니다. AI 진단 불가.</div>}
 
             {editingState && <AnnotationCanvas editingImage={editingState} onSave={handleSaveAnnotation} onCancel={() => setEditingState(null)} />}
-            {isCameraOpen && <CameraCapture onCapture={handleCameraCapture} onClose={() => setIsCameraOpen(false)} />}
+            {isCameraOpen && (
+                <CameraCapture
+                    sessionId={activeCaptureSessionId}
+                    sessionSummary={activeCaptureSummary}
+                    onCapture={handleCameraCapture}
+                    onNewSession={() => handleNewCaptureSession('camera')}
+                    onClose={() => setIsCameraOpen(false)}
+                />
+            )}
             {isDBViewOpen && <DatabaseView stats={dbStats} onClose={() => setIsDBViewOpen(false)} />}
             <DefectDashboard isOpen={isDashboardOpen} onClose={() => setIsDashboardOpen(false)} />
             <ReportWizard
@@ -1307,12 +1439,53 @@ const App: React.FC = () => {
                             <QrCodeIcon className="w-5 h-5" /> 모바일 연결
                         </button>
                         <button onClick={() => setIsCameraOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-lg transition-all border border-gray-600">
-                            <span className="text-lg">📹</span> 외부 카메라
+                            <CameraIcon className="w-5 h-5" /> 외부 카메라
                         </button>
                         <button onClick={startCapture} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-lg transition-all">
                             <CameraIcon className="w-5 h-5" /> 화면 캡처
                         </button>
                     </div>
+                </div>
+
+                <div className="mb-6 grid gap-3 rounded-xl border border-cyan-900/70 bg-cyan-950/20 p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Active Capture Session</span>
+                            <span className="rounded-full bg-gray-900 px-2 py-1 font-mono text-[10px] text-gray-400">
+                                {activeCaptureSessionId.slice(-12)}
+                            </span>
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                                activeCaptureSummary.ready
+                                    ? 'bg-emerald-900/70 text-emerald-200'
+                                    : 'bg-amber-900/60 text-amber-100'
+                            }`}>
+                                기본 시점 {activeCaptureSummary.availableViews.length}/2
+                            </span>
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                            {activeCaptureSummary.imageCount > 0
+                                ? activeCaptureSummary.message
+                                : '같은 제품의 전체 사진과 결함 근접 사진을 이 세션에 추가하세요.'}
+                        </p>
+                    </div>
+                    <label className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-400">화면 캡처 시점</span>
+                        <select
+                            value={screenCaptureViewTag}
+                            onChange={event => updateScreenCaptureViewTag(event.target.value as CaptureViewTag)}
+                            className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-100 outline-none focus:border-cyan-500"
+                        >
+                            {CAPTURE_VIEW_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <button
+                        onClick={() => handleNewCaptureSession('workspace')}
+                        className="rounded-lg border border-cyan-800 bg-gray-900 px-4 py-2 text-xs font-bold text-cyan-100 hover:border-cyan-500 hover:bg-cyan-950"
+                    >
+                        새 제품 촬영 시작
+                    </button>
                 </div>
 
                 {error && <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded-lg mb-6 text-center">{error}</div>}
@@ -1355,6 +1528,8 @@ const App: React.FC = () => {
                             {capturedImages.map((image, index) => {
                                 const isSel = selectedImageIds.has(image.id);
                                 const isThisAnalyzing = isAnalyzing.has(image.id);
+                                const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
+                                const captureSummary = summarizeCaptureSession(capturedImages, image.captureSessionId);
                                 return (
                                     <div key={image.id}
                                         draggable
@@ -1446,6 +1621,62 @@ const App: React.FC = () => {
                                                 </div>
                                             )}
 
+                                            <div className={`mb-3 rounded-lg border px-3 py-3 ${
+                                                captureAssessment.ready
+                                                    ? 'border-emerald-800/70 bg-emerald-950/20'
+                                                    : 'border-amber-800/70 bg-amber-950/20'
+                                            }`}>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`text-[11px] font-bold ${
+                                                        captureAssessment.ready ? 'text-emerald-300' : 'text-amber-200'
+                                                    }`}>
+                                                        {captureAssessment.ready ? '촬영 프로토콜 충족' : '촬영 정보 확인 필요'}
+                                                    </span>
+                                                    <span className="font-mono text-[9px] text-gray-500" title={image.captureSessionId}>
+                                                        {image.captureSessionId?.slice(-10) || '세션 없음'}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-[10px] leading-4 text-gray-400">
+                                                    {captureAssessment.message}
+                                                </p>
+                                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                                    <label>
+                                                        <span className="mb-1 block text-[9px] font-bold text-gray-500">이미지 종류</span>
+                                                        <select
+                                                            aria-label={`Sample ${index + 1} 이미지 종류`}
+                                                            value={image.captureImageKind || 'unknown'}
+                                                            onChange={event => updateImageCaptureMetadata(image.id, {
+                                                                captureImageKind: event.target.value as CaptureImageKind
+                                                            })}
+                                                            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
+                                                        >
+                                                            <option value="physical_product">실제 성형품</option>
+                                                            <option value="document_or_diagram">문서·도면</option>
+                                                            <option value="unknown">종류 미지정</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span className="mb-1 block text-[9px] font-bold text-gray-500">촬영 시점</span>
+                                                        <select
+                                                            aria-label={`Sample ${index + 1} 촬영 시점`}
+                                                            value={image.captureViewTag || ''}
+                                                            onChange={event => updateImageCaptureMetadata(image.id, {
+                                                                captureViewTag: (event.target.value || undefined) as CaptureViewTag | undefined
+                                                            })}
+                                                            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
+                                                        >
+                                                            <option value="">시점 선택</option>
+                                                            {CAPTURE_VIEW_OPTIONS.map(option => (
+                                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </label>
+                                                </div>
+                                                <p className="mt-2 text-[9px] text-gray-500">
+                                                    세션 {captureSummary.imageCount}장 · 확보 시점 {captureSummary.availableViews.length}/2
+                                                </p>
+                                            </div>
+
                                             <label className="block mb-3">
                                                 <span className="mb-1 block text-[11px] font-bold text-cyan-200">현상 설명</span>
                                                 <textarea
@@ -1477,13 +1708,22 @@ const App: React.FC = () => {
                                              <div className="flex gap-2 mt-2">
                                                 <button
                                                     onClick={() => handleAnalyzeClick(image.id)}
-                                                    disabled={isThisAnalyzing}
+                                                    disabled={isThisAnalyzing || (!captureAssessment.ready && !image.analysis)}
                                                     className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${image.analysis ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
                                                 >
                                                     {isThisAnalyzing ? <SpinnerIcon className="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
                                                     {isThisAnalyzing ? '분석 중' : (image.analysis ? '결과 보기' : (image.shapes && image.shapes.length > 0 ? 'ROI 진단' : 'AI 진단'))}
                                                 </button>
-                                                <button onClick={() => setEditingState({ id: image.id, baseImageUrl: image.baseImageUrl, annotations: image.annotations, shapes: image.shapes })} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="편집">
+                                                <button onClick={() => setEditingState({
+                                                    id: image.id,
+                                                    baseImageUrl: image.baseImageUrl,
+                                                    annotations: image.annotations,
+                                                    shapes: image.shapes,
+                                                    captureSessionId: image.captureSessionId,
+                                                    captureViewTag: image.captureViewTag,
+                                                    captureImageKind: image.captureImageKind,
+                                                    captureSource: image.captureSource
+                                                })} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="편집">
                                                     <EditIcon className="w-4 h-4" />
                                                 </button>
                                                 <button onClick={() => { setCapturedImages(prev => prev.filter(i => i.id !== image.id)); setSelectedImageIds(p => { const n = new Set(p); n.delete(image.id); return n; }) }} className="p-2 bg-gray-700 hover:bg-red-900/50 hover:text-red-400 rounded-lg text-gray-300" title="삭제">
@@ -1495,7 +1735,7 @@ const App: React.FC = () => {
                                             <div className="mt-2">
                                                 <button
                                                     onClick={() => handleGraphAnalyzeClick(image.id)}
-                                                    disabled={isThisAnalyzing}
+                                                    disabled={isThisAnalyzing || !captureAssessment.ready}
                                                     className="w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors bg-sky-700 hover:bg-sky-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title="Graph 경로 기반 추론"
                                                 >
@@ -1506,7 +1746,7 @@ const App: React.FC = () => {
                                             <div className="mt-2">
                                                 <button
                                                     onClick={() => handleCommonAgentSync(image.id)}
-                                                    disabled={isThisAnalyzing || serverHealth?.agent === 'offline'}
+                                                    disabled={isThisAnalyzing || serverHealth?.agent === 'offline' || !captureAssessment.ready}
                                                     className="w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title="Common Agent 이미지 진단 및 ROI 주석 동기화"
                                                 >
