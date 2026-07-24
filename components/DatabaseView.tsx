@@ -1847,17 +1847,45 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                     {previewLocalCandidate.sourceLineage.license || '확인 필요'}
                                                 </dd>
                                             </div>
+                                            {previewLocalCandidate.sourceLineage.sourceRecordId && (
+                                                <div>
+                                                    <dt className="text-gray-500">라이선스 원장 ID</dt>
+                                                    <dd className="mt-0.5 font-mono">
+                                                        {previewLocalCandidate.sourceLineage.sourceRecordId}
+                                                    </dd>
+                                                </div>
+                                            )}
+                                            {previewLocalCandidate.sourceLineage.sourceCitation && (
+                                                <div>
+                                                    <dt className="text-gray-500">문헌 인용</dt>
+                                                    <dd className="mt-0.5">
+                                                        {previewLocalCandidate.sourceLineage.sourceCitation}
+                                                    </dd>
+                                                </div>
+                                            )}
                                         </dl>
-                                        {previewLocalCandidate.sourceLineage.sourceUrl && (
-                                            <a
-                                                href={previewLocalCandidate.sourceLineage.sourceUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="mt-3 inline-flex rounded border border-sky-700 px-2 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-950"
-                                            >
-                                                원문 출처 열기
-                                            </a>
-                                        )}
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {previewLocalCandidate.sourceLineage.sourceUrl && (
+                                                <a
+                                                    href={previewLocalCandidate.sourceLineage.sourceUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex rounded border border-sky-700 px-2 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-950"
+                                                >
+                                                    원문 출처 열기
+                                                </a>
+                                            )}
+                                            {previewLocalCandidate.sourceLineage.licenseVerificationUrl && (
+                                                <a
+                                                    href={previewLocalCandidate.sourceLineage.licenseVerificationUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex rounded border border-emerald-700 px-2 py-1 text-[10px] font-bold text-emerald-200 hover:bg-emerald-950"
+                                                >
+                                                    라이선스 원장 열기
+                                                </a>
+                                            )}
+                                        </div>
                                     </section>
                                 )}
                                 <section className="mt-5 border-t border-gray-800 pt-4">

@@ -22,36 +22,40 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
     const packetRoot = path.join(tempRoot, 'packet');
     const profilePath = path.join(tempRoot, 'profile');
     fs.mkdirSync(packetRoot, { recursive: true });
-    const fileName = 'sample-web-burn.png';
+    const fileName = 'sample-web-weld-line.png';
     const imagePath = path.join(packetRoot, fileName);
     fs.writeFileSync(imagePath, fixturePng);
     const contentSha256 = crypto.createHash('sha256').update(fixturePng).digest('hex');
     fs.writeFileSync(path.join(packetRoot, 'vision-candidates.json'), JSON.stringify({
         candidates: [{
             relativePath: fileName,
-            defectType: '흑점/탄화',
-            defectClass: 'burn',
+            defectType: '웰드라인',
+            defectClass: 'weld_line',
             contentSha256,
             reviewPriority: 1,
             reviewBucket: 'agreement_high_confidence',
             reviewReasons: ['Source and Vision agree.'],
             requiresLabelReconciliation: true,
             labelEvidence: {
-                sourceLabel: '흑점/탄화',
-                visionSuggestedLabel: '탄화(번 마크)',
-                visionConfidence: 0.86,
+                sourceLabel: '웰드라인',
+                visionSuggestedLabel: '웰드라인',
+                visionConfidence: 0.94,
                 conflict: false,
                 auditedAt: '2026-07-24T07:00:00.000Z',
                 nonPersisting: true
             },
             sourceLineage: {
-                webCaseId: 'web-wikimedia-defek-terbakar-png',
-                sourcePublisher: 'Wikimedia Commons',
-                sourceTitle: 'Defek terbakar.png',
-                sourceUrl: 'https://commons.wikimedia.org/wiki/File:Defek_terbakar.png',
-                license: 'CC0',
-                licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
-                author: 'Ariyanto',
+                webCaseId: 'web-open-access-mdpi-ma16176053-figure-5',
+                sourcePublisher: 'Materials (MDPI)',
+                sourceTitle: 'Figure 5. Optical micrographs of the weld-line area',
+                sourceUrl: 'https://www.mdpi.com/1996-1944/16/17/6053',
+                license: 'CC BY 4.0',
+                licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+                licenseVerificationUrl:
+                    'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC10489043',
+                sourceRecordId: 'PMC10489043',
+                sourceCitation: 'Materials (Basel). 2023 Sep 3; 16(17):6053',
+                author: 'Sara Liparoti et al.',
                 evidenceContentSha256: contentSha256,
                 sourceReviewStatus: 'candidate',
                 packetSourceKind: 'web-case',
@@ -101,7 +105,7 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
                     image_id: 'image-hitl-1',
                     file_name: fileName,
                     mime_type: 'image/png',
-                    defect_type: '흑점/탄화',
+                    defect_type: '웰드라인',
                     review_status: 'candidate',
                     question: '리브 주변 백화',
                     observation: {
@@ -110,7 +114,7 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
                         possible_causes: ['취출 저항'],
                         recommended_checks: ['구배 확인']
                     },
-                    labels: ['흑점/탄화'],
+                    labels: ['웰드라인'],
                     process_area: 'injection-molding',
                     metadata: {
                         persisted_to_dataset: true,
@@ -234,6 +238,10 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
             sourceWebCaseId: diagnoseMetadata?.source_web_case_id,
             sourceUrl: diagnoseMetadata?.source_url,
             sourceLicense: diagnoseMetadata?.source_license,
+            sourceLicenseVerificationUrl:
+                diagnoseMetadata?.source_license_verification_url,
+            sourceRecordId: diagnoseMetadata?.source_record_id,
+            sourceCitation: diagnoseMetadata?.source_citation,
             sourceEvidenceSha256: diagnoseMetadata?.source_evidence_sha256,
             sourcePacketKind: diagnoseMetadata?.source_packet_kind,
             finalReviewStatus: storedItem?.review_status,
@@ -244,12 +252,16 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
             result.diagnoseWrites !== 1
             || result.reviewWrites !== 1
             || result.decision !== 'approve'
-            || result.defectType !== '흑점/탄화'
+            || result.defectType !== '웰드라인'
             || result.promoteToGraph !== true
             || result.humanLabelConfirmed !== true
-            || result.sourceWebCaseId !== 'web-wikimedia-defek-terbakar-png'
-            || result.sourceUrl !== 'https://commons.wikimedia.org/wiki/File:Defek_terbakar.png'
-            || result.sourceLicense !== 'CC0'
+            || result.sourceWebCaseId !== 'web-open-access-mdpi-ma16176053-figure-5'
+            || result.sourceUrl !== 'https://www.mdpi.com/1996-1944/16/17/6053'
+            || result.sourceLicense !== 'CC BY 4.0'
+            || result.sourceLicenseVerificationUrl
+                !== 'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC10489043'
+            || result.sourceRecordId !== 'PMC10489043'
+            || result.sourceCitation !== 'Materials (Basel). 2023 Sep 3; 16(17):6053'
             || result.sourceEvidenceSha256 !== contentSha256
             || result.sourcePacketKind !== 'web-case'
             || result.finalReviewStatus !== 'approved'

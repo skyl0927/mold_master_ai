@@ -20,15 +20,27 @@ const manifest = JSON.parse(
 );
 const webPreviewCandidate = manifest.candidates.find(
     candidate => candidate.sourceLineage?.packetSourceKind === 'web-case'
+        && candidate.sourceLineage?.licenseVerificationUrl
 );
 if (!webPreviewCandidate) {
-    throw new Error('The review packet does not contain a Web Case candidate.');
+    throw new Error('The review packet does not contain an open-access Web Case candidate.');
 }
 const webPreviewFileName = path.basename(webPreviewCandidate.relativePath);
 const webPreviewLicense = webPreviewCandidate.sourceLineage?.license;
 const webPreviewCaseId = webPreviewCandidate.sourceLineage?.webCaseId;
-if (!webPreviewLicense || !webPreviewCaseId) {
-    throw new Error('Web Case source lineage is missing a license or case ID.');
+const webPreviewPublisher = webPreviewCandidate.sourceLineage?.sourcePublisher;
+const webPreviewSourceTitle = webPreviewCandidate.sourceLineage?.sourceTitle;
+const webPreviewRecordId = webPreviewCandidate.sourceLineage?.sourceRecordId;
+const webPreviewCitation = webPreviewCandidate.sourceLineage?.sourceCitation;
+if (
+    !webPreviewLicense
+    || !webPreviewCaseId
+    || !webPreviewPublisher
+    || !webPreviewSourceTitle
+    || !webPreviewRecordId
+    || !webPreviewCitation
+) {
+    throw new Error('Open-access Web Case source lineage is incomplete.');
 }
 
 const sendJson = (response, status, payload) => {
@@ -118,6 +130,7 @@ const sendJson = (response, status, payload) => {
         await previewImage.waitFor({ timeout: 15000 });
         const previewImageVisible = await previewImage.isVisible();
         const previewNaturalWidth = await previewImage.evaluate(image => image.naturalWidth);
+        const previewNaturalHeight = await previewImage.evaluate(image => image.naturalHeight);
         const previewComparisonVisible = await previewDialog.getByText('원문/AI 비교').isVisible();
         const previewContextVisible = await previewDialog.getByText('현장·원문 문맥').isVisible();
         const reviewProgress = previewDialog.getByText(
@@ -174,6 +187,21 @@ const sendJson = (response, status, payload) => {
         const webCaseIdVisible = await previewDialog
             .getByText(webPreviewCaseId, { exact: true })
             .isVisible();
+        const webPublisherVisible = await previewDialog
+            .getByText(
+                `${webPreviewPublisher} · ${webPreviewSourceTitle}`,
+                { exact: true }
+            )
+            .isVisible();
+        const webRecordIdVisible = await previewDialog
+            .getByText(webPreviewRecordId, { exact: true })
+            .isVisible();
+        const webCitationVisible = await previewDialog
+            .getByText(webPreviewCitation, { exact: true })
+            .isVisible();
+        const webLicenseRecordLinkVisible = await previewDialog
+            .getByRole('link', { name: '라이선스 원장 열기' })
+            .isVisible();
         await previewDialog.getByRole('button', { name: '확대 보기 닫기' }).click();
         await previewDialog.waitFor({ state: 'hidden', timeout: 15000 });
         const coverageFilter = page.getByRole('button', {
@@ -214,6 +242,7 @@ const sendJson = (response, status, payload) => {
             previewButtonVisible: await previewButton.isVisible(),
             previewImageVisible,
             previewNaturalWidth,
+            previewNaturalHeight,
             previewComparisonVisible,
             previewContextVisible,
             reviewProgressVisible,
@@ -227,6 +256,10 @@ const sendJson = (response, status, payload) => {
             webLicenseVisible,
             webSourceLinkVisible,
             webCaseIdVisible,
+            webPublisherVisible,
+            webRecordIdVisible,
+            webCitationVisible,
+            webLicenseRecordLinkVisible,
             coverageFilterVisible: await coverageFilter.isVisible(),
             coverageNeedBadgeCount,
             persistedPacketPointer: fs.existsSync(pointerPath),
@@ -256,7 +289,7 @@ const sendJson = (response, status, payload) => {
             || result.priorityBadgeCount !== manifest.auditSummary.reviewBucketCounts.agreement_high_confidence
             || !result.previewButtonVisible
             || !result.previewImageVisible
-            || result.previewNaturalWidth <= 320
+            || Math.max(result.previewNaturalWidth, result.previewNaturalHeight) <= 320
             || !result.previewComparisonVisible
             || !result.previewContextVisible
             || !result.reviewProgressVisible
@@ -270,6 +303,10 @@ const sendJson = (response, status, payload) => {
             || !result.webLicenseVisible
             || !result.webSourceLinkVisible
             || !result.webCaseIdVisible
+            || !result.webPublisherVisible
+            || !result.webRecordIdVisible
+            || !result.webCitationVisible
+            || !result.webLicenseRecordLinkVisible
             || !result.coverageFilterVisible
             || result.coverageNeedBadgeCount !== manifest.auditSummary.reviewBucketCounts.agreement_high_confidence
             || !result.persistedPacketPointer

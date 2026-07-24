@@ -291,6 +291,9 @@ export interface LocalVisionCandidate {
     downloadUrl?: string;
     license?: string;
     licenseUrl?: string;
+    licenseVerificationUrl?: string;
+    sourceRecordId?: string;
+    sourceCitation?: string;
     author?: string;
     retrievedAt?: string;
     evidenceContentSha256?: string;
