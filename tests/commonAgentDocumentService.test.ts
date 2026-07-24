@@ -143,6 +143,186 @@ test('grounded Vision v2 rejects unlinked candidates and does not inject causes 
     );
 });
 
+test('Vision Graph grounding maps only approved causes actions and path citations', () => {
+    const response = {
+        image_id: 'image-grounded',
+        file_name: 'whitening.png',
+        mime_type: 'image/png',
+        source_system: 'test',
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product' as const,
+            normality_status: 'defect_visible' as const,
+            observations: [{
+                observation_id: 'obs-1',
+                category: 'color' as const,
+                description: '리브 주변 유백색 변색',
+                region: '리브 기부',
+                confidence: 0.91
+            }],
+            candidates: [{
+                defect_type: '백화',
+                confidence: 0.82,
+                supporting_observation_ids: ['obs-1']
+            }],
+            decision_status: 'probable' as const,
+            decision_reason: 'probable_multiview_consensus'
+        },
+        answer: '[Graph 검증 결과]\nGraph 검증 원인: 과도한 이형 저항',
+        evidence: [],
+        graph_grounding: {
+            contract_version: 'vision-graph-grounding/v1' as const,
+            candidate_grounding: [{
+                defect_type: '백화',
+                vision_rank: 1,
+                vision_confidence: 0.82,
+                status: 'supported' as const,
+                direct_match_score: 1,
+                multihop_score: 0.85,
+                context_match_score: 0.75,
+                graph_support_score: 0.91,
+                approved_path_count: 1,
+                causes: ['과도한 이형 저항'],
+                countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+                citations: [{
+                    path_id: 'path-whitening-release',
+                    document_id: 'doc-approved-1',
+                    path_text: '백화 -> 과도한 이형 저항 -> 리브 구배 점검',
+                    hop_count: 2,
+                    score: 0.93,
+                    review_status: 'approved',
+                    evidence_ids: ['ev-defect', 'ev-cause', 'ev-action']
+                }],
+                rejected_path_reasons: []
+            }],
+            graph_grounded: true,
+            top_candidate_supported: true,
+            vision_graph_conflict: false,
+            approved_path_count: 1,
+            citation_count: 1,
+            grounded_causes: ['과도한 이형 저항'],
+            grounded_countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+            requires_human_review: false,
+            auto_finalize_allowed: true,
+            llm_supplement_allowed: false,
+            llm_supplement_training_eligible: false,
+            decision_status: 'grounded' as const,
+            decision_reason: 'vision_top1_approved_graph_path_supported'
+        },
+        metadata: {
+            llm_supplement_used: false
+        }
+    };
+
+    const analysis = CommonAgentApiService.toDefectAnalysis(response);
+
+    assert.equal(analysis.possibleCauses, '과도한 이형 저항');
+    assert.equal(analysis.countermeasures, '리브 구배 및 표면 거칠기 점검');
+    assert.equal(analysis.retrievalSummary?.graphGrounded, true);
+    assert.equal(analysis.retrievalSummary?.llmSupplemented, false);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.decisionStatus, 'grounded');
+    assert.equal(analysis.retrievalSummary?.graphValidation?.autoFinalizeAllowed, true);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.candidateGrounding[0].supportScore, 0.91);
+    assert.deepEqual(
+        analysis.retrievalSummary?.citations,
+        ['path-whitening-release']
+    );
+    assert.deepEqual(
+        analysis.retrievalSummary?.graphTrace,
+        ['백화 -> 과도한 이형 저항 -> 리브 구배 점검']
+    );
+});
+
+test('Graph-missing LLM supplement never populates specification cause or action fields', () => {
+    const response = {
+        image_id: 'image-unverified',
+        file_name: 'unknown.png',
+        mime_type: 'image/png',
+        source_system: 'test',
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product' as const,
+            normality_status: 'defect_visible' as const,
+            observations: [{
+                observation_id: 'obs-1',
+                category: 'surface' as const,
+                description: '표면 이상이 관찰됨',
+                confidence: 0.75
+            }],
+            candidates: [{
+                defect_type: '미분류 표면 결함',
+                confidence: 0.62,
+                supporting_observation_ids: ['obs-1']
+            }],
+            decision_status: 'probable' as const,
+            decision_reason: 'vision_candidate'
+        },
+        answer: [
+            '[Graph 검증 결과]',
+            '승인된 Graph 경로 없음',
+            '[LLM 보조 참고 - Graph 미검증/학습 사용 금지]',
+            'LLM 추정 원인과 대책'
+        ].join('\n'),
+        evidence: [{
+            node_id: 'rag-1',
+            text: '일반 문서 검색 결과',
+            score: 0.7,
+            source_type: 'rag',
+            source_ref: 'doc-general'
+        }],
+        graph_grounding: {
+            contract_version: 'vision-graph-grounding/v1' as const,
+            candidate_grounding: [{
+                defect_type: '미분류 표면 결함',
+                vision_rank: 1,
+                vision_confidence: 0.62,
+                status: 'unverified' as const,
+                direct_match_score: 0,
+                multihop_score: 0,
+                context_match_score: 0,
+                graph_support_score: 0,
+                approved_path_count: 0,
+                causes: [],
+                countermeasures: [],
+                citations: [],
+                rejected_path_reasons: []
+            }],
+            graph_grounded: false,
+            top_candidate_supported: false,
+            vision_graph_conflict: false,
+            approved_path_count: 0,
+            citation_count: 0,
+            grounded_causes: [],
+            grounded_countermeasures: [],
+            requires_human_review: true,
+            auto_finalize_allowed: false,
+            llm_supplement_allowed: true,
+            llm_supplement_training_eligible: false,
+            decision_status: 'unverified' as const,
+            decision_reason: 'approved_graph_evidence_missing'
+        },
+        metadata: {
+            llm_supplement_used: true
+        }
+    };
+
+    const analysis = CommonAgentApiService.toDefectAnalysis(response);
+
+    assert.equal(analysis.possibleCauses, '');
+    assert.equal(analysis.countermeasures, '');
+    assert.equal(analysis.visionSummary?.decisionStatus, 'needs_review');
+    assert.equal(analysis.visionSummary?.decisionReason, 'approved_graph_evidence_missing');
+    assert.equal(analysis.retrievalSummary?.graphGrounded, false);
+    assert.equal(analysis.retrievalSummary?.llmSupplemented, true);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.requiresHumanReview, true);
+    assert.equal(
+        analysis.retrievalSummary?.graphValidation?.llmSupplementTrainingEligible,
+        false
+    );
+    assert.deepEqual(analysis.retrievalSummary?.citations, []);
+    assert.match(analysis.rawOutput, /LLM 보조 참고/);
+});
+
 const diagnosisCandidate = (source: 'common_agent' | 'legacy', defectType: string) => ({
     source,
     analysis: {
