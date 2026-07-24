@@ -61,6 +61,11 @@ decision.
   returned `promote_candidate` with no blocking reasons.
 - Common Agent focused Vision/HITL tests: 18 passed before the final full-suite
   verification.
+- Mold cross-feature unit suites: 144 passed.
+- Common Agent full suite: 667 passed.
+- Electron multimodal, HITL, capture-protocol, and transition scenarios passed
+  with zero console errors. The HITL smoke fixture was updated from an obsolete
+  one-pixel/single-view input to the enforced two-view capture protocol.
 
 ## Operational Boundary
 

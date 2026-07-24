@@ -2,19 +2,13 @@ const { _electron: electron } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SAMPLE_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=',
-  'base64'
-);
-
 (async () => {
   let app;
   try {
     const artifactsDir = path.join(process.cwd(), 'artifacts');
     fs.mkdirSync(artifactsDir, { recursive: true });
-    const samplePath = path.join(artifactsDir, 'hitl-review-smoke.png');
+    const samplePath = path.join(process.cwd(), 'assets', 'icon.png');
     const profilePath = path.join(artifactsDir, `hitl-e2e-profile-${Date.now()}`);
-    fs.writeFileSync(samplePath, SAMPLE_PNG);
 
     app = await electron.launch({
       args: ['.', `--user-data-dir=${profilePath}`],
@@ -97,11 +91,17 @@ const SAMPLE_PNG = Buffer.from(
     await page.getByRole('button', { name: '로그인' }).click();
     await page.getByText('관리자 모드 활성화').waitFor();
 
-    await page.locator('input[type="file"][accept="image/*"]').setInputFiles(samplePath);
+    const imageInput = page.locator('input[type="file"][accept="image/*"]');
+    await imageInput.setInputFiles(samplePath);
+    await page.locator('select[aria-label^="Sample 1"]').nth(0).selectOption('physical_product');
+    await page.locator('select[aria-label^="Sample 1"]').nth(1).selectOption('full_part_context');
+    await imageInput.setInputFiles(samplePath);
+    await page.locator('select[aria-label^="Sample 2"]').nth(0).selectOption('physical_product');
+    await page.locator('select[aria-label^="Sample 2"]').nth(1).selectOption('defect_closeup');
     await page.getByLabel('Sample 1 현상 설명').fill('원형 밀핀 위치에 압흔이 발생함');
-    await page.getByRole('button', { name: 'AI 진단' }).click();
+    await page.getByRole('button', { name: 'AI 진단' }).first().click();
     await page.getByText('밀핀 자국', { exact: true }).first().waitFor();
-    await page.getByRole('button', { name: /\[승인\] Graph 학습 데이터 등록/ }).click();
+    await page.getByRole('button', { name: '승인·Graph 승격' }).click();
     await page.getByText('Common Agent 검토 승인 및 Graph 등록 완료!').waitFor({ timeout: 15000 });
 
     const screenshotPath = path.join(artifactsDir, 'electron-hitl-review.png');
