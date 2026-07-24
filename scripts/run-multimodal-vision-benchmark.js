@@ -7,6 +7,12 @@ const {
   summarizeVisionBenchmark,
   validateVisionCases
 } = require('./lib/multimodal-benchmark');
+const {
+  applyVisionRuntimeGate,
+  assessVisionRuntimeStatus,
+  buildBlindVisionQuestion,
+  buildGraphRetrievalQuestion
+} = require('./lib/vision-benchmark-harness');
 const { normalizeVisionObservation } = require('../visionObservation');
 
 const root = process.cwd();
@@ -25,18 +31,6 @@ const artifactPath = path.resolve(
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const qaUrl = (process.env.COMMON_AGENT_QA_URL || 'http://127.0.0.1:8103').replace(/\/+$/, '');
 const concurrency = Math.max(1, Math.min(4, Number(valueAfter('--concurrency') || 2)));
-const defectTaxonomy = [
-  '백화', '플래시(버/바리)', '미성형(Short Shot)', '흑점/탄화', '싱크마크',
-  '웰드라인', '은줄', '기포', '변형/휨', '박리', '흐름 자국', '제팅',
-  '게이트 자국', '밀핀 자국', '스크래치/패임', '크랙', '이형 불량', '치수 불량'
-];
-const visualDiscriminationGuide = [
-  '밀핀 자국: 밀핀 위치와 일치하는 원형 또는 원호형 경계, 원형 압흔·돌출·백화',
-  '스크래치/패임: 금형 기능 형상과 무관한 선형·불규칙 마찰 흔적 또는 재료 손실',
-  '플래시(버/바리): 파팅라인·인서트 경계 밖으로 이어지는 얇은 잉여 수지',
-  '백화: 리브·코너·취출부 주변의 응력성 유백색 또는 흐린 변색'
-].join('; ');
-
 const mimeTypeFor = imagePath => ({
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -63,25 +57,6 @@ const loadCases = () => {
     })
   };
 };
-
-const buildQuestion = testCase => [
-  '사출성형 품질 문제를 멀티모달로 진단해 주세요.',
-  '이미지를 1차 관찰 근거로 사용하고 현장 설명은 보조 근거로 교차 검증하세요.',
-  '판정 순서: 1) 반복 배경 텍스처 제외, 2) 가장 큰 독립 경계의 기하형상 식별, 3) 밀핀·게이트 등 금형 기능부 대응 여부 확인, 4) 지배 불량 분류.',
-  `현장 현상 설명:\n${testCase.inputNotes || '추가 현장 설명 없음'}`,
-  testCase.roiNormalized
-    ? '검토자가 지정한 ROI로 잘라낸 영역만 우선 관찰하세요.'
-    : '사용자 지정 ROI가 없으므로 전체 화면을 관찰하세요.',
-  `불량명은 다음 표준 taxonomy에서 선택하세요: ${defectTaxonomy.join(', ')}.`,
-  `혼동하기 쉬운 형상은 다음 기준으로 구분하세요: ${visualDiscriminationGuide}.`,
-  'ROI 안에 여러 흔적이 있으면 금형 기능 형상과 직접 연관된 지배 결함을 우선 분류하세요.',
-  '영상 근거로 구분할 수 없으면 "판정 불가"로 답하고 추가 촬영 조건을 제시하세요.',
-  '단일 결함명만 단정하지 말고 candidates 배열에 최대 3개 후보를 신뢰도 순으로 반환하세요.',
-  '각 후보는 defect_type, confidence(0~1), supporting_features, contradicting_features를 포함해야 합니다.',
-  '관찰 결과에는 visible_features, required_additional_views, quality_concerns, abstention_reason도 포함하세요.',
-  '관찰 사실과 추론을 구분하고 불량명, 원인 후보, 확인 항목을 제시하세요.',
-  '원인과 대책은 승인된 Graph DB 근거를 우선 사용하고 부족한 부분만 LLM 지식으로 보조하세요.'
-].join('\n\n');
 
 const cropToFixtureRoi = (image, testCase) => {
   const roi = testCase.roiNormalized;
@@ -140,11 +115,34 @@ const loadImage = async testCase => {
   };
 };
 
+const loadVisionRuntimeAttestation = async () => {
+  const endpoint = `${qaUrl}/internal/vision/status`;
+  try {
+    const response = await fetch(endpoint);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        endpoint,
+        ...assessVisionRuntimeStatus(payload, `HTTP ${response.status}`)
+      };
+    }
+    return { endpoint, ...assessVisionRuntimeStatus(payload) };
+  } catch (error) {
+    return {
+      endpoint,
+      ...assessVisionRuntimeStatus(
+        {},
+        error instanceof Error ? error.message : String(error)
+      )
+    };
+  }
+};
+
 const executeCase = async testCase => {
   const startedAt = Date.now();
   try {
     const image = cropToFixtureRoi(await loadImage(testCase), testCase);
-    const question = buildQuestion(testCase);
+    const question = buildBlindVisionQuestion(testCase);
     const visionResponse = await fetch(`${qaUrl}/internal/vision/describe`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -165,24 +163,11 @@ const executeCase = async testCase => {
       throw new Error(`QA Vision failed: ${visionResponse.status} ${JSON.stringify(observation)}`);
     }
     const visionSummary = normalizeVisionObservation(observation);
-    const candidateLines = visionSummary.candidates.map((candidate, index) => [
-      `${index + 1}. ${candidate.defectType} (${Math.round(candidate.confidence * 100)}%)`,
-      candidate.supportingFeatures.length > 0
-        ? `일치 근거: ${candidate.supportingFeatures.join(', ')}`
-        : '',
-      candidate.contradictingFeatures.length > 0
-        ? `불일치 근거: ${candidate.contradictingFeatures.join(', ')}`
-        : ''
-    ].filter(Boolean).join(' | '));
-
-    const retrievalQuestion = [
-      question,
-      `Vision decision status: ${visionSummary.decisionStatus}`,
-      `Vision candidates:\n${candidateLines.join('\n') || 'unclassified'}`,
-      `Visible features: ${visionSummary.visibleFeatures.join(', ')}`,
-      `Vision summary: ${observation.summary || ''}`,
-      `Possible causes: ${(observation.possible_causes || []).join(', ')}`
-    ].join('\n');
+    const retrievalQuestion = buildGraphRetrievalQuestion({
+      testCase,
+      visionSummary,
+      observation
+    });
     const askResponse = await fetch(`${baseUrl}/v1/ask`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -258,15 +243,19 @@ const run = async () => {
     return;
   }
 
+  const visionRuntimeAttestation = await loadVisionRuntimeAttestation();
   const results = [];
   for (let index = 0; index < validation.valid.length; index += concurrency) {
     const batch = validation.valid.slice(index, index + concurrency);
     results.push(...await Promise.all(batch.map(executeCase)));
   }
-  const summary = summarizeVisionBenchmark(
-    results,
-    manifest.minimumSamples || 20,
-    manifest.evaluationGate || {}
+  const summary = applyVisionRuntimeGate(
+    summarizeVisionBenchmark(
+      results,
+      manifest.minimumSamples || 20,
+      manifest.evaluationGate || {}
+    ),
+    visionRuntimeAttestation
   );
   const report = {
     generatedAt: new Date().toISOString(),
@@ -274,6 +263,7 @@ const run = async () => {
     commonAgentUrl: baseUrl,
     qaAgentUrl: qaUrl,
     manifestPath,
+    visionRuntimeAttestation,
     summary,
     invalidCases: validation.invalid,
     results
@@ -295,6 +285,12 @@ const run = async () => {
     `Classes observed=${summary.observedDefectClasses}/${summary.requiredDefectClasses.length} `
     + `validated=${summary.coveredDefectClasses}/${summary.requiredDefectClasses.length} `
     + `vision-confidence=${summary.confidentRate}%`
+  );
+  console.log(
+    `Runtime attestation=${summary.runtimeAttestationReady} `
+    + `model=${visionRuntimeAttestation.modelVersion || 'unknown'} `
+    + `prompt=${visionRuntimeAttestation.promptVersion || 'unknown'} `
+    + `detail=${visionRuntimeAttestation.imageDetail || 'unknown'}`
   );
   if (summary.failedGateChecks.length > 0) {
     console.log(`Failed gates: ${summary.failedGateChecks.join(', ')}`);
