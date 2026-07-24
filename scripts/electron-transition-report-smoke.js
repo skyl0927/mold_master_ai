@@ -17,6 +17,53 @@ const path = require('node:path');
 
     await page.evaluate(records => {
       localStorage.setItem('mold-master-ai:diagnosis-comparisons:v1', JSON.stringify(records));
+      localStorage.setItem('mold-master-ai:vision-operational-release:v1', JSON.stringify({
+        schemaVersion: 'vision-operational-release/v1',
+        generatedAt: '2026-07-24T02:00:00.000Z',
+        decision: 'rollback_required',
+        releaseAllowed: false,
+        baselineVersion: {
+          modelVersion: 'vision-model-2026.06',
+          promptVersion: 'vision-prompt-v5',
+          graphVersion: 'approved-graph-42'
+        },
+        candidateVersion: {
+          modelVersion: 'vision-model-2026.07',
+          promptVersion: 'vision-prompt-v6',
+          graphVersion: 'approved-graph-43'
+        },
+        rollbackTarget: {
+          modelVersion: 'vision-model-2026.06',
+          promptVersion: 'vision-prompt-v5',
+          graphVersion: 'approved-graph-42'
+        },
+        baseline: {
+          samples: 30,
+          top1Accuracy: 0.9,
+          top3Accuracy: 1,
+          selectiveAccuracy: 0.9,
+          selectiveCoverage: 1,
+          unsafeFalsePositiveRate: 0.1,
+          expectedCalibrationError: 0.05,
+          p95LatencyMs: 480,
+          minimumClassReproduction: 0.9
+        },
+        candidate: {
+          samples: 30,
+          top1Accuracy: 0.7,
+          top3Accuracy: 0.9,
+          selectiveAccuracy: 0.7,
+          selectiveCoverage: 1,
+          unsafeFalsePositiveRate: 0.3,
+          expectedCalibrationError: 0.2,
+          p95LatencyMs: 1800,
+          minimumClassReproduction: 0.7
+        },
+        splitAudit: { passed: true, sampleCount: 60, issues: [] },
+        cohorts: [],
+        checks: { top1Accuracy: false },
+        blockingReasons: ['top1Accuracy', 'unsafeFalsePositive', 'calibration', 'latency']
+      }));
     }, [
       {
         id: 'smoke-1',
@@ -101,6 +148,9 @@ const path = require('node:path');
       reportClassifiableRate: captured.report.readiness.classifiableRate,
       hasObservabilityPanel: bodyText.includes('진단 운영 관측성'),
       hasLatencyMetric: bodyText.includes('Agent P50/P95'),
+      hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
+      hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
+      releaseDecision: captured.report.operationalRelease?.decision,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
@@ -115,6 +165,9 @@ const path = require('node:path');
       !result.hasClassifiableMetric
       || !result.hasObservabilityPanel
       || !result.hasLatencyMetric
+      || !result.hasReleaseGatePanel
+      || !result.hasRollbackDecision
+      || result.releaseDecision !== 'rollback_required'
       || result.reportGraphGroundedRate !== 50
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
