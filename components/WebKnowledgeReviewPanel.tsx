@@ -296,7 +296,7 @@ const WebKnowledgeReviewPanel: React.FC = () => {
     };
 
     if (!dataset && isLoading) {
-        return <div className="flex min-h-[420px] items-center justify-center text-cyan-200">40건 카드 무결성 검증 중...</div>;
+        return <div className="flex min-h-[420px] items-center justify-center text-cyan-200">Web Case 카드 무결성 검증 중...</div>;
     }
 
     return (

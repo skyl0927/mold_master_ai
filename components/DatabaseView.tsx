@@ -756,7 +756,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                 >
                     {([
                         ['common-agent', `Common Agent Vision (${visionItems.length})`],
-                        ['web-knowledge', 'Web Case HITL (40)'],
+                        ['web-knowledge', 'Web Case HITL'],
                         ['stats', 'Local Rollback Structure'],
                         ['legacy', `Legacy Feedback (${feedbackData.length})`]
                     ] as Array<[DatabaseTab, string]>).map(([tab, label]) => (

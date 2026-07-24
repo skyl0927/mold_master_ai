@@ -325,7 +325,7 @@ const main = async () => {
     )
   ]);
 
-  const success = collection.summary.totalCards === targetCards
+  const success = collection.summary.totalCards >= targetCards
     && collection.invalid.length === 0
     && collection.summary.autoApproved === 0
     && collection.summary.graphPromoted === 0;

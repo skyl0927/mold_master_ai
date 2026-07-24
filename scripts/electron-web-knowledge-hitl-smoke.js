@@ -3,6 +3,10 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const {
+  findLatestWebKnowledgeCollection,
+  loadWebKnowledgeCollection
+} = require('../webKnowledgeReviewStore');
 
 const sendJson = (response, status, payload) => {
   response.writeHead(status, {
@@ -15,11 +19,10 @@ const sendJson = (response, status, payload) => {
 (async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mold-master-web-hitl-'));
   const profilePath = path.join(tempRoot, 'profile');
-  const collectionRoot = path.join(
-    process.cwd(),
-    'artifacts',
-    'web-injection-defect-cases-20260724T045605'
-  );
+  const collectionRoot = findLatestWebKnowledgeCollection({
+    artifactsRoot: path.join(process.cwd(), 'artifacts')
+  });
+  const collection = loadWebKnowledgeCollection(collectionRoot);
   const requests = [];
   const server = http.createServer((request, response) => {
     let body = '';
@@ -139,8 +142,11 @@ const sendJson = (response, status, payload) => {
     });
 
     await page.getByText('DATABASE TREE').click();
-    await page.getByRole('button', { name: 'Web Case HITL (40)' }).click();
-    await page.getByText('카드 40건 · 이미지 해시 16건 검증 완료').waitFor({ timeout: 20000 });
+    await page.getByRole('button', { name: 'Web Case HITL' }).click();
+    await page.getByText(
+      `카드 ${collection.integrity.cardCount}건 · 이미지 해시 `
+      + `${collection.integrity.verifiedImages}건 검증 완료`
+    ).waitFor({ timeout: 20000 });
     const compactLayout = await page.evaluate(() => {
       const modal = document.querySelector('[data-testid="dataset-manager-modal"]');
       const tabs = document.querySelector('[data-testid="dataset-manager-tabs"]');

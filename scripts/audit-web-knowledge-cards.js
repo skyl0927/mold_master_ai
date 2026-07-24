@@ -83,11 +83,11 @@ for (const card of collection.cards) {
   }
 }
 
-if (collection.cards.length !== targetCardCount) {
+if (collection.cards.length < targetCardCount) {
   findings.push({
     severity: 'error',
-    code: 'CARD_COUNT_MISMATCH',
-    expected: targetCardCount,
+    code: 'CARD_COUNT_BELOW_TARGET',
+    expectedMinimum: targetCardCount,
     actual: collection.cards.length
   });
 }

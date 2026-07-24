@@ -97,29 +97,106 @@ const WIKIMEDIA_CASE_MAPPINGS = [
   }
 ];
 
-const OPEN_ACCESS_FIGURE_MAPPINGS = [{
-  id: 'mdpi-ma16176053-figure-5',
-  pmcId: 'PMC10489043',
-  sourceDefectTitle: 'Weld line',
-  title: 'Figure 5. Optical micrographs of the weld-line area',
-  publisher: 'Materials (MDPI)',
-  sourceUrl: 'https://www.mdpi.com/1996-1944/16/17/6053',
-  licenseVerificationUrl: [
-    'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
-    '?id=PMC10489043'
-  ].join(''),
-  assetUrl: [
-    'https://mdpi-res.com/d_attachment/materials/materials-16-06053/',
-    'article_deploy/html/images/materials-16-06053-g005-550.jpg'
-  ].join(''),
-  author: 'Sara Liparoti, Giorgia De Piano, Rita Salomone, Roberto Pantani',
-  expectedLicense: 'CC BY 4.0',
-  licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
-  description: [
-    'Optical micrographs of micro-injection-molded specimens at 100, 110,',
-    'and 115 degrees Celsius in the weld-line area.'
-  ].join(' ')
-}];
+const OPEN_ACCESS_FIGURE_MAPPINGS = [
+  {
+    id: 'mdpi-ma16176053-figure-5',
+    pmcId: 'PMC10489043',
+    sourceDefectTitle: 'Weld line',
+    title: 'Figure 5. Optical micrographs of the weld-line area',
+    publisher: 'Materials (MDPI)',
+    sourceUrl: 'https://www.mdpi.com/1996-1944/16/17/6053',
+    licenseVerificationUrl: [
+      'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
+      '?id=PMC10489043'
+    ].join(''),
+    assetUrl: [
+      'https://mdpi-res.com/d_attachment/materials/materials-16-06053/',
+      'article_deploy/html/images/materials-16-06053-g005-550.jpg'
+    ].join(''),
+    author: 'Sara Liparoti, Giorgia De Piano, Rita Salomone, Roberto Pantani',
+    expectedLicense: 'CC BY 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    description: [
+      'Optical micrographs of micro-injection-molded specimens at 100, 110,',
+      'and 115 degrees Celsius in the weld-line area.'
+    ].join(' ')
+  },
+  {
+    id: 'mdpi-polymers-13-04087-figure-2',
+    pmcId: 'PMC8659061',
+    sourceDefectTitle: 'Diesel effect/Burning',
+    title: 'Figure 2. Injection-molded part with a burn mark',
+    publisher: 'Polymers (MDPI)',
+    sourceUrl: 'https://www.mdpi.com/2073-4360/13/23/4087',
+    licenseVerificationUrl: [
+      'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
+      '?id=PMC8659061'
+    ].join(''),
+    assetUrl: [
+      'https://mdpi-res.com/d_attachment/polymers/polymers-13-04087/',
+      'article_deploy/html/images/polymers-13-04087-g002-550.jpg'
+    ].join(''),
+    author: [
+      'Jiquan Li', 'Wenyong Liu', 'Xinxin Xia', 'Hangchao Zhou',
+      'Liting Jing', 'Xiang Peng', 'Shaofei Jiang'
+    ].join(', '),
+    expectedLicense: 'CC BY 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    description: [
+      'Photograph of an injection-molded plate with a localized dark burn mark',
+      'at the end of the cavity.'
+    ].join(' ')
+  },
+  {
+    id: 'mdpi-polymers-14-04842-figure-14',
+    pmcId: 'PMC9696673',
+    sourceDefectTitle: 'Sink marks',
+    title: 'Figure 14. Sink mark due to material concentration',
+    publisher: 'Polymers (MDPI)',
+    sourceUrl: 'https://www.mdpi.com/2073-4360/14/22/4842',
+    licenseVerificationUrl: [
+      'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
+      '?id=PMC9696673'
+    ].join(''),
+    assetUrl: [
+      'https://mdpi-res.com/d_attachment/polymers/polymers-14-04842/',
+      'article_deploy/html/images/polymers-14-04842-g014-550.jpg'
+    ].join(''),
+    author: [
+      'Janez Gotlih', 'Miran Brezocnik', 'Snehashis Pal',
+      'Igor Drstvensek', 'Timi Karner', 'Tomaz Brajlih'
+    ].join(', '),
+    expectedLicense: 'CC BY 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    description: [
+      'Photograph and engineering comparison identifying a sink mark caused by',
+      'material concentration in an injection-molded housing.'
+    ].join(' ')
+  },
+  {
+    id: 'mdpi-polymers-15-03207-figure-2',
+    pmcId: 'PMC10422203',
+    sourceDefectTitle: 'Flash',
+    title: 'Figure 2. Examples of short shot, flash, and sink marks',
+    publisher: 'Polymers (MDPI)',
+    sourceUrl: 'https://www.mdpi.com/2073-4360/15/15/3207',
+    licenseVerificationUrl: [
+      'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi',
+      '?id=PMC10422203'
+    ].join(''),
+    assetUrl: [
+      'https://mdpi-res.com/d_attachment/polymers/polymers-15-03207/',
+      'article_deploy/html/images/polymers-15-03207-g002-550.jpg'
+    ].join(''),
+    author: 'Mason Myers, Rachmat Mulyana, Jose M Castro, Ben Hoffman',
+    expectedLicense: 'CC BY 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    description: [
+      'Photographs of injection-molded process-window boundary samples,',
+      'including prominent flash around the over-packed sample.'
+    ].join(' ')
+  }
+];
 
 const compactWhitespace = value => String(value || '').replace(/\s+/g, ' ').trim();
 const uniqueStrings = values => [...new Set(
@@ -543,7 +620,7 @@ const assembleCandidateCollection = ({
   const template = toTacitKnowledgeTemplate(cards, {
     documentId: `doc-web-injection-defect-cases-${retrievedAt.slice(0, 10).replace(/-/g, '')}`,
     generatedAt: retrievedAt,
-    title: '인터넷 출처 사출 성형 결함 후보 카드 40건'
+    title: `인터넷 출처 사출 성형 결함 후보 카드 ${cards.length}건`
   });
   return {
     cards,
