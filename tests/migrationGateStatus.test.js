@@ -19,7 +19,12 @@ test('migration gate status combines live data, HITL queue, and benchmark blocke
         },
         approvedManifest: {
             minimumSamples: 20,
-            qualityIssues: [{ type: 'duplicate_image_conflicting_labels' }],
+            qualityIssues: [{
+                type: 'duplicate_image_conflicting_labels',
+                contentHash: 'f'.repeat(64),
+                caseIds: ['approved-image-a', 'approved-image-b'],
+                labels: ['표면 결함', '플래시']
+            }],
             cases: [
                 { status: 'active' },
                 { status: 'needs_review' },
@@ -63,6 +68,11 @@ test('migration gate status combines live data, HITL queue, and benchmark blocke
     assert.equal(status.approved.cleanRunnable, 1);
     assert.equal(status.approved.duplicatesExcluded, 1);
     assert.equal(status.approved.conflictGroups, 1);
+    assert.deepEqual(status.approved.conflicts, [{
+        contentHash: 'f'.repeat(64),
+        caseIds: ['approved-image-a', 'approved-image-b'],
+        labels: ['표면 결함', '플래시']
+    }]);
     assert.equal(status.hitl.highConfidenceAgreements, 6);
     assert.equal(status.hitl.unresolvedHighConfidence, 6);
     assert.equal(status.hitl.resolvedHighConfidence, 0);
