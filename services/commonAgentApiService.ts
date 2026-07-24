@@ -4,7 +4,8 @@ import {
     VisionObservationCategory,
     VisionObservationSummary,
     VisionFusionSummary,
-    VisionViewEvidence
+    VisionViewEvidence,
+    VisionGraphGroundingSummary
 } from '../types';
 import { normalizeVisionObservation } from '../visionObservation';
 import { getAgentServerBaseUrl } from './runtimeConfig';
@@ -158,6 +159,7 @@ export interface CommonAgentVisionDiagnosis {
     metadata?: Record<string, any>;
     view_observations?: CommonAgentVisionViewObservation[];
     fusion_report?: CommonAgentVisionFusionReport;
+    graph_grounding?: CommonAgentVisionGraphGroundingReport;
     created_at?: string;
 }
 
@@ -188,6 +190,50 @@ export interface CommonAgentVisionFusionReport {
         contradicting_observation_ids: string[];
     }>;
     decision_status: 'probable' | 'needs_review' | 'unclassifiable';
+    decision_reason: string;
+}
+
+export interface CommonAgentVisionGraphPathCitation {
+    path_id: string;
+    document_id: string;
+    path_text: string;
+    hop_count: number;
+    score: number;
+    review_status: string;
+    evidence_ids: string[];
+}
+
+export interface CommonAgentVisionGraphCandidateGrounding {
+    defect_type: string;
+    vision_rank: number;
+    vision_confidence: number;
+    status: 'supported' | 'weak' | 'unverified';
+    direct_match_score: number;
+    multihop_score: number;
+    context_match_score: number;
+    graph_support_score: number;
+    approved_path_count: number;
+    causes: string[];
+    countermeasures: string[];
+    citations: CommonAgentVisionGraphPathCitation[];
+    rejected_path_reasons: string[];
+}
+
+export interface CommonAgentVisionGraphGroundingReport {
+    contract_version: 'vision-graph-grounding/v1';
+    candidate_grounding: CommonAgentVisionGraphCandidateGrounding[];
+    graph_grounded: boolean;
+    top_candidate_supported: boolean;
+    vision_graph_conflict: boolean;
+    approved_path_count: number;
+    citation_count: number;
+    grounded_causes: string[];
+    grounded_countermeasures: string[];
+    requires_human_review: boolean;
+    auto_finalize_allowed: boolean;
+    llm_supplement_allowed: boolean;
+    llm_supplement_training_eligible: false;
+    decision_status: 'grounded' | 'needs_review' | 'unverified';
     decision_reason: string;
 }
 
@@ -627,8 +673,13 @@ export class CommonAgentApiService {
             candidates: observation.candidates || observation.top_candidates || metadataCandidates
         }) as VisionObservationSummary;
         const isGroundedV2 = visionSummary.contractVersion === 'vision-observation/v2';
-        const possibleCauses = isGroundedV2 ? [] : observation.possible_causes || [];
-        const recommendedChecks = isGroundedV2 ? [] : observation.recommended_checks || [];
+        const graphGrounding = response.graph_grounding;
+        const possibleCauses = graphGrounding?.graph_grounded
+            ? graphGrounding.grounded_causes
+            : isGroundedV2 ? [] : observation.possible_causes || [];
+        const recommendedChecks = graphGrounding?.graph_grounded
+            ? graphGrounding.grounded_countermeasures
+            : isGroundedV2 ? [] : observation.recommended_checks || [];
         const visualDescription = visionSummary.visibleFeatures.join('; ');
         const fusionSummary: VisionFusionSummary | undefined = response.fusion_report
             ? {
@@ -664,11 +715,64 @@ export class CommonAgentApiService {
                 decisionStatus: normalized.decisionStatus
             };
         });
+        const graphValidation: VisionGraphGroundingSummary | undefined = graphGrounding
+            ? {
+                contractVersion: graphGrounding.contract_version,
+                candidateGrounding: graphGrounding.candidate_grounding.map(item => ({
+                    defectType: item.defect_type,
+                    visionRank: item.vision_rank,
+                    visionConfidence: item.vision_confidence,
+                    status: item.status,
+                    directMatchScore: item.direct_match_score,
+                    multihopScore: item.multihop_score,
+                    contextMatchScore: item.context_match_score,
+                    supportScore: item.graph_support_score,
+                    approvedPathCount: item.approved_path_count,
+                    causes: item.causes,
+                    countermeasures: item.countermeasures,
+                    citations: item.citations.map(citation => ({
+                        pathId: citation.path_id,
+                        documentId: citation.document_id,
+                        pathText: citation.path_text,
+                        hopCount: citation.hop_count,
+                        score: citation.score,
+                        reviewStatus: citation.review_status,
+                        evidenceIds: citation.evidence_ids
+                    })),
+                    rejectedPathReasons: item.rejected_path_reasons
+                })),
+                graphGrounded: graphGrounding.graph_grounded,
+                topCandidateSupported: graphGrounding.top_candidate_supported,
+                visionGraphConflict: graphGrounding.vision_graph_conflict,
+                approvedPathCount: graphGrounding.approved_path_count,
+                citationCount: graphGrounding.citation_count,
+                groundedCauses: graphGrounding.grounded_causes,
+                groundedCountermeasures: graphGrounding.grounded_countermeasures,
+                requiresHumanReview: graphGrounding.requires_human_review,
+                autoFinalizeAllowed: graphGrounding.auto_finalize_allowed,
+                llmSupplementAllowed: graphGrounding.llm_supplement_allowed,
+                llmSupplementTrainingEligible: graphGrounding.llm_supplement_training_eligible,
+                decisionStatus: graphGrounding.decision_status,
+                decisionReason: graphGrounding.decision_reason
+            }
+            : undefined;
         const enrichedVisionSummary: VisionObservationSummary = {
             ...visionSummary,
+            decisionStatus: graphValidation?.requiresHumanReview
+                ? 'needs_review'
+                : visionSummary.decisionStatus,
+            decisionReason: graphValidation?.requiresHumanReview
+                ? graphValidation.decisionReason
+                : visionSummary.decisionReason,
             fusionSummary,
             viewEvidence
         };
+        const graphCitations = graphValidation?.candidateGrounding.flatMap(item =>
+            item.citations.map(citation => citation.pathId)
+        ) || [];
+        const graphTrace = graphValidation?.candidateGrounding.flatMap(item =>
+            item.citations.map(citation => citation.pathText)
+        ) || [];
 
         return compactDefectAnalysis({
             defectType: visionSummary.primaryCandidate?.defectType
@@ -682,11 +786,20 @@ export class CommonAgentApiService {
             visionSummary: enrichedVisionSummary,
             retrievalSummary: {
                 modeUsed,
-                citations: evidence.map(item => item.source_ref || item.node_id || '').filter(Boolean),
-                evidenceCount: evidence.length,
-                graphTrace: response.retrieval_query ? [response.retrieval_query] : [],
-                graphGrounded: evidence.some(item => item.source_type === 'knowledge_path' || item.source_type === 'knowledge_relation'),
-                llmSupplemented: true
+                citations: graphGrounding
+                    ? Array.from(new Set(graphCitations))
+                    : evidence.map(item => item.source_ref || item.node_id || '').filter(Boolean),
+                evidenceCount: graphGrounding
+                    ? Math.max(evidence.length, graphGrounding.approved_path_count)
+                    : evidence.length,
+                graphTrace: graphGrounding
+                    ? Array.from(new Set(graphTrace))
+                    : response.retrieval_query ? [response.retrieval_query] : [],
+                graphGrounded: graphGrounding
+                    ? graphGrounding.graph_grounded
+                    : evidence.some(item => item.source_type === 'knowledge_path' || item.source_type === 'knowledge_relation'),
+                llmSupplemented: response.metadata?.llm_supplement_used === true,
+                graphValidation
             }
         });
     }

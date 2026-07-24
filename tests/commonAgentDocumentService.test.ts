@@ -205,7 +205,7 @@ test('Vision Graph grounding maps only approved causes actions and path citation
             requires_human_review: false,
             auto_finalize_allowed: true,
             llm_supplement_allowed: false,
-            llm_supplement_training_eligible: false,
+            llm_supplement_training_eligible: false as const,
             decision_status: 'grounded' as const,
             decision_reason: 'vision_top1_approved_graph_path_supported'
         },
@@ -216,8 +216,8 @@ test('Vision Graph grounding maps only approved causes actions and path citation
 
     const analysis = CommonAgentApiService.toDefectAnalysis(response);
 
-    assert.equal(analysis.possibleCauses, '과도한 이형 저항');
-    assert.equal(analysis.countermeasures, '리브 구배 및 표면 거칠기 점검');
+    assert.equal(analysis.possibleCauses, '1. 과도한 이형 저항');
+    assert.equal(analysis.countermeasures, '1. 리브 구배 및 표면 거칠기 점검');
     assert.equal(analysis.retrievalSummary?.graphGrounded, true);
     assert.equal(analysis.retrievalSummary?.llmSupplemented, false);
     assert.equal(analysis.retrievalSummary?.graphValidation?.decisionStatus, 'grounded');
@@ -297,7 +297,7 @@ test('Graph-missing LLM supplement never populates specification cause or action
             requires_human_review: true,
             auto_finalize_allowed: false,
             llm_supplement_allowed: true,
-            llm_supplement_training_eligible: false,
+            llm_supplement_training_eligible: false as const,
             decision_status: 'unverified' as const,
             decision_reason: 'approved_graph_evidence_missing'
         },

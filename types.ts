@@ -126,6 +126,50 @@ export interface VisionViewEvidence {
   decisionStatus?: VisionDecisionStatus;
 }
 
+export interface VisionGraphPathCitation {
+  pathId: string;
+  documentId: string;
+  pathText: string;
+  hopCount: number;
+  score: number;
+  reviewStatus: string;
+  evidenceIds: string[];
+}
+
+export interface VisionGraphCandidateGrounding {
+  defectType: string;
+  visionRank: number;
+  visionConfidence: number;
+  status: 'supported' | 'weak' | 'unverified';
+  directMatchScore: number;
+  multihopScore: number;
+  contextMatchScore: number;
+  supportScore: number;
+  approvedPathCount: number;
+  causes: string[];
+  countermeasures: string[];
+  citations: VisionGraphPathCitation[];
+  rejectedPathReasons: string[];
+}
+
+export interface VisionGraphGroundingSummary {
+  contractVersion: 'vision-graph-grounding/v1';
+  candidateGrounding: VisionGraphCandidateGrounding[];
+  graphGrounded: boolean;
+  topCandidateSupported: boolean;
+  visionGraphConflict: boolean;
+  approvedPathCount: number;
+  citationCount: number;
+  groundedCauses: string[];
+  groundedCountermeasures: string[];
+  requiresHumanReview: boolean;
+  autoFinalizeAllowed: boolean;
+  llmSupplementAllowed: boolean;
+  llmSupplementTrainingEligible: false;
+  decisionStatus: 'grounded' | 'needs_review' | 'unverified';
+  decisionReason: string;
+}
+
 export interface VisionImageQualityIssue {
   code: string;
   severity: 'warn' | 'reject';
@@ -166,6 +210,7 @@ export interface DefectAnalysis {
     graphTrace?: string[];
     graphGrounded?: boolean;
     llmSupplemented?: boolean;
+    graphValidation?: VisionGraphGroundingSummary;
   };
   orchestrationSummary?: {
     strategy: AiOrchestrationMode;

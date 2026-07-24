@@ -607,6 +607,112 @@ ${data.countermeasures}
                                             )}
                                         </div>
                                     )}
+                                    {editableData.retrievalSummary?.graphValidation && (
+                                        <div className={`rounded-lg border p-4 ${
+                                            editableData.retrievalSummary.graphValidation.visionGraphConflict
+                                                ? 'border-red-700/70 bg-red-950/25'
+                                                : editableData.retrievalSummary.graphValidation.graphGrounded
+                                                    ? 'border-emerald-700/60 bg-emerald-950/20'
+                                                    : 'border-amber-700/60 bg-amber-950/20'
+                                        }`}>
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <h4 className="text-sm font-semibold uppercase tracking-wider text-emerald-300">
+                                                    Graph Cross-validation
+                                                </h4>
+                                                <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${
+                                                    editableData.retrievalSummary.graphValidation.autoFinalizeAllowed
+                                                        ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-200'
+                                                        : editableData.retrievalSummary.graphValidation.visionGraphConflict
+                                                            ? 'border-red-500/50 bg-red-500/10 text-red-200'
+                                                            : 'border-amber-500/50 bg-amber-500/10 text-amber-200'
+                                                }`}>
+                                                    {editableData.retrievalSummary.graphValidation.autoFinalizeAllowed
+                                                        ? 'AUTO FINALIZE'
+                                                        : editableData.retrievalSummary.graphValidation.visionGraphConflict
+                                                            ? 'VISION-GRAPH CONFLICT'
+                                                            : 'HITL REQUIRED'}
+                                                </span>
+                                            </div>
+                                            <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                                                <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-300">
+                                                    승인 경로 {editableData.retrievalSummary.graphValidation.approvedPathCount}
+                                                </span>
+                                                <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-300">
+                                                    인용 {editableData.retrievalSummary.graphValidation.citationCount}
+                                                </span>
+                                                <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-300">
+                                                    {editableData.retrievalSummary.graphValidation.contractVersion}
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 text-xs text-gray-300">
+                                                판정: {editableData.retrievalSummary.graphValidation.decisionReason}
+                                            </p>
+                                            <div className="mt-3 grid gap-2">
+                                                {editableData.retrievalSummary.graphValidation.candidateGrounding.map(candidate => {
+                                                    const primaryCitation = candidate.citations[0];
+                                                    return (
+                                                        <div
+                                                            key={`${candidate.visionRank}-${candidate.defectType}`}
+                                                            className="rounded-lg border border-gray-700 bg-gray-950/70 p-3"
+                                                        >
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <span className="text-sm font-semibold text-white">
+                                                                    {candidate.visionRank}. {candidate.defectType}
+                                                                </span>
+                                                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                                                    candidate.status === 'supported'
+                                                                        ? 'border-emerald-700 text-emerald-200'
+                                                                        : candidate.status === 'weak'
+                                                                            ? 'border-amber-700 text-amber-200'
+                                                                            : 'border-gray-700 text-gray-400'
+                                                                }`}>
+                                                                    {candidate.status.toUpperCase()} · Graph {Math.round(candidate.supportScore * 100)}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-gray-300">
+                                                                <span>직접 {Math.round(candidate.directMatchScore * 100)}%</span>
+                                                                <span>
+                                                                    {primaryCitation ? `${primaryCitation.hopCount}-hop` : 'hop 없음'}{' '}
+                                                                    {Math.round(candidate.multihopScore * 100)}%
+                                                                </span>
+                                                                <span>문맥 {Math.round(candidate.contextMatchScore * 100)}%</span>
+                                                            </div>
+                                                            {candidate.causes.length > 0 && (
+                                                                <p className="mt-2 text-xs text-orange-200">
+                                                                    승인 원인: {candidate.causes.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            {candidate.countermeasures.length > 0 && (
+                                                                <p className="mt-1 text-xs text-emerald-200">
+                                                                    승인 대책: {candidate.countermeasures.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            {candidate.citations.length > 0 && (
+                                                                <div className="mt-2 space-y-1">
+                                                                    {candidate.citations.map(citation => (
+                                                                        <div
+                                                                            key={citation.pathId}
+                                                                            className="rounded border border-gray-800 bg-gray-900/80 px-2 py-1 text-[10px] text-gray-400"
+                                                                        >
+                                                                            <span className="font-mono text-sky-300">{citation.pathId}</span>
+                                                                            <span className="ml-2">
+                                                                                {citation.documentId} · {citation.hopCount}-hop · {Math.round(citation.score * 100)}%
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {editableData.retrievalSummary.llmSupplemented && (
+                                                <p className="mt-3 rounded border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+                                                    LLM 보조 내용은 Graph 미검증 참고이며 승인 전 학습·시방서 확정에 사용할 수 없습니다.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     {editableData.retrievalSummary && editableData.retrievalSummary.citations.length > 0 && (
                                         <div className="bg-sky-950/20 p-4 rounded-lg border border-sky-900/50">
                                             <h4 className="text-sm font-semibold text-sky-300 mb-2 uppercase tracking-wider">Retrieval Trace</h4>
