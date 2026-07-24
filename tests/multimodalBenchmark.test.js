@@ -1,0 +1,268 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const {
+  canonicalDefectClass,
+  findDuplicateImageGroups,
+  findDuplicateLabelConflicts,
+  evaluateVisionResult,
+  isClassifiable,
+  summarizeVisionBenchmark,
+  validateVisionCases
+} = require('../scripts/lib/multimodal-benchmark');
+
+const validCase = {
+  id: 'whitening-rib-01',
+  title: 'Rib whitening with ejection resistance',
+  imagePath: 'fixtures/whitening-rib-01.png',
+  inputNotes: '리브 주변 백화, 취출 시 딱 소리',
+  expected: {
+    defectType: '백화',
+    possibleCauseKeywords: ['취출 저항'],
+    countermeasureKeywords: ['구배'],
+    minEvidenceCount: 1
+  }
+};
+
+test('vision fixture validation reports missing and placeholder image paths', () => {
+  const validation = validateVisionCases([
+    validCase,
+    { ...validCase, id: 'placeholder', imagePath: 'REPLACE_WITH_LOCAL_IMAGE_PATH' }
+  ], {
+    fileExists: imagePath => imagePath.endsWith('whitening-rib-01.png')
+  });
+
+  assert.equal(validation.valid.length, 1);
+  assert.equal(validation.invalid.length, 1);
+  assert.match(validation.invalid[0].reason, /placeholder/i);
+});
+
+test('vision fixture validation accepts an approved Common Agent image reference', () => {
+  const validation = validateVisionCases([{
+    ...validCase,
+    imagePath: undefined,
+    commonAgentImageId: 'image-approved-1',
+    mimeType: 'image/jpeg'
+  }]);
+
+  assert.equal(validation.valid.length, 1);
+  assert.equal(validation.valid[0].commonAgentImageId, 'image-approved-1');
+  assert.equal(validation.invalid.length, 0);
+});
+
+test('vision result scoring requires classification, expected terms, and graph evidence', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 1200,
+    response: {
+      observation: {
+        defect_type: '리브 주변 백화',
+        possible_causes: ['과도한 취출 저항']
+      },
+      answer: '이형 구배를 확인하고 리브를 연마하세요.',
+      evidence: [{
+        text: '취출 저항에 의한 백화',
+        review_status: 'approved',
+        source_ref: 'graph:path-1'
+      }]
+    }
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(result.classifiable, true);
+  assert.equal(result.graphGrounded, true);
+  assert.equal(result.checks.defectType, true);
+  assert.equal(result.checks.causes, true);
+  assert.equal(result.checks.countermeasures, true);
+});
+
+test('approved graph entities count as graph-grounded evidence', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 1200,
+    response: {
+      observation: {
+        defect_type: '백화',
+        possible_causes: ['취출 저항']
+      },
+      answer: '구배를 확인하세요.',
+      evidence: [{
+        text: '승인된 원인 노드',
+        review_status: 'approved',
+        source_type: 'knowledge_entity',
+        source_ref: 'entity-cause-1'
+      }]
+    }
+  });
+
+  assert.equal(result.graphGrounded, true);
+    assert.equal(result.checks.graphEvidence, true);
+});
+
+test('taxonomy-equivalent defect aliases count as the same Vision class', () => {
+  const result = evaluateVisionResult({
+    ...validCase,
+    expected: {
+      ...validCase.expected,
+      defectType: '취출/이형',
+      defectClass: 'ejection'
+    }
+  }, {
+    httpOk: true,
+    latencyMs: 100,
+    response: {
+      observation: {
+        defect_type: '이형 불량',
+        possible_causes: ['취출 저항']
+      },
+      answer: '구배를 확인하세요.',
+      graph_policy_applied: true,
+      evidence: [{
+        review_status: 'approved',
+        source_type: 'knowledge_entity'
+      }]
+    }
+  });
+
+  assert.equal(result.expectedDefectClass, 'ejection');
+  assert.equal(result.checks.defectType, true);
+  assert.equal(result.passed, true);
+});
+
+test('duplicate approved images with conflicting labels are flagged for HITL review', () => {
+  const conflicts = findDuplicateLabelConflicts([
+    { id: 'case-a', contentHash: 'same-hash', expected: { defectType: '플래시' } },
+    { id: 'case-b', contentHash: 'same-hash', expected: { defectType: '표면 결함' } },
+    { id: 'case-c', contentHash: 'other-hash', expected: { defectType: '백화' } }
+  ]);
+
+  assert.equal(conflicts.length, 1);
+  assert.deepEqual(conflicts[0].caseIds, ['case-a', 'case-b']);
+    assert.deepEqual(conflicts[0].labels.sort(), ['표면 결함', '플래시'].sort());
+});
+
+test('same-label duplicate images are grouped so only one can remain runnable', () => {
+  const groups = findDuplicateImageGroups([
+    { id: 'case-a', contentHash: 'same-hash', expected: { defectType: '웰드라인' } },
+    { id: 'case-b', contentHash: 'same-hash', expected: { defectType: '웰드라인' } },
+    { id: 'case-c', contentHash: 'other-hash', expected: { defectType: '백화' } }
+  ]);
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].type, 'duplicate_image_same_label');
+  assert.deepEqual(groups[0].caseIds, ['case-a', 'case-b']);
+  assert.deepEqual(groups[0].labels, ['웰드라인']);
+});
+
+test('vision benchmark retirement gate requires 20 real, successful, classifiable cases', () => {
+  const passingResult = {
+    id: 'case',
+    passed: true,
+    httpOk: true,
+    classifiable: true,
+    graphGrounded: true,
+    expectedDefectClass: 'whitening',
+    visionConfidence: 0.9,
+    latencyMs: 1000,
+    checks: { defectType: true }
+  };
+  const defectClasses = [
+    'whitening',
+    'short_shot',
+    'burn',
+    'flash',
+    'sink',
+    'weld_line',
+    'ejection'
+  ];
+  const passingCases = Array.from({ length: 20 }, (_, index) => ({
+    ...passingResult,
+    id: `case-${index}`,
+    expectedDefectClass: defectClasses[index % defectClasses.length]
+  }));
+  const ready = summarizeVisionBenchmark(
+    passingCases,
+    20
+  );
+  const insufficient = summarizeVisionBenchmark(
+    passingCases.slice(0, 19),
+    20
+  );
+
+  assert.equal(ready.readyToDisableLegacyFallback, true);
+  assert.equal(ready.classifiableRate, 100);
+  assert.equal(ready.observedDefectClasses, 7);
+  assert.equal(ready.coveredDefectClasses, 7);
+  assert.equal(ready.confidentRate, 100);
+  assert.equal(insufficient.readyToDisableLegacyFallback, false);
+});
+
+test('vision retirement gate rejects a high-scoring but single-class dataset', () => {
+  const repeated = Array.from({ length: 20 }, (_, index) => ({
+    id: `whitening-${index}`,
+    passed: true,
+    httpOk: true,
+    classifiable: true,
+    graphGrounded: true,
+    expectedDefectClass: 'whitening',
+    visionConfidence: 0.95,
+    checks: { defectType: true }
+  }));
+
+  const summary = summarizeVisionBenchmark(repeated, 20);
+
+  assert.equal(summary.passRate, 100);
+  assert.equal(summary.observedDefectClasses, 1);
+  assert.equal(summary.coveredDefectClasses, 1);
+  assert.equal(summary.classCoverageReady, false);
+  assert.equal(summary.readyToDisableLegacyFallback, false);
+});
+
+test('canonical defect classes group manufacturing aliases for coverage', () => {
+  assert.equal(canonicalDefectClass('백화'), 'whitening');
+  assert.equal(canonicalDefectClass('Short Shot'), 'short_shot');
+  assert.equal(canonicalDefectClass('흑점 및 탄화'), 'burn');
+  assert.equal(canonicalDefectClass('가스 탐/번 마크'), 'burn');
+  assert.equal(canonicalDefectClass('번마크'), 'burn');
+  assert.equal(canonicalDefectClass('밀핀 자국'), 'ejection');
+});
+
+test('non-defect and unclassifiable labels never become benchmark labels', () => {
+  assert.equal(isClassifiable('판정 불가(성형 이미지 미제공)'), false);
+  assert.equal(isClassifiable('분류 불가'), false);
+  assert.equal(isClassifiable('-'), false);
+  assert.equal(isClassifiable('백화'), true);
+});
+
+test('normal or no-defect observations never become benchmark labels', () => {
+  assert.equal(isClassifiable('정상 형상'), false);
+  assert.equal(isClassifiable('이상 없음'), false);
+  assert.equal(isClassifiable('결함 없음(기능 형상)'), false);
+  assert.equal(isClassifiable('결함 미확인'), false);
+});
+
+test('vision scoring keeps vision and retrieval confidence separate', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    response: {
+      observation: {
+        defect_type: validCase.expected.defectType,
+        confidence: 0.93,
+        possible_causes: ['취출 저항']
+      },
+      answer: '구배를 확인하세요.',
+      confidence: 0.37,
+      visionConfidence: 0.93,
+      retrievalConfidence: 0.37,
+      graph_policy_applied: true,
+      evidence: [{
+        review_status: 'approved',
+        source_type: 'knowledge_entity'
+      }]
+    }
+  });
+
+  assert.equal(result.confidence, 0.93);
+  assert.equal(result.visionConfidence, 0.93);
+  assert.equal(result.retrievalConfidence, 0.37);
+});

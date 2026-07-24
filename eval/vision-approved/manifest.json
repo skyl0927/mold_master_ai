@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-24T03:31:25.135Z",
+  "source": "http://127.0.0.1:8000/v1/datasets/images",
+  "minimumSamples": 20,
+  "evaluationGate": {
+    "requiredDefectClasses": [
+      "whitening",
+      "short_shot",
+      "burn",
+      "flash",
+      "sink",
+      "weld_line",
+      "ejection"
+    ],
+    "minimumSamplesPerClass": 2,
+    "minimumVisionConfidence": 0.6,
+    "minimumConfidentRate": 80,
+    "minimumClassAccuracy": 50
+  },
+  "qualityIssues": [
+    {
+      "type": "duplicate_image_same_label",
+      "contentHash": "cc78886fe0593f9dbc6e7c374663b766e31a37cd8faf2c9afb945ee9200cc0b4",
+      "caseIds": [
+        "approved-image-248911741b7a",
+        "approved-image-cbd68609e4b8"
+      ],
+      "labels": [
+        "웰드라인"
+      ]
+    },
+    {
+      "type": "duplicate_image_conflicting_labels",
+      "contentHash": "db23b38c9017ccf185e4323b1d578803d852007c10fdc362522262e1a8d1add6",
+      "caseIds": [
+        "approved-image-6ed00c53f0ee",
+        "approved-image-84d73acb3435"
+      ],
+      "labels": [
+        "표면 결함",
+        "플래시"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "approved-image-0f49e07ea1f9",
+      "file": "image-0f49e07ea1f9.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-d6582eda4f47",
+      "file": "image-d6582eda4f47.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-4d238bb8a9b7",
+      "file": "image-4d238bb8a9b7.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-287a816430b5",
+      "file": "image-287a816430b5.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-b00ca4a30e10",
+      "file": "image-b00ca4a30e10.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-80520cd398d6",
+      "file": "image-80520cd398d6.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-cbd68609e4b8",
+      "file": "image-cbd68609e4b8.json",
+      "status": "duplicate",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph",
+        "duplicate-same-image"
+      ]
+    },
+    {
+      "id": "approved-image-248911741b7a",
+      "file": "image-248911741b7a.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-027934361081",
+      "file": "image-027934361081.json",
+      "status": "active",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph"
+      ]
+    },
+    {
+      "id": "approved-image-84d73acb3435",
+      "file": "image-84d73acb3435.json",
+      "status": "needs_review",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph",
+        "duplicate-label-conflict"
+      ]
+    },
+    {
+      "id": "approved-image-6ed00c53f0ee",
+      "file": "image-6ed00c53f0ee.json",
+      "status": "needs_review",
+      "tags": [
+        "approved-image",
+        "vision",
+        "graph",
+        "duplicate-label-conflict"
+      ]
+    }
+  ]
+}

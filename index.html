@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://aistudiocdn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; worker-src 'self' blob: https://aistudiocdn.com; connect-src 'self' ws: wss: http: https: https://generativelanguage.googleapis.com https://api.openai.com;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mold Master AI</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^18.3.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^18.3.1/",
+    "react/": "https://aistudiocdn.com/react@^18.3.1/",
+    "file-saver": "https://aistudiocdn.com/file-saver@^2.0.5",
+    "pptxgenjs": "https://aistudiocdn.com/pptxgenjs@^4.0.1",
+    "exceljs": "https://aistudiocdn.com/exceljs@^4.4.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^0.14.0",
+    "openai": "https://aistudiocdn.com/openai@^4.52.2",
+    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^4.4.168",
+    "mammoth": "https://aistudiocdn.com/mammoth@^1.7.2",
+    "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "qrcode": "https://aistudiocdn.com/qrcode@^1.5.4"
+  }
+}
+</script>
+  <script>
+    const isFileProtocol = window.location.protocol === 'file:';
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = isFileProtocol ? './build/styles.css' : '/index.css';
+    document.head.appendChild(stylesheet);
+  </script>
+</head>
+
+<body class="bg-gray-900 text-white">
+  <div id="root"></div>
+  <script>
+    const entry = document.createElement('script');
+    if (window.location.protocol === 'file:') {
+      entry.defer = true;
+      entry.src = './build/index.js';
+    } else {
+      entry.type = 'module';
+      entry.src = '/index.tsx';
+    }
+    document.body.appendChild(entry);
+  </script>
+</body>
+
+</html>

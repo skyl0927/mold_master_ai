@@ -1,0 +1,29 @@
+{
+  "id": "approved-image-027934361081",
+  "title": "밀핀 자국 approved image",
+  "commonAgentImageId": "image-027934361081",
+  "fileName": "17787383588810.7875576312361765.jpg",
+  "mimeType": "image/jpeg",
+  "contentHash": "f7b69947dab5a0db6435f7c3c4f75618f998fea273d26d5af117cd97cdd8554e",
+  "roiNormalized": {
+    "x": 0.33953241232731135,
+    "y": 0.21529745042492918,
+    "width": 0.461211477151966,
+    "height": 0.5184135977337111
+  },
+  "inputNotes": "이 현장 이미지의 문제 원인과 확인 항목, 조치 방향을 알려줘",
+  "expected": {
+    "defectType": "밀핀 자국",
+    "defectClass": "ejection",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-05-14T11:24:28.694480+00:00",
+    "sourceSystem": "mold-master-ai",
+    "priorObservationDefectType": "밀핀 자국",
+    "priorObservationSummary": "표면 결함이 감지되었습니다."
+  }
+}

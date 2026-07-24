@@ -1,0 +1,23 @@
+{
+  "id": "approved-image-6ed00c53f0ee",
+  "title": "플래시 approved image",
+  "commonAgentImageId": "image-6ed00c53f0ee",
+  "fileName": "1000031902.jpg",
+  "mimeType": "image/jpeg",
+  "contentHash": "db23b38c9017ccf185e4323b1d578803d852007c10fdc362522262e1a8d1add6",
+  "inputNotes": "이 사진의 문제 원인과 확인 항목, 조치 방향을 알려줘",
+  "expected": {
+    "defectType": "플래시",
+    "defectClass": "flash",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-05-14T11:14:27.661143+00:00",
+    "sourceSystem": "field-vision-test",
+    "priorObservationDefectType": "플래시",
+    "priorObservationSummary": "사진에서 보이는 결함은 표면의 긁힘과 패임이 있습니다."
+  }
+}

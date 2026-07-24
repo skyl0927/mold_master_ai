@@ -1,0 +1,23 @@
+{
+  "id": "approved-image-80520cd398d6",
+  "title": "백화 approved image",
+  "commonAgentImageId": "image-80520cd398d6",
+  "fileName": "whitening__s003__FIG-S003-001.png",
+  "mimeType": "image/png",
+  "contentHash": "7877b97952103cb2a99e31191844aa56bf504b73da9456a1573521f5ecf1fd6a",
+  "inputNotes": "원문 카드: #2 · 밀핀 백화 - 조립 · 보통 · Open 원문 현상: 밀핀 백화(Ejector Pin Whitening) 는 사출품 취출 시 밀핀(Ejector Pin) 이 제품을 밀어낼 때 국부 응력이 집중되어 하얗게 변색되거나 응력 자국이 생기는 현상입니다. 그림 문맥: - 사진 번호: P2-02 · 대표/부분 사진 - 조립 · 보통 · Open - 사진 번호: P2-01 · 대표 사진",
+  "expected": {
+    "defectType": "백화",
+    "defectClass": "whitening",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-07-24T03:25:04.706389+00:00",
+    "sourceSystem": "mold-master-ai-local-candidate",
+    "priorObservationDefectType": "백화",
+    "priorObservationSummary": "원문 카드: #2 · 밀핀 백화 - 조립 · 보통 · Open\n원문 현상: 밀핀 백화(Ejector Pin Whitening) 는 사출품 취출 시 밀핀(Ejector Pin) 이 제품을 밀어낼 때 국부 응력이 집중되어 하얗게 변색되거나 응력 자국이 생기는 현상입니다.\n그림 문맥: - 사진 번호: P2-02 · 대표/부분 사진 - 조립 · 보통 · Open - 사진 번호: P2-01 · 대표 사진"
+  }
+}

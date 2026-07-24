@@ -1,0 +1,23 @@
+{
+  "id": "approved-image-4d238bb8a9b7",
+  "title": "플래시 approved image",
+  "commonAgentImageId": "image-4d238bb8a9b7",
+  "fileName": "flash__s007__FIG-S007-001.png",
+  "mimeType": "image/png",
+  "contentHash": "7466fcb8ebd00540c806af2f2ecb15456ca41dd3a9b3c22b90ca269495a4b87a",
+  "inputNotes": "원문 카드: #6 · Boos Burr 발생 - 조립 · 보통 · Open 원문 현상: BOSS BURR는 보스부의 높은 사출압력이 금형 틈새를 통해 누설되면서 발생하는 사출 버(Burr) 불량 현상이다 그림 문맥: - 사진 번호: P6-01 · 대표 사진 - 조립 · 보통 · Open - 사진 번호: P6-02 · 대표/부분 사진",
+  "expected": {
+    "defectType": "플래시",
+    "defectClass": "flash",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-07-24T03:27:02.032995+00:00",
+    "sourceSystem": "mold-master-ai-local-candidate",
+    "priorObservationDefectType": "플래시",
+    "priorObservationSummary": "원문 카드: #6 · Boos Burr 발생 - 조립 · 보통 · Open\n원문 현상: BOSS BURR는 보스부의 높은 사출압력이 금형 틈새를 통해 누설되면서 발생하는 사출 버(Burr) 불량 현상이다\n그림 문맥: - 사진 번호: P6-01 · 대표 사진 - 조립 · 보통 · Open - 사진 번호: P6-02 · 대표/부분 사진"
+  }
+}

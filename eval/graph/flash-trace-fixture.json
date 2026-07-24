@@ -1,0 +1,107 @@
+{
+  "nodes": [
+    {
+      "id": "defect_flash",
+      "label": "defect",
+      "name": "Flash (Burr)",
+      "properties": {
+        "original_name": "플래시 버",
+        "aliases": ["플래시", "버", "burr", "flash"],
+        "description": "파팅 라인 또는 코어 주변으로 수지가 넘쳐 얇은 막처럼 생기는 불량"
+      }
+    },
+    {
+      "id": "cause_pressure",
+      "label": "cause",
+      "name": "과대 사출 압력",
+      "properties": {
+        "description": "충전 말기에 사출 압력이 과도하면 파팅면으로 수지가 밀려나와 플래시가 발생할 수 있음"
+      }
+    },
+    {
+      "id": "cause_clamp",
+      "label": "cause",
+      "name": "형체력 부족",
+      "properties": {
+        "description": "금형이 충분히 닫히지 않으면 파팅면 틈으로 수지가 새어 나감"
+      }
+    },
+    {
+      "id": "cause_wear",
+      "label": "cause",
+      "name": "파팅면 마모",
+      "properties": {
+        "description": "금형 파팅면 손상 또는 마모는 반복적으로 플래시를 유발함"
+      }
+    },
+    {
+      "id": "measure_pressure",
+      "label": "countermeasure",
+      "name": "사출 압력 하향 조정",
+      "properties": {
+        "description": "보압 및 사출 전환점을 함께 조정해 말기 압력 피크를 낮춤"
+      }
+    },
+    {
+      "id": "measure_clamp",
+      "label": "countermeasure",
+      "name": "형체력 증대 및 조건 점검",
+      "properties": {
+        "description": "형체력 설정, 금형 평행도, 체결 상태를 점검해 파팅면 누설을 줄임"
+      }
+    },
+    {
+      "id": "measure_repair",
+      "label": "countermeasure",
+      "name": "파팅면 수리 및 금형 정비",
+      "properties": {
+        "description": "마모 부위 수정, 정비, 파팅면 맞춤 보정 수행"
+      }
+    },
+    {
+      "id": "area_pl",
+      "label": "observation",
+      "name": "파팅 라인",
+      "properties": {
+        "description": "플래시가 자주 관찰되는 대표 위치"
+      }
+    },
+    {
+      "id": "defect_short_shot",
+      "label": "defect",
+      "name": "Short Shot",
+      "properties": {
+        "original_name": "미성형",
+        "aliases": ["미성형", "short shot", "충전 부족"],
+        "description": "수지가 금형 캐비티를 완전히 채우지 못해 일부 형상이 비는 불량"
+      }
+    },
+    {
+      "id": "cause_flow",
+      "label": "cause",
+      "name": "유동성 부족",
+      "properties": {
+        "description": "수지 온도 저하나 충전성 부족으로 말단부까지 흐르지 못함"
+      }
+    },
+    {
+      "id": "measure_flow",
+      "label": "countermeasure",
+      "name": "사출 속도 및 수지 온도 상향",
+      "properties": {
+        "description": "충전성 개선을 위해 속도와 용융 조건을 조정"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "defect_flash", "target": "cause_pressure", "relation": "has_cause" },
+    { "source": "defect_flash", "target": "cause_clamp", "relation": "has_cause" },
+    { "source": "defect_flash", "target": "cause_wear", "relation": "has_cause" },
+    { "source": "defect_flash", "target": "area_pl", "relation": "observed_at" },
+    { "source": "cause_pressure", "target": "measure_pressure", "relation": "solved_by" },
+    { "source": "cause_clamp", "target": "measure_clamp", "relation": "solved_by" },
+    { "source": "cause_wear", "target": "measure_repair", "relation": "solved_by" },
+    { "source": "defect_short_shot", "target": "cause_flow", "relation": "has_cause" },
+    { "source": "cause_flow", "target": "measure_flow", "relation": "solved_by" }
+  ]
+}

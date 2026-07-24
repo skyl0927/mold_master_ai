@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "description": "Approved-only Common Agent Graph retrieval benchmark for Mold Master process knowledge.",
+  "minimumPassRate": 0.9,
+  "cases": [
+    {
+      "id": "rib-whitening-ejection",
+      "question": "리브 주변 백화가 발생하고 취출 시 딱 소리와 함께 제품이 튕기는 원인과 대책은?",
+      "expectedEvidenceKeywords": ["백화", "리브", "취출"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "shrink-whitening",
+      "question": "사출 후 수축 때문에 제품 두께 취약부에 백화가 생길 때 무엇을 확인해야 하나?",
+      "expectedEvidenceKeywords": ["수축", "백화"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "mold-fit-burr",
+      "question": "금형 습합 불량으로 Burr가 발생하는 경우 점검 항목과 대책은?",
+      "expectedEvidenceKeywords": ["Burr", "습합"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "pressure-micro-flash",
+      "question": "사출 압력 증가에 따라 미세 Flash가 발생할 때 어떤 검증을 해야 하나?",
+      "expectedEvidenceKeywords": ["Flash", "압력"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "hole-weld-line",
+      "question": "제품 홀 주변에 WeldLine이 발생하는 원인과 금형 점검 방법은?",
+      "expectedEvidenceKeywords": ["WeldLine", "홀"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "gate-spacing-weld-line",
+      "question": "게이트 간격 때문에 WeldLine이 생길 때 타이머와 가스벤트는 어떻게 확인하나?",
+      "expectedEvidenceKeywords": ["WeldLine", "게이트"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "rib-thickness-sink",
+      "question": "리브 두께로 인한 수축 불량의 설계 기준과 사출 조건 검증 방법은?",
+      "expectedEvidenceKeywords": ["리브", "수축"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "lower-rib-drag-mark",
+      "question": "하측 리브 물림으로 제품 표면에 자국이 생길 때 구배와 취출 구조를 어떻게 점검하나?",
+      "expectedEvidenceKeywords": ["리브", "물림"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "wheel-arch-sticking",
+      "question": "휠아치부 스티킹으로 로봇 취출이 불안정할 때 확인할 항목은?",
+      "expectedEvidenceKeywords": ["휠아치", "스티킹"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "ejection-balance",
+      "question": "취출 구조 배열과 밸런스가 불량할 때 어떤 설계 결과를 확인해야 하나?",
+      "expectedEvidenceKeywords": ["취출", "밸런스"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "two-stage-ejection",
+      "question": "2단 취출블럭의 배열과 타이밍 언밸런스를 어떻게 검증하나?",
+      "expectedEvidenceKeywords": ["2단", "취출"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "upper-side-sticking",
+      "question": "상측 스티킹이 발생할 때 비가시부 물림 형상의 구배와 R을 어떻게 검토하나?",
+      "expectedEvidenceKeywords": ["상측", "스티킹"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "character-line-defect",
+      "question": "캐릭터 라인 외관 불량이 가공 또는 래핑 문제인지 어떻게 확인하나?",
+      "expectedEvidenceKeywords": ["캐릭터", "래핑"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "shape-data-mismatch",
+      "question": "최종 데이터와 금형 데이터 관리 오류로 형상 불량이 발생할 때 점검 방법은?",
+      "expectedEvidenceKeywords": ["데이터", "형상"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "gate-cut-residual",
+      "question": "게이트 컷팅 후 잔여물이 상대부품과 간섭할 때 어떤 기준을 확인하나?",
+      "expectedEvidenceKeywords": ["게이트", "간섭"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "ejector-pin-height",
+      "question": "밀핀 높이 차이로 제품 밀림이 생기는 경우 무엇을 측정해야 하나?",
+      "expectedEvidenceKeywords": ["밀핀", "높이"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "moving-core-scratch",
+      "question": "작동 코어 안착면 관리 불량으로 긁힘이 발생할 때 점검 대책은?",
+      "expectedEvidenceKeywords": ["코어", "긁힘"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "weight-dimension-control",
+      "question": "제품 중량별 치수를 관리하고 사출 조건표를 전산화할 때 확인할 기준은?",
+      "expectedEvidenceKeywords": ["중량", "치수"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "perpendicular-flow-mark",
+      "question": "수지 흐름방향과 직각인 형상 때문에 자국이 생길 때 설계 대책은?",
+      "expectedEvidenceKeywords": ["흐름방향", "직각"],
+      "minEvidenceCount": 1
+    },
+    {
+      "id": "flange-discoloration",
+      "question": "플렌지 제품 살빼기와 살두께 편차 때문에 이색이 발생할 때 무엇을 확인하나?",
+      "expectedEvidenceKeywords": ["플렌지", "이색"],
+      "minEvidenceCount": 1
+    }
+  ]
+}

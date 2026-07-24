@@ -1,0 +1,33 @@
+{
+  "id": "sample-defect-case",
+  "title": "Sample short shot case",
+  "imagePath": "REPLACE_WITH_LOCAL_IMAGE_PATH",
+  "roiOptional": null,
+  "inputNotes": "Use this as a starter fixture for manual and automated regression checks.",
+  "expected": {
+    "defectType": "Short Shot",
+    "severity": "Medium",
+    "possibleCauseKeywords": [
+      "사출 압력",
+      "충전 부족",
+      "게이트",
+      "유동"
+    ],
+    "countermeasureKeywords": [
+      "압력 상향",
+      "속도 조정",
+      "게이트 수정",
+      "배기 개선"
+    ],
+    "minEvidenceCount": 1,
+    "retrievalExpectation": {
+      "allowModes": ["local_rag", "remote_rag", "hybrid"],
+      "minEvidenceCount": 1,
+      "requireCitation": true
+    }
+  },
+  "notes": [
+    "실제 운영에서는 동일 결함에 대해 복수 시편을 추가해 편차를 확인합니다.",
+    "그래프 기반 관계가 구축된 경우 원인-대책 엣지 탐색 결과도 함께 확인합니다."
+  ]
+}

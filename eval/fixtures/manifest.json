@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "minimumSamples": 20,
+  "cases": [
+    {
+      "id": "sample-defect-case",
+      "file": "sample-defect-case.json",
+      "status": "active",
+      "tags": ["injection-molding", "rag", "vision", "graph"]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .dataset-scrollbar {
+    scrollbar-color: #22d3ee #0f172a;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+  }
+
+  .dataset-scrollbar::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dataset-scrollbar::-webkit-scrollbar-track {
+    background: #0f172a;
+    border-left: 1px solid #334155;
+  }
+
+  .dataset-scrollbar::-webkit-scrollbar-thumb {
+    min-height: 56px;
+    border: 3px solid #0f172a;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #22d3ee, #0891b2);
+  }
+
+  .dataset-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #67e8f9, #06b6d4);
+  }
+
+  .dataset-tab-scrollbar {
+    scrollbar-color: #64748b #0f172a;
+    scrollbar-width: thin;
+  }
+
+  .dataset-tab-scrollbar::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .dataset-tab-scrollbar::-webkit-scrollbar-track {
+    background: #0f172a;
+  }
+
+  .dataset-tab-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #64748b;
+  }
+}

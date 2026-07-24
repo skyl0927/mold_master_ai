@@ -1,0 +1,7 @@
+{
+  "name": "Mold Master AI",
+  "description": "AI-powered injection mold defect analysis and troubleshooting report generator.",
+  "requestFramePermissions": [
+    "display-capture"
+  ]
+}

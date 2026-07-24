@@ -1,0 +1,93 @@
+const { _electron: electron } = require('playwright');
+const path = require('node:path');
+
+(async () => {
+    const root = process.cwd();
+    const profilePath = path.join(
+        root,
+        'artifacts',
+        `vision-resolved-review-profile-${Date.now()}`
+    );
+    const agentUrl = process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000';
+    const qaUrl = process.env.COMMON_AGENT_QA_URL || 'http://127.0.0.1:8103';
+    const executablePath = process.env.ELECTRON_EXECUTABLE_PATH;
+    const launchOptions = {
+        args: executablePath
+            ? [`--user-data-dir=${profilePath}`]
+            : ['.', `--user-data-dir=${profilePath}`],
+        cwd: root
+    };
+    let app;
+    try {
+        app = await electron.launch(executablePath
+            ? { ...launchOptions, executablePath: path.resolve(executablePath) }
+            : launchOptions);
+        const page = await app.firstWindow();
+        const consoleErrors = [];
+        const writeRequests = [];
+        page.on('console', message => {
+            if (message.type() === 'error') consoleErrors.push(message.text());
+        });
+        page.on('request', request => {
+            if (
+                request.url().startsWith(agentUrl)
+                && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())
+            ) {
+                writeRequests.push({
+                    method: request.method(),
+                    url: request.url()
+                });
+            }
+        });
+
+        await page.evaluate(async config => {
+            await window.electronAPI.setApiConfig(config);
+        }, {
+            provider: 'openai',
+            aiOrchestrationMode: 'common_agent_primary',
+            agentServerUrl: agentUrl,
+            visionQaServerUrl: qaUrl,
+            shortcut: 'CommandOrControl+Shift+C'
+        });
+
+        await page.getByText('DATABASE TREE').click();
+        const packetButton = page.getByRole('button', { name: '준비된 검토 패킷' });
+        await packetButton.waitFor({ timeout: 120000 });
+        await packetButton.click();
+        const resolvedBadge = page.getByText('1순위 해소 완료 6');
+        await resolvedBadge.waitFor({ timeout: 120000 });
+        await page.waitForFunction(() => !Array.from(document.querySelectorAll('button'))
+            .some(button => button.textContent?.includes('1순위 사람 검토')), null, {
+            timeout: 30000
+        });
+        const screenshot = path.join(
+            root,
+            'artifacts',
+            'electron-vision-priority-resolved.png'
+        );
+        await page.screenshot({ path: screenshot, fullPage: true });
+        const result = {
+            resolvedBadgeVisible: await resolvedBadge.isVisible(),
+            unresolvedPriorityFilterVisible: await page.getByRole('button', {
+                name: /1순위 사람 검토/
+            }).isVisible().catch(() => false),
+            writeRequests,
+            consoleErrors,
+            screenshot
+        };
+        console.log(JSON.stringify(result, null, 2));
+        if (
+            !result.resolvedBadgeVisible
+            || result.unresolvedPriorityFilterVisible
+            || result.writeRequests.length > 0
+            || result.consoleErrors.length > 0
+        ) {
+            process.exitCode = 1;
+        }
+    } finally {
+        if (app) await app.close();
+    }
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});
