@@ -62,3 +62,27 @@ test('malformed or missing raw Vision output does not create a false conflict', 
     }
   }), null);
 });
+
+test('matching approved and object-form Vision labels remain runnable', () => {
+  assert.equal(findObservationLabelConflict({
+    image_id: 'image-match',
+    defect_type: '\uBC31\uD654',
+    observation: {
+      raw_output: {
+        defect_type: '\uBC31\uD654'
+      }
+    }
+  }), null);
+});
+
+test('an unclassifiable original Vision result does not create a false conflict', () => {
+  assert.equal(findObservationLabelConflict({
+    image_id: 'image-unclassifiable',
+    defect_type: '\uD50C\uB798\uC2DC',
+    observation: {
+      raw_output: JSON.stringify({
+        defect_type: '\uD310\uC815 \uBD88\uAC00'
+      })
+    }
+  }), null);
+});

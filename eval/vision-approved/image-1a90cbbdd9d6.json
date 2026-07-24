@@ -1,0 +1,24 @@
+{
+  "id": "approved-image-1a90cbbdd9d6",
+  "title": "미성형 approved image",
+  "commonAgentImageId": "image-1a90cbbdd9d6",
+  "fileName": "short_shot__s005__FIG-S005-001.png",
+  "mimeType": "image/png",
+  "contentHash": "8e52b0decc4a99cf78aab3d835e5139ca6059a157b8a6326f274d9e9144ce2cd",
+  "inputNotes": "원문 카드: #4 · 미성형 (Short Shot) - 조립 · 보통 · Open 원문 현상: 미성형(Short Shot Under Fill) 은 사출 시 용융수지가 금형 캐비티를(형상 리브) 끝까지 채우지 못해 제품 일부가 비거나 형상이 완성되지 않는 현상입니다 그림 문맥: - 사진 번호: P4-02 · 대표/부분 사진 - 조립 · 보통 · Open - 사진 번호: P4-01 · 대표 사진",
+  "expected": {
+    "defectType": "미성형",
+    "defectClass": "short_shot",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-07-24T09:24:37.530763+00:00",
+    "sourceSystem": "mold-master-ai-local-candidate",
+    "priorObservationDefectType": "미성형",
+    "originalVisionDefectType": "미성형(Short Shot) 의심",
+    "priorObservationSummary": "원문 카드: #4 · 미성형 (Short Shot) - 조립 · 보통 · Open\n원문 현상: 미성형(Short Shot Under Fill) 은 사출 시 용융수지가 금형 캐비티를(형상 리브) 끝까지 채우지 못해 제품 일부가 비거나 형상이 완성되지 않는 현상입니다\n그림 문맥: - 사진 번호: P4-02 · 대표/부분 사진 - 조립 · 보통 · Open - 사진 번호: P4-01 · 대표 사진"
+  }
+}

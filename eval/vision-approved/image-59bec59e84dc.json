@@ -1,0 +1,24 @@
+{
+  "id": "approved-image-59bec59e84dc",
+  "title": "제팅 approved image",
+  "commonAgentImageId": "image-59bec59e84dc",
+  "fileName": "1784802612191.png",
+  "mimeType": "image/png",
+  "contentHash": "a7e3d4d1065e92b0f3406b727f5a9e280300bd92fb49c44e32a09b54df82a0f1",
+  "inputNotes": "사출성형 품질 문제를 멀티모달로 진단해 주세요. 이미지를 1차 관찰 근거로 사용하고 아래 현장 정보는 보조 근거로 교차 검증하세요. 현장 현상 설명: jetting 요구사항: - 불량명은 다음 표준 taxonomy에서 선택하세요: 백화, 플래시(버/바리), 미성형(Short Shot), 흑점/탄화, 싱크마크, 웰드라인, 은줄, 기포, 변형/휨, 박리, 흐름 자국, 제팅, 게이트 자국, 밀핀 자국, 스크래치/패임, 크랙, 이형 불량, 치수 불량. - 혼동하기 쉬운 형상은 다음 기준으로 구분하세요: 밀핀 자국: 밀핀 위치와 일치하는 원형 또는 원호형 경계, 원형 압흔·돌출·백화; 스크래치/패임: 금형 기능 형상과 무관한 선형·불규칙 마찰 흔적 또는 재료 손실; 플래시(버/바리): 파팅라인·인서트 경계 밖으로 이어지는 얇은 잉여 수지; 백화: 리브·코너·취출부 주변의 응력성 유백색 또는 흐린 변색. - ROI 안에 여러 흔적이 있으면 금형 기능 형상과 직접 연관된 지배 결함을 우선 분류하세요. - 영상 근거로 표준 불량을 구분할 수 없으면 \"판정 불가\"로 답하고 필요한 추가 촬영 조건을 제시하세요. - 관찰된 사실과 추론을 구분하고, 판별 불가능한 내용은 추측하지 마세요. - 가장 가능성 높은 불량명, 발생 위치와 외관, 원인 후보, 확인 항목을 제시하세요. - 원인과 대책은 승인된 Graph DB 근거를 우선 사용하고 부족한 부분만 LLM 지식으로 보조하세요.",
+  "expected": {
+    "defectType": "제팅",
+    "defectClass": "jetting",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-07-24T09:25:51.514254+00:00",
+    "sourceSystem": "mold-master-ai",
+    "priorObservationDefectType": "제팅",
+    "originalVisionDefectType": "제팅",
+    "priorObservationSummary": "백색 사출품 표면 좌측 상단~중앙에 뱀형으로 굽이치는 광택/명암 차이의 유동 흔적이 관찰됩니다. 원형 밀핀 자국이나 선형 스크래치 형상보다는 게이트 유입 후 수지가 불안정하게 분사·접힘하며 형성되는 제팅 형상에 더 부합합니다."
+  }
+}

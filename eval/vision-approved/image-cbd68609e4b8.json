@@ -18,6 +18,7 @@
     "reviewedAt": "2026-07-24T03:16:04.353425+00:00",
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "웰드라인",
+    "originalVisionDefectType": "웰드라인",
     "priorObservationSummary": "적색 표시 영역의 좌측 평면부에서 수평 방향의 가는 선형 경계가 관찰됩니다. 원형·원호형 밀핀 자국이나 파팅라인 외측의 플래시 형상은 뚜렷하지 않으며, 현장 현상 설명과 교차 검증 시 웰드라인으로 판단됩니다."
   }
 }

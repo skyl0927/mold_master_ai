@@ -13,6 +13,7 @@
     "eval:graph": "node scripts/run-approved-graph-benchmark.js",
     "eval:vision": "node scripts/run-multimodal-vision-benchmark.js",
     "eval:vision:validate": "node scripts/run-multimodal-vision-benchmark.js --validate-only",
+    "eval:vision:approved:validate": "node scripts/run-multimodal-vision-benchmark.js --validate-only --manifest eval/vision-approved/manifest.json",
     "eval:vision:sync-approved": "node scripts/sync-approved-vision-fixtures.js",
     "eval:vision:approved": "node scripts/run-multimodal-vision-benchmark.js --manifest eval/vision-approved/manifest.json",
     "vision:candidates:sync-card": "node scripts/sync-knowledge-card-vision-candidates.js",

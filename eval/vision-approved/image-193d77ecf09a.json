@@ -1,0 +1,24 @@
+{
+  "id": "approved-image-193d77ecf09a",
+  "title": "가스 탐/번 마크 approved image",
+  "commonAgentImageId": "image-193d77ecf09a",
+  "fileName": "burn__pre-draft-343e20f87ce9__FIG-S009-002.png",
+  "mimeType": "image/png",
+  "contentHash": "d95daf1b54ce3f348dd98be8b90b49ec37b1fc162a1c09d9277010cf2a300a60",
+  "inputNotes": "#8 · 성형 말단부 가스 안 빠짐 - 설계 · 보통 · Open - 사진 번호: P8-01 · 대표 사진 - 사진 번호: P8-02 · 대표/부분 사진 - 원본 이미지 없음 Source document: 암묵지_전처리_입력_설계_전처리인식강화_v2.pptx",
+  "expected": {
+    "defectType": "가스 탐/번 마크",
+    "defectClass": "burn",
+    "possibleCauseKeywords": [],
+    "countermeasureKeywords": [],
+    "minEvidenceCount": 1
+  },
+  "sourceReview": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-07-24T09:22:56.942273+00:00",
+    "sourceSystem": "mold-master-ai-local-candidate",
+    "priorObservationDefectType": "가스 탐/번 마크",
+    "originalVisionDefectType": "가스 탐/번 마크",
+    "priorObservationSummary": "#8 · 성형 말단부 가스 안 빠짐 - 설계 · 보통 · Open\n- 사진 번호: P8-01 · 대표 사진 - 사진 번호: P8-02 · 대표/부분 사진 - 원본 이미지 없음\nSource document: 암묵지_전처리_입력_설계_전처리인식강화_v2.pptx"
+  }
+}

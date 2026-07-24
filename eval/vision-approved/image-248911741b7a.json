@@ -18,6 +18,7 @@
     "reviewedAt": "2026-07-24T03:15:57.876930+00:00",
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "웰드라인",
+    "originalVisionDefectType": "웰드라인",
     "priorObservationSummary": "관찰상 반복 배경 질감은 제외하였으며, 가장 큰 독립 경계는 우측의 라운드 사각형 금형/제품 기능 형상 경계입니다. 적색 표시 영역 내 좌측 표면에는 이 경계 방향으로 이어지는 가는 수평 선형 자국이 관찰됩니다. 원형·원호형 밀핀 형상이나 파팅라인 외측의 얇은 수지 돌출은 뚜렷하지 않으며, 현장 정보와 영상 외관을 종합하면 웰드라인 가능성이 가장 높습니다."
   }
 }

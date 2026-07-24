@@ -18,6 +18,7 @@
     "reviewedAt": "2026-07-24T03:28:17.848882+00:00",
     "sourceSystem": "mold-master-ai-local-candidate",
     "priorObservationDefectType": "취출/이형",
+    "originalVisionDefectType": "취출/이형 불량(캐비티측 딸려감, 상측 금형 부착)",
     "priorObservationSummary": "원문 카드: #9 · 제품 캐비티측으로 딸려감 - 조립 · 보통 · Open\n원문 현상: 제품 상측 딸려감은 상측 금형의 흡착력·수축 물림·표면 걸림이 하측 유지력보다 커져 제품이 상측에 붙어 이동하는 사출 불량 현상이다.상측 제품이 붙어서 제품 파손\n그림 문맥: - 사진 번호: P9-02 · 대표/부분 사진 - 사진 번호: P9-01 · 대표 사진 - 원본 이미지 없음"
   }
 }

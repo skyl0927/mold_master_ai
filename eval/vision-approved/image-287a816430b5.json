@@ -18,6 +18,7 @@
     "reviewedAt": "2026-07-24T03:26:24.975135+00:00",
     "sourceSystem": "mold-master-ai-local-candidate",
     "priorObservationDefectType": "미성형",
+    "originalVisionDefectType": "미성형(Short Shot) 의심",
     "priorObservationSummary": "원문 카드: #4 · 미성형 (Short Shot) - 조립 · 보통 · Open\n원문 현상: 미성형(Short Shot Under Fill) 은 사출 시 용융수지가 금형 캐비티를(형상 리브) 끝까지 채우지 못해 제품 일부가 비거나 형상이 완성되지 않는 현상입니다\n그림 문맥: - 사진 번호: P4-01 · 대표 사진 - 사진 번호: P4-02 · 대표/부분 사진 - 원본 이미지 없음"
   }
 }

@@ -24,6 +24,7 @@
     "reviewedAt": "2026-05-14T11:24:28.694480+00:00",
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "밀핀 자국",
+    "originalVisionDefectType": "표면 긁힘",
     "priorObservationSummary": "표면 결함이 감지되었습니다."
   }
 }
