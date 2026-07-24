@@ -170,6 +170,42 @@ const parseWikimediaFilePage = (html, fileName) => {
   };
 };
 
+const parseWikimediaApiResponse = (payload, fileName) => {
+  const expectedTitle = `File:${fileName}`;
+  const pages = Object.values(payload?.query?.pages || {});
+  const sourcePage = pages.find(page => page?.title === expectedTitle) || pages[0];
+  const sourceImageInfo = sourcePage?.imageinfo?.[0];
+  if (!sourcePage || !sourceImageInfo) {
+    return {
+      title: expectedTitle,
+      imageinfo: []
+    };
+  }
+
+  const sourceMetadata = sourceImageInfo.extmetadata || {};
+  const metadata = {};
+  for (const name of [
+    'LicenseShortName',
+    'LicenseUrl',
+    'Artist',
+    'Credit',
+    'ImageDescription'
+  ]) {
+    const value = stripHtml(sourceMetadata[name]?.value);
+    if (value) metadata[name] = { value };
+  }
+
+  return {
+    title: sourcePage.title || expectedTitle,
+    imageinfo: [{
+      url: compactWhitespace(sourceImageInfo.url),
+      descriptionurl: compactWhitespace(sourceImageInfo.descriptionurl)
+        || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(fileName)}`,
+      extmetadata: metadata
+    }]
+  };
+};
+
 const wikimediaThumbnailUrl = (originalUrl, width = 640) => {
   const url = new URL(String(originalUrl || ''));
   if (url.hostname !== 'upload.wikimedia.org' || !url.pathname.includes('/commons/')) {
@@ -405,6 +441,7 @@ module.exports = {
   assembleCandidateCollection,
   buildBasfCards,
   buildWikimediaCards,
+  parseWikimediaApiResponse,
   parseWikimediaFilePage,
   wikimediaThumbnailUrl
 };

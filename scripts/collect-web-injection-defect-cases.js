@@ -5,7 +5,7 @@ const path = require('node:path');
 const {
   WIKIMEDIA_CASE_MAPPINGS,
   assembleCandidateCollection,
-  parseWikimediaFilePage,
+  parseWikimediaApiResponse,
   wikimediaThumbnailUrl
 } = require('../webDefectCaseCollector');
 const {
@@ -159,11 +159,19 @@ const main = async () => {
   const downloadedImages = new Map();
   for (const [index, mapping] of WIKIMEDIA_CASE_MAPPINGS.entries()) {
     const sourceUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(mapping.fileName)}`;
-    const sourceResponse = await client.fetch(sourceUrl, {
-      accept: 'text/html'
+    const apiUrl = new URL('https://commons.wikimedia.org/w/api.php');
+    apiUrl.search = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      prop: 'imageinfo',
+      iiprop: 'url|extmetadata',
+      titles: `File:${mapping.fileName}`
+    }).toString();
+    const sourceResponse = await client.fetch(apiUrl.toString(), {
+      accept: 'application/json'
     });
     if (!sourceResponse.ok) continue;
-    const page = parseWikimediaFilePage(await sourceResponse.text(), mapping.fileName);
+    const page = parseWikimediaApiResponse(await sourceResponse.json(), mapping.fileName);
     wikimediaPages.push(page);
     const imageInfo = page?.imageinfo?.[0];
     if (!imageInfo?.url) continue;
