@@ -143,7 +143,50 @@ const path = require('node:path');
             decision_status: 'probable',
             decision_reason: 'probable_multiview_consensus'
           },
-          answer: '승인된 Graph 근거를 우선 확인하세요.',
+          graph_grounding: {
+            contract_version: 'vision-graph-grounding/v1',
+            candidate_grounding: [{
+              defect_type: '백화',
+              vision_rank: 1,
+              vision_confidence: 0.82,
+              status: 'supported',
+              direct_match_score: 1,
+              multihop_score: 0.85,
+              context_match_score: 1,
+              graph_support_score: 0.93,
+              approved_path_count: 1,
+              causes: ['과도한 이형 저항'],
+              countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+              citations: [{
+                path_id: 'path-whitening-release',
+                document_id: 'doc-approved-whitening',
+                path_text: '백화 -> 과도한 이형 저항 -> 리브 구배 및 표면 거칠기 점검',
+                hop_count: 2,
+                score: 0.93,
+                review_status: 'approved',
+                evidence_ids: ['ev-defect', 'ev-cause', 'ev-action']
+              }],
+              rejected_path_reasons: []
+            }],
+            graph_grounded: true,
+            top_candidate_supported: true,
+            vision_graph_conflict: false,
+            approved_path_count: 1,
+            citation_count: 1,
+            grounded_causes: ['과도한 이형 저항'],
+            grounded_countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+            requires_human_review: false,
+            auto_finalize_allowed: true,
+            llm_supplement_allowed: false,
+            llm_supplement_training_eligible: false,
+            decision_status: 'grounded',
+            decision_reason: 'vision_top1_approved_graph_path_supported'
+          },
+          answer: [
+            '[Graph 검증 결과]',
+            'Graph 검증 원인: 과도한 이형 저항',
+            'Graph 검증 대책: 리브 구배 및 표면 거칠기 점검'
+          ].join('\n'),
           confidence: 0.86,
           evidence: [{
             node_id: 'cause-whitening-1',
@@ -153,6 +196,7 @@ const path = require('node:path');
             source_ref: 'graph:whitening-ejection'
           }],
           metadata: {
+            llm_supplement_used: false,
             view_image_ids: {
               'image-full': 'server-image-full',
               'image-close': 'server-image-close'
@@ -227,6 +271,13 @@ const path = require('node:path');
       multiviewFusionRendered: bodyText.toUpperCase().includes('MULTI-VIEW FUSION')
         && bodyText.includes('2/2 유효')
         && bodyText.includes('백화: 2개 시점 합의'),
+      graphCrossValidationRendered: bodyText.toUpperCase().includes('GRAPH CROSS-VALIDATION')
+        && bodyText.includes('AUTO FINALIZE')
+        && bodyText.includes('직접 100%')
+        && bodyText.includes('2-hop 85%')
+        && bodyText.includes('path-whitening-release')
+        && bodyText.includes('과도한 이형 저항')
+        && bodyText.includes('리브 구배 및 표면 거칠기 점검'),
       visionInferenceRejected: !bodyText.includes('비전이 생성한 미검증 원인')
         && !bodyText.includes('비전이 생성한 미검증 대책')
         && !bodyText.includes('비전 단계에서 신뢰하면 안 되는 라벨'),
@@ -244,6 +295,7 @@ const path = require('node:path');
       || !result.resultRendered
       || !result.groundedObservationRendered
       || !result.multiviewFusionRendered
+      || !result.graphCrossValidationRendered
       || !result.visionInferenceRejected
       || consoleErrors.length > 0
     ) {
