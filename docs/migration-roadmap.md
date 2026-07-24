@@ -439,7 +439,22 @@ retirement blocker even when benchmark scores pass. Development Electron and
 the packaged v13 executable completed this workflow with zero renderer console
 errors and no automatic approvals or Graph writes.
 
-Current measured baseline:
+Superseding neutral blind baseline (2026-07-24):
+
+- approved manifest: 13 runnable images
+- production QA with field context removed: Top-1 0%, Top-3 7.7%
+- strict Vision V2: Top-1 0%, Top-3 0%, unsafe accepted error 30.8%
+- lean differential candidate: Top-1 0%, Top-3 0%, unsafe accepted error 7.7%
+- capture protocol readiness: 0%
+- runtime attestation: failed because the production QA service did not report
+  `vision_prompt_version` or `vision_image_detail`
+- the earlier 46.2% result and packaged v16 accuracy are historical only; their
+  Vision question included field context and cannot be used as blind visual
+  accuracy evidence
+- detailed evidence:
+  `docs/testing/vision-live-baseline-2026-07-24.md`
+
+Historical measured baseline before neutral-question isolation:
 
 - live dataset snapshot (2026-07-24 after explicit HITL): 22 records
   (11 approved, 8 candidate, 1 needs review, 2 rejected)
