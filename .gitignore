@@ -14,6 +14,7 @@ build
 artifacts
 backups
 .tmp-tests
+.tmp-tools
 .tmp-hitl-db
 .agents
 .codex
