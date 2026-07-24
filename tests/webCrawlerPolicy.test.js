@@ -84,3 +84,35 @@ test('polite client retries HTTP 429 using a bounded backoff', async () => {
   assert.equal(targetCalls, 2);
   assert.equal(client.report().retries, 1);
 });
+
+test('official Wikimedia imageinfo API uses API throttling instead of web robots rules', async () => {
+  let robotsCalls = 0;
+  let apiCalls = 0;
+  const fetchImpl = async url => {
+    if (url.pathname === '/robots.txt') {
+      robotsCalls += 1;
+      return new Response('User-agent: *\nDisallow: /w/', { status: 200 });
+    }
+    apiCalls += 1;
+    return Response.json({ query: { pages: {} } });
+  };
+  const client = new PoliteHttpClient({
+    fetchImpl,
+    minimumIntervalMs: 1
+  });
+  const response = await client.fetch(
+    'https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&titles=File%3AExample.png',
+    { officialApi: true }
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(apiCalls, 1);
+  assert.equal(robotsCalls, 0);
+  await assert.rejects(
+    client.fetch(
+      'https://commons.wikimedia.org/w/index.php?title=File%3AExample.png',
+      { officialApi: true }
+    ),
+    /official API/
+  );
+});
