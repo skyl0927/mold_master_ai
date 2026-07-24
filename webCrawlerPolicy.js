@@ -76,6 +76,18 @@ const assertAllowedSourceUrl = value => {
   return url;
 };
 
+const assertOfficialApiUrl = value => {
+  const url = value instanceof URL ? value : assertAllowedSourceUrl(value);
+  const isWikimediaImageInfo = url.hostname.toLocaleLowerCase() === 'commons.wikimedia.org'
+    && url.pathname === '/w/api.php'
+    && url.searchParams.get('action') === 'query'
+    && String(url.searchParams.get('prop') || '').split('|').includes('imageinfo');
+  if (!isWikimediaImageInfo) {
+    throw new Error(`URL is not an approved official API request: ${url.toString()}`);
+  }
+  return url;
+};
+
 const runtimeSecurityWarnings = environment => {
   const warnings = [];
   if (String(environment?.NODE_TLS_REJECT_UNAUTHORIZED || '') === '0') {
@@ -97,6 +109,7 @@ class PoliteHttpClient {
     this.lastRequestAt = new Map();
     this.audit = [];
     this.retryCount = 0;
+    this.officialApiRequestCount = 0;
   }
 
   async waitForHost(origin) {
@@ -160,19 +173,25 @@ class PoliteHttpClient {
 
   async fetch(value, options = {}) {
     const url = assertAllowedSourceUrl(value);
-    const policy = await this.robotsPolicy(url);
-    const decision = policy.assumedAllowed
-      ? { allowed: true, matchedRule: null }
-      : evaluateRobotsTxt(policy.text, url.pathname, this.userAgent);
-    if (!decision.allowed) {
-      throw new Error(
-        `robots.txt disallows ${url.pathname}: ${decision.matchedRule?.path || 'unknown rule'}`
-      );
+    const { officialApi = false, ...requestOptions } = options;
+    if (officialApi) {
+      assertOfficialApiUrl(url);
+      this.officialApiRequestCount += 1;
+    } else {
+      const policy = await this.robotsPolicy(url);
+      const decision = policy.assumedAllowed
+        ? { allowed: true, matchedRule: null }
+        : evaluateRobotsTxt(policy.text, url.pathname, this.userAgent);
+      if (!decision.allowed) {
+        throw new Error(
+          `robots.txt disallows ${url.pathname}: ${decision.matchedRule?.path || 'unknown rule'}`
+        );
+      }
     }
     const retryStatuses = new Set([429, 502, 503, 504]);
     let response;
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
-      response = await this.rawFetch(url, options);
+      response = await this.rawFetch(url, requestOptions);
       if (!retryStatuses.has(response.status) || attempt === this.maxRetries) {
         return response;
       }
@@ -201,6 +220,7 @@ class PoliteHttpClient {
       userAgent: this.userAgent,
       minimumIntervalMs: this.minimumIntervalMs,
       retries: this.retryCount,
+      officialApiRequests: this.officialApiRequestCount,
       maximumRetryAfterMs: this.maximumRetryAfterMs,
       requests: [...this.audit],
       robots: [...this.robotsCache.entries()].map(([origin, policy]) => ({
@@ -217,6 +237,7 @@ module.exports = {
   DEFAULT_USER_AGENT,
   PoliteHttpClient,
   assertAllowedSourceUrl,
+  assertOfficialApiUrl,
   evaluateRobotsTxt,
   parseRobotsTxt,
   runtimeSecurityWarnings

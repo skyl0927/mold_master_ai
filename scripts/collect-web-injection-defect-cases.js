@@ -168,7 +168,8 @@ const main = async () => {
       titles: `File:${mapping.fileName}`
     }).toString();
     const sourceResponse = await client.fetch(apiUrl.toString(), {
-      accept: 'application/json'
+      accept: 'application/json',
+      officialApi: true
     });
     if (!sourceResponse.ok) continue;
     const page = parseWikimediaApiResponse(await sourceResponse.json(), mapping.fileName);
