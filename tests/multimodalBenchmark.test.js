@@ -10,6 +10,9 @@ const {
   summarizeVisionBenchmark,
   validateVisionCases
 } = require('../scripts/lib/multimodal-benchmark');
+const {
+  buildShadowReleaseInput
+} = require('../scripts/lib/vision-operational-release-input');
 
 const validCase = {
   id: 'whitening-rib-01',
@@ -411,4 +414,82 @@ test('vision scoring keeps vision and retrieval confidence separate', () => {
   assert.equal(result.confidence, 0.93);
   assert.equal(result.visionConfidence, 0.93);
   assert.equal(result.retrievalConfidence, 0.37);
+});
+
+test('operational release input pairs baseline and candidate by case id with verified cohort metadata', () => {
+  const baselineReport = {
+    results: [
+      {
+        id: 'case-2',
+        top1Accurate: false,
+        top3Accurate: true,
+        acceptedPrediction: false,
+        visionConfidence: 0.4,
+        latencyMs: 500
+      },
+      {
+        id: 'case-1',
+        top1Accurate: true,
+        top3Accurate: true,
+        acceptedPrediction: true,
+        visionConfidence: 0.9,
+        latencyMs: 450
+      }
+    ]
+  };
+  const candidateReport = {
+    results: [
+      {
+        id: 'case-1',
+        top1Accurate: true,
+        top3Accurate: true,
+        acceptedPrediction: true,
+        visionConfidence: 0.95,
+        latencyMs: 470
+      },
+      {
+        id: 'case-3',
+        top1Accurate: true,
+        top3Accurate: true,
+        acceptedPrediction: true,
+        visionConfidence: 0.8,
+        latencyMs: 490
+      }
+    ]
+  };
+  const config = {
+    baselineVersion: {
+      modelVersion: 'model-a',
+      promptVersion: 'prompt-a',
+      graphVersion: 'graph-a'
+    },
+    candidateVersion: {
+      modelVersion: 'model-b',
+      promptVersion: 'prompt-b',
+      graphVersion: 'graph-b'
+    },
+    latencyTargetP95Ms: 1500,
+    caseMetadata: {
+      'case-1': {
+        evaluatedAt: '2026-07-24T10:00:00.000Z',
+        productFamily: 'GRILLE',
+        moldId: 'M-1',
+        cameraId: 'CAM-1',
+        captureSessionId: 'SESSION-1',
+        contentHash: 'HASH-1',
+        expectedDefectClass: 'whitening',
+        humanVerified: true
+      }
+    }
+  };
+
+  const built = buildShadowReleaseInput(baselineReport, candidateReport, config);
+
+  assert.equal(built.gateInput.samples.length, 1);
+  assert.equal(built.gateInput.samples[0].caseId, 'case-1');
+  assert.equal(built.gateInput.samples[0].candidate.confidence, 0.95);
+  assert.equal(built.gateInput.samples[0].productFamily, 'GRILLE');
+  assert.deepEqual(built.diagnostics.baselineOnlyCaseIds, ['case-2']);
+  assert.deepEqual(built.diagnostics.candidateOnlyCaseIds, ['case-3']);
+  assert.deepEqual(built.diagnostics.missingMetadataCaseIds, []);
 });
