@@ -1711,3 +1711,62 @@ test('manual documents are owned by the Common Agent registry', async () => {
         }
     ]);
 });
+
+test('learning-ready Vision export is requested from Common Agent with strict gates', async () => {
+    let capturedUrl = '';
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        capturedUrl = String(input);
+        return new Response(JSON.stringify({
+            dataset_name: 'field-vision-image-dataset',
+            format: 'classification_manifest',
+            learning_ready_only: true,
+            capture_ready_count: 2,
+            excluded_counts: { missing_required_views: 1 },
+            items: [{
+                image_id: 'image-ready-full',
+                file_name: 'full.jpg',
+                mime_type: 'image/jpeg',
+                file_url: '/v1/datasets/images/image-ready-full/file',
+                review_status: 'approved',
+                split: 'train',
+                split_key: 'capture-session-1',
+                class_name: 'whitening',
+                labels: ['whitening'],
+                defect_type: 'whitening',
+                process_area: 'injection',
+                capture_session_id: 'capture-session-1',
+                capture_view_tag: 'full_part_context',
+                capture_protocol_ready: true,
+                learning_candidate_eligible: true,
+                content_hash: 'hash-full',
+                product_family: 'grille',
+                mold_id: 'mold-a'
+            }],
+            warnings: ['learning-ready export is session-grouped']
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const exportResult = await CommonAgentApiService.loadLearningReadyVisionExport({
+        minConfidence: 0.8,
+        minVisionConfidence: 0.8,
+        limit: 100
+    });
+
+    const url = new URL(capturedUrl);
+    assert.equal(url.origin, 'http://agent.test');
+    assert.equal(url.pathname, '/v1/datasets/images/export');
+    assert.equal(url.searchParams.get('review_status'), 'approved');
+    assert.equal(url.searchParams.get('learning_ready_only'), 'true');
+    assert.equal(url.searchParams.get('min_confidence'), '0.8');
+    assert.equal(url.searchParams.get('min_vision_confidence'), '0.8');
+    assert.equal(url.searchParams.get('limit'), '100');
+    assert.equal(exportResult.learning_ready_only, true);
+    assert.equal(exportResult.items[0].split_key, 'capture-session-1');
+    assert.equal(exportResult.items[0].capture_view_tag, 'full_part_context');
+    assert.equal(exportResult.excluded_counts.missing_required_views, 1);
+});
