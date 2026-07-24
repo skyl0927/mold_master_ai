@@ -33,6 +33,9 @@ const card = ({
     reuseMode: 'licensed_copy',
     license: 'CC BY-SA 4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    licenseVerificationUrl: 'https://example.invalid/license-record',
+    sourceRecordId: 'source-record-1',
+    sourceCitation: 'Source citation text',
     author: 'source author',
     localFile,
     contentSha256
@@ -97,6 +100,12 @@ test('web case images become missing-class Vision candidates with source lineage
   assert.equal(manifest.candidates[0].sourceLineage.webCaseId, 'burn-case');
   assert.equal(manifest.candidates[0].sourceLineage.sourcePublisher, 'Wikimedia Commons');
   assert.equal(manifest.candidates[0].sourceLineage.license, 'CC BY-SA 4.0');
+  assert.equal(
+    manifest.candidates[0].sourceLineage.licenseVerificationUrl,
+    'https://example.invalid/license-record'
+  );
+  assert.equal(manifest.candidates[0].sourceLineage.sourceRecordId, 'source-record-1');
+  assert.equal(manifest.candidates[0].sourceLineage.sourceCitation, 'Source citation text');
   assert.equal(manifest.candidates[0].sourceLineage.sourceReviewStatus, 'candidate');
   assert.equal(manifest.candidates[0].contentSha256, burnHash);
 });
