@@ -140,3 +140,50 @@ test('web case candidate selection deduplicates identical image bytes', () => {
   assert.equal(manifest.candidates.length, 1);
   assert.equal(manifest.summary.duplicatesSkipped, 1);
 });
+
+test('web case selection adds independent supplemental samples for the total gate', () => {
+  const manifest = buildWebCaseVisionCandidateManifest({
+    collection: {
+      rootPath: 'C:/collection',
+      integrity: { valid: true, cardCount: 3, verifiedImages: 3 },
+      cards: [
+        card({
+          caseId: 'burn-extra',
+          defectName: '탄화',
+          defectClass: 'burn',
+          localFile: 'images/burn-extra.png',
+          contentSha256: hash('burn-extra')
+        }),
+        card({
+          caseId: 'sink-extra',
+          defectName: '싱크',
+          defectClass: 'sink',
+          localFile: 'images/sink-extra.png',
+          contentSha256: hash('sink-extra')
+        }),
+        card({
+          caseId: 'flash-extra',
+          defectName: '플래시',
+          defectClass: 'flash',
+          localFile: 'images/flash-extra.png',
+          contentSha256: hash('flash-extra')
+        })
+      ]
+    },
+    approvedClassCounts: {
+      burn: 2,
+      sink: 2,
+      flash: 2
+    },
+    minimumSamplesPerClass: 2,
+    currentApprovedSamples: 18,
+    minimumTotalSamples: 20,
+    missingOnly: true
+  });
+
+  assert.equal(manifest.candidates.length, 2);
+  assert.equal(manifest.summary.classCoverageSelected, 0);
+  assert.equal(manifest.summary.supplementalSelected, 2);
+  assert.equal(manifest.summary.additionalTotalSamplesRequired, 2);
+  assert.equal(manifest.summary.additionalTotalSamplesAfterCandidates, 0);
+});
