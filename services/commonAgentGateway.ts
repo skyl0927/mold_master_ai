@@ -6,7 +6,8 @@ import {
     CaptureSource,
     CaptureViewTag,
     VisionDecisionStatus,
-    VisionImageQualityReport
+    VisionImageQualityReport,
+    VisionRuntimeVersionSnapshot
 } from '../types';
 import { analyzeMoldDefect } from './aiService';
 import { streamChatResponse } from './aiService';
@@ -65,6 +66,8 @@ export interface DiagnosisComparisonRecord {
     visionDisagreementScore?: number;
     visionFusionDecisionReason?: string;
     selectionReason?: 'strategy_default' | 'richer_vision_contract';
+    commonAgentVersionSnapshot?: VisionRuntimeVersionSnapshot;
+    legacyVersionSnapshot?: VisionRuntimeVersionSnapshot;
 }
 
 export interface DiagnosisGatewayResult {
@@ -675,7 +678,11 @@ export class CommonAgentGateway {
             visionViewCount: selectedAnalysis.visionSummary?.fusionSummary?.validViewCount,
             visionDisagreementScore: selectedAnalysis.visionSummary?.fusionSummary?.disagreementScore,
             visionFusionDecisionReason: selectedAnalysis.visionSummary?.fusionSummary?.decisionReason,
-            selectionReason: validatedSelection.reason
+            selectionReason: validatedSelection.reason,
+            commonAgentVersionSnapshot:
+                execution.commonAgent?.analysis.retrievalSummary?.runtimeVersions,
+            legacyVersionSnapshot:
+                execution.legacy?.analysis.retrievalSummary?.runtimeVersions
         };
         persistComparison(comparison);
 

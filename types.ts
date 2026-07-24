@@ -211,6 +211,7 @@ export interface DefectAnalysis {
     graphGrounded?: boolean;
     llmSupplemented?: boolean;
     graphValidation?: VisionGraphGroundingSummary;
+    runtimeVersions?: VisionRuntimeVersionSnapshot;
   };
   orchestrationSummary?: {
     strategy: AiOrchestrationMode;
@@ -220,6 +221,12 @@ export interface DefectAnalysis {
     comparisonId?: string;
     defectTypeAgreement?: boolean;
   };
+}
+
+export interface VisionRuntimeVersionSnapshot {
+  modelVersion: string;
+  promptVersion: string;
+  graphVersion: string;
 }
 
 export type CaptureViewTag =

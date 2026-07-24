@@ -799,6 +799,15 @@ export class CommonAgentApiService {
                     ? graphGrounding.graph_grounded
                     : evidence.some(item => item.source_type === 'knowledge_path' || item.source_type === 'knowledge_relation'),
                 llmSupplemented: response.metadata?.llm_supplement_used === true,
+                runtimeVersions: (
+                    response.metadata?.vision_model_version
+                    && response.metadata?.vision_prompt_version
+                    && response.metadata?.vision_graph_version
+                ) ? {
+                    modelVersion: response.metadata.vision_model_version,
+                    promptVersion: response.metadata.vision_prompt_version,
+                    graphVersion: response.metadata.vision_graph_version
+                } : undefined,
                 graphValidation
             }
         });
