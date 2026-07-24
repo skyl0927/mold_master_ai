@@ -247,6 +247,22 @@ test('PMC open-access record creates one CC BY weld-line figure candidate', () =
   assert.equal(cards[0].metadata.visionBenchmarkEligible, false);
 });
 
+test('open-access mappings add three independent defect figures for the total gate', () => {
+  assert.equal(OPEN_ACCESS_FIGURE_MAPPINGS.length, 4);
+  assert.deepEqual(
+    OPEN_ACCESS_FIGURE_MAPPINGS.map(mapping => mapping.pmcId),
+    ['PMC10489043', 'PMC8659061', 'PMC9696673', 'PMC10422203']
+  );
+  assert.deepEqual(
+    OPEN_ACCESS_FIGURE_MAPPINGS.slice(1).map(mapping => mapping.sourceDefectTitle),
+    ['Diesel effect/Burning', 'Sink marks', 'Flash']
+  );
+  assert.equal(
+    new Set(OPEN_ACCESS_FIGURE_MAPPINGS.map(mapping => mapping.assetUrl)).size,
+    OPEN_ACCESS_FIGURE_MAPPINGS.length
+  );
+});
+
 test('Wikimedia coverage keeps two independent sink examples and trims redundant flash examples', () => {
   const sinkMappings = WIKIMEDIA_CASE_MAPPINGS.filter(
     mapping => mapping.sourceDefectTitle === 'Sink marks'
@@ -263,7 +279,7 @@ test('Wikimedia coverage keeps two independent sink examples and trims redundant
   assert.equal(flashMappings.length, 2);
 });
 
-test('assembled collection reaches 40 valid cards with no approval or Graph writes', () => {
+test('assembled collection exceeds the 40-card target with no approval or Graph writes', () => {
   const result = assembleCandidateCollection({
     basfLinks,
     parsedPages,
@@ -286,11 +302,11 @@ test('assembled collection reaches 40 valid cards with no approval or Graph writ
         retracted: false
       }
     ])),
-    downloadedOpenAccessImages: new Map(OPEN_ACCESS_FIGURE_MAPPINGS.map(mapping => [
+    downloadedOpenAccessImages: new Map(OPEN_ACCESS_FIGURE_MAPPINGS.map((mapping, index) => [
       mapping.id,
       {
-        localFile: 'images/16-mdpi-weld-line-figure-5.jpg',
-        contentSha256: 'f'.repeat(64),
+        localFile: `images/${mapping.id}.jpg`,
+        contentSha256: String(index + 100).padStart(64, '0'),
         sizeBytes: 78685,
         mimeType: 'image/jpeg',
         downloadUrl: mapping.assetUrl,
@@ -301,12 +317,12 @@ test('assembled collection reaches 40 valid cards with no approval or Graph writ
     targetCards: 40
   });
 
-  assert.equal(result.cards.length, 40);
-  assert.equal(result.summary.totalCards, 40);
+  assert.equal(result.cards.length, 43);
+  assert.equal(result.summary.totalCards, 43);
   assert.equal(result.summary.additionalCardsRequired, 0);
   assert.equal(result.summary.autoApproved, 0);
   assert.equal(result.summary.graphPromoted, 0);
   assert.equal(result.invalid.length, 0);
-  assert.equal(result.template.items.length, 40);
+  assert.equal(result.template.items.length, 43);
   assert.equal(result.template.metadata.review_status, 'candidate');
 });
