@@ -234,3 +234,198 @@ test('validation rejects duplicate hashes and approved-label conflicts', () => {
     /conflicting approved label/
   );
 });
+
+test('validation requires reviewer identity, timestamp, targets, and authorization statement', () => {
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest,
+    packetRoot: 'C:\\packet',
+    datasetItems
+  });
+
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /authorizationStatement/
+  );
+  authorization.authorizationStatement = 'I_CONFIRM_EACH_IMAGE_AND_LABEL';
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /authorizedBy/
+  );
+  authorization.authorizedBy = 'reviewer-01';
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /authorizedAt/
+  );
+  authorization.authorizedAt = '2026-07-24T09:30:00.000Z';
+  authorization.targets = [];
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /at least one target/
+  );
+  assert.throws(
+    () => validateVisionHitlAuthorization({
+      authorization: { ...authorization, schemaVersion: 2 },
+      manifest,
+      datasetItems
+    }),
+    /schemaVersion/
+  );
+});
+
+test('validation requires each target confirmation and a meaningful review comment', () => {
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest,
+    packetRoot: 'C:\\packet',
+    datasetItems
+  });
+  authorization.authorizationStatement = 'I_CONFIRM_EACH_IMAGE_AND_LABEL';
+  authorization.authorizedBy = 'reviewer-01';
+  authorization.authorizedAt = '2026-07-24T09:30:00.000Z';
+  authorization.targets = [authorization.targets[0]];
+  authorization.targets[0].decision = 'approve';
+
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /manufacturing image confirmation/
+  );
+  authorization.targets[0].manufacturingImageConfirmed = true;
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /label confirmation/
+  );
+  authorization.targets[0].labelConfirmed = true;
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /reviewComment/
+  );
+});
+
+test('validation is idempotent for the same approved label but blocks rejected hashes', () => {
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest,
+    packetRoot: 'C:\\packet',
+    datasetItems: []
+  });
+  authorization.authorizationStatement = 'I_CONFIRM_EACH_IMAGE_AND_LABEL';
+  authorization.authorizedBy = 'reviewer-01';
+  authorization.authorizedAt = '2026-07-24T09:30:00.000Z';
+  authorization.targets = [authorization.targets[1]];
+  Object.assign(authorization.targets[0], {
+    decision: 'approve',
+    manufacturingImageConfirmed: true,
+    labelConfirmed: true,
+    approvedDefectType: '흑점/탄화',
+    reviewComment: '원본 이미지와 번 마크 라벨을 직접 확인함'
+  });
+  const sameLabelDataset = [{
+    image_id: 'approved-burn',
+    defect_type: '흑점/탄화',
+    review_status: 'approved',
+    metadata: { content_sha256: HASHES.pendingBurn }
+  }];
+
+  const result = validateVisionHitlAuthorization({
+    authorization,
+    manifest,
+    datasetItems: sameLabelDataset
+  });
+  assert.equal(result.targets[0].alreadyApproved, true);
+
+  assert.throws(
+    () => validateVisionHitlAuthorization({
+      authorization,
+      manifest,
+      datasetItems: [{
+        ...sameLabelDataset[0],
+        review_status: 'rejected'
+      }]
+    }),
+    /already rejected/
+  );
+});
+
+test('validation blocks hashes that were not selected from the bound packet', () => {
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest,
+    packetRoot: 'C:\\packet',
+    datasetItems
+  });
+  authorization.authorizationStatement = 'I_CONFIRM_EACH_IMAGE_AND_LABEL';
+  authorization.authorizedBy = 'reviewer-01';
+  authorization.authorizedAt = '2026-07-24T09:30:00.000Z';
+  authorization.targets = [{
+    ...authorization.targets[0],
+    contentSha256: 'e'.repeat(64),
+    decision: 'approve',
+    manufacturingImageConfirmed: true,
+    labelConfirmed: true,
+    reviewComment: '패킷에 없는 해시를 승인하려는 시도'
+  }];
+
+  assert.throws(
+    () => validateVisionHitlAuthorization({ authorization, manifest, datasetItems }),
+    /not an unresolved high-confidence packet candidate/
+  );
+});
+
+test('empty manifests produce a stable zero-target template and cannot be authorized', () => {
+  const emptyManifest = { schemaVersion: 1, candidates: null };
+  const firstDigest = computeVisionPacketDigest(emptyManifest);
+  const secondDigest = computeVisionPacketDigest(emptyManifest);
+  assert.equal(firstDigest, secondDigest);
+
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest: emptyManifest,
+    packetRoot: '',
+    datasetItems: null
+  });
+  assert.equal(authorization.summary.totalTargets, 0);
+  assert.deepEqual(authorization.summary.targetsByClass, {});
+
+  authorization.authorizationStatement = 'I_CONFIRM_EACH_IMAGE_AND_LABEL';
+  authorization.authorizedBy = 'reviewer-01';
+  authorization.authorizedAt = '2026-07-24T09:30:00.000Z';
+  authorization.targets = null;
+  assert.throws(
+    () => validateVisionHitlAuthorization({
+      authorization,
+      manifest: emptyManifest,
+      datasetItems: null
+    }),
+    /at least one target/
+  );
+  assert.throws(
+    () => validateVisionHitlAuthorization({
+      authorization: null,
+      manifest: emptyManifest
+    }),
+    /schemaVersion/
+  );
+});
+
+test('a forged high-confidence bucket cannot bypass source and Vision agreement checks', () => {
+  const forged = candidate({
+    hash: 'f'.repeat(64),
+    relativePath: 'web-case/forged.jpg',
+    defectType: '흑점/탄화',
+    defectClass: 'burn'
+  });
+  forged.labelEvidence = {
+    ...forged.labelEvidence,
+    visionSuggestedLabel: '싱크',
+    visionConfidence: 0.99,
+    conflict: true
+  };
+
+  const authorization = buildVisionHitlAuthorizationTemplate({
+    manifest: {
+      schemaVersion: 1,
+      generatedAt: '2026-07-24T09:00:00.000Z',
+      candidates: [forged]
+    },
+    packetRoot: 'C:\\packet',
+    datasetItems: []
+  });
+
+  assert.equal(authorization.summary.totalTargets, 0);
+});

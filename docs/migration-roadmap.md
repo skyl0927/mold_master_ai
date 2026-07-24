@@ -457,6 +457,9 @@ Current measured baseline:
 - if all twelve are independently confirmed, every class reaches at least 2/2
   and the clean approved count rises from 8 to the 20-sample gate
 - HITL hash resolution: 6 of 18 resolved; unresolved priority-one candidates: 12
+- a non-persisting hash-bound authorization template now resolves those exact
+  twelve hashes from the live dataset and packet digest; its default pending
+  state is rejected by the live approval runner before Electron or any write
 - remaining class minimums: short shot 1, burn 2, sink 2, and weld line 1
 - repeatability warning: one intermediate packaged run classified the single
   short-shot fixture as unclassifiable (7/8), while the preceding and latest
@@ -605,6 +608,21 @@ Excluded candidates are hidden by default but remain auditable through
 registration and approval are blocked until a local hold/exclusion is cleared.
 The restart smoke verifies exclusion persistence, default hiding, restoration,
 decision clearing, and zero server writes.
+
+### Hash-bound multi-item approval
+
+For a controlled multi-item approval session, `npm run vision:hitl:prepare`
+creates a non-persisting authorization template bound to the complete packet
+digest and the currently unresolved high-confidence hashes. The resulting file
+cannot be executed until a named human reviewer records an explicit decision,
+original-image confirmation, final-label confirmation, timestamp, and review
+comment for each retained target.
+
+`npm run vision:hitl:approve -- --authorization <reviewed-json>` revalidates
+those facts, blocks stale packets, duplicate hashes, rejected images, and
+conflicting approved labels, then records every write and result in a versioned
+audit file. This replaces the old hard-coded six-item approval path without
+weakening the human-required policy.
 
 ## Capture Session Freshness
 

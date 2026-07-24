@@ -762,6 +762,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                     ] as Array<[DatabaseTab, string]>).map(([tab, label]) => (
                         <button
                             key={tab}
+                            data-testid={`dataset-tab-${tab}`}
                             className={`h-9 whitespace-nowrap rounded-md border px-5 text-sm font-bold transition-colors ${
                                 activeTab === tab
                                     ? 'border-cyan-500 bg-cyan-950/70 text-cyan-100 shadow-[inset_0_-2px_0_#22d3ee]'
@@ -849,6 +850,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <button
+                                            data-testid="scan-prepared-vision-packet"
                                             onClick={() => void scanLocalCandidates(true)}
                                             disabled={isLoadingVision || isScanningLocalCandidates || Boolean(busyLocalCandidateId)}
                                             className="rounded bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1195,6 +1197,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                     <label className="mt-2 flex items-start gap-2 text-[10px] text-amber-200">
                                                                         <input
                                                                             type="checkbox"
+                                                                            data-testid={`${candidate.candidateId}-manufacturing-image-confirmation`}
                                                                             checked={Boolean(warningConfirmed)}
                                                                             onChange={event => setConfirmedWarnings(current => ({
                                                                                 ...current,
@@ -1223,6 +1226,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={Boolean(humanApprovalConfirmed)}
+                                                                            data-testid={`${candidate.candidateId}-human-approval-confirmation`}
                                                                             onChange={event => setConfirmedHumanApprovals(current => ({
                                                                                 ...current,
                                                                                 [candidate.candidateId]: event.target.checked
@@ -1313,6 +1317,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                     </button>
                                                                     <button
                                                                         onClick={() => void approveLocalCandidate(candidate)}
+                                                                        data-testid={`${candidate.candidateId}-approve-and-promote`}
                                                                         disabled={
                                                                             isAlreadyApproved
                                                                             || hasReviewDecision

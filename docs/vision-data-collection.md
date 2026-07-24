@@ -209,14 +209,40 @@ stored in Electron `userData`. A packaged deployment can set
 The cards are ordered by review priority. Even priority-one candidates require
 the reviewer to inspect the source image and document context, confirm the
 label, register a Common Agent candidate, and separately approve Graph
-promotion. No batch command performs those human decisions.
+promotion. The app remains the primary review surface.
+
+For an audited multi-item session, generate a hash-bound authorization template:
+
+```powershell
+npm run vision:hitl:prepare
+```
+
+The current template contains the twelve unresolved high-confidence hashes and
+starts with `PENDING_HUMAN_REVIEW`, `decision=pending`, and both confirmation
+flags set to `false`. It performs no SQL, Graph, approval, or dataset writes.
+After a human opens every original image, confirms the final label, records a
+reviewer and comment, and changes the explicit authorization fields, the exact
+reviewed file can be executed with:
+
+```powershell
+npm run vision:hitl:approve -- --authorization <reviewed-json>
+```
+
+The runner recomputes the complete packet digest, rechecks every image hash and
+class, blocks duplicate or conflicting approved labels, and records an audit
+file. Missing authorization, a pending target, a stale packet, an unconfirmed
+image or label, or an existing rejection stops before Electron and before any
+write. A same-label approval is idempotently skipped. This command executes
+recorded human decisions; it never creates them.
 
 Verification:
 
 ```powershell
 npm run test:review-packet
 npm run test:candidates
+npm run test:vision-hitl-authorization
 npm run test:electron:vision-review-packet
+npm run test:electron:vision-approval
 ```
 
 ## Retirement Decision
