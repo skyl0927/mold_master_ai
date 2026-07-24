@@ -484,6 +484,11 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             evidenceCount: 4,
             graphGrounded: true,
             llmSupplemented: false,
+            visionGraphConflict: false,
+            graphAutoFinalizeAllowed: true,
+            graphApprovedPathCount: 2,
+            graphCitationCount: 2,
+            llmSupplementTrainingEligible: false,
             contextProvided: true,
             roiCount: 1,
             ocrProvided: false
@@ -502,6 +507,11 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             evidenceCount: 0,
             graphGrounded: false,
             llmSupplemented: true,
+            visionGraphConflict: true,
+            graphAutoFinalizeAllowed: false,
+            graphApprovedPathCount: 1,
+            graphCitationCount: 1,
+            llmSupplementTrainingEligible: false,
             contextProvided: false,
             roiCount: 0,
             ocrProvided: true,
@@ -521,6 +531,11 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             evidenceCount: 2,
             graphGrounded: true,
             llmSupplemented: true,
+            visionGraphConflict: false,
+            graphAutoFinalizeAllowed: true,
+            graphApprovedPathCount: 1,
+            graphCitationCount: 1,
+            llmSupplementTrainingEligible: false,
             contextProvided: true,
             roiCount: 2,
             ocrProvided: true,
@@ -534,6 +549,11 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.deepEqual(observability.commonAgentLatencyMs, { sampleCount: 2, p50: 100, p95: 300, average: 200 });
     assert.deepEqual(observability.legacyLatencyMs, { sampleCount: 2, p50: 300, p95: 500, average: 400 });
     assert.equal(observability.graphGroundedRate, 66.7);
+    assert.equal(observability.graphCitationCoverageRate, 100);
+    assert.equal(observability.visionGraphConflictRate, 33.3);
+    assert.equal(observability.graphAutoFinalizeRate, 66.7);
+    assert.equal(observability.averageApprovedGraphPaths, 1.33);
+    assert.equal(observability.ungroundedLlmTrainingLeakCount, 0);
     assert.equal(observability.averageEvidenceCount, 2);
     assert.equal(observability.contextProvidedRate, 66.7);
     assert.equal(observability.roiContextRate, 66.7);
@@ -543,6 +563,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.deepEqual(observability.metricSamples, {
         graphGrounded: 3,
         llmSupplemented: 3,
+        graphValidation: 3,
         evidence: 3,
         contextProvided: 3,
         roiContext: 3,
