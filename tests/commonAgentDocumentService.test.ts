@@ -552,7 +552,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.equal(observability.graphCitationCoverageRate, 100);
     assert.equal(observability.visionGraphConflictRate, 33.3);
     assert.equal(observability.graphAutoFinalizeRate, 66.7);
-    assert.equal(observability.averageApprovedGraphPaths, 1.33);
+    assert.equal(observability.averageApprovedGraphPaths, 1.3);
     assert.equal(observability.ungroundedLlmTrainingLeakCount, 0);
     assert.equal(observability.averageEvidenceCount, 2);
     assert.equal(observability.contextProvidedRate, 66.7);

@@ -51,6 +51,11 @@ export interface DiagnosisComparisonRecord {
     evidenceCount?: number;
     graphGrounded?: boolean;
     llmSupplemented?: boolean;
+    visionGraphConflict?: boolean;
+    graphAutoFinalizeAllowed?: boolean;
+    graphApprovedPathCount?: number;
+    graphCitationCount?: number;
+    llmSupplementTrainingEligible?: boolean;
     visionQualityStatus?: VisionImageQualityReport['status'];
     visionQualityScore?: number;
     visionQualityIssueCodes?: string[];
@@ -115,6 +120,11 @@ export interface DiagnosisObservability {
     legacyFailures: number;
     graphGroundedRate: number;
     llmSupplementedRate: number;
+    graphCitationCoverageRate: number;
+    visionGraphConflictRate: number;
+    graphAutoFinalizeRate: number;
+    averageApprovedGraphPaths: number;
+    ungroundedLlmTrainingLeakCount: number;
     averageEvidenceCount: number;
     contextProvidedRate: number;
     roiContextRate: number;
@@ -124,6 +134,7 @@ export interface DiagnosisObservability {
     metricSamples: {
         graphGrounded: number;
         llmSupplemented: number;
+        graphValidation: number;
         evidence: number;
         contextProvided: number;
         roiContext: number;
@@ -411,6 +422,17 @@ export const calculateDiagnosisObservability = (
     const failures = new Map<string, DiagnosisFailureReason>();
     const graphMeasured = records.filter(record => typeof record.graphGrounded === 'boolean');
     const llmMeasured = records.filter(record => typeof record.llmSupplemented === 'boolean');
+    const graphValidationMeasured = records.filter(record =>
+        typeof record.graphAutoFinalizeAllowed === 'boolean'
+    );
+    const conflictMeasured = records.filter(record =>
+        typeof record.visionGraphConflict === 'boolean'
+    );
+    const approvedPathMeasured = records.filter(record =>
+        typeof record.graphApprovedPathCount === 'number'
+        && Number.isFinite(record.graphApprovedPathCount)
+    );
+    const groundedRecords = graphMeasured.filter(record => record.graphGrounded === true);
     const evidenceMeasured = records.filter(record =>
         typeof record.evidenceCount === 'number' && Number.isFinite(record.evidenceCount)
     );
@@ -456,6 +478,26 @@ export const calculateDiagnosisObservability = (
             llmMeasured.filter(record => record.llmSupplemented === true).length,
             llmMeasured.length
         ),
+        graphCitationCoverageRate: roundedRate(
+            groundedRecords.filter(record => (record.graphCitationCount || 0) > 0).length,
+            groundedRecords.length
+        ),
+        visionGraphConflictRate: roundedRate(
+            conflictMeasured.filter(record => record.visionGraphConflict === true).length,
+            conflictMeasured.length
+        ),
+        graphAutoFinalizeRate: roundedRate(
+            graphValidationMeasured.filter(record => record.graphAutoFinalizeAllowed === true).length,
+            graphValidationMeasured.length
+        ),
+        averageApprovedGraphPaths: roundedAverage(
+            approvedPathMeasured.map(record => record.graphApprovedPathCount!)
+        ),
+        ungroundedLlmTrainingLeakCount: records.filter(record =>
+            record.graphGrounded === false
+            && record.llmSupplemented === true
+            && record.llmSupplementTrainingEligible === true
+        ).length,
         averageEvidenceCount: roundedAverage(evidenceMeasured.map(record => record.evidenceCount!)),
         contextProvidedRate: roundedRate(
             contextMeasured.filter(record => record.contextProvided === true).length,
@@ -474,6 +516,7 @@ export const calculateDiagnosisObservability = (
         metricSamples: {
             graphGrounded: graphMeasured.length,
             llmSupplemented: llmMeasured.length,
+            graphValidation: graphValidationMeasured.length,
             evidence: evidenceMeasured.length,
             contextProvided: contextMeasured.length,
             roiContext: roiMeasured.length,
@@ -619,6 +662,11 @@ export class CommonAgentGateway {
             evidenceCount: selectedAnalysis.retrievalSummary?.evidenceCount || 0,
             graphGrounded: selectedAnalysis.retrievalSummary?.graphGrounded === true,
             llmSupplemented: selectedAnalysis.retrievalSummary?.llmSupplemented === true,
+            visionGraphConflict: selectedAnalysis.retrievalSummary?.graphValidation?.visionGraphConflict,
+            graphAutoFinalizeAllowed: selectedAnalysis.retrievalSummary?.graphValidation?.autoFinalizeAllowed,
+            graphApprovedPathCount: selectedAnalysis.retrievalSummary?.graphValidation?.approvedPathCount,
+            graphCitationCount: selectedAnalysis.retrievalSummary?.graphValidation?.citationCount,
+            llmSupplementTrainingEligible: selectedAnalysis.retrievalSummary?.graphValidation?.llmSupplementTrainingEligible,
             visionQualityStatus: options.visionQuality?.status,
             visionQualityScore: options.visionQuality?.score,
             visionQualityIssueCodes: options.visionQuality?.issues.map(issue => issue.code),
