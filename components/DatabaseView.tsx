@@ -428,7 +428,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
         setOnlyPriorityReview(
             preparedPacket && result.candidates.some(candidate => candidate.reviewPriority === 1)
         );
-        setOnlyMissingCoverage(true);
+        // Prepared packets can include total-sample supplements for classes whose
+        // per-class coverage is already complete, so show the full priority queue.
+        setOnlyMissingCoverage(!preparedPacket);
         setShowExcludedCandidates(false);
         setLocalDecisionReasons(Object.fromEntries(
             result.candidates.map(candidate => [

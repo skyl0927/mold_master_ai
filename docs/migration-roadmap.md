@@ -445,18 +445,19 @@ Current measured baseline:
   (`whitening`, `flash`, `ejection`)
 - Vision confidence >= 0.6 rate: 100% in the latest packaged v16 run
 - additional independent approved images required: 12
-- latest non-persisting HITL packet: 29 SHA-256-verified candidates, twelve
+- latest non-persisting HITL packet: 32 SHA-256-verified candidates, fifteen
   high-confidence source/Vision class agreements, five class conflicts, ten
   unclassifiable images, and zero automatic approvals
 - the six previously confirmed priority-one candidates remain approved and
-  Graph-promoted; six reusable-license Web Case candidates are still pending
-  human review: burn 2, short shot 1, sink 2, and weld line 1
+  Graph-promoted; nine reusable-license Web Case candidates are still pending
+  human review: burn 2, short shot 2, flash 2, sink 2, and weld line 1
 - the weld-line Figure first required one non-persisting Vision call; the
-  subsequent lineage-only rebuild reused all 29 immutable SHA-256 observations
-- if all six are independently confirmed, every class reaches at least 2/2;
-  the clean approved count rises from 8 to 14, leaving six additional
+  supplemental rebuild requested three new calls and reused the other 29
+  immutable SHA-256 observations
+- if all nine are independently confirmed, every class reaches at least 2/2;
+  the clean approved count rises from 8 to 17, leaving three additional
   independent images for the overall 20-sample gate
-- HITL hash resolution: 6 of 12 resolved; unresolved priority-one candidates: 6
+- HITL hash resolution: 6 of 15 resolved; unresolved priority-one candidates: 9
 - remaining class minimums: short shot 1, burn 2, sink 2, and weld line 1
 - repeatability warning: one intermediate packaged run classified the single
   short-shot fixture as unclassifiable (7/8), while the preceding and latest
@@ -561,9 +562,10 @@ returned at least one newly approved image block, entity, or relationship.
 The review queue is coverage-driven rather than file-order driven. It combines
 the current approved class counts, remaining per-class quota, source/Vision
 agreement bucket, suspicious-image warnings, and existing candidate status.
-For the prepared packet, `1순위 사람 검토` and `미충족 결함군만` are enabled
-by default, reducing the initial review surface from 23 candidates to six.
-Either filter can be cleared, and `전체 후보` restores the complete packet.
+For the prepared packet, `1순위 사람 검토` is enabled and `전체 후보` is
+selected by default. This keeps total-sample supplements visible even when
+their per-class minimum is complete. `미충족 결함군만` remains available for
+reviewers who want to focus only on class-coverage gaps.
 This prioritization never checks the human-approval confirmation or writes to
 the dataset automatically. Every card shows the class and additional approved-image count needed.
 

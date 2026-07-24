@@ -157,12 +157,12 @@ npm run vision:review-packet:audit
 
 The generated packet is stored under
 `artifacts/vision-human-review-packet-<timestamp>`. The current packet contains
-29 unique candidates:
+32 unique candidates:
 
 - whitening: 3
-- short shot: 3
+- short shot: 4
 - burn: 4
-- flash: 2
+- flash: 4
 - sink: 9
 - weld line: 6
 - ejection: 2
@@ -171,33 +171,35 @@ The Vision audit uses `/internal/vision/describe` only. It does not create SQL
 records, image-dataset rows, approvals, or Graph nodes. Completed observations
 from older packets are reused by immutable image SHA-256, so rebuilding a
 packet does not repeatedly spend Vision calls on the same bytes. The first
-weld-line Figure audit requested one new Vision call. The subsequent
-lineage-only packet rebuild reused all 29 observations.
+weld-line Figure audit requested one new Vision call. The total-gate
+supplemental rebuild requested three new calls and reused the other 29
+observations by immutable hash.
 
-- source/Vision high-confidence agreement: 12
+- source/Vision high-confidence agreement: 15
 - source/Vision low-confidence agreement: 1
 - heuristic/Vision agreement requiring source confirmation: 1
 - class conflict: 5
 - unclassifiable or normal-functional image: 10
 
-The six reusable-license Web Case candidates are all priority-one source/Vision
+The nine reusable-license Web Case candidates are all priority-one source/Vision
 agreements:
 
 - burn: 2 at confidence 0.90 and 0.91
-- short shot: 1 at confidence 0.97
+- short shot: 2 at confidence 0.96 and 0.97
+- flash: 2 at confidence 0.93 and 0.96
 - sink: 2 at confidence 0.83 and 0.90
 - weld line: 1 at confidence 0.94
 
 Their Web Case ID, publisher, source URL, author, license, evidence SHA-256,
 and packet lineage are displayed in the original-image review dialog and are
 forwarded to Common Agent only after explicit human registration and approval.
-Five carry `CC BY-SA 4.0` from the authoritative Wikimedia
-`imageinfo/extmetadata` API. The weld-line optical micrograph carries
+Eight Wikimedia records carry API-verified Creative Commons licenses from the
+authoritative `imageinfo/extmetadata` API. The weld-line optical micrograph carries
 `CC BY 4.0`, an MDPI article citation, and a non-retracted PMC open-access
 license record. They are candidates, not benchmark truth.
 
-If all six are independently confirmed, the seven-class minimum is covered.
-The clean approved count would rise from 8 to 14, so six more independent
+If all nine are independently confirmed, the seven-class minimum is covered.
+The clean approved count would rise from 8 to 17, so three more independent
 approved images would still be required for the 20-sample retirement gate.
 
 Open `Knowledge & Dataset Control` and select `준비된 검토 패킷`. The app

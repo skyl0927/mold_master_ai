@@ -44,8 +44,8 @@
 
 ## Vision HITL 후보 연결
 
-라이선스 이미지 카드 중 현재 Vision 게이트 부족 결함군만 별도 후보로
-준비할 수 있다.
+라이선스 이미지 카드에서 결함군 최소 표본을 먼저 채우고, 남는 이미지는
+전체 20개 표본 게이트의 보충 후보로 준비할 수 있다.
 
 ```powershell
 npm run vision:candidates:sync-web
@@ -53,11 +53,11 @@ npm run vision:review-packet
 npm run vision:review-packet:audit
 ```
 
-현재 승인 fixture 기준으로 `short shot 1`, `burn 2`, `sink 2`,
-`weld line 1`의 재사용 가능 이미지 여섯 건이 선택됐다. 웰드라인
-Figure의 첫 감사에서는 신규 Vision 호출 한 건만 실행됐고, 계보
-필드 반영을 위한 다음 패킷은 29건을 모두 SHA-256으로 재사용했다.
-여섯 건 모두
+현재 승인 fixture 기준으로 `short shot 2`, `burn 2`, `flash 2`,
+`sink 2`, `weld line 1`의 재사용 가능 이미지 아홉 건이 선택됐다.
+웰드라인 Figure의 첫 감사에서는 신규 Vision 호출 한 건만 실행됐고,
+전체 표본 보충 패킷에서는 신규 3건만 호출하고 기존 29건은 SHA-256
+기준으로 재사용했다. 아홉 건 모두
 원문 라벨과 Vision 제안이 일치했지만 사람 승인 전에는 SQL, Graph,
 학습 데이터에 기록되지 않는다.
 
