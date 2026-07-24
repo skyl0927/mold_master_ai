@@ -38,7 +38,12 @@ test('preflight blocks expensive benchmarks until human and sample gates are com
     },
     approved: {
       cleanRunnable: 8,
-      conflictGroups: 1
+      conflictGroups: 1,
+      conflicts: [{
+        contentHash: 'f'.repeat(64),
+        caseIds: ['approved-image-a', 'approved-image-b'],
+        labels: ['표면 결함', '플래시']
+      }]
     },
     hitl: {
       unresolvedHighConfidence: 12
@@ -58,6 +63,11 @@ test('preflight blocks expensive benchmarks until human and sample gates are com
   assert.equal(assessment.requiredSamples, 20);
   assert.equal(assessment.currentSamples, 8);
   assert.equal(assessment.additionalSamplesRequired, 12);
+  assert.deepEqual(assessment.conflicts, [{
+    contentHash: 'f'.repeat(64),
+    caseIds: ['approved-image-a', 'approved-image-b'],
+    labels: ['표면 결함', '플래시']
+  }]);
 });
 
 test('preflight ignores stale benchmark failures after approved fixtures are synchronized', () => {
