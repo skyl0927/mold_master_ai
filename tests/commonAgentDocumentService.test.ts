@@ -21,11 +21,43 @@ import { buildMultimodalDiagnosisContext } from '../services/diagnosisContextSer
 import { buildProcessKnowledgeMigrationMarkdown } from '../services/processKnowledgeMigrationService';
 import { checkServerHealth } from '../services/serverHealthService';
 import { calculateVisionDatasetReadiness } from '../services/visionDatasetReadinessService';
+import { resolveVisionHitlDecision } from '../services/visionHitlDecisionProtocol';
 import {
     deleteManualDocument,
     listManualDocuments,
     syncManualDocument
 } from '../services/manualKnowledgeSyncService';
+
+test('Vision HITL decisions keep Graph promotion and local learning fail-closed', () => {
+    const approved = resolveVisionHitlDecision('approved');
+    const corrected = resolveVisionHitlDecision('corrected');
+    const rejected = resolveVisionHitlDecision('rejected');
+    const recapture = resolveVisionHitlDecision('recapture');
+    const pending = resolveVisionHitlDecision('pending');
+
+    assert.deepEqual(approved, {
+        apiDecision: 'approve',
+        localStatus: 'approved',
+        promoteToGraph: true,
+        localLearningVerified: true,
+        knowledgeScope: 'diagnostic',
+        successMessage: 'Common Agent 검토 승인 및 Graph 등록 완료!'
+    });
+    assert.equal(corrected.apiDecision, 'edit');
+    assert.equal(corrected.localStatus, 'pending');
+    assert.equal(corrected.promoteToGraph, false);
+    assert.equal(corrected.localLearningVerified, false);
+    assert.equal(corrected.knowledgeScope, 'review_event');
+    assert.equal(rejected.apiDecision, 'reject');
+    assert.equal(rejected.localStatus, 'rejected');
+    assert.equal(rejected.promoteToGraph, false);
+    assert.equal(recapture.apiDecision, 'recapture');
+    assert.equal(recapture.localStatus, 'pending');
+    assert.equal(recapture.promoteToGraph, false);
+    assert.equal(recapture.knowledgeScope, 'review_event');
+    assert.equal(pending.apiDecision, 'needs_review');
+    assert.equal(pending.localStatus, 'pending');
+});
 
 test('specification analysis removes reasoning text and keeps only concise engineering statements', () => {
     const compact = compactSpecificationAnalysis({
