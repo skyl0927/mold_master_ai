@@ -40,8 +40,8 @@ const WIKIMEDIA_CASE_MAPPINGS = [
     sourceDefectTitle: 'Flash'
   },
   {
-    fileName: 'Flashes di bakul.png',
-    sourceDefectTitle: 'Flash'
+    fileName: 'Sink marks.jpg',
+    sourceDefectTitle: 'Sink marks'
   },
   {
     fileName: 'Defek burr.png',
