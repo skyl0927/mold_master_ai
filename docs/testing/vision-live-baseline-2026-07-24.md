@@ -53,3 +53,15 @@ Vision 질문에 포함한 구버전 실행은 Top-1 46.2%였지만 데이터 �
 - 제품군·금형·카메라 분리 holdout Top-1 85%, Top-3 95%
 - 선택 정확도 95% 이상, 위험 자동 오판율 1% 이하
 - 동일 코호트 baseline/candidate shadow release gate 통과
+
+## 운영 릴리스 판정
+
+`vision-observation/v2` 기준선과
+`vision-observation-v3-lean-differential` 후보를 동일 13건으로 비교한
+release gate 결과는 `hold_shadow`이다.
+
+- usable paired cases: 0
+- case metadata 누락: 13건
+- 차단 조건: minimum samples, Top-1, Top-3, class reproduction,
+  selective accuracy, selective coverage
+- 자동 승격 및 운영 기본값 변경: 없음
