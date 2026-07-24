@@ -47,7 +47,11 @@ const approvedClassCounts = () => {
   }
   return {
     counts,
-    minimumSamplesPerClass: manifest.evaluationGate?.minimumSamplesPerClass || 2
+    minimumSamplesPerClass: manifest.evaluationGate?.minimumSamplesPerClass || 2,
+    currentApprovedSamples: (manifest.cases || []).filter(
+      item => item.status === 'active'
+    ).length,
+    minimumTotalSamples: manifest.minimumSamples || 20
   };
 };
 
@@ -58,6 +62,8 @@ const main = () => {
     collection,
     approvedClassCounts: approved.counts,
     minimumSamplesPerClass: approved.minimumSamplesPerClass,
+    currentApprovedSamples: approved.currentApprovedSamples,
+    minimumTotalSamples: approved.minimumTotalSamples,
     missingOnly: !args.includes('--all')
   });
   fs.mkdirSync(outputRoot, { recursive: true });

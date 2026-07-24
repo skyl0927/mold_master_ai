@@ -21,6 +21,8 @@ const buildWebCaseVisionCandidateManifest = ({
   collection,
   approvedClassCounts = {},
   minimumSamplesPerClass = 2,
+  currentApprovedSamples,
+  minimumTotalSamples,
   missingOnly = true,
   generatedAt = new Date().toISOString()
 }) => {
@@ -91,17 +93,54 @@ const buildWebCaseVisionCandidateManifest = ({
   const selectedCounts = Object.fromEntries(
     REQUIRED_DEFECT_CLASSES.map(defectClass => [defectClass, 0])
   );
-  const candidates = eligible.filter(candidate => {
+  const candidates = [];
+  const selectedHashes = new Set();
+  for (const candidate of eligible) {
     if (!missingOnly) {
       selectedCounts[candidate.defectClass] += 1;
-      return true;
+      candidates.push({
+        ...candidate,
+        selectionReason: 'all_eligible'
+      });
+      selectedHashes.add(candidate.contentSha256);
+      continue;
     }
     const approved = Math.max(0, Number(approvedClassCounts[candidate.defectClass]) || 0);
     const missing = Math.max(0, minimumPerClass - approved);
-    if (selectedCounts[candidate.defectClass] >= missing) return false;
+    if (selectedCounts[candidate.defectClass] >= missing) continue;
     selectedCounts[candidate.defectClass] += 1;
-    return true;
-  });
+    candidates.push({
+      ...candidate,
+      selectionReason: 'class_coverage'
+    });
+    selectedHashes.add(candidate.contentSha256);
+  }
+  const classCoverageSelected = candidates.length;
+  const hasTotalGate = Number.isFinite(Number(currentApprovedSamples))
+    && Number.isFinite(Number(minimumTotalSamples));
+  const approvedTotal = hasTotalGate
+    ? Math.max(0, Number(currentApprovedSamples))
+    : 0;
+  const requiredTotal = hasTotalGate
+    ? Math.max(0, Number(minimumTotalSamples))
+    : 0;
+  const additionalTotalSamplesRequired = hasTotalGate
+    ? Math.max(0, requiredTotal - approvedTotal)
+    : 0;
+  if (missingOnly && hasTotalGate && candidates.length < additionalTotalSamplesRequired) {
+    for (const candidate of eligible) {
+      if (candidates.length >= additionalTotalSamplesRequired) break;
+      if (selectedHashes.has(candidate.contentSha256)) continue;
+      candidates.push({
+        ...candidate,
+        selectionReason: 'total_sample_supplement'
+      });
+      selectedHashes.add(candidate.contentSha256);
+    }
+  }
+  const supplementalSelected = candidates.filter(
+    candidate => candidate.selectionReason === 'total_sample_supplement'
+  ).length;
   const selectedByClass = countByClass(candidates);
   const eligibleByClass = countByClass(eligible);
   const remainingAfterCandidates = Object.fromEntries(
@@ -138,6 +177,12 @@ const buildWebCaseVisionCandidateManifest = ({
       eligibleByClass,
       selectedByClass,
       remainingAfterCandidates,
+      classCoverageSelected,
+      supplementalSelected,
+      additionalTotalSamplesRequired,
+      additionalTotalSamplesAfterCandidates: hasTotalGate
+        ? Math.max(0, additionalTotalSamplesRequired - candidates.length)
+        : 0,
       duplicatesSkipped,
       invalidSkipped
     },
