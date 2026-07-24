@@ -1,31 +1,47 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Mold Master AI
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1Trb9ZzdGAzs7d3ykvvaMlNgei5bluHit
+Electron 기반 사출 성형 결함 분석, Graph/RAG 근거 검색, HITL 검토 및
+제품 검토서·시방서 작성 도구다. Common Agent가 중앙 Vision, 문서,
+SQL, Graph 및 승인 상태를 소유하고 Mold Master는 캡처와 작업자 검토
+UI를 담당한다.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+Prerequisites: Node.js and a running Common Agent.
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```powershell
+npm install
+npm start
+```
 
 ## Common Agent sync
 
-This app can send captured field images and ROI annotations to Common Agent.
-
 - Default Common Agent URL: `http://127.0.0.1:8000`
+- Default Vision QA URL: `http://127.0.0.1:8103`
 - Image diagnosis endpoint: `POST /v1/vision/diagnose`
 - ROI annotation endpoint: `POST /v1/datasets/images/{image_id}/annotations`
-- Auto-synced ROI review status: `candidate`
+- Approved-only answer endpoint: `POST /v1/ask`
 
 See [docs/common-agent-sync.md](./docs/common-agent-sync.md) for the field test workflow.
+
+## Verification
+
+```powershell
+npm run build
+npx tsc --noEmit
+npm run test:contracts
+npm run test:web-knowledge
+npm run test:candidates
+npm run test:electron:vision-review-packet
+```
+
+Web Case 기반 부족 결함군 후보 준비:
+
+```powershell
+npm run vision:candidates:sync-web
+npm run vision:review-packet
+npm run vision:review-packet:audit
+```
+
+후보 생성과 Vision 감사는 비영속이다. 사람의 명시적 승인 전에는
+데이터셋 또는 Graph에 기록하지 않는다.

@@ -1062,7 +1062,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                         )}
                                                                         {candidate.sourceLineage && (
                                                                             <span className="rounded bg-sky-800 px-2 py-0.5 text-[9px] font-bold text-white">
-                                                                                {candidate.sourceLineage.knowledgeId
+                                                                                {candidate.sourceLineage.webCaseId
+                                                                                    ? 'Web Case 출처'
+                                                                                    : candidate.sourceLineage.knowledgeId
                                                                                     ? '원문 카드 연결'
                                                                                     : '원문 문서 연결'}
                                                                             </span>
@@ -1087,12 +1089,25 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                                         {candidate.width} x {candidate.height} · {(candidate.sizeBytes / 1024).toFixed(0)} KB
                                                                     </p>
                                                                     {candidate.sourceLineage && (
-                                                                        <p className="mt-1 line-clamp-2 text-[9px] text-sky-300">
-                                                                            {candidate.sourceLineage.documentTitle || candidate.sourceLineage.knowledgeId}
-                                                                            {candidate.sourceLineage.slideNumber
-                                                                                ? ` · slide ${candidate.sourceLineage.slideNumber}`
-                                                                                : ''}
-                                                                        </p>
+                                                                        <div className="mt-1 text-[9px] text-sky-300">
+                                                                            <p className="line-clamp-2">
+                                                                                {candidate.sourceLineage.documentTitle
+                                                                                    || candidate.sourceLineage.knowledgeId
+                                                                                    || candidate.sourceLineage.sourceTitle
+                                                                                    || candidate.sourceLineage.webCaseId}
+                                                                                {candidate.sourceLineage.slideNumber
+                                                                                    ? ` · slide ${candidate.sourceLineage.slideNumber}`
+                                                                                    : ''}
+                                                                            </p>
+                                                                            {candidate.sourceLineage.webCaseId && (
+                                                                                <p className="mt-0.5 text-emerald-300">
+                                                                                    {candidate.sourceLineage.sourcePublisher || 'Web source'}
+                                                                                    {candidate.sourceLineage.license
+                                                                                        ? ` · ${candidate.sourceLineage.license}`
+                                                                                        : ''}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
                                                                     )}
                                                                     <input
                                                                         value={label}
@@ -1807,6 +1822,44 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                             || '추가 문맥 없음'}
                                     </p>
                                 </section>
+                                {previewLocalCandidate.sourceLineage?.webCaseId && (
+                                    <section className="mt-5 border-t border-gray-800 pt-4">
+                                        <h4 className="text-xs font-bold text-cyan-200">Web Case 출처·라이선스</h4>
+                                        <dl className="mt-2 space-y-2 text-[10px] text-gray-300">
+                                            <div>
+                                                <dt className="text-gray-500">Case ID</dt>
+                                                <dd className="mt-0.5 break-all font-mono">
+                                                    {previewLocalCandidate.sourceLineage.webCaseId}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">출처</dt>
+                                                <dd className="mt-0.5">
+                                                    {previewLocalCandidate.sourceLineage.sourcePublisher || '-'}
+                                                    {previewLocalCandidate.sourceLineage.sourceTitle
+                                                        ? ` · ${previewLocalCandidate.sourceLineage.sourceTitle}`
+                                                        : ''}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">라이선스</dt>
+                                                <dd className="mt-0.5 text-emerald-300">
+                                                    {previewLocalCandidate.sourceLineage.license || '확인 필요'}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                        {previewLocalCandidate.sourceLineage.sourceUrl && (
+                                            <a
+                                                href={previewLocalCandidate.sourceLineage.sourceUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mt-3 inline-flex rounded border border-sky-700 px-2 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-950"
+                                            >
+                                                원문 출처 열기
+                                            </a>
+                                        )}
+                                    </section>
+                                )}
                                 <section className="mt-5 border-t border-gray-800 pt-4">
                                     <h4 className="text-xs font-bold text-cyan-200">검토 근거</h4>
                                     <div className="mt-2 flex flex-wrap gap-1">

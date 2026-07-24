@@ -21,6 +21,8 @@ const knowledgeCardRoot = path.join(
 );
 const productReviewRoot = path.join(root, 'artifacts', 'product-review-vision-candidates');
 const missingClassRoot = path.join(root, 'artifacts', 'missing-class-discovery');
+const webCaseCandidateRoot = path.join(root, 'artifacts', 'web-case-vision-candidates');
+const webCaseManifestPath = path.join(webCaseCandidateRoot, 'vision-candidates.json');
 const approvedManifestPath = path.join(root, 'eval', 'vision-approved', 'manifest.json');
 const approvedManifest = readJson(approvedManifestPath);
 
@@ -32,9 +34,7 @@ for (const item of approvedManifest.cases || []) {
     if (defectClass in approvedClassCounts) approvedClassCounts[defectClass] += 1;
 }
 
-const result = buildVisionHumanReviewPacket({
-    outputRoot,
-    sources: [
+const sources = [
         {
             kind: 'knowledge-card',
             rootPath: knowledgeCardRoot,
@@ -50,7 +50,23 @@ const result = buildVisionHumanReviewPacket({
             rootPath: missingClassRoot,
             manifest: readJson(path.join(missingClassRoot, 'discovery-manifest.json'))
         }
-    ],
+    ];
+if (fs.existsSync(webCaseManifestPath)) {
+    const webCaseManifest = readJson(webCaseManifestPath);
+    const collectionRoot = path.resolve(String(webCaseManifest.source?.collectionRoot || ''));
+    if (!fs.existsSync(collectionRoot)) {
+        throw new Error(`Web Case source collection is missing: ${collectionRoot}`);
+    }
+    sources.push({
+        kind: 'web-case',
+        rootPath: collectionRoot,
+        manifest: webCaseManifest
+    });
+}
+
+const result = buildVisionHumanReviewPacket({
+    outputRoot,
+    sources,
     approvedClassCounts,
     minimumSamples: approvedManifest.minimumSamples || 20,
     minimumSamplesPerClass: approvedManifest.evaluationGate?.minimumSamplesPerClass || 2

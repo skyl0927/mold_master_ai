@@ -87,7 +87,9 @@ const sendJson = (response, status, payload) => {
         const preparedButton = page.getByRole('button', { name: '준비된 검토 패킷' });
         await preparedButton.waitFor({ timeout: 15000 });
         await preparedButton.click();
-        await page.getByText(/로컬 후보 23건/).waitFor({ timeout: 30000 });
+        await page.getByText(
+            new RegExp(`로컬 후보 ${manifest.summary.candidates}건`)
+        ).waitFor({ timeout: 30000 });
         const priorityFilter = page.getByRole('button', {
             name: `1순위 사람 검토 (${manifest.auditSummary.reviewBucketCounts.agreement_high_confidence})`
         });
@@ -140,11 +142,33 @@ const sendJson = (response, status, payload) => {
         await previewDialog.getByRole('button', { name: '확대 보기 닫기' }).click();
         await previewDialog.waitFor({ state: 'hidden', timeout: 15000 });
         const previewClosedByButton = !(await previewDialog.isVisible());
+        const webSourceBadges = page.getByText('Web Case 출처', { exact: true });
+        const webSourceBadgeCount = await webSourceBadges.count();
+        const webPreviewButton = page.getByRole('button', {
+            name: /^확대 보기 04-Defek-terbakar\.png$/
+        });
+        await webPreviewButton.waitFor({ timeout: 15000 });
+        await webPreviewButton.click();
+        await previewDialog.waitFor({ timeout: 15000 });
+        const webSourceSectionVisible = await previewDialog
+            .getByText('Web Case 출처·라이선스', { exact: true })
+            .isVisible();
+        const webLicenseVisible = await previewDialog
+            .getByText('CC0', { exact: true })
+            .isVisible();
+        const webSourceLinkVisible = await previewDialog
+            .getByRole('link', { name: '원문 출처 열기' })
+            .isVisible();
+        const webCaseIdVisible = await previewDialog
+            .getByText('web-wikimedia-defek-terbakar-png', { exact: true })
+            .isVisible();
+        await previewDialog.getByRole('button', { name: '확대 보기 닫기' }).click();
+        await previewDialog.waitFor({ state: 'hidden', timeout: 15000 });
         const coverageFilter = page.getByRole('button', {
             name: `미충족 결함군만 (${manifest.summary.candidates})`
         });
         await coverageFilter.waitFor({ timeout: 15000 });
-        const coverageNeedBadgeCount = await page.getByText(/추가 2건 필요/).count();
+        const coverageNeedBadgeCount = await page.getByText(/추가 \d+건 필요/).count();
         const screenshotPath = path.join(
             artifactRoot,
             'electron-vision-human-review-packet.png'
@@ -186,6 +210,11 @@ const sendJson = (response, status, payload) => {
             cardApprovalPersisted,
             previewClosedByEscape,
             previewClosedByButton,
+            webSourceBadgeCount,
+            webSourceSectionVisible,
+            webLicenseVisible,
+            webSourceLinkVisible,
+            webCaseIdVisible,
             coverageFilterVisible: await coverageFilter.isVisible(),
             coverageNeedBadgeCount,
             persistedPacketPointer: fs.existsSync(pointerPath),
@@ -224,6 +253,11 @@ const sendJson = (response, status, payload) => {
             || !result.cardApprovalPersisted
             || !result.previewClosedByEscape
             || !result.previewClosedByButton
+            || result.webSourceBadgeCount !== manifest.summary.sourceCounts['web-case']
+            || !result.webSourceSectionVisible
+            || !result.webLicenseVisible
+            || !result.webSourceLinkVisible
+            || !result.webCaseIdVisible
             || !result.coverageFilterVisible
             || result.coverageNeedBadgeCount !== manifest.auditSummary.reviewBucketCounts.agreement_high_confidence
             || !result.persistedPacketPointer

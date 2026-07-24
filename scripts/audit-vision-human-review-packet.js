@@ -6,6 +6,9 @@ const {
     rankVisionReviewCandidate,
     summarizeVisionAuditCandidates
 } = require('../visionHumanReviewPacket');
+const {
+    loadReusableVisionAuditItems
+} = require('../visionAuditCache');
 
 const args = process.argv.slice(2);
 const valueAfter = flag => {
@@ -36,9 +39,13 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const priorAudit = fs.existsSync(auditPath)
     ? JSON.parse(fs.readFileSync(auditPath, 'utf8'))
     : { schemaVersion: 1, items: [] };
-const auditByHash = new Map(
-    (priorAudit.items || []).map(item => [item.contentSha256, item])
-);
+const auditByHash = loadReusableVisionAuditItems({
+    artifactRoot,
+    excludePacketRoot: packetRoot
+});
+for (const item of priorAudit.items || []) {
+    auditByHash.set(item.contentSha256, item);
+}
 
 const mimeTypeFor = fileName => ({
     '.bmp': 'image/bmp',
@@ -124,6 +131,9 @@ const writeProgress = items => {
         if (!refresh && existing?.status === 'completed') {
             output.push({
                 ...existing,
+                contentSha256: candidate.contentSha256,
+                relativePath: candidate.relativePath,
+                reused: true,
                 candidate: existing.observation
                     ? applyVisionAuditObservation(
                         candidate,

@@ -22,24 +22,48 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
     const packetRoot = path.join(tempRoot, 'packet');
     const profilePath = path.join(tempRoot, 'profile');
     fs.mkdirSync(packetRoot, { recursive: true });
-    const fileName = 'sample-whitening.png';
+    const fileName = 'sample-web-burn.png';
     const imagePath = path.join(packetRoot, fileName);
     fs.writeFileSync(imagePath, fixturePng);
     const contentSha256 = crypto.createHash('sha256').update(fixturePng).digest('hex');
     fs.writeFileSync(path.join(packetRoot, 'vision-candidates.json'), JSON.stringify({
         candidates: [{
             relativePath: fileName,
-            defectType: '백화',
+            defectType: '흑점/탄화',
+            defectClass: 'burn',
             contentSha256,
             reviewPriority: 1,
             reviewBucket: 'agreement_high_confidence',
-            reviewReasons: ['Source and Vision agree.']
+            reviewReasons: ['Source and Vision agree.'],
+            requiresLabelReconciliation: true,
+            labelEvidence: {
+                sourceLabel: '흑점/탄화',
+                visionSuggestedLabel: '탄화(번 마크)',
+                visionConfidence: 0.86,
+                conflict: false,
+                auditedAt: '2026-07-24T07:00:00.000Z',
+                nonPersisting: true
+            },
+            sourceLineage: {
+                webCaseId: 'web-wikimedia-defek-terbakar-png',
+                sourcePublisher: 'Wikimedia Commons',
+                sourceTitle: 'Defek terbakar.png',
+                sourceUrl: 'https://commons.wikimedia.org/wiki/File:Defek_terbakar.png',
+                license: 'CC0',
+                licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+                author: 'Ariyanto',
+                evidenceContentSha256: contentSha256,
+                sourceReviewStatus: 'candidate',
+                packetSourceKind: 'web-case',
+                packetSourceRelativePath: 'images/04-Defek-terbakar.png'
+            }
         }]
     }));
 
     const requests = [];
     let storedItem = null;
     let reviewBody = null;
+    let diagnoseMetadata = null;
     const server = http.createServer((request, response) => {
         if (request.method === 'OPTIONS') {
             response.writeHead(204, {
@@ -52,7 +76,7 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
         }
         const chunks = [];
         request.on('data', chunk => chunks.push(chunk));
-        request.on('end', () => {
+        request.on('end', async () => {
             const rawBody = Buffer.concat(chunks);
             requests.push({ method: request.method, url: request.url });
             if (request.method === 'GET' && request.url === '/healthz') {
@@ -67,11 +91,17 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
                 return;
             }
             if (request.method === 'POST' && request.url === '/v1/vision/diagnose') {
+                const multipart = await new Request('http://localhost/v1/vision/diagnose', {
+                    method: 'POST',
+                    headers: { 'content-type': request.headers['content-type'] },
+                    body: rawBody
+                }).formData();
+                diagnoseMetadata = JSON.parse(String(multipart.get('metadata_json') || '{}'));
                 storedItem = {
                     image_id: 'image-hitl-1',
                     file_name: fileName,
                     mime_type: 'image/png',
-                    defect_type: '백화',
+                    defect_type: '흑점/탄화',
                     review_status: 'candidate',
                     question: '리브 주변 백화',
                     observation: {
@@ -80,7 +110,7 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
                         possible_causes: ['취출 저항'],
                         recommended_checks: ['구배 확인']
                     },
-                    labels: ['백화'],
+                    labels: ['흑점/탄화'],
                     process_area: 'injection-molding',
                     metadata: {
                         persisted_to_dataset: true,
@@ -180,6 +210,9 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
         const card = page.locator('article').filter({ hasText: fileName });
         await card.waitFor({ timeout: 15000 });
         await card.getByRole('checkbox', {
+            name: /label reconciliation/
+        }).check();
+        await card.getByRole('checkbox', {
             name: /이미지를 직접 확인했고/
         }).check();
         await card.getByRole('button', {
@@ -198,6 +231,11 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
             defectType: reviewBody?.defect_type,
             promoteToGraph: reviewBody?.promote_to_graph,
             humanLabelConfirmed: reviewBody?.metadata?.human_label_confirmed,
+            sourceWebCaseId: diagnoseMetadata?.source_web_case_id,
+            sourceUrl: diagnoseMetadata?.source_url,
+            sourceLicense: diagnoseMetadata?.source_license,
+            sourceEvidenceSha256: diagnoseMetadata?.source_evidence_sha256,
+            sourcePacketKind: diagnoseMetadata?.source_packet_kind,
             finalReviewStatus: storedItem?.review_status,
             consoleErrors
         };
@@ -206,9 +244,14 @@ const fixturePng = fs.readFileSync(path.join(process.cwd(), 'assets', 'icon.png'
             result.diagnoseWrites !== 1
             || result.reviewWrites !== 1
             || result.decision !== 'approve'
-            || result.defectType !== '백화'
+            || result.defectType !== '흑점/탄화'
             || result.promoteToGraph !== true
             || result.humanLabelConfirmed !== true
+            || result.sourceWebCaseId !== 'web-wikimedia-defek-terbakar-png'
+            || result.sourceUrl !== 'https://commons.wikimedia.org/wiki/File:Defek_terbakar.png'
+            || result.sourceLicense !== 'CC0'
+            || result.sourceEvidenceSha256 !== contentSha256
+            || result.sourcePacketKind !== 'web-case'
             || result.finalReviewStatus !== 'approved'
             || result.consoleErrors.length > 0
         ) {

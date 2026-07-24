@@ -15,7 +15,7 @@ const {
 
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 
-test('review packet normalizes three candidate sources and deduplicates by content hash', () => {
+test('review packet normalizes four candidate sources and deduplicates by content hash', () => {
     const sharedHash = hash('shared');
     const uniqueHash = hash('unique');
     const collected = collectReviewCandidates({
@@ -45,15 +45,76 @@ test('review packet normalizes three candidate sources and deduplicates by conte
                 reviewDecision: 'unreviewed',
                 sourceReviewStatus: 'review_needed'
             }]
+        },
+        webCase: {
+            candidates: [{
+                relativePath: 'sink.png',
+                defectType: '싱크',
+                defectClass: 'sink',
+                contentSha256: hash('web-case-sink'),
+                labelProvenance: 'web_case_source_label',
+                sourceLineage: {
+                    webCaseId: 'web-sink',
+                    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Sink.png',
+                    license: 'CC BY-SA 4.0',
+                    sourceReviewStatus: 'candidate'
+                }
+            }]
         }
     });
 
-    assert.equal(collected.candidates.length, 2);
+    assert.equal(collected.candidates.length, 3);
     assert.equal(collected.duplicatesSkipped, 1);
-    assert.deepEqual(collected.classCounts, { whitening: 1, burn: 1 });
+    assert.deepEqual(collected.classCounts, { whitening: 1, burn: 1, sink: 1 });
     assert.equal(collected.candidates[0].requiresLabelReconciliation, true);
     assert.equal(collected.candidates[1].defectType, '가스 탐/번 마크');
     assert.equal(collected.candidates[1].requiresLabelReconciliation, true);
+    assert.equal(collected.candidates[2].sourceKind, 'web-case');
+    assert.equal(collected.candidates[2].labelProvenance, 'web_case_source_label');
+    assert.equal(collected.candidates[2].sourceLineage.webCaseId, 'web-sink');
+});
+
+test('review packet copies web-case candidates without enabling persistence or Graph promotion', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vision-review-web-case-'));
+    const sourceRoot = path.join(root, 'source');
+    const outputRoot = path.join(root, 'output');
+    fs.mkdirSync(path.join(sourceRoot, 'images'), { recursive: true });
+    const bytes = Buffer.from('licensed-web-case-image');
+    fs.writeFileSync(path.join(sourceRoot, 'images', 'burn.png'), bytes);
+
+    const result = buildVisionHumanReviewPacket({
+        outputRoot,
+        sources: [{
+            kind: 'web-case',
+            rootPath: sourceRoot,
+            manifest: {
+                candidates: [{
+                    relativePath: 'images/burn.png',
+                    defectType: '가스 탐/번 마크',
+                    defectClass: 'burn',
+                    contentSha256: hash(bytes),
+                    labelProvenance: 'web_case_source_label',
+                    sourceLineage: {
+                        webCaseId: 'web-burn',
+                        sourceReviewStatus: 'candidate'
+                    }
+                }]
+            }
+        }]
+    });
+
+    assert.equal(result.manifest.policy.persistence, 'none');
+    assert.equal(result.manifest.policy.approval, 'human_required');
+    assert.equal(result.manifest.policy.graphPromotion, 'disabled_until_common_agent_approval');
+    assert.deepEqual(result.manifest.summary.sourceCounts, { 'web-case': 1 });
+    assert.equal(result.manifest.candidates[0].relativePath, 'web-case/burn.png');
+    assert.equal(result.manifest.candidates[0].sourceLineage.webCaseId, 'web-burn');
+    assert.equal(
+        hash(fs.readFileSync(path.join(outputRoot, 'web-case', 'burn.png'))),
+        hash(bytes)
+    );
+
+    fs.rmSync(root, { recursive: true, force: true });
 });
 
 test('review packet verifies source hashes and writes a scanner-compatible manifest', () => {

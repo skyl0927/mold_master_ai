@@ -445,12 +445,17 @@ Current measured baseline:
   (`whitening`, `flash`, `ejection`)
 - Vision confidence >= 0.6 rate: 100% in the latest packaged v16 run
 - additional independent approved images required: 12
-- latest non-persisting HITL packet: 23 SHA-256-verified candidates, six
-  high-confidence source/Vision class agreements, seven class conflicts, ten
+- latest non-persisting HITL packet: 27 SHA-256-verified candidates, ten
+  high-confidence source/Vision class agreements, five class conflicts, ten
   unclassifiable images, and zero automatic approvals
-- high-confidence shortlist coverage: whitening 2, short shot 1, flash 2, and
-  ejection 1; all six were explicitly confirmed by the user, approved through
-  the app safety gates, and promoted to Graph
+- the six previously confirmed priority-one candidates remain approved and
+  Graph-promoted; four new CC0 Web Case candidates are still pending human
+  review: burn 2, short shot 1, and sink 1
+- the four Web Case candidates were the only new Vision calls in the latest
+  audit; 23 prior observations were reused by immutable SHA-256
+- if all four are independently confirmed, class minimums improve to short
+  shot 2/2, burn 2/2, and sink 1/2; one additional sink and one independent
+  weld-line sample still remain mandatory
 - HITL hash resolution: 6 of 6 resolved; unresolved priority-one candidates: 0
 - remaining class minimums: short shot 1, burn 2, sink 2, and weld line 1
 - repeatability warning: one intermediate packaged run classified the single

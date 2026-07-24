@@ -1462,7 +1462,19 @@ ipcMain.handle('IMPORT_LOCAL_VISION_CANDIDATE', async (_event, candidateId, inpu
             source_evidence_id: candidate.sourceLineage.evidenceId,
             source_asset_uri: candidate.sourceLineage.assetUri,
             source_content_hash: candidate.sourceLineage.sourceContentHash,
-            source_review_status: candidate.sourceLineage.sourceReviewStatus
+            source_review_status: candidate.sourceLineage.sourceReviewStatus,
+            source_web_case_id: candidate.sourceLineage.webCaseId,
+            source_publisher: candidate.sourceLineage.sourcePublisher,
+            source_title: candidate.sourceLineage.sourceTitle,
+            source_url: candidate.sourceLineage.sourceUrl,
+            source_download_url: candidate.sourceLineage.downloadUrl,
+            source_license: candidate.sourceLineage.license,
+            source_license_url: candidate.sourceLineage.licenseUrl,
+            source_author: candidate.sourceLineage.author,
+            source_retrieved_at: candidate.sourceLineage.retrievedAt,
+            source_evidence_sha256: candidate.sourceLineage.evidenceContentSha256,
+            source_packet_kind: candidate.sourceLineage.packetSourceKind,
+            source_packet_relative_path: candidate.sourceLineage.packetSourceRelativePath
         } : {})
     }));
 

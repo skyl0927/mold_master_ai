@@ -255,12 +255,14 @@ const rankVisionReviewCandidate = candidate => {
 const collectReviewCandidates = ({
     knowledgeCard = {},
     productReview = {},
-    missingClass = {}
+    missingClass = {},
+    webCase = {}
 } = {}) => {
     const sourceGroups = [
         ['knowledge-card', knowledgeCard.candidates || []],
         ['product-review', productReview.candidates || []],
-        ['missing-class', missingClass.items || []]
+        ['missing-class', missingClass.items || []],
+        ['web-case', webCase.candidates || []]
     ];
     const candidates = [];
     const seenHashes = new Set();
@@ -310,13 +312,15 @@ const buildVisionHumanReviewPacket = ({
     const grouped = {
         knowledgeCard: {},
         productReview: {},
-        missingClass: {}
+        missingClass: {},
+        webCase: {}
     };
     const roots = new Map();
     for (const source of sources) {
         if (source.kind === 'knowledge-card') grouped.knowledgeCard = source.manifest || {};
         if (source.kind === 'product-review') grouped.productReview = source.manifest || {};
         if (source.kind === 'missing-class') grouped.missingClass = source.manifest || {};
+        if (source.kind === 'web-case') grouped.webCase = source.manifest || {};
         roots.set(source.kind, path.resolve(source.rootPath));
     }
 
@@ -353,6 +357,14 @@ const buildVisionHumanReviewPacket = ({
             ])
         );
         const currentCleanApproved = Object.values(cleanCounts).reduce((sum, count) => sum + count, 0);
+        const sourceCounts = Object.fromEntries(
+            [...new Set(collected.candidates.map(candidate => candidate.sourceKind))]
+                .sort()
+                .map(sourceKind => [
+                    sourceKind,
+                    collected.candidates.filter(candidate => candidate.sourceKind === sourceKind).length
+                ])
+        );
         const minimumClassApprovalsRequired = Object.fromEntries(
             REQUIRED_DEFECT_CLASSES.map(defectClass => [
                 defectClass,
@@ -379,6 +391,7 @@ const buildVisionHumanReviewPacket = ({
                 duplicatesSkipped: collected.duplicatesSkipped,
                 invalidSkipped: collected.invalidSkipped,
                 classCounts: collected.classCounts,
+                sourceCounts,
                 currentCleanApproved,
                 additionalCleanApprovalsRequired: Math.max(0, minimumSamples - currentCleanApproved),
                 minimumClassApprovalsRequired

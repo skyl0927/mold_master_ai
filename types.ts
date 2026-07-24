@@ -284,6 +284,18 @@ export interface LocalVisionCandidate {
     assetUri?: string;
     sourceContentHash?: string;
     sourceReviewStatus?: string;
+    webCaseId?: string;
+    sourcePublisher?: string;
+    sourceTitle?: string;
+    sourceUrl?: string;
+    downloadUrl?: string;
+    license?: string;
+    licenseUrl?: string;
+    author?: string;
+    retrievedAt?: string;
+    evidenceContentSha256?: string;
+    packetSourceKind?: string;
+    packetSourceRelativePath?: string;
   } | null;
 }
 

@@ -1,8 +1,28 @@
 const { _electron: electron } = require('playwright');
+const fs = require('node:fs');
 const path = require('node:path');
 
 (async () => {
     const root = process.cwd();
+    const artifactRoot = path.join(root, 'artifacts');
+    const packetRoot = fs.readdirSync(artifactRoot, { withFileTypes: true })
+        .filter(entry => entry.isDirectory() && entry.name.startsWith('vision-human-review-packet-'))
+        .map(entry => path.join(artifactRoot, entry.name))
+        .filter(directory => fs.existsSync(path.join(directory, 'vision-candidates.json')))
+        .sort()
+        .at(-1);
+    if (!packetRoot) throw new Error('No generated Vision human-review packet was found.');
+    const manifest = JSON.parse(
+        fs.readFileSync(path.join(packetRoot, 'vision-candidates.json'), 'utf8')
+    );
+    const priorityOneTotal = manifest.candidates.filter(
+        candidate => candidate.reviewPriority === 1
+    ).length;
+    const newWebPriority = manifest.candidates.filter(candidate =>
+        candidate.reviewPriority === 1
+        && candidate.sourceLineage?.packetSourceKind === 'web-case'
+    ).length;
+    const expectedResolved = priorityOneTotal - newWebPriority;
     const profilePath = path.join(
         root,
         'artifacts',
@@ -54,12 +74,12 @@ const path = require('node:path');
         const packetButton = page.getByRole('button', { name: '준비된 검토 패킷' });
         await packetButton.waitFor({ timeout: 120000 });
         await packetButton.click();
-        const resolvedBadge = page.getByText('1순위 해소 완료 6');
+        const resolvedBadge = page.getByText(`1순위 해소 완료 ${expectedResolved}`);
         await resolvedBadge.waitFor({ timeout: 120000 });
-        await page.waitForFunction(() => !Array.from(document.querySelectorAll('button'))
-            .some(button => button.textContent?.includes('1순위 사람 검토')), null, {
-            timeout: 30000
+        const unresolvedPriorityFilter = page.getByRole('button', {
+            name: `1순위 사람 검토 (${newWebPriority})`
         });
+        await unresolvedPriorityFilter.waitFor({ timeout: 30000 });
         const screenshot = path.join(
             root,
             'artifacts',
@@ -68,9 +88,13 @@ const path = require('node:path');
         await page.screenshot({ path: screenshot, fullPage: true });
         const result = {
             resolvedBadgeVisible: await resolvedBadge.isVisible(),
-            unresolvedPriorityFilterVisible: await page.getByRole('button', {
-                name: /1순위 사람 검토/
-            }).isVisible().catch(() => false),
+            expectedResolved,
+            expectedUnresolved: newWebPriority,
+            unresolvedPriorityFilterVisible: await unresolvedPriorityFilter.isVisible(),
+            unresolvedPriorityFilterPressed:
+                await unresolvedPriorityFilter.getAttribute('aria-pressed'),
+            webSourceBadgeCount:
+                await page.getByText('Web Case 출처', { exact: true }).count(),
             writeRequests,
             consoleErrors,
             screenshot
@@ -78,7 +102,9 @@ const path = require('node:path');
         console.log(JSON.stringify(result, null, 2));
         if (
             !result.resolvedBadgeVisible
-            || result.unresolvedPriorityFilterVisible
+            || !result.unresolvedPriorityFilterVisible
+            || result.unresolvedPriorityFilterPressed !== 'true'
+            || result.webSourceBadgeCount !== newWebPriority
             || result.writeRequests.length > 0
             || result.consoleErrors.length > 0
         ) {

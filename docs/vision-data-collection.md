@@ -146,35 +146,51 @@ npm run test:electron:vision-card-candidates
 ## Consolidated Human Review Packet
 
 The source-linked Knowledge Card candidates, product-review conflict
-candidates, and missing-class discovery candidates can be combined into one
-hash-verified, non-persisting packet:
+candidates, missing-class discovery candidates, and licensed Web Case images
+can be combined into one hash-verified, non-persisting packet:
 
 ```powershell
+npm run vision:candidates:sync-web
 npm run vision:review-packet
 npm run vision:review-packet:audit
 ```
 
 The generated packet is stored under
 `artifacts/vision-human-review-packet-<timestamp>`. The current packet contains
-23 unique candidates:
+27 unique candidates:
 
 - whitening: 3
-- short shot: 2
-- burn: 2
+- short shot: 3
+- burn: 4
 - flash: 2
-- sink: 7
+- sink: 8
 - weld line: 5
 - ejection: 2
 
 The Vision audit uses `/internal/vision/describe` only. It does not create SQL
-records, image-dataset rows, approvals, or Graph nodes. All 23 candidates were
-audited with zero failed calls:
+records, image-dataset rows, approvals, or Graph nodes. Completed observations
+from older packets are reused by immutable image SHA-256, so rebuilding a
+packet does not repeatedly spend Vision calls on the same bytes. The latest
+run reused the previous 23 observations and requested only the four new Web
+Case images.
 
-- source/Vision high-confidence agreement: 5
-- source/Vision low-confidence agreement: 2
+- source/Vision high-confidence agreement: 10
+- source/Vision low-confidence agreement: 1
 - heuristic/Vision agreement requiring source confirmation: 1
-- class conflict: 4
-- unclassifiable or normal-functional image: 11
+- class conflict: 5
+- unclassifiable or normal-functional image: 10
+
+The four new CC0 Web Case candidates are all priority-one source/Vision
+agreements:
+
+- burn: 2 at confidence 0.86 and 0.90
+- short shot: 1 at confidence 0.97
+- sink: 1 at confidence 0.90
+
+Their Web Case ID, publisher, source URL, author, license, evidence SHA-256,
+and packet lineage are displayed in the original-image review dialog and are
+forwarded to Common Agent only after explicit human registration and approval.
+They are candidates, not benchmark truth.
 
 Open `Knowledge & Dataset Control` and select `준비된 검토 패킷`. The app
 automatically finds the latest development packet or reuses the packet pointer
