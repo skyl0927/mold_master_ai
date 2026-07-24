@@ -355,6 +355,14 @@ test('multimodal diagnosis context combines field notes, annotations, OCR, and R
             opacity: 1,
             style: 'outline'
         }]
+    }, {
+        capture_session_id: 'capture-camera-session-1',
+        capture_view_tags: ['defect_closeup'],
+        vision_image_kind: 'physical_product',
+        capture_source: 'camera',
+        capture_protocol_ready: true,
+        capture_available_views: ['full_part_context', 'defect_closeup'],
+        capture_missing_views: []
     });
 
     assert.match(context.question, /리브 주변 백화/);
@@ -364,10 +372,15 @@ test('multimodal diagnosis context combines field notes, annotations, OCR, and R
     assert.match(context.question, /밀핀 자국/);
     assert.match(context.question, /판정 불가/);
     assert.match(context.question, /원형 압흔/);
+    assert.match(context.question, /결함 근접 사진/);
+    assert.match(context.question, /전체 제품 사진/);
     assert.equal(context.metadata.context_provided, true);
     assert.equal(context.metadata.annotation_count, 1);
     assert.equal(context.metadata.roi_count, 1);
     assert.equal(context.metadata.ocr_provided, true);
+    assert.equal(context.metadata.capture_session_id, 'capture-camera-session-1');
+    assert.equal(context.metadata.capture_protocol_ready, true);
+    assert.deepEqual(context.metadata.capture_view_tags, ['defect_closeup']);
 });
 
 test('image gateway forwards multimodal question and telemetry to Common Agent', async () => {
@@ -435,7 +448,14 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
                     phenomenon_description_length: 12,
                     annotation_count: 1,
                     roi_count: 1,
-                    ocr_provided: false
+                    ocr_provided: false,
+                    capture_session_id: 'capture-camera-session-1',
+                    capture_view_tags: ['defect_closeup'],
+                    vision_image_kind: 'physical_product',
+                    capture_source: 'camera',
+                    capture_protocol_ready: true,
+                    capture_available_views: ['full_part_context', 'defect_closeup'],
+                    capture_missing_views: []
                 }
             }
         });
@@ -447,6 +467,9 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(receivedOptions?.metadata?.vision_quality_status, 'warn');
         assert.equal(receivedOptions?.metadata?.vision_quality_score, 88);
         assert.deepEqual(receivedOptions?.metadata?.vision_quality_issue_codes, ['resolution_low']);
+        assert.equal(receivedOptions?.sessionId, 'capture-camera-session-1');
+        assert.deepEqual(receivedOptions?.metadata?.capture_view_tags, ['defect_closeup']);
+        assert.equal(receivedOptions?.metadata?.capture_protocol_ready, true);
         assert.equal(result.analysis.visionSummary?.primaryCandidate?.defectType, '백화');
         assert.equal(result.analysis.visionSummary?.decisionStatus, 'needs_review');
         assert.equal(result.comparison.visionCandidateCount, 1);
