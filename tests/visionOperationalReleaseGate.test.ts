@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
     auditVisionEvaluationSplit,
     evaluateVisionOperationalRelease,
+    parseVisionOperationalReleaseReport,
     VisionShadowSample,
     VisionVersionSnapshot
 } from '../services/visionOperationalReleaseGate';
@@ -155,4 +156,23 @@ test('release gate selects the exact baseline snapshot when candidate safety reg
     assert.equal(report.checks.unsafeFalsePositive, false);
     assert.equal(report.checks.calibration, false);
     assert.equal(report.checks.latency, false);
+});
+
+test('release report parser accepts only a complete operational gate artifact', () => {
+    const validReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    assert.equal(
+        parseVisionOperationalReleaseReport(JSON.stringify(validReport)).decision,
+        'promote_candidate'
+    );
+    assert.throws(
+        () => parseVisionOperationalReleaseReport('{"decision":"promote_candidate"}'),
+        /invalid vision operational release report/i
+    );
 });
