@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import { DefectAnalysis, RetrievalMode } from '../types';
+import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
+import { buildVisionRetrievalQuery, parseVisionObservationText } from '../visionObservation';
 import {
     getClients,
     handleApiError,
@@ -86,28 +87,44 @@ ${question}
 };
 
 const analyzeImageWithVisionModel = async (
-    base64Data: string,
-    fieldContext = ''
-): Promise<{ defectHint: string; visualDescription: string }> => {
+    base64Data: string
+): Promise<{
+    defectHint: string;
+    visualDescription: string;
+    visionSummary: VisionObservationSummary;
+}> => {
     const { provider, client } = await getClients();
 
     const visionPrompt = `
-You are an expert injection molding engineer.
-Analyze this image only for injection molding defects.
+You are an expert injection molding visual inspector.
+Perform a blind visual observation of this image. Do not use field context and do not infer hidden process causes.
 
 Requirements:
 - Output in Korean.
-- Identify the most likely visible defect.
-- Briefly describe appearance and location.
-- Treat the field context as supporting evidence, not as a replacement for visible evidence.
-- Return format: "Defect: [Name] | Desc: [Description in Korean]"
-
-Field context:
-${fieldContext || 'No additional field context was provided.'}
+- Describe only visible color, texture, shape, boundary, location, direction, and repetition features.
+- Return up to 3 competing injection-molding defect candidates, sorted by confidence.
+- For every candidate, provide visible supporting and contradicting features.
+- Confidence is a number from 0 to 1 and is not a final judgment.
+- If the image is insufficient, use an empty candidate list and explain abstention_reason.
+- State which additional views or lighting would distinguish the candidates.
+- Return only valid JSON in this exact shape:
+{
+  "visible_features": ["string"],
+  "candidates": [
+    {
+      "defect_type": "string",
+      "confidence": 0.0,
+      "supporting_features": ["string"],
+      "contradicting_features": ["string"]
+    }
+  ],
+  "required_additional_views": ["string"],
+  "quality_concerns": ["string"],
+  "abstention_reason": "string"
+}
     `.trim();
 
-    let defectHint = 'Unknown';
-    let visualDescription = '';
+    let rawObservation = '';
 
     if (provider === 'gemini' && client instanceof GoogleGenAI) {
         const response = await client.models.generateContent({
@@ -117,17 +134,10 @@ ${fieldContext || 'No additional field context was provided.'}
                     { inlineData: { mimeType: 'image/png', data: base64Data } },
                     { text: visionPrompt }
                 ]
-            }
+            },
+            config: { responseMimeType: 'application/json' }
         });
-
-        const text = response.text || '';
-        if (text.includes('Defect:')) {
-            const parts = text.split('|');
-            defectHint = parts[0].replace('Defect:', '').trim();
-            visualDescription = parts[1]?.replace('Desc:', '').trim() || text;
-        } else {
-            visualDescription = text;
-        }
+        rawObservation = response.text || '';
     } else if (provider === 'openai' && client instanceof OpenAI) {
         const response = await client.chat.completions.create({
             model: OPENAI_PRIMARY_MODEL,
@@ -141,26 +151,23 @@ ${fieldContext || 'No additional field context was provided.'}
                     ]
                 }
             ],
+            response_format: { type: 'json_object' },
             max_completion_tokens: OPENAI_VISION_MAX_COMPLETION_TOKENS
         });
-
-        const text = response.choices[0].message.content || '';
-        if (text.includes('Defect:')) {
-            const parts = text.split('|');
-            defectHint = parts[0].replace('Defect:', '').trim();
-            visualDescription = parts[1]?.replace('Desc:', '').trim() || text;
-        } else {
-            visualDescription = text;
-        }
+        rawObservation = response.choices[0].message.content || '';
     }
 
-    return { defectHint, visualDescription };
-};
+    const visionSummary = parseVisionObservationText(rawObservation) as VisionObservationSummary;
+    const defectHint = visionSummary.primaryCandidate?.defectType || '판정 불가';
+    const visualDescription = [
+        ...visionSummary.visibleFeatures,
+        ...(visionSummary.primaryCandidate?.supportingFeatures || [])
+    ].filter(Boolean).slice(0, 5).join(', ')
+        || visionSummary.abstentionReason
+        || '사진에서 신뢰할 수 있는 결함 특징을 확인하지 못했습니다.';
 
-const buildRetrievalQuery = (defectHint: string, visualDescription: string): string =>
-    [defectHint, visualDescription, 'injection molding defect cause countermeasure']
-        .filter(Boolean)
-        .join(' ');
+    return { defectHint, visualDescription, visionSummary };
+};
 
 const createLlmBackedAnalysis = async (
     base64Data: string,
@@ -319,9 +326,8 @@ export const analyzeMoldDefect = async (
     fieldContext = ''
 ): Promise<DefectAnalysis> => {
     try {
-        const { defectHint, visualDescription } = await analyzeImageWithVisionModel(base64Data, fieldContext);
-        const retrievalDescription = [visualDescription, fieldContext].filter(Boolean).join('\n');
-        const retrieval = await retrieveKnowledge(buildRetrievalQuery(defectHint, retrievalDescription), {
+        const { defectHint, visualDescription, visionSummary } = await analyzeImageWithVisionModel(base64Data);
+        const retrieval = await retrieveKnowledge(buildVisionRetrievalQuery(visionSummary, fieldContext), {
             mode: retrievalMode,
             topK: retrievalMode === 'graph_only' ? 5 : 4,
             category: 'all'
@@ -331,12 +337,13 @@ export const analyzeMoldDefect = async (
         const graphDraft = buildGraphFirstDraft(retrieval);
 
         if (retrievalMode === 'graph_only' && graphGroundedAnalysis) {
-            return graphGroundedAnalysis;
+            return { ...graphGroundedAnalysis, visionSummary };
         }
 
         if (graphGroundedAnalysis && !shouldSupplementWithLlm(graphDraft)) {
             return {
                 ...graphGroundedAnalysis,
+                visionSummary,
                 retrievalSummary: {
                     ...graphGroundedAnalysis.retrievalSummary,
                     graphGrounded: true,
@@ -345,7 +352,14 @@ export const analyzeMoldDefect = async (
             };
         }
 
-        return await createLlmBackedAnalysis(base64Data, defectHint, visualDescription, retrieval, graphGroundedAnalysis);
+        const analysis = await createLlmBackedAnalysis(
+            base64Data,
+            defectHint,
+            visualDescription,
+            retrieval,
+            graphGroundedAnalysis
+        );
+        return { ...analysis, visionSummary };
     } catch (error) {
         throw handleApiError(error);
     }

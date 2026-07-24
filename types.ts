@@ -44,6 +44,50 @@ export interface Shape {
   rotation?: number; // radians
 }
 
+export type VisionDecisionStatus = 'probable' | 'needs_review' | 'unclassifiable';
+
+export interface VisionHypothesis {
+  defectType: string;
+  confidence: number;
+  supportingFeatures: string[];
+  contradictingFeatures: string[];
+}
+
+export interface VisionObservationSummary {
+  visibleFeatures: string[];
+  candidates: VisionHypothesis[];
+  primaryCandidate: VisionHypothesis | null;
+  requiredAdditionalViews: string[];
+  qualityConcerns: string[];
+  abstentionReason: string;
+  decisionStatus: VisionDecisionStatus;
+  decisionReason: string;
+}
+
+export interface VisionImageQualityIssue {
+  code: string;
+  severity: 'warn' | 'reject';
+  message: string;
+  recommendation: string;
+}
+
+export interface VisionImageQualityReport {
+  status: 'pass' | 'warn' | 'reject';
+  canAnalyze: boolean;
+  score: number;
+  metrics: {
+    width: number;
+    height: number;
+    megapixels: number;
+    meanLuminance: number;
+    contrast: number;
+    sharpness: number;
+    darkRatio: number;
+    brightRatio: number;
+  };
+  issues: VisionImageQualityIssue[];
+}
+
 // Industrial Defect Analysis Structure (AI Output)
 export interface DefectAnalysis {
   defectType: string;      // e.g., "Flash (Burr)", "Short Shot"
@@ -52,6 +96,7 @@ export interface DefectAnalysis {
   possibleCauses: string;  // RAG-based causes
   countermeasures: string; // RAG-based solutions (Mold/Process)
   rawOutput: string;       // Full AI text
+  visionSummary?: VisionObservationSummary;
   retrievalSummary?: {
     modeUsed: RetrievalMode;
     citations: string[];
@@ -79,6 +124,7 @@ export interface CapturedImage {
   ocrText?: string;
   analysis?: DefectAnalysis;
   analysisError?: string;
+  visionQuality?: VisionImageQualityReport;
   commonAgentImageId?: string;
   commonAgentStatus?: 'idle' | 'syncing' | 'synced' | 'error';
   commonAgentLastSyncAt?: number;

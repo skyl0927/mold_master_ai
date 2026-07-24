@@ -414,6 +414,97 @@ ${data.countermeasures}
                                 </div>
 
                                 <div className="space-y-4">
+                                    {image.visionQuality && (
+                                        <div className={`rounded-lg border p-4 ${
+                                            image.visionQuality.status === 'pass'
+                                                ? 'border-emerald-800/60 bg-emerald-950/20'
+                                                : image.visionQuality.status === 'warn'
+                                                    ? 'border-amber-800/60 bg-amber-950/20'
+                                                    : 'border-red-800/60 bg-red-950/20'
+                                        }`}>
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <h4 className="text-sm font-semibold text-gray-100">사진 품질 게이트</h4>
+                                                <span className="rounded-full border border-gray-600 bg-gray-900/70 px-3 py-1 text-xs text-gray-200">
+                                                    {image.visionQuality.score}점 · {image.visionQuality.status.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            {image.visionQuality.issues.length > 0 && (
+                                                <div className="mt-3 space-y-2">
+                                                    {image.visionQuality.issues.map(issue => (
+                                                        <div key={issue.code} className="text-xs text-gray-300">
+                                                            <span className="font-semibold text-amber-200">{issue.message}</span>
+                                                            <span className="ml-2">{issue.recommendation}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {editableData.visionSummary && (
+                                        <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-4">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <h4 className="text-sm font-semibold uppercase tracking-wider text-cyan-300">
+                                                    Vision Top-3 관찰
+                                                </h4>
+                                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                                    editableData.visionSummary.decisionStatus === 'probable'
+                                                        ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-200'
+                                                        : 'border-amber-500/50 bg-amber-500/10 text-amber-200'
+                                                }`}>
+                                                    {editableData.visionSummary.decisionStatus === 'probable'
+                                                        ? '유력 후보'
+                                                        : editableData.visionSummary.decisionStatus === 'needs_review'
+                                                            ? '사람 검토 필요'
+                                                            : '판정 보류'}
+                                                </span>
+                                            </div>
+                                            {editableData.visionSummary.visibleFeatures.length > 0 && (
+                                                <p className="mt-3 text-xs leading-relaxed text-gray-300">
+                                                    관찰 특징: {editableData.visionSummary.visibleFeatures.join(', ')}
+                                                </p>
+                                            )}
+                                            <div className="mt-3 space-y-2">
+                                                {editableData.visionSummary.candidates.map((candidate, index) => (
+                                                    <div key={`${candidate.defectType}-${index}`} className="rounded-lg border border-gray-700 bg-gray-900/70 p-3">
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="text-sm font-semibold text-white">
+                                                                {index + 1}. {candidate.defectType}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-cyan-200">
+                                                                {Math.round(candidate.confidence * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-700">
+                                                            <div
+                                                                className="h-full rounded-full bg-cyan-500"
+                                                                style={{ width: `${Math.round(candidate.confidence * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                        {candidate.supportingFeatures.length > 0 && (
+                                                            <p className="mt-2 text-xs text-emerald-200">
+                                                                일치: {candidate.supportingFeatures.join(', ')}
+                                                            </p>
+                                                        )}
+                                                        {candidate.contradictingFeatures.length > 0 && (
+                                                            <p className="mt-1 text-xs text-amber-200">
+                                                                불일치/미확인: {candidate.contradictingFeatures.join(', ')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {editableData.visionSummary.requiredAdditionalViews.length > 0 && (
+                                                <p className="mt-3 text-xs text-amber-200">
+                                                    추가 확인 촬영: {editableData.visionSummary.requiredAdditionalViews.join(', ')}
+                                                </p>
+                                            )}
+                                            {editableData.visionSummary.abstentionReason && (
+                                                <p className="mt-3 text-xs text-red-200">
+                                                    판정 보류 사유: {editableData.visionSummary.abstentionReason}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     {editableData.retrievalSummary && editableData.retrievalSummary.citations.length > 0 && (
                                         <div className="bg-sky-950/20 p-4 rounded-lg border border-sky-900/50">
                                             <h4 className="text-sm font-semibold text-sky-300 mb-2 uppercase tracking-wider">Retrieval Trace</h4>

@@ -65,6 +65,19 @@ test('falls back safely from the legacy Defect and Desc format', () => {
   assert.equal(observation.decisionStatus, 'needs_review');
 });
 
+test('normalizes a Common Agent observation that only contains defect_type', () => {
+  const observation = normalizeVisionObservation({
+    defect_type: '\uC6F0\uB4DC\uB77C\uC778',
+    confidence: 0.72,
+    visible_features: ['\uC720\uB3D9 \uD569\uB958\uBD80\uC758 \uAC00\uB294 \uC120']
+  });
+
+  assert.equal(observation.candidates.length, 1);
+  assert.equal(observation.primaryCandidate.defectType, '\uC6F0\uB4DC\uB77C\uC778');
+  assert.equal(observation.primaryCandidate.confidence, 0.72);
+  assert.equal(observation.decisionStatus, 'needs_review');
+});
+
 test('builds Graph retrieval from observations and all candidates, not only Top-1', () => {
   const observation = normalizeVisionObservation({
     visible_features: ['\uC6D0\uD615 \uACBD\uACC4', '\uCDE8\uCD9C\uBD80 \uC8FC\uBCC0 \uBC31\uD654'],

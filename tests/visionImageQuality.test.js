@@ -20,6 +20,14 @@ const imageData = (width, height, pixelAt) => {
   return { width, height, data };
 };
 
+test('rejects unreadable image input with a recapture recommendation', () => {
+  const report = evaluateVisionImageQuality({});
+
+  assert.equal(report.status, 'reject');
+  assert.equal(report.canAnalyze, false);
+  assert.equal(report.issues[0].code, 'invalid_image');
+});
+
 test('rejects images that are too small for defect diagnosis', () => {
   const report = evaluateVisionImageQuality(
     imageData(96, 96, (x, y) => {
@@ -40,6 +48,15 @@ test('rejects almost completely dark images', () => {
 
   assert.equal(report.status, 'reject');
   assert.ok(report.issues.some(issue => issue.code === 'severely_underexposed'));
+});
+
+test('rejects almost completely overexposed images', () => {
+  const report = evaluateVisionImageQuality(
+    imageData(320, 320, () => [254, 254, 254])
+  );
+
+  assert.equal(report.status, 'reject');
+  assert.ok(report.issues.some(issue => issue.code === 'severely_overexposed'));
 });
 
 test('warns but allows analysis for low-detail images', () => {

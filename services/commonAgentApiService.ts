@@ -1,4 +1,5 @@
-import { DefectAnalysis, RetrievalMode } from '../types';
+import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
+import { normalizeVisionObservation } from '../visionObservation';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
@@ -14,6 +15,11 @@ export interface CommonAgentObservation {
     labels?: string[];
     confidence?: number;
     raw_output?: string;
+    candidates?: Array<Record<string, any>>;
+    top_candidates?: Array<Record<string, any>>;
+    required_additional_views?: string[];
+    quality_concerns?: string[];
+    abstention_reason?: string;
 }
 
 export interface CommonAgentEvidence {
@@ -503,14 +509,22 @@ export class CommonAgentApiService {
         const possibleCauses = observation.possible_causes || [];
         const recommendedChecks = observation.recommended_checks || [];
         const evidence = response.evidence || [];
+        const metadataCandidates = response.metadata?.vision_candidates || response.metadata?.top_candidates;
+        const visionSummary = normalizeVisionObservation({
+            ...observation,
+            candidates: observation.candidates || observation.top_candidates || metadataCandidates
+        }) as VisionObservationSummary;
 
         return compactDefectAnalysis({
-            defectType: observation.defect_type || '판정 불가 (사람 검토 필요)',
+            defectType: visionSummary.primaryCandidate?.defectType
+                || observation.defect_type
+                || '판정 불가 (사람 검토 필요)',
             severity: observation.severity || 'Medium',
             description: observation.summary || response.answer || '',
             possibleCauses: possibleCauses.length > 0 ? possibleCauses.join('\n') : '',
             countermeasures: recommendedChecks.join('\n'),
             rawOutput: JSON.stringify(response, null, 2),
+            visionSummary,
             retrievalSummary: {
                 modeUsed,
                 citations: evidence.map(item => item.source_ref || item.node_id || '').filter(Boolean),

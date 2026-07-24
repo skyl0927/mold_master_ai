@@ -330,10 +330,31 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
     };
 
     try {
-        await CommonAgentGateway.diagnoseImage({
+        const result = await CommonAgentGateway.diagnoseImage({
             imageId: 'local-image-1',
             dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
             strategy: 'common_agent_primary',
+            visionQuality: {
+                status: 'warn',
+                canAnalyze: true,
+                score: 88,
+                metrics: {
+                    width: 640,
+                    height: 480,
+                    megapixels: 0.31,
+                    meanLuminance: 120,
+                    contrast: 42,
+                    sharpness: 80,
+                    darkRatio: 0.02,
+                    brightRatio: 0.01
+                },
+                issues: [{
+                    code: 'resolution_low',
+                    severity: 'warn',
+                    message: '해상도 주의',
+                    recommendation: 'ROI 확대'
+                }]
+            },
             diagnosisContext: {
                 question: '현상 설명: 리브 주변 백화',
                 metadata: {
@@ -350,6 +371,12 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(receivedOptions?.metadata?.context_provided, true);
         assert.equal(receivedOptions?.metadata?.roi_count, 1);
         assert.equal(receivedOptions?.persistMode, 'classifiable_only');
+        assert.equal(receivedOptions?.metadata?.vision_quality_status, 'warn');
+        assert.equal(receivedOptions?.metadata?.vision_quality_score, 88);
+        assert.deepEqual(receivedOptions?.metadata?.vision_quality_issue_codes, ['resolution_low']);
+        assert.equal(result.analysis.visionSummary?.primaryCandidate?.defectType, '백화');
+        assert.equal(result.analysis.visionSummary?.decisionStatus, 'needs_review');
+        assert.equal(result.comparison.visionCandidateCount, 1);
     } finally {
         CommonAgentApiService.diagnoseImage = originalDiagnose;
     }

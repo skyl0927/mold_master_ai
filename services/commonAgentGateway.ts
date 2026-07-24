@@ -1,4 +1,10 @@
-import { AiOrchestrationMode, DefectAnalysis, RetrievalMode } from '../types';
+import {
+    AiOrchestrationMode,
+    DefectAnalysis,
+    RetrievalMode,
+    VisionDecisionStatus,
+    VisionImageQualityReport
+} from '../types';
 import { analyzeMoldDefect } from './aiService';
 import { streamChatResponse } from './aiService';
 import { CommonAgentApiService } from './commonAgentApiService';
@@ -41,6 +47,11 @@ export interface DiagnosisComparisonRecord {
     evidenceCount?: number;
     graphGrounded?: boolean;
     llmSupplemented?: boolean;
+    visionQualityStatus?: VisionImageQualityReport['status'];
+    visionQualityScore?: number;
+    visionQualityIssueCodes?: string[];
+    visionDecisionStatus?: VisionDecisionStatus;
+    visionCandidateCount?: number;
 }
 
 export interface DiagnosisGatewayResult {
@@ -218,6 +229,12 @@ const dataUrlToFile = (dataUrl: string, fileName: string): File => {
     for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
     return new File([bytes], fileName, { type: mimeType });
 };
+
+const isVisionClassifiable = (analysis?: DefectAnalysis): boolean => Boolean(
+    analysis
+    && isUsableDefectType(analysis.defectType)
+    && (!analysis.visionSummary || analysis.visionSummary.decisionStatus === 'probable')
+);
 
 const persistComparison = (record: DiagnosisComparisonRecord): void => {
     try {
@@ -434,6 +451,7 @@ export class CommonAgentGateway {
         retrievalMode?: RetrievalMode;
         strategy?: AiOrchestrationMode;
         diagnosisContext?: MultimodalDiagnosisContext;
+        visionQuality?: VisionImageQualityReport;
     }): Promise<DiagnosisGatewayResult> {
         const config = await getRuntimeConfig();
         const strategy = options.strategy || config?.aiOrchestrationMode || 'dual_validation';
@@ -454,6 +472,9 @@ export class CommonAgentGateway {
                             local_image_id: options.imageId,
                             retrieval_mode: retrievalMode,
                             orchestration_strategy: strategy,
+                            vision_quality_status: options.visionQuality?.status,
+                            vision_quality_score: options.visionQuality?.score,
+                            vision_quality_issue_codes: options.visionQuality?.issues.map(issue => issue.code),
                             ...options.diagnosisContext?.metadata
                         }
                     }
@@ -486,6 +507,16 @@ export class CommonAgentGateway {
                 legacyDefectType
             )
             : undefined;
+        const selectedAnalysis = defectTypeAgreement === false && execution.selected.analysis.visionSummary
+            ? {
+                ...execution.selected.analysis,
+                visionSummary: {
+                    ...execution.selected.analysis.visionSummary,
+                    decisionStatus: 'needs_review' as const,
+                    decisionReason: 'dual_model_disagreement'
+                }
+            }
+            : execution.selected.analysis;
         const comparisonId = `comparison-${options.imageId}-${Date.now()}`;
         const comparison: DiagnosisComparisonRecord = {
             id: comparisonId,
@@ -499,8 +530,8 @@ export class CommonAgentGateway {
             commonAgentDurationMs: execution.commonAgent?.durationMs,
             legacyDurationMs: execution.legacy?.durationMs,
             defectTypeAgreement,
-            commonAgentClassifiable: isUsableDefectType(commonAgentDefectType),
-            legacyClassifiable: isUsableDefectType(legacyDefectType),
+            commonAgentClassifiable: isVisionClassifiable(execution.commonAgent?.analysis),
+            legacyClassifiable: isVisionClassifiable(execution.legacy?.analysis),
             contextProvided: options.diagnosisContext?.metadata.context_provided || false,
             annotationCount: options.diagnosisContext?.metadata.annotation_count || 0,
             roiCount: options.diagnosisContext?.metadata.roi_count || 0,
@@ -510,15 +541,20 @@ export class CommonAgentGateway {
             commonAgentError: execution.commonAgentError,
             legacyError: execution.legacyError,
             retrievalMode,
-            evidenceCount: execution.selected.analysis.retrievalSummary?.evidenceCount || 0,
-            graphGrounded: execution.selected.analysis.retrievalSummary?.graphGrounded === true,
-            llmSupplemented: execution.selected.analysis.retrievalSummary?.llmSupplemented === true
+            evidenceCount: selectedAnalysis.retrievalSummary?.evidenceCount || 0,
+            graphGrounded: selectedAnalysis.retrievalSummary?.graphGrounded === true,
+            llmSupplemented: selectedAnalysis.retrievalSummary?.llmSupplemented === true,
+            visionQualityStatus: options.visionQuality?.status,
+            visionQualityScore: options.visionQuality?.score,
+            visionQualityIssueCodes: options.visionQuality?.issues.map(issue => issue.code),
+            visionDecisionStatus: selectedAnalysis.visionSummary?.decisionStatus,
+            visionCandidateCount: selectedAnalysis.visionSummary?.candidates.length
         };
         persistComparison(comparison);
 
         return {
             analysis: {
-                ...execution.selected.analysis,
+                ...selectedAnalysis,
                 orchestrationSummary: {
                     strategy,
                     selectedSource: execution.selected.source,

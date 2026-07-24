@@ -31,6 +31,7 @@
     "test:capture": "node --test tests/captureGeometry.test.js tests/captureFrameCache.test.js",
     "test:translation": "node --test tests/translationRequest.test.js",
     "test:benchmark": "node --test tests/multimodalBenchmark.test.js",
+    "test:vision-observation": "node --test tests/visionImageQuality.test.js tests/visionObservation.test.js",
     "test:candidates": "node --test tests/localVisionCandidate.test.js tests/knowledgeCardVisionCandidateSync.test.js tests/webCaseVisionCandidate.test.js tests/visionAuditCache.test.js tests/visionReviewPriority.test.js tests/visionReviewQueue.test.js",
     "test:review-packet": "node --test tests/visionHumanReviewPacket.test.js",
     "test:vision-hitl-authorization": "node --test tests/visionHitlAuthorization.test.js",

@@ -1,7 +1,18 @@
 
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { CapturedImage, TextAnnotation, Shape, ApiConfig, DefectAnalysis, DBStats, MobileConnectionData, RetrievalMode } from './types';
+import {
+    CapturedImage,
+    TextAnnotation,
+    Shape,
+    ApiConfig,
+    DefectAnalysis,
+    DBStats,
+    MobileConnectionData,
+    RetrievalMode,
+    VisionImageQualityReport
+} from './types';
+import { formatVisionQualityMessage, inspectVisionImageQuality } from './visionImageQuality';
 import AnnotationCanvas from './components/AnnotationCanvas';
 import AnalysisModal from './components/AnalysisModal';
 import Chatbot from './components/Chatbot';
@@ -342,7 +353,12 @@ const App: React.FC = () => {
                         annotations: savedData.annotations,
                         shapes: savedData.shapes,
                         analysis: undefined,
-                        analysisError: undefined
+                        analysisError: undefined,
+                        visionQuality: undefined,
+                        commonAgentImageId: undefined,
+                        commonAgentStatus: 'idle',
+                        commonAgentLastSyncAt: undefined,
+                        commonAgentAnnotationCount: undefined
                     }
                     : img
             ));
@@ -447,18 +463,28 @@ const App: React.FC = () => {
 
         try {
             const croppedDataUrl = await cropImageToShapes(image.dataUrl, image.shapes || [], image.annotations || []);
+            const visionQuality = await inspectVisionImageQuality(croppedDataUrl) as VisionImageQualityReport;
+            setCapturedImages(prev => prev.map(img => img.id === imageId
+                ? { ...img, visionQuality }
+                : img
+            ));
+            if (!visionQuality.canAnalyze) {
+                throw new Error(`사진 품질 확인 필요: ${formatVisionQualityMessage(visionQuality)}`);
+            }
             const diagnosisContext = buildMultimodalDiagnosisContext(image);
             const diagnosis = await CommonAgentGateway.diagnoseImage({
                 imageId,
                 dataUrl: croppedDataUrl,
                 fileName: `${imageId}.png`,
                 retrievalMode,
-                diagnosisContext
+                diagnosisContext,
+                visionQuality
             });
             const result = diagnosis.analysis;
             setCapturedImages(prev => prev.map(img => img.id === imageId ? {
                 ...img,
                 analysis: result,
+                visionQuality,
                 commonAgentImageId: diagnosis.commonAgentImageId || img.commonAgentImageId,
                 commonAgentStatus: diagnosis.source === 'common_agent' ? 'synced' : img.commonAgentStatus,
                 commonAgentLastSyncAt: diagnosis.source === 'common_agent' ? Date.now() : img.commonAgentLastSyncAt
@@ -515,6 +541,14 @@ const App: React.FC = () => {
 
             if (!commonAgentImageId) {
                 const uploadDataUrl = image.baseImageUrl || image.dataUrl;
+                const visionQuality = await inspectVisionImageQuality(uploadDataUrl) as VisionImageQualityReport;
+                setCapturedImages(prev => prev.map(img => img.id === imageId
+                    ? { ...img, visionQuality }
+                    : img
+                ));
+                if (!visionQuality.canAnalyze) {
+                    throw new Error(`사진 품질 확인 필요: ${formatVisionQualityMessage(visionQuality)}`);
+                }
                 const fileExt = uploadDataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
                 const file = dataUrlToFile(uploadDataUrl, `${image.id}.${fileExt}`);
                 const diagnosis = await CommonAgentApiService.diagnoseImage(file, {
@@ -524,7 +558,10 @@ const App: React.FC = () => {
                     metadata: {
                         local_image_id: image.id,
                         source_app: 'mold-master-ai',
-                        local_shape_count: image.shapes?.length || 0
+                        local_shape_count: image.shapes?.length || 0,
+                        vision_quality_status: visionQuality.status,
+                        vision_quality_score: visionQuality.score,
+                        vision_quality_issue_codes: visionQuality.issues.map(issue => issue.code)
                     },
                     sessionId: `mold-master-${image.id}`
                 });
@@ -1364,8 +1401,50 @@ const App: React.FC = () => {
                                                             {image.analysis.retrievalSummary.modeUsed} · {image.analysis.retrievalSummary.evidenceCount} evidence
                                                         </p>
                                                     )}
+                                                    {image.visionQuality && (
+                                                        <p className={`mt-1 text-[11px] ${
+                                                            image.visionQuality.status === 'pass'
+                                                                ? 'text-emerald-300'
+                                                                : image.visionQuality.status === 'warn'
+                                                                    ? 'text-amber-300'
+                                                                    : 'text-red-300'
+                                                        }`}>
+                                                            사진 품질 {image.visionQuality.score}점 · {
+                                                                image.visionQuality.status === 'pass'
+                                                                    ? '적합'
+                                                                    : image.visionQuality.status === 'warn'
+                                                                        ? '주의'
+                                                                        : '재촬영 필요'
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    {image.analysis?.visionSummary && (
+                                                        <p className={`mt-1 text-[11px] ${
+                                                            image.analysis.visionSummary.decisionStatus === 'probable'
+                                                                ? 'text-cyan-300'
+                                                                : 'text-amber-300'
+                                                        }`}>
+                                                            비전 후보 {image.analysis.visionSummary.candidates.length}개 · {
+                                                                image.analysis.visionSummary.decisionStatus === 'probable'
+                                                                    ? '유력'
+                                                                    : image.analysis.visionSummary.decisionStatus === 'needs_review'
+                                                                        ? '사람 검토 필요'
+                                                                        : '판정 보류'
+                                                            }
+                                                        </p>
+                                                    )}
                                                 </div>
                                              </div>
+
+                                            {image.visionQuality && image.visionQuality.issues.length > 0 && (
+                                                <div className={`mb-3 rounded-lg border px-3 py-2 text-[11px] ${
+                                                    image.visionQuality.canAnalyze
+                                                        ? 'border-amber-700/50 bg-amber-950/20 text-amber-200'
+                                                        : 'border-red-700/60 bg-red-950/30 text-red-200'
+                                                }`}>
+                                                    {image.visionQuality.issues.map(issue => issue.message).join(' ')}
+                                                </div>
+                                            )}
 
                                             <label className="block mb-3">
                                                 <span className="mb-1 block text-[11px] font-bold text-cyan-200">현상 설명</span>
