@@ -250,6 +250,7 @@ const path = require('node:path');
     await page.getByText('진단 완료').first().waitFor({ timeout: 15000 });
     await page.getByText('Multi-view Fusion').waitFor({ timeout: 10000 });
     await page.getByText('구조화 Vision 관찰 및 Top-3').waitFor({ timeout: 10000 });
+    await page.getByText('Graph Cross-validation').scrollIntoViewIfNeeded();
 
     const screenshotPath = path.join(artifactsDir, 'electron-multimodal-diagnosis.png');
     await page.screenshot({ path: screenshotPath, fullPage: true });
