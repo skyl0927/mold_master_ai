@@ -156,6 +156,22 @@ test('Wikimedia connector selects 16 licensed visual cards without auto-qualifyi
   assert.ok(cards.every(card => card.evidence[0].localFile.startsWith('images/')));
 });
 
+test('Wikimedia coverage keeps two independent sink examples and trims redundant flash examples', () => {
+  const sinkMappings = WIKIMEDIA_CASE_MAPPINGS.filter(
+    mapping => mapping.sourceDefectTitle === 'Sink marks'
+  );
+  const flashMappings = WIKIMEDIA_CASE_MAPPINGS.filter(
+    mapping => mapping.sourceDefectTitle === 'Flash'
+  );
+
+  assert.equal(WIKIMEDIA_CASE_MAPPINGS.length, 16);
+  assert.deepEqual(
+    sinkMappings.map(mapping => mapping.fileName).sort(),
+    ['Defek Kecut.png', 'Sink marks.jpg']
+  );
+  assert.equal(flashMappings.length, 2);
+});
+
 test('assembled collection reaches 40 valid cards with no approval or Graph writes', () => {
   const result = assembleCandidateCollection({
     basfLinks,
