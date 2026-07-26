@@ -1823,7 +1823,13 @@ test('enforced Vision reference benchmark gate blocks Common Agent graph path be
     const originalBenchmark = CommonAgentApiService.benchmarkCurrentVisionReferences;
     let diagnoseCalled = false;
     CommonAgentApiService.benchmarkCurrentVisionReferences = async () => ({
-        embedding_model_version: 'dinov2-reference-v1',
+        embedding_model_version: 'dinov2:facebook/dinov2-base',
+        embedding_provider: 'dinov2',
+        embedding_model_name: 'facebook/dinov2-base',
+        embedding_dimensions: 768,
+        embedding_device: 'cpu',
+        embedding_runtime: 'transformers',
+        embedding_production_ready: true,
         reference_count: 6,
         evaluated_count: 6,
         top1_accuracy: 0.33,
@@ -1881,11 +1887,18 @@ test('shadow Vision reference benchmark gate records failure without blocking di
         const gate = await assertVisionReferenceBenchmarkReady({
             provider: 'openai',
             visionReferenceBenchmarkGateMode: 'shadow',
-            visionReferenceBenchmarkModelVersion: 'dinov2-reference-v1'
+            visionReferenceBenchmarkModelVersion: 'dinov2:facebook/dinov2-base'
         });
 
         assert.equal(gate.checked, true);
         assert.equal(gate.ready, false);
+        assert.equal(gate.embeddingModelVersion, 'dinov2:facebook/dinov2-base');
+        assert.equal(gate.embeddingProvider, 'dinov2');
+        assert.equal(gate.embeddingModelName, 'facebook/dinov2-base');
+        assert.equal(gate.embeddingDimensions, 768);
+        assert.equal(gate.embeddingDevice, 'cpu');
+        assert.equal(gate.embeddingRuntime, 'transformers');
+        assert.equal(gate.embeddingProductionReady, true);
         assert.deepEqual(gate.failedChecks, ['top1Accuracy']);
     } finally {
         CommonAgentApiService.benchmarkCurrentVisionReferences = originalBenchmark;
