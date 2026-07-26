@@ -327,6 +327,12 @@ export interface CommonAgentVisionReferenceBenchmarkRequest {
 
 export interface CommonAgentVisionReferenceBenchmarkResponse {
     embedding_model_version: string;
+    embedding_provider?: string | null;
+    embedding_model_name?: string | null;
+    embedding_dimensions?: number | null;
+    embedding_device?: string | null;
+    embedding_runtime?: string | null;
+    embedding_production_ready?: boolean | null;
     reference_count: number;
     evaluated_count: number;
     top1_accuracy: number;

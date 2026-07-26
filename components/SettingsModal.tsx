@@ -837,7 +837,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                 type="text"
                 value={visionReferenceBenchmarkModelVersion}
                 onChange={(event) => setVisionReferenceBenchmarkModelVersion(event.target.value)}
-                placeholder="예: dinov2-reference-v1"
+                placeholder="예: dinov2:facebook/dinov2-base"
                 className="mt-1 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
 

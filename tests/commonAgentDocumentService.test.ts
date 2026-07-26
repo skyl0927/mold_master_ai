@@ -1870,7 +1870,13 @@ test('enforced Vision reference benchmark gate blocks Common Agent graph path be
 test('shadow Vision reference benchmark gate records failure without blocking diagnosis', async () => {
     const originalBenchmark = CommonAgentApiService.benchmarkCurrentVisionReferences;
     CommonAgentApiService.benchmarkCurrentVisionReferences = async () => ({
-        embedding_model_version: 'dinov2-reference-v1',
+        embedding_model_version: 'dinov2:facebook/dinov2-base',
+        embedding_provider: 'dinov2',
+        embedding_model_name: 'facebook/dinov2-base',
+        embedding_dimensions: 768,
+        embedding_device: 'cpu',
+        embedding_runtime: 'transformers',
+        embedding_production_ready: true,
         reference_count: 6,
         evaluated_count: 6,
         top1_accuracy: 0.33,

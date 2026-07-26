@@ -168,6 +168,13 @@ export interface VisionReferenceBenchmarkGateResult {
     checked: boolean;
     ready: boolean;
     failedChecks: string[];
+    embeddingModelVersion?: string;
+    embeddingProvider?: string;
+    embeddingModelName?: string;
+    embeddingDimensions?: number;
+    embeddingDevice?: string;
+    embeddingRuntime?: string;
+    embeddingProductionReady?: boolean;
     message?: string;
 }
 
@@ -280,7 +287,14 @@ export const assertVisionReferenceBenchmarkReady = async (
             mode,
             checked: true,
             ready: true,
-            failedChecks: []
+            failedChecks: [],
+            embeddingModelVersion: report.embedding_model_version,
+            embeddingProvider: report.embedding_provider || undefined,
+            embeddingModelName: report.embedding_model_name || undefined,
+            embeddingDimensions: report.embedding_dimensions || undefined,
+            embeddingDevice: report.embedding_device || undefined,
+            embeddingRuntime: report.embedding_runtime || undefined,
+            embeddingProductionReady: report.embedding_production_ready ?? undefined
         };
     }
 
@@ -295,6 +309,13 @@ export const assertVisionReferenceBenchmarkReady = async (
         checked: true,
         ready: false,
         failedChecks: report.failed_gate_checks || [],
+        embeddingModelVersion: report.embedding_model_version,
+        embeddingProvider: report.embedding_provider || undefined,
+        embeddingModelName: report.embedding_model_name || undefined,
+        embeddingDimensions: report.embedding_dimensions || undefined,
+        embeddingDevice: report.embedding_device || undefined,
+        embeddingRuntime: report.embedding_runtime || undefined,
+        embeddingProductionReady: report.embedding_production_ready ?? undefined,
         message
     };
 };

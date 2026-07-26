@@ -228,9 +228,12 @@ temperature/isotonic calibration과 목표 정확도 측정은 운영 검증 대
 계약과 Graph 검색 차단 로직을 구현했다. 2026-07-25 Mold Master AI의
 Common Agent 진단 진입점에도 승인 참조 이미지 벤치마크 게이트를 연결했다.
 설정 화면에서 `off`, `shadow`, `enforce` 모드를 선택하고 모델 버전,
-필수 결함군, 샘플 수, Top-1/Top-3 기준을 저장할 수 있다. 실제 임베딩 모델과
-학습 헤드는 승인 다중 시점 데이터가 클래스별 최소 30세션에 도달하기 전까지
-연결하지 않는다.
+필수 결함군, 샘플 수, Top-1/Top-3 기준을 저장할 수 있다. 2026-07-27
+Common Agent worker 환경에서 DINOv2 `facebook/dinov2-base`와 SigLIP2
+`google/siglip2-base-patch16-224` 실제 런타임 스모크를 완료했고, benchmark
+응답에 provider, model, dimension, device, runtime, production-ready 계보를
+노출하도록 확장했다. 학습 헤드는 승인 다중 시점 데이터가 클래스별 최소
+30세션에 도달한 뒤 실측 holdout 기준으로 승격한다.
 
 개발:
 
@@ -395,8 +398,8 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 
 2026-07-25 이후 다음 개발 단위:
 
-1. Common Agent에 DINOv2/SigLIP2 실제 임베딩 런타임을 연결하고 현재
-   mock/prototype benchmark를 실측 benchmark로 교체
+1. Common Agent에 연결된 DINOv2/SigLIP2 실제 임베딩 런타임으로 승인 현장
+   데이터 reference store를 생성하고 실측 benchmark로 교체
 2. Mold Master 설정의 Vision 벤치마크 게이트를 `shadow`로 전환해 진단
    실패 없이 기준 미달 항목을 수집
 3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행
