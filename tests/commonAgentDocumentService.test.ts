@@ -1819,6 +1819,78 @@ test('current Vision reference benchmark is requested from Common Agent with rel
     assert.equal(report.ready_for_graph_retrieval, true);
 });
 
+test('current Vision reference status is requested from Common Agent', async () => {
+    let capturedUrl = '';
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        capturedUrl = String(input);
+        return new Response(JSON.stringify({
+            ready: true,
+            status: 'ready',
+            store_dir: '/app/data/vision-reference-store',
+            manifest_id: 'dinov2-base-ready',
+            manifest_path: '/app/data/vision-reference-store/manifests/dinov2-base-ready.json',
+            embedding_model_version: 'dinov2:facebook/dinov2-base',
+            embedding_provider: 'dinov2',
+            embedding_model_name: 'facebook/dinov2-base',
+            embedding_dimensions: 768,
+            embedding_device: 'cpu',
+            embedding_runtime: 'transformers',
+            embedding_production_ready: true,
+            reference_count: 42,
+            source_item_count: 44,
+            source_learning_ready_only: true,
+            generated_at: '2026-07-27T00:00:00Z',
+            updated_at: '2026-07-27T00:01:00Z',
+            warnings: ['2 images skipped']
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const status = await CommonAgentApiService.getCurrentVisionReferenceStatus();
+
+    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/references/current');
+    assert.equal(status.ready, true);
+    assert.equal(status.embedding_model_version, 'dinov2:facebook/dinov2-base');
+    assert.equal(status.embedding_provider, 'dinov2');
+    assert.equal(status.reference_count, 42);
+    assert.deepEqual(status.warnings, ['2 images skipped']);
+});
+
+test('Vision reference refresh is requested from Common Agent', async () => {
+    let capturedUrl = '';
+    let capturedMethod = '';
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+        }
+    };
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedMethod = init?.method || 'GET';
+        return new Response(JSON.stringify({
+            status: 'promoted',
+            manifest_id: 'dinov2-base-ready',
+            reference_count: 42,
+            store_dir: '/app/data/vision-reference-store',
+            embedding_model_version: 'dinov2:facebook/dinov2-base',
+            warnings: []
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const result = await CommonAgentApiService.refreshVisionReferences();
+
+    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/references/refresh');
+    assert.equal(capturedMethod, 'POST');
+    assert.equal(result.status, 'promoted');
+    assert.equal(result.manifest_id, 'dinov2-base-ready');
+    assert.equal(result.embedding_model_version, 'dinov2:facebook/dinov2-base');
+    assert.equal(result.reference_count, 42);
+});
+
 test('enforced Vision reference benchmark gate blocks Common Agent graph path before diagnosis', async () => {
     const originalBenchmark = CommonAgentApiService.benchmarkCurrentVisionReferences;
     let diagnoseCalled = false;
