@@ -122,6 +122,15 @@ export interface DiagnosisFailureReason {
     lastSeenAt: string;
 }
 
+export interface DiagnosisObservabilityAction {
+    code:
+        | 'review_classifier_disagreement'
+        | 'collect_classifier_references'
+        | 'maintain_classifier_shadow_gate';
+    severity: 'info' | 'warning';
+    message: string;
+}
+
 export interface DiagnosisObservability {
     total: number;
     commonAgentLatencyMs: DiagnosisLatencySummary;
@@ -138,6 +147,7 @@ export interface DiagnosisObservability {
     visionClassifierDisagreementRate: number;
     visionClassifierInsufficientReferenceRate: number;
     averageClassifierReferenceCount: number;
+    visionClassifierRecommendedActions: DiagnosisObservabilityAction[];
     ungroundedLlmTrainingLeakCount: number;
     averageEvidenceCount: number;
     contextProvidedRate: number;
@@ -514,6 +524,45 @@ const compactFailureMessage = (value: string): string => {
     return compact.length <= 160 ? compact : `${compact.slice(0, 159).trim()}…`;
 };
 
+const buildVisionClassifierRecommendedActions = ({
+    sampleCount,
+    agreementRate,
+    disagreementRate,
+    insufficientReferenceRate,
+    averageReferenceCount
+}: {
+    sampleCount: number;
+    agreementRate: number;
+    disagreementRate: number;
+    insufficientReferenceRate: number;
+    averageReferenceCount: number;
+}): DiagnosisObservabilityAction[] => {
+    if (sampleCount === 0) return [];
+    const actions: DiagnosisObservabilityAction[] = [];
+    if (disagreementRate > 0) {
+        actions.push({
+            code: 'review_classifier_disagreement',
+            severity: 'warning',
+            message: `Classifier 불일치 ${disagreementRate}%: 촬영 프로토콜, ROI 품질, 라벨 taxonomy alias를 우선 검토하세요.`
+        });
+    }
+    if (insufficientReferenceRate > 0) {
+        actions.push({
+            code: 'collect_classifier_references',
+            severity: 'warning',
+            message: `Classifier 참조 부족 ${insufficientReferenceRate}%: 부족 결함군의 승인 이미지를 추가 수집하고 reference store를 refresh하세요.`
+        });
+    }
+    if (actions.length === 0 && agreementRate >= 80 && averageReferenceCount >= 3) {
+        actions.push({
+            code: 'maintain_classifier_shadow_gate',
+            severity: 'info',
+            message: `Classifier 합의율 ${agreementRate}%: Shadow 기록을 유지하며 운영 릴리스 게이트 기준 충족 여부를 확인하세요.`
+        });
+    }
+    return actions;
+};
+
 export const calculateDiagnosisObservability = (
     records: DiagnosisComparisonRecord[]
 ): DiagnosisObservability => {
@@ -556,6 +605,21 @@ export const calculateDiagnosisObservability = (
     const contextMeasured = records.filter(record => typeof record.contextProvided === 'boolean');
     const roiMeasured = records.filter(record => typeof record.roiCount === 'number');
     const ocrMeasured = records.filter(record => typeof record.ocrProvided === 'boolean');
+    const visionClassifierAgreementRate = roundedRate(
+        classifierMeasured.filter(record => record.visionClassifierStatus === 'agreed').length,
+        classifierMeasured.length
+    );
+    const visionClassifierDisagreementRate = roundedRate(
+        classifierMeasured.filter(record => record.visionClassifierStatus === 'disagreed').length,
+        classifierMeasured.length
+    );
+    const visionClassifierInsufficientReferenceRate = roundedRate(
+        classifierMeasured.filter(record => record.visionClassifierStatus === 'insufficient_reference').length,
+        classifierMeasured.length
+    );
+    const averageClassifierReferenceCount = roundedAverage(
+        classifierReferenceMeasured.map(record => record.visionClassifierReferenceCount!)
+    );
 
     for (const record of records) {
         selectedSources[record.selectedSource] += 1;
@@ -610,21 +674,17 @@ export const calculateDiagnosisObservability = (
         averageApprovedGraphPaths: roundedAverage(
             approvedPathMeasured.map(record => record.graphApprovedPathCount!)
         ),
-        visionClassifierAgreementRate: roundedRate(
-            classifierMeasured.filter(record => record.visionClassifierStatus === 'agreed').length,
-            classifierMeasured.length
-        ),
-        visionClassifierDisagreementRate: roundedRate(
-            classifierMeasured.filter(record => record.visionClassifierStatus === 'disagreed').length,
-            classifierMeasured.length
-        ),
-        visionClassifierInsufficientReferenceRate: roundedRate(
-            classifierMeasured.filter(record => record.visionClassifierStatus === 'insufficient_reference').length,
-            classifierMeasured.length
-        ),
-        averageClassifierReferenceCount: roundedAverage(
-            classifierReferenceMeasured.map(record => record.visionClassifierReferenceCount!)
-        ),
+        visionClassifierAgreementRate,
+        visionClassifierDisagreementRate,
+        visionClassifierInsufficientReferenceRate,
+        averageClassifierReferenceCount,
+        visionClassifierRecommendedActions: buildVisionClassifierRecommendedActions({
+            sampleCount: classifierMeasured.length,
+            agreementRate: visionClassifierAgreementRate,
+            disagreementRate: visionClassifierDisagreementRate,
+            insufficientReferenceRate: visionClassifierInsufficientReferenceRate,
+            averageReferenceCount: averageClassifierReferenceCount
+        }),
         ungroundedLlmTrainingLeakCount: records.filter(record =>
             record.graphGrounded === false
             && record.llmSupplemented === true
