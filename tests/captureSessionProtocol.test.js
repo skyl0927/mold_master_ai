@@ -178,6 +178,9 @@ test('capture metadata preserves fresh recapture lineage for Common Agent', () =
     'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영',
     '결함 경계와 주변 정상면이 함께 보이도록 근접 촬영'
   ]);
+  assert.equal(metadata.recapture_guidance_fulfilled, true);
+  assert.equal(metadata.recapture_guidance_fulfillment_status, 'fulfilled');
+  assert.deepEqual(metadata.recapture_actual_view_tags, ['defect_closeup']);
 });
 
 test('HITL recapture review builds next-capture lineage from vision safety evidence', () => {
@@ -249,6 +252,34 @@ test('recapture capture guidance recommends oblique light when lighting evidence
   assert.equal(guidance.recommendedViewTag, 'oblique_light');
   assert.ok(guidance.instructions.some(item => item.includes('사선광')));
   assert.ok(guidance.instructions.some(item => item.includes('초점/조명')));
+});
+
+test('recapture metadata flags a fresh image captured with the wrong view tag', () => {
+  const recaptured = image({
+    id: 'image-recapture-wrong-view',
+    captureViewTag: 'full_part_context',
+    recaptureSource: {
+      localImageId: 'image-original',
+      commonAgentImageId: 'agent-image-original',
+      reviewDecisionId: 'review-recapture-1',
+      safetyGateReasons: ['overbroad_region_bbox'],
+      requiredAdditionalViews: [
+        'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+      ],
+      bboxGroundingProfileId: 'defect_closeup_precision'
+    }
+  });
+
+  const metadata = buildCaptureMetadata(recaptured, [
+    image({ id: 'image-original', commonAgentImageId: 'agent-image-original' }),
+    recaptured
+  ]);
+
+  assert.equal(metadata.recapture_recommended_view_tag, 'defect_closeup');
+  assert.deepEqual(metadata.recapture_actual_view_tags, ['full_part_context']);
+  assert.equal(metadata.recapture_guidance_fulfilled, false);
+  assert.equal(metadata.recapture_guidance_fulfillment_status, 'view_mismatch');
+  assert.equal(metadata.recapture_missing_recommended_view_tag, 'defect_closeup');
 });
 
 test('session diagnosis collects every physical view with the selected image first', () => {
