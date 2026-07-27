@@ -85,6 +85,8 @@ npm run vision:operational:readiness
 npm run vision:operational:worklist
 npm run vision:operational:handoff
 npm run operational:progress
+npm run operational:hitl:intake-status
+npm run operational:hitl:action-pack
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -98,6 +100,14 @@ npm run operational:progress
 단계”처럼 사람이 읽기 쉬운 문장으로 요약하고, software scaffold 진행률과
 operational readiness 진행률을 분리해 표시한다. 이 리포트도 artifact-only이며
 Graph DB, Reference store, 모델 학습에는 쓰지 않는다.
+
+`operational:hitl:intake-status`는 남은 사람 판정 입력 큐를 라벨 충돌,
+Vision pending HITL, Web Knowledge HITL로 나눠 집계한다.
+`operational:hitl:action-pack`은 최신 progress report와 intake status를 묶어
+`operational-hitl-action-pack/v1`을 생성한다. 이 패킷은 Common Agent/운영자가
+처리할 action step, 담당 owner, pending 수량, 다음 명령, operator instruction을
+한 번에 제공하지만, 여전히 artifact-only이며 외부 서비스 쓰기와 Graph/Reference/
+모델 학습을 모두 금지한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
