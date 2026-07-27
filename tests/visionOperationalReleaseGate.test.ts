@@ -6,6 +6,8 @@ import {
     attachVisionOperationalOperatorDecision,
     evaluateVisionOperationalRelease,
     parseVisionOperationalReleaseReport,
+    summarizeVisionOperationalReleaseHistory,
+    upsertVisionOperationalReleaseHistory,
     VisionOperationalEvidenceBundle,
     VisionShadowSample,
     VisionVersionSnapshot
@@ -485,4 +487,103 @@ test('release parser keeps a valid operator decision and rejects a stale one aft
         })),
         /operator decision is stale/i
     );
+});
+
+test('release history upserts an operator-confirmed report without duplicating the same release artifact', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T07:00:00.000Z',
+        evidenceBundle: completeEvidenceBundle
+    });
+    const firstHistory = upsertVisionOperationalReleaseHistory(
+        undefined,
+        report,
+        '2026-07-27T08:00:00.000Z'
+    );
+
+    assert.equal(firstHistory.schemaVersion, 'vision-operational-release-history/v1');
+    assert.equal(firstHistory.entries.length, 1);
+    assert.equal(firstHistory.entries[0].operatorConfirmed, false);
+    assert.equal(
+        summarizeVisionOperationalReleaseHistory(firstHistory).latestStatus,
+        'awaiting_operator_decision'
+    );
+
+    const approved = attachVisionOperationalOperatorDecision(report, {
+        action: 'activate_candidate',
+        targetVersion: candidateVersion,
+        operator: 'quality-lead',
+        comment: '승격 조건과 운영 근거를 확인함.',
+        confirmed: true,
+        decidedAt: '2026-07-27T08:10:00.000Z'
+    });
+    const updatedHistory = upsertVisionOperationalReleaseHistory(
+        firstHistory,
+        approved,
+        '2026-07-27T08:11:00.000Z'
+    );
+    const summary = summarizeVisionOperationalReleaseHistory(updatedHistory);
+
+    assert.equal(updatedHistory.entries.length, 1);
+    assert.equal(updatedHistory.entries[0].operatorConfirmed, true);
+    assert.equal(updatedHistory.entries[0].recordedAt, '2026-07-27T08:11:00.000Z');
+    assert.equal(summary.totalReports, 1);
+    assert.equal(summary.completeEvidenceReports, 1);
+    assert.equal(summary.operatorConfirmedReports, 1);
+    assert.equal(summary.latestStatus, 'confirmed');
+    assert.equal(summary.latestDecision, 'promote_candidate');
+    assert.equal(summary.latestAction, 'activate_candidate');
+    assert.deepEqual(summary.latestCandidateVersion, candidateVersion);
+});
+
+test('release history summary distinguishes missing evidence, awaiting approval, and empty states', () => {
+    const emptySummary = summarizeVisionOperationalReleaseHistory(undefined);
+    assert.equal(emptySummary.latestStatus, 'no_history');
+    assert.equal(emptySummary.totalReports, 0);
+
+    const incompleteEvidenceReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T07:00:00.000Z'
+    });
+    const blockedHistory = upsertVisionOperationalReleaseHistory(
+        undefined,
+        incompleteEvidenceReport,
+        '2026-07-27T08:00:00.000Z'
+    );
+    assert.equal(
+        summarizeVisionOperationalReleaseHistory(blockedHistory).latestStatus,
+        'blocked_missing_evidence'
+    );
+
+    const completeEvidenceReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T07:05:00.000Z',
+        evidenceBundle: completeEvidenceBundle
+    });
+    const awaitingHistory = upsertVisionOperationalReleaseHistory(
+        blockedHistory,
+        completeEvidenceReport,
+        '2026-07-27T08:05:00.000Z'
+    );
+    const summary = summarizeVisionOperationalReleaseHistory(awaitingHistory);
+
+    assert.equal(summary.totalReports, 2);
+    assert.equal(summary.completeEvidenceReports, 1);
+    assert.equal(summary.operatorConfirmedReports, 0);
+    assert.equal(summary.latestStatus, 'awaiting_operator_decision');
+    assert.equal(summary.promoteCandidates, 2);
+    assert.equal(summary.shadowHolds, 0);
+    assert.equal(summary.rollbackRequired, 0);
 });
