@@ -15,6 +15,7 @@
 - 운영 HITL 승인: 0건
 - 운영 Common Agent 후보 적재: 0건
 - 운영 Graph 승인 승격: 0건
+- 운영 readiness: `awaiting_hitl_review`
 
 마지막 세 항목은 의도된 상태다. 자동 수집 또는 자동 완성은 사람 승인을 대신하지 않으며, 검토자가 앱에서 카드를 직접 확인하기 전에는 중앙 저장과 Graph 승격이 실행되지 않는다.
 
@@ -83,16 +84,21 @@ web candidate
 npm run test:web-knowledge
 npm run knowledge:web:audit
 npm run knowledge:web:validate-common-agent
+npm run knowledge:web:readiness
 npm run test:electron:web-knowledge-hitl
 ```
 
 `knowledge:web:validate-common-agent`는 저장하지 않는 스키마 준비도 검사다. 사람 승인, 후보 적재, Graph 승격을 생성하지 않는다.
+`knowledge:web:readiness`도 no-write 점검이며 수집 수량, 품질 audit,
+Common Agent 비저장 검증, 로컬 HITL 승인, 중앙 승인 상태를 하나의
+`web-knowledge-operational-readiness/v1` artifact로 묶는다.
 
 ## 감사 파일
 
 - 수집 보고서: `artifacts/web-injection-defect-cases-20260724T081612/collection-report.json`
 - Common Agent 비저장 검증: `artifacts/web-knowledge-common-agent-validation.json`
 - 카드 내용 품질 감사: `artifacts/web-knowledge-quality-audit.json`
+- 운영 readiness: `artifacts/web-knowledge-operational-readiness-*.json`
 - Electron 왕복 화면: `artifacts/electron-web-knowledge-hitl.png`
 - 운영 HITL 원장: Electron `userData/web-knowledge-review-decisions.json`
 - 운영 중앙 적재 원장: Electron `userData/web-knowledge-central-ingestions.json`

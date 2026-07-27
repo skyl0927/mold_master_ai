@@ -247,6 +247,10 @@ HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()
 조치로 보존하며, Common Agent/Graph DB/model training에 직접 쓰지 않는다.
 따라서 현재 단계는 “데이터 확보 및 사람 판정 대기”에서 “판정 완료 시 안전하게
 승인 실행으로 이어질 수 있는 운영 연결부 준비 완료”로 한 단계 이동했다.
+같은 날 Web Knowledge 쪽에는 `web-knowledge-operational-readiness/v1` 게이트를
+추가해 사출 결함 웹 case 43/40건, Common Agent 비저장 검증 43/43건은 이미
+충족됐고, 실제 남은 병목이 Web Case HITL 승인 0/40건과 중앙 승인 0/40건임을
+명확히 분리했다.
 
 개발:
 
