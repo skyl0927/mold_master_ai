@@ -205,7 +205,9 @@ Graph 승격과 학습 승격을 모두 차단한다. 이어서 관찰 카드에
 시점에서는 기본값보다 엄격한 bbox confidence/area 기준으로 자동 Graph 후보
 사용을 보류한다. bbox 위치 근거가 약한 경우에는 단순 보류에 그치지 않고
 초점/조명 보정 재촬영, 결함 부위 중심 근접 재촬영 같은 `requiredAdditionalViews`
-지시를 자동 생성한다.
+지시를 자동 생성한다. 이 재촬영 요청은 HITL review metadata와 재평가 plan에도
+`vision_safety_gate_reasons`, bbox calibration profile, weak bbox count와 함께
+전달되어 Common Agent가 field follow-up 사유를 잃지 않도록 했다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

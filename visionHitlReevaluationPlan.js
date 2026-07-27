@@ -134,7 +134,7 @@ const classifyEntry = (entry, item) => {
   if (entry.reviewQueue === 'vision_recapture_required') {
     return {
       status: 'waiting_for_recapture',
-      reasons: unique(['recapture_required']),
+      reasons: unique(['recapture_required', ...entry.safetyGateReasons]),
       benchmarkCaseCandidate: null
     };
   }
@@ -195,6 +195,12 @@ const entryForItem = (item, generatedAt) => {
     graphPromotionBlocked: metadataBool(item, 'vision_graph_promotion_blocked', !graphPromotionAllowed),
     graphPromotionBlockReason: metadataString(item, 'vision_graph_promotion_block_reason'),
     learningCandidateEligible,
+    safetyGateReasons: asArray(metadata.vision_safety_gate_reasons).map(compact).filter(Boolean),
+    bboxGroundingProfileId: metadataString(item, 'vision_bbox_grounding_profile_id'),
+    bboxGroundingThresholds: metadata.vision_bbox_grounding_thresholds || null,
+    bboxWeakGroundingCount: Number(metadata.vision_bbox_weak_grounding_count) || 0,
+    bboxLowConfidenceCount: Number(metadata.vision_bbox_low_confidence_count) || 0,
+    bboxOverbroadCount: Number(metadata.vision_bbox_overbroad_count) || 0,
     requiredAdditionalViews: asArray(metadata.vision_required_additional_views).map(compact).filter(Boolean),
     qualityConcerns: asArray(metadata.vision_quality_concerns).map(compact).filter(Boolean),
     generatedAt,

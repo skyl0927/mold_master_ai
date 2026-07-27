@@ -103,6 +103,15 @@ export interface VisionHitlReviewMetadata {
     vision_quality_status: string;
     vision_quality_concerns: string[];
     vision_required_additional_views: string[];
+    vision_safety_gate_reasons: string[];
+    vision_bbox_grounding_profile_id: string;
+    vision_bbox_grounding_thresholds: {
+        minConfidence: number;
+        maxArea: number;
+    } | null;
+    vision_bbox_low_confidence_count: number;
+    vision_bbox_overbroad_count: number;
+    vision_bbox_weak_grounding_count: number;
 }
 
 const compact = (value: unknown): string => String(value || '').replace(/\s+/g, ' ').trim();
@@ -217,6 +226,17 @@ export const buildVisionHitlReviewMetadata = (
         vision_decision_reason: compact(summary?.decisionReason),
         vision_quality_status: compact(summary?.qualityStatus),
         vision_quality_concerns: stringList(summary?.qualityConcerns),
-        vision_required_additional_views: stringList(summary?.requiredAdditionalViews)
+        vision_required_additional_views: stringList(summary?.requiredAdditionalViews),
+        vision_safety_gate_reasons: stringList(safetyGate?.reasons),
+        vision_bbox_grounding_profile_id: compact(safetyGate?.bboxGroundingProfileId),
+        vision_bbox_grounding_thresholds: safetyGate?.bboxGroundingThresholds
+            ? {
+                minConfidence: safetyGate.bboxGroundingThresholds.minConfidence,
+                maxArea: safetyGate.bboxGroundingThresholds.maxArea
+            }
+            : null,
+        vision_bbox_low_confidence_count: Number(safetyGate?.lowRegionBboxConfidenceCount) || 0,
+        vision_bbox_overbroad_count: Number(safetyGate?.overbroadRegionBboxCount) || 0,
+        vision_bbox_weak_grounding_count: Number(safetyGate?.weakPixelGroundingCount) || 0
     };
 };
