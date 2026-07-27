@@ -62,6 +62,8 @@ const run = () => {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
   console.log(`Vision operational release decision: ${report.decision}`);
+  console.log(`Vision operational release card: ${report.decisionCard.title}`);
+  console.log(`Vision operational release action: ${report.decisionCard.primaryAction}`);
   console.log(`Blocking reasons: ${report.blockingReasons.join(', ') || 'none'}`);
   console.log(`Report: ${outputPath}`);
   if (!report.releaseAllowed) process.exitCode = 1;

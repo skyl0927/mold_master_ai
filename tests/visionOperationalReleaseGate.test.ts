@@ -201,7 +201,10 @@ test('release decision card keeps shadow hold as an explicit data collection act
     assert.equal(report.decision, 'hold_shadow');
     assert.equal(report.decisionCard.status, 'shadow_hold');
     assert.equal(report.decisionCard.primaryAction, 'continue_shadow_and_collect');
-    assert.deepEqual(report.decisionCard.targetVersion, candidateVersion);
+    assert.deepEqual(report.decisionCard.targetVersion, {
+        ...candidateVersion,
+        graphVersion: ''
+    });
     assert.equal(report.decisionCard.severity, 'warning');
     assert.deepEqual(report.decisionCard.blockingReasons, report.blockingReasons);
     assert.ok(report.decisionCard.operatorSteps.some(step => step.includes('Shadow')));

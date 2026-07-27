@@ -27,6 +27,7 @@ import {
   parseVisionOperationalReleaseReport,
   readVisionOperationalReleaseReport,
   saveVisionOperationalReleaseReport,
+  VisionOperationalDecisionAction,
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
 
@@ -40,9 +41,15 @@ const releaseDecisionLabel = (
   report: VisionOperationalReleaseReport | null
 ): string => {
   if (!report) return 'Shadow 평가 보고서 필요';
-  if (report.decision === 'promote_candidate') return '후보 버전 승격 가능';
-  if (report.decision === 'rollback_required') return '직전 버전 롤백 필요';
-  return 'Shadow 모드 유지';
+  return report.decisionCard.title;
+};
+
+const releaseActionLabel = (
+  action: VisionOperationalDecisionAction
+): string => {
+  if (action === 'activate_candidate') return '후보 버전 활성화';
+  if (action === 'restore_baseline_snapshot') return '기준 버전 복원';
+  return 'Shadow 유지 및 데이터 보강';
 };
 
 const optionalNumber = (value: string): number | undefined => {
@@ -587,6 +594,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
               )}
               {operationalRelease ? (
                 <>
+                  <div className="mt-3 space-y-2 text-[10px] text-gray-300">
+                    <p className="leading-relaxed text-sky-100">
+                      {operationalRelease.decisionCard.summary}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <span className="rounded bg-sky-900/70 px-2 py-1 text-[9px] text-sky-100">
+                        조치: {releaseActionLabel(operationalRelease.decisionCard.primaryAction)}
+                      </span>
+                      <span className="rounded bg-gray-800 px-2 py-1 text-[9px] text-gray-200">
+                        사람 승인 필요
+                      </span>
+                      <span className="rounded bg-gray-800 px-2 py-1 text-[9px] text-gray-200">
+                        자동 적용 금지
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sky-200">운영 확인 절차</p>
+                      {operationalRelease.decisionCard.operatorSteps.slice(0, 3).map(step => (
+                        <p key={step} className="mt-1 break-words text-gray-300">
+                          {step}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-gray-300">
                     <span>
                       Top-1{' '}
@@ -634,6 +665,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     </span>
                   </div>
                   <p className="mt-2 break-words text-[9px] text-sky-200/70">
+                    결정 대상: {operationalRelease.decisionCard.targetVersion.modelVersion} /{' '}
+                    {operationalRelease.decisionCard.targetVersion.promptVersion} /{' '}
+                    {operationalRelease.decisionCard.targetVersion.graphVersion}
+                  </p>
+                  <p className="mt-1 break-words text-[9px] text-gray-500">
                     후보: {operationalRelease.candidateVersion.modelVersion} /{' '}
                     {operationalRelease.candidateVersion.promptVersion} /{' '}
                     {operationalRelease.candidateVersion.graphVersion}
@@ -645,9 +681,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       {operationalRelease.rollbackTarget.graphVersion}
                     </p>
                   )}
-                  {operationalRelease.blockingReasons.length > 0 && (
+                  {operationalRelease.decisionCard.blockingReasons.length > 0 && (
                     <p className="mt-1 break-words text-[9px] text-amber-200">
-                      차단 기준: {operationalRelease.blockingReasons.join(', ')}
+                      차단 기준: {operationalRelease.decisionCard.blockingReasons.join(', ')}
                     </p>
                   )}
                 </>

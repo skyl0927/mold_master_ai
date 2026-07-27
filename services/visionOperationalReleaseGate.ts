@@ -107,10 +107,39 @@ export interface VisionOperationalReleaseChecks {
     latency: boolean;
 }
 
+export type VisionOperationalReleaseDecision =
+    | 'promote_candidate'
+    | 'hold_shadow'
+    | 'rollback_required';
+
+export type VisionOperationalDecisionStatus =
+    | 'ready_to_promote'
+    | 'shadow_hold'
+    | 'rollback_required';
+
+export type VisionOperationalDecisionAction =
+    | 'activate_candidate'
+    | 'continue_shadow_and_collect'
+    | 'restore_baseline_snapshot';
+
+export interface VisionOperationalDecisionCard {
+    contractVersion: 'vision-operational-decision-card/v1';
+    status: VisionOperationalDecisionStatus;
+    severity: 'success' | 'warning' | 'critical';
+    primaryAction: VisionOperationalDecisionAction;
+    title: string;
+    summary: string;
+    operatorSteps: string[];
+    blockingReasons: string[];
+    targetVersion: VisionVersionSnapshot;
+    requiresHumanApproval: true;
+    autoApplyAllowed: false;
+}
+
 export interface VisionOperationalReleaseReport {
     schemaVersion: 'vision-operational-release/v1';
     generatedAt: string;
-    decision: 'promote_candidate' | 'hold_shadow' | 'rollback_required';
+    decision: VisionOperationalReleaseDecision;
     releaseAllowed: boolean;
     baselineVersion: VisionVersionSnapshot;
     candidateVersion: VisionVersionSnapshot;
@@ -121,6 +150,7 @@ export interface VisionOperationalReleaseReport {
     cohorts: VisionProductCohortCoverage[];
     checks: VisionOperationalReleaseChecks;
     blockingReasons: string[];
+    decisionCard: VisionOperationalDecisionCard;
 }
 
 export interface VisionOperationalReleaseInput {
@@ -348,6 +378,76 @@ const incompleteCheckNames: Array<keyof VisionOperationalReleaseChecks> = [
     'newProductHumanVerification'
 ];
 
+type VisionOperationalDecisionCardSource = Pick<
+    VisionOperationalReleaseReport,
+    'decision' | 'baselineVersion' | 'candidateVersion' | 'rollbackTarget' | 'blockingReasons'
+>;
+
+export const buildVisionOperationalDecisionCard = (
+    source: VisionOperationalDecisionCardSource
+): VisionOperationalDecisionCard => {
+    if (source.decision === 'promote_candidate') {
+        return {
+            contractVersion: 'vision-operational-decision-card/v1',
+            status: 'ready_to_promote',
+            severity: 'success',
+            primaryAction: 'activate_candidate',
+            title: '후보 Vision 버전 승격 대기',
+            summary:
+                '모든 운영 게이트를 통과했습니다. 사람 승인 후 후보 버전을 운영 활성화할 수 있습니다.',
+            operatorSteps: [
+                '후보 모델, 프롬프트, Graph 버전 스냅샷을 최종 확인합니다.',
+                '최근 HITL 오답 또는 보류 항목이 새 결함군에 집중되지 않는지 확인합니다.',
+                '승인 후 후보 버전을 활성화하고 24시간 Shadow 모니터링을 유지합니다.'
+            ],
+            blockingReasons: [...source.blockingReasons],
+            targetVersion: { ...source.candidateVersion },
+            requiresHumanApproval: true,
+            autoApplyAllowed: false
+        };
+    }
+
+    if (source.decision === 'rollback_required') {
+        return {
+            contractVersion: 'vision-operational-decision-card/v1',
+            status: 'rollback_required',
+            severity: 'critical',
+            primaryAction: 'restore_baseline_snapshot',
+            title: '기준 Vision 버전 롤백 필요',
+            summary:
+                '후보 버전이 안전 기준을 위반했습니다. 운영 전환을 중단하고 기준 스냅샷 복원을 준비합니다.',
+            operatorSteps: [
+                '후보 버전 활성화를 중단하고 롤백 대상 스냅샷을 확인합니다.',
+                '차단 기준별 실패 케이스를 HITL 검토 큐로 보냅니다.',
+                '기준 버전으로 복원한 뒤 후보는 추가 학습 데이터로 재평가합니다.'
+            ],
+            blockingReasons: [...source.blockingReasons],
+            targetVersion: { ...(source.rollbackTarget || source.baselineVersion) },
+            requiresHumanApproval: true,
+            autoApplyAllowed: false
+        };
+    }
+
+    return {
+        contractVersion: 'vision-operational-decision-card/v1',
+        status: 'shadow_hold',
+        severity: 'warning',
+        primaryAction: 'continue_shadow_and_collect',
+        title: 'Shadow 모드 유지 및 데이터 보강',
+        summary:
+            '운영 승격 전 필수 증거가 부족합니다. 후보 버전은 Shadow 평가에서 유지하고 부족한 항목을 보강합니다.',
+        operatorSteps: [
+            '차단 기준을 기준으로 부족한 holdout 샘플 또는 새 제품군 HITL 검증을 보강합니다.',
+            '동일 baseline/candidate 쌍으로 Shadow 평가를 다시 실행합니다.',
+            '새 보고서를 등록해 결정 카드가 승격 또는 롤백으로 바뀌는지 확인합니다.'
+        ],
+        blockingReasons: [...source.blockingReasons],
+        targetVersion: { ...source.candidateVersion },
+        requiresHumanApproval: true,
+        autoApplyAllowed: false
+    };
+};
+
 export const evaluateVisionOperationalRelease = (
     input: VisionOperationalReleaseInput
 ): VisionOperationalReleaseReport => {
@@ -405,7 +505,7 @@ export const evaluateVisionOperationalRelease = (
             ? 'rollback_required'
             : 'promote_candidate';
 
-    return {
+    const reportWithoutCard: Omit<VisionOperationalReleaseReport, 'decisionCard'> = {
         schemaVersion: 'vision-operational-release/v1',
         generatedAt: input.generatedAt || new Date().toISOString(),
         decision,
@@ -420,6 +520,10 @@ export const evaluateVisionOperationalRelease = (
         cohorts,
         checks,
         blockingReasons
+    };
+    return {
+        ...reportWithoutCard,
+        decisionCard: buildVisionOperationalDecisionCard(reportWithoutCard)
     };
 };
 
@@ -439,6 +543,52 @@ const isVersionSnapshot = (value: unknown): value is VisionVersionSnapshot => {
     return typeof snapshot.modelVersion === 'string'
         && typeof snapshot.promptVersion === 'string'
         && typeof snapshot.graphVersion === 'string';
+};
+
+const sameVersionSnapshot = (
+    left: VisionVersionSnapshot,
+    right: VisionVersionSnapshot
+): boolean =>
+    left.modelVersion === right.modelVersion
+    && left.promptVersion === right.promptVersion
+    && left.graphVersion === right.graphVersion;
+
+const sameStringList = (left: string[], right: string[]): boolean =>
+    left.length === right.length && left.every((item, index) => item === right[index]);
+
+const isOperationalDecisionCard = (
+    value: unknown
+): value is VisionOperationalDecisionCard => {
+    if (!value || typeof value !== 'object') return false;
+    const card = value as Partial<VisionOperationalDecisionCard>;
+    return card.contractVersion === 'vision-operational-decision-card/v1'
+        && (
+            card.status === 'ready_to_promote'
+            || card.status === 'shadow_hold'
+            || card.status === 'rollback_required'
+        )
+        && (
+            card.severity === 'success'
+            || card.severity === 'warning'
+            || card.severity === 'critical'
+        )
+        && (
+            card.primaryAction === 'activate_candidate'
+            || card.primaryAction === 'continue_shadow_and_collect'
+            || card.primaryAction === 'restore_baseline_snapshot'
+        )
+        && typeof card.title === 'string'
+        && card.title.trim().length > 0
+        && typeof card.summary === 'string'
+        && card.summary.trim().length > 0
+        && Array.isArray(card.operatorSteps)
+        && card.operatorSteps.length > 0
+        && card.operatorSteps.every(step => typeof step === 'string' && step.trim().length > 0)
+        && Array.isArray(card.blockingReasons)
+        && card.blockingReasons.every(reason => typeof reason === 'string')
+        && isVersionSnapshot(card.targetVersion)
+        && card.requiresHumanApproval === true
+        && card.autoApplyAllowed === false;
 };
 
 const isOperationalMetrics = (value: unknown): value is VisionOperationalMetrics => {
@@ -495,7 +645,26 @@ export const parseVisionOperationalReleaseReport = (
     ) {
         throw new Error('Invalid Vision operational release report: rollback target is missing.');
     }
-    return report as VisionOperationalReleaseReport;
+    const reportWithOptionalCard = report as Omit<VisionOperationalReleaseReport, 'decisionCard'> & {
+        decisionCard?: VisionOperationalDecisionCard;
+    };
+    const expectedCard = buildVisionOperationalDecisionCard(reportWithOptionalCard);
+    if (report.decisionCard) {
+        if (
+            !isOperationalDecisionCard(report.decisionCard)
+            || report.decisionCard.status !== expectedCard.status
+            || report.decisionCard.severity !== expectedCard.severity
+            || report.decisionCard.primaryAction !== expectedCard.primaryAction
+            || !sameVersionSnapshot(report.decisionCard.targetVersion, expectedCard.targetVersion)
+            || !sameStringList(report.decisionCard.blockingReasons, expectedCard.blockingReasons)
+        ) {
+            throw new Error('Invalid Vision operational release report: decision card is inconsistent.');
+        }
+    }
+    return {
+        ...reportWithOptionalCard,
+        decisionCard: expectedCard
+    };
 };
 
 export const readVisionOperationalReleaseReport = (): VisionOperationalReleaseReport | null => {
