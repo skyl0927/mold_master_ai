@@ -138,6 +138,7 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
   assert.equal(status.nextActions[0].code, 'fill_worktable_csv');
   assert.match(status.nextActions[0].instructionKo, /newAction/);
   assert.deepEqual(status.nextActions[0].commands, [
+    'npm run operational:hitl:worktable-suggest',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
     'npm run operational:hitl:worktable-import'
   ]);

@@ -17,13 +17,16 @@ User goal continuation: keep reducing the operational HITL/data gate so pending 
 | 1 | Valid editable workspaces export decision rows as no-write CSV and Markdown worktables. | `tests/operationalHitlDecisionWorktableExport.test.js` | unit | PASS | `npm run test:operational-hitl-worktable-export` |
 | 2 | Missing workspace evidence fails closed without CSV/Markdown payloads. | `tests/operationalHitlDecisionWorktableExport.test.js` | unit | PASS | `npm run test:operational-hitl-worktable-export` |
 | 3 | Missing editable decision files produce blocked rows instead of throwing. | `tests/operationalHitlDecisionWorktableExport.test.js` | unit | PASS | `npm run test:operational-hitl-worktable-export` |
-| 4 | The CLI exports the latest real workspace into CSV, Markdown, and manifest artifacts. | `npm run operational:hitl:worktable-export` | CLI smoke | PASS | output `ready_for_human_edit`, `decisionRowCount=59`, `pendingRowCount=59`, `queueCount=3` |
+| 4 | Web Knowledge review fields and suggested cause/check/action values are preserved for CSV HITL entry. | `tests/operationalHitlDecisionWorktableExport.test.js` | unit | PASS | `npm run test:operational-hitl-worktable-export` |
+| 5 | The CLI exports the latest real workspace into CSV, Markdown, and manifest artifacts. | `npm run operational:hitl:worktable-export` | CLI smoke | PASS | output `ready_for_human_edit`, `decisionRowCount=59`, `pendingRowCount=59`, `queueCount=3` |
 
 ## RED/GREEN Evidence
 
 - RED: `node --test tests\operationalHitlDecisionWorktableExport.test.js` failed with `MODULE_NOT_FOUND` for `../operationalHitlDecisionWorktableExport`.
 - GREEN: `npm run test:operational-hitl-worktable-export` passed 3/3 tests after implementing the worktable builder and CLI.
+- Regression RED: `node --test tests\operationalHitlDecisionWorktableExport.test.js` failed because `reviewedDefectName` was not exported for Web Knowledge rows.
+- Regression GREEN: `npm run test:operational-hitl-worktable-export` passed 4/4 tests after adding `reviewedDefectName`, `reviewedProblem`, `reviewedPhenomenon`, and suggested cause/check/action fallbacks.
 
 ## Coverage And Gaps
 
-Focused tests cover row extraction, CSV/Markdown output, fail-closed behavior, and missing editable files. This does not close the HITL gate because all 59 current rows remain `pending`; it makes the human review surface clearer.
+Focused tests cover row extraction, CSV/Markdown output, fail-closed behavior, missing editable files, and Web Knowledge field preservation. This does not close the HITL gate because all 59 current rows remain `pending`; it makes the human review surface clearer and prevents required Web Knowledge content from being lost in the CSV round trip.

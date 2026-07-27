@@ -30,6 +30,7 @@ const result = spawnSync(process.execPath, [
     path.join(root, 'tests', 'operationalHitlEditableDecisionWorkspace.test.js'),
     path.join(root, 'tests', 'operationalHitlEditableDecisionPreflight.test.js'),
     path.join(root, 'tests', 'operationalHitlDecisionWorktableExport.test.js'),
+    path.join(root, 'tests', 'operationalHitlDecisionWorktableSuggestion.test.js'),
     path.join(root, 'tests', 'operationalHitlDecisionWorktableImport.test.js'),
     path.join(root, 'tests', 'operationalHitlVerificationRun.test.js'),
     path.join(root, 'tests', 'operationalHitlCommonAgentImportPackage.test.js'),

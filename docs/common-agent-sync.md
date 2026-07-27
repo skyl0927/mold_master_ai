@@ -94,6 +94,7 @@ npm run operational:hitl:reviewer-worksheet
 npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
+npm run operational:hitl:worktable-suggest
 npm run operational:hitl:worktable-import
 npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
@@ -162,6 +163,14 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 쉬운 CSV와 Markdown 작업표로 펼친다. 각 row는 queue, decision id, 현재 action,
 허용 action, 필수 필드, 검토 포커스, 수정 파일, 검증 명령을 포함한다. 이 산출물은
 입력 보조용이며 decision JSON을 수정하거나 검증 명령을 실행하지 않는다.
+
+`operational:hitl:worktable-suggest`는 최신 worktable export를 읽어 사람이
+검토할 추천 action, 추천 사유, 필수 확인 항목, 보완/재촬영 포인트를
+`operational-hitl-decision-worktable-suggestion/v1` JSON/CSV/Markdown으로
+생성한다. 추천표는 원본 worktable의 `newAction`을 자동으로 채우지 않으며,
+`suggested*` 컬럼만 제공한다. 사람이 추천을 확인한 뒤 필요한 값만 원본
+worktable CSV에 옮겨 적어야 하며, 이 명령도 SQL, Graph, Reference, 모델 학습에
+쓰지 않는다.
 
 `operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
 decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,

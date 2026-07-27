@@ -173,6 +173,7 @@ const fillCsvAction = worktableCsv => action({
   titleKo: 'CSV 작업표 HITL 판정 입력',
   instructionKo: 'CSV에서 각 row의 newAction, reviewer, decidedAt, reviewComment와 action별 확인 필드를 입력하세요.',
   commands: [
+    'npm run operational:hitl:worktable-suggest',
     worktableCsv ? `edit ${worktableCsv}` : 'edit <operational-hitl-decision-worktable-export.csv>',
     'npm run operational:hitl:worktable-import'
   ],
