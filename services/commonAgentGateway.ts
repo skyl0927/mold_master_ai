@@ -60,6 +60,7 @@ export interface DiagnosisComparisonRecord {
     graphCitationCount?: number;
     visionClassifierStatus?: VisionClassifierSummary['status'];
     visionClassifierAgreementWithVisionTop1?: boolean | null;
+    visionClassifierVisionCandidate?: string;
     visionClassifierTopCandidate?: string;
     visionClassifierReferenceCount?: number;
     visionClassifierMinimumReferenceSupport?: number;
@@ -131,6 +132,21 @@ export interface DiagnosisObservabilityAction {
     message: string;
 }
 
+export interface DiagnosisVisionClassifierDisagreementTarget {
+    visionCandidate: string;
+    classifierCandidate: string;
+    count: number;
+    sampleImageIds: string[];
+}
+
+export interface DiagnosisVisionClassifierReferenceTarget {
+    defectType: string;
+    count: number;
+    averageReferenceCount: number;
+    minimumReferenceSupport: number;
+    sampleImageIds: string[];
+}
+
 export interface DiagnosisObservability {
     total: number;
     commonAgentLatencyMs: DiagnosisLatencySummary;
@@ -147,6 +163,8 @@ export interface DiagnosisObservability {
     visionClassifierDisagreementRate: number;
     visionClassifierInsufficientReferenceRate: number;
     averageClassifierReferenceCount: number;
+    visionClassifierDisagreementTargets: DiagnosisVisionClassifierDisagreementTarget[];
+    visionClassifierReferenceTargets: DiagnosisVisionClassifierReferenceTarget[];
     visionClassifierRecommendedActions: DiagnosisObservabilityAction[];
     ungroundedLlmTrainingLeakCount: number;
     averageEvidenceCount: number;
@@ -524,33 +542,147 @@ const compactFailureMessage = (value: string): string => {
     return compact.length <= 160 ? compact : `${compact.slice(0, 159).trim()}…`;
 };
 
+const compactClassifierLabel = (value?: string): string => {
+    const compact = (value || '').replace(/\s+/g, ' ').trim();
+    return compact || '미확인';
+};
+
+const pushSampleImageId = (sampleImageIds: string[], imageId: string): void => {
+    if (sampleImageIds.includes(imageId)) return;
+    if (sampleImageIds.length >= 3) return;
+    sampleImageIds.push(imageId);
+};
+
+const summarizeVisionClassifierDisagreementTargets = (
+    records: DiagnosisComparisonRecord[]
+): DiagnosisVisionClassifierDisagreementTarget[] => {
+    const groups = new Map<string, DiagnosisVisionClassifierDisagreementTarget>();
+    for (const record of records) {
+        if (record.visionClassifierStatus !== 'disagreed') continue;
+        const visionCandidate = compactClassifierLabel(
+            record.visionClassifierVisionCandidate
+            || record.commonAgentDefectType
+            || record.legacyDefectType
+        );
+        const classifierCandidate = compactClassifierLabel(record.visionClassifierTopCandidate);
+        const key = `${visionCandidate}\u0000${classifierCandidate}`;
+        const previous = groups.get(key);
+        if (previous) {
+            previous.count += 1;
+            pushSampleImageId(previous.sampleImageIds, record.imageId);
+            continue;
+        }
+        groups.set(key, {
+            visionCandidate,
+            classifierCandidate,
+            count: 1,
+            sampleImageIds: [record.imageId]
+        });
+    }
+    return Array.from(groups.values()).sort((left, right) =>
+        right.count - left.count
+        || left.visionCandidate.localeCompare(right.visionCandidate, 'ko')
+        || left.classifierCandidate.localeCompare(right.classifierCandidate, 'ko')
+    );
+};
+
+const summarizeVisionClassifierReferenceTargets = (
+    records: DiagnosisComparisonRecord[]
+): DiagnosisVisionClassifierReferenceTarget[] => {
+    const groups = new Map<string, {
+        defectType: string;
+        count: number;
+        referenceCounts: number[];
+        minimumSupports: number[];
+        sampleImageIds: string[];
+    }>();
+    for (const record of records) {
+        if (record.visionClassifierStatus !== 'insufficient_reference') continue;
+        const defectType = compactClassifierLabel(
+            record.visionClassifierTopCandidate
+            || record.visionClassifierVisionCandidate
+            || record.commonAgentDefectType
+            || record.legacyDefectType
+        );
+        const previous = groups.get(defectType);
+        const target = previous || {
+            defectType,
+            count: 0,
+            referenceCounts: [],
+            minimumSupports: [],
+            sampleImageIds: []
+        };
+        target.count += 1;
+        if (
+            typeof record.visionClassifierReferenceCount === 'number'
+            && Number.isFinite(record.visionClassifierReferenceCount)
+        ) {
+            target.referenceCounts.push(record.visionClassifierReferenceCount);
+        }
+        if (
+            typeof record.visionClassifierMinimumReferenceSupport === 'number'
+            && Number.isFinite(record.visionClassifierMinimumReferenceSupport)
+        ) {
+            target.minimumSupports.push(record.visionClassifierMinimumReferenceSupport);
+        }
+        pushSampleImageId(target.sampleImageIds, record.imageId);
+        groups.set(defectType, target);
+    }
+    return Array.from(groups.values())
+        .map(target => ({
+            defectType: target.defectType,
+            count: target.count,
+            averageReferenceCount: roundedAverage(target.referenceCounts),
+            minimumReferenceSupport: target.minimumSupports.length > 0
+                ? Math.max(...target.minimumSupports)
+                : 0,
+            sampleImageIds: target.sampleImageIds
+        }))
+        .sort((left, right) =>
+            right.count - left.count
+            || left.defectType.localeCompare(right.defectType, 'ko')
+        );
+};
+
 const buildVisionClassifierRecommendedActions = ({
     sampleCount,
     agreementRate,
     disagreementRate,
     insufficientReferenceRate,
-    averageReferenceCount
+    averageReferenceCount,
+    disagreementTargets,
+    referenceTargets
 }: {
     sampleCount: number;
     agreementRate: number;
     disagreementRate: number;
     insufficientReferenceRate: number;
     averageReferenceCount: number;
+    disagreementTargets: DiagnosisVisionClassifierDisagreementTarget[];
+    referenceTargets: DiagnosisVisionClassifierReferenceTarget[];
 }): DiagnosisObservabilityAction[] => {
     if (sampleCount === 0) return [];
     const actions: DiagnosisObservabilityAction[] = [];
     if (disagreementRate > 0) {
+        const primaryTarget = disagreementTargets[0];
+        const targetMessage = primaryTarget
+            ? ` 주요 충돌: ${primaryTarget.visionCandidate} -> ${primaryTarget.classifierCandidate} ${primaryTarget.count}건.`
+            : '';
         actions.push({
             code: 'review_classifier_disagreement',
             severity: 'warning',
-            message: `Classifier 불일치 ${disagreementRate}%: 촬영 프로토콜, ROI 품질, 라벨 taxonomy alias를 우선 검토하세요.`
+            message: `Classifier 불일치 ${disagreementRate}%:${targetMessage} 촬영 프로토콜, ROI 품질, 라벨 taxonomy alias를 우선 검토하세요.`
         });
     }
     if (insufficientReferenceRate > 0) {
+        const primaryTarget = referenceTargets[0];
+        const targetMessage = primaryTarget
+            ? ` 우선 수집: ${primaryTarget.defectType} 현재 평균 ${primaryTarget.averageReferenceCount}장 / 목표 ${primaryTarget.minimumReferenceSupport}장.`
+            : '';
         actions.push({
             code: 'collect_classifier_references',
             severity: 'warning',
-            message: `Classifier 참조 부족 ${insufficientReferenceRate}%: 부족 결함군의 승인 이미지를 추가 수집하고 reference store를 refresh하세요.`
+            message: `Classifier 참조 부족 ${insufficientReferenceRate}%:${targetMessage} 부족 결함군의 승인 이미지를 추가 수집하고 reference store를 refresh하세요.`
         });
     }
     if (actions.length === 0 && agreementRate >= 80 && averageReferenceCount >= 3) {
@@ -620,6 +752,10 @@ export const calculateDiagnosisObservability = (
     const averageClassifierReferenceCount = roundedAverage(
         classifierReferenceMeasured.map(record => record.visionClassifierReferenceCount!)
     );
+    const visionClassifierDisagreementTargets =
+        summarizeVisionClassifierDisagreementTargets(classifierMeasured);
+    const visionClassifierReferenceTargets =
+        summarizeVisionClassifierReferenceTargets(classifierMeasured);
 
     for (const record of records) {
         selectedSources[record.selectedSource] += 1;
@@ -678,12 +814,16 @@ export const calculateDiagnosisObservability = (
         visionClassifierDisagreementRate,
         visionClassifierInsufficientReferenceRate,
         averageClassifierReferenceCount,
+        visionClassifierDisagreementTargets,
+        visionClassifierReferenceTargets,
         visionClassifierRecommendedActions: buildVisionClassifierRecommendedActions({
             sampleCount: classifierMeasured.length,
             agreementRate: visionClassifierAgreementRate,
             disagreementRate: visionClassifierDisagreementRate,
             insufficientReferenceRate: visionClassifierInsufficientReferenceRate,
-            averageReferenceCount: averageClassifierReferenceCount
+            averageReferenceCount: averageClassifierReferenceCount,
+            disagreementTargets: visionClassifierDisagreementTargets,
+            referenceTargets: visionClassifierReferenceTargets
         }),
         ungroundedLlmTrainingLeakCount: records.filter(record =>
             record.graphGrounded === false
@@ -863,6 +1003,7 @@ export class CommonAgentGateway {
             graphCitationCount: selectedAnalysis.retrievalSummary?.graphValidation?.citationCount,
             visionClassifierStatus: classifierSummary?.status,
             visionClassifierAgreementWithVisionTop1: classifierSummary?.agreementWithVisionTop1,
+            visionClassifierVisionCandidate: selectedAnalysis.visionSummary?.primaryCandidate?.defectType,
             visionClassifierTopCandidate: classifierSummary?.topCandidate?.defectType,
             visionClassifierReferenceCount: classifierSummary?.topCandidate?.referenceCount,
             visionClassifierMinimumReferenceSupport: classifierSummary?.minimumReferenceSupport,
