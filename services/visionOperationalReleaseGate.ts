@@ -122,6 +122,31 @@ export type VisionOperationalDecisionAction =
     | 'continue_shadow_and_collect'
     | 'restore_baseline_snapshot';
 
+export type VisionOperationalEvidenceKind =
+    | 'baseline_benchmark'
+    | 'candidate_benchmark'
+    | 'release_config'
+    | 'release_report'
+    | 'common_agent_dataset_export'
+    | 'common_agent_review_packet'
+    | 'graph_snapshot'
+    | 'graph_release_evidence';
+
+export interface VisionOperationalEvidenceReference {
+    kind: VisionOperationalEvidenceKind;
+    uri: string;
+    sha256?: string;
+    generatedAt?: string;
+    label?: string;
+}
+
+export interface VisionOperationalEvidenceBundle {
+    contractVersion: 'vision-operational-evidence-bundle/v1';
+    items: VisionOperationalEvidenceReference[];
+    complete: boolean;
+    missingEvidence: string[];
+}
+
 export interface VisionOperationalDecisionCard {
     contractVersion: 'vision-operational-decision-card/v1';
     status: VisionOperationalDecisionStatus;
@@ -132,6 +157,7 @@ export interface VisionOperationalDecisionCard {
     operatorSteps: string[];
     blockingReasons: string[];
     targetVersion: VisionVersionSnapshot;
+    evidenceBundle: VisionOperationalEvidenceBundle;
     requiresHumanApproval: true;
     autoApplyAllowed: false;
 }
@@ -149,6 +175,7 @@ export interface VisionOperationalOperatorDecision {
     confirmed: true;
     targetVersion: VisionVersionSnapshot;
     blockingReasons: string[];
+    evidenceBundle: VisionOperationalEvidenceBundle;
     autoApplied: false;
 }
 
@@ -175,6 +202,7 @@ export interface VisionOperationalReleaseReport {
     cohorts: VisionProductCohortCoverage[];
     checks: VisionOperationalReleaseChecks;
     blockingReasons: string[];
+    evidenceBundle: VisionOperationalEvidenceBundle;
     decisionCard: VisionOperationalDecisionCard;
     operatorDecision?: VisionOperationalOperatorDecision;
 }
@@ -189,6 +217,7 @@ export interface VisionOperationalReleaseInput {
     minimumHumanVerifiedPerNewProduct?: number;
     latencyTargetP95Ms: number;
     generatedAt?: string;
+    evidenceBundle?: Partial<VisionOperationalEvidenceBundle>;
 }
 
 export const VISION_OPERATIONAL_RELEASE_STORAGE_KEY =
@@ -404,9 +433,80 @@ const incompleteCheckNames: Array<keyof VisionOperationalReleaseChecks> = [
     'newProductHumanVerification'
 ];
 
+const requiredEvidenceKinds: VisionOperationalEvidenceKind[] = [
+    'baseline_benchmark',
+    'candidate_benchmark',
+    'release_config',
+    'common_agent_dataset_export',
+    'graph_snapshot'
+];
+
+const evidenceKinds = new Set<VisionOperationalEvidenceKind>([
+    ...requiredEvidenceKinds,
+    'release_report',
+    'common_agent_review_packet',
+    'graph_release_evidence'
+]);
+
+const isEvidenceKind = (value: unknown): value is VisionOperationalEvidenceKind =>
+    typeof value === 'string' && evidenceKinds.has(value as VisionOperationalEvidenceKind);
+
+const normalizedEvidenceItem = (
+    value: unknown
+): VisionOperationalEvidenceReference | null => {
+    if (!value || typeof value !== 'object') return null;
+    const item = value as Partial<VisionOperationalEvidenceReference>;
+    const uri = typeof item.uri === 'string' ? item.uri.trim() : '';
+    if (!isEvidenceKind(item.kind) || !uri) return null;
+    return {
+        kind: item.kind,
+        uri,
+        ...(typeof item.sha256 === 'string' && item.sha256.trim()
+            ? { sha256: item.sha256.trim() }
+            : {}),
+        ...(typeof item.generatedAt === 'string' && item.generatedAt.trim()
+            ? { generatedAt: item.generatedAt.trim() }
+            : {}),
+        ...(typeof item.label === 'string' && item.label.trim()
+            ? { label: item.label.trim() }
+            : {})
+    };
+};
+
+export const normalizeVisionOperationalEvidenceBundle = (
+    value?: Partial<VisionOperationalEvidenceBundle>
+): VisionOperationalEvidenceBundle => {
+    const seen = new Set<string>();
+    const items = (Array.isArray(value?.items) ? value.items : [])
+        .map(normalizedEvidenceItem)
+        .filter((item): item is VisionOperationalEvidenceReference => Boolean(item))
+        .sort((left, right) =>
+            `${left.kind}:${left.uri}`.localeCompare(`${right.kind}:${right.uri}`)
+        )
+        .filter(item => {
+            const key = `${item.kind}:${item.uri}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    const presentKinds = new Set(items.map(item => item.kind));
+    const missingEvidence = requiredEvidenceKinds.filter(kind => !presentKinds.has(kind));
+    return {
+        contractVersion: 'vision-operational-evidence-bundle/v1',
+        items,
+        complete: missingEvidence.length === 0,
+        missingEvidence
+    };
+};
+
 type VisionOperationalDecisionCardSource = Pick<
     VisionOperationalReleaseReport,
-    'decision' | 'baselineVersion' | 'candidateVersion' | 'rollbackTarget' | 'blockingReasons'
+    | 'decision'
+    | 'baselineVersion'
+    | 'candidateVersion'
+    | 'rollbackTarget'
+    | 'blockingReasons'
+    | 'evidenceBundle'
 >;
 
 export const buildVisionOperationalDecisionCard = (
@@ -428,6 +528,7 @@ export const buildVisionOperationalDecisionCard = (
             ],
             blockingReasons: [...source.blockingReasons],
             targetVersion: { ...source.candidateVersion },
+            evidenceBundle: normalizeVisionOperationalEvidenceBundle(source.evidenceBundle),
             requiresHumanApproval: true,
             autoApplyAllowed: false
         };
@@ -449,6 +550,7 @@ export const buildVisionOperationalDecisionCard = (
             ],
             blockingReasons: [...source.blockingReasons],
             targetVersion: { ...(source.rollbackTarget || source.baselineVersion) },
+            evidenceBundle: normalizeVisionOperationalEvidenceBundle(source.evidenceBundle),
             requiresHumanApproval: true,
             autoApplyAllowed: false
         };
@@ -469,6 +571,7 @@ export const buildVisionOperationalDecisionCard = (
         ],
         blockingReasons: [...source.blockingReasons],
         targetVersion: { ...source.candidateVersion },
+        evidenceBundle: normalizeVisionOperationalEvidenceBundle(source.evidenceBundle),
         requiresHumanApproval: true,
         autoApplyAllowed: false
     };
@@ -524,6 +627,7 @@ export const evaluateVisionOperationalRelease = (
     const blockingReasons = Object.entries(checks)
         .filter(([, passed]) => !passed)
         .map(([name]) => name);
+    const evidenceBundle = normalizeVisionOperationalEvidenceBundle(input.evidenceBundle);
     const incomplete = incompleteCheckNames.some(name => !checks[name]);
     const decision: VisionOperationalReleaseReport['decision'] = incomplete
         ? 'hold_shadow'
@@ -545,7 +649,8 @@ export const evaluateVisionOperationalRelease = (
         splitAudit,
         cohorts,
         checks,
-        blockingReasons
+        blockingReasons,
+        evidenceBundle
     };
     return {
         ...reportWithoutCard,
@@ -574,6 +679,9 @@ export const attachVisionOperationalOperatorDecision = (
     if (!sameVersionSnapshot(input.targetVersion, report.decisionCard.targetVersion)) {
         throw new Error('Vision operator decision target version does not match release card target.');
     }
+    if (!report.decisionCard.evidenceBundle.complete) {
+        throw new Error('Vision operator decision evidence bundle is incomplete.');
+    }
     return {
         ...report,
         operatorDecision: {
@@ -589,6 +697,9 @@ export const attachVisionOperationalOperatorDecision = (
             confirmed: true,
             targetVersion: { ...input.targetVersion },
             blockingReasons: [...report.decisionCard.blockingReasons],
+            evidenceBundle: normalizeVisionOperationalEvidenceBundle(
+                report.decisionCard.evidenceBundle
+            ),
             autoApplied: false
         }
     };
@@ -623,9 +734,47 @@ const sameVersionSnapshot = (
 const sameStringList = (left: string[], right: string[]): boolean =>
     left.length === right.length && left.every((item, index) => item === right[index]);
 
-const isOperationalDecisionCard = (
+const sameEvidenceItems = (
+    left: VisionOperationalEvidenceReference[],
+    right: VisionOperationalEvidenceReference[]
+): boolean =>
+    left.length === right.length
+    && left.every((item, index) => {
+        const other = right[index];
+        return item.kind === other.kind
+            && item.uri === other.uri
+            && item.sha256 === other.sha256
+            && item.generatedAt === other.generatedAt
+            && item.label === other.label;
+    });
+
+const sameEvidenceBundle = (
+    left: VisionOperationalEvidenceBundle,
+    right: VisionOperationalEvidenceBundle
+): boolean =>
+    left.contractVersion === right.contractVersion
+    && left.complete === right.complete
+    && sameStringList(left.missingEvidence, right.missingEvidence)
+    && sameEvidenceItems(left.items, right.items);
+
+const isOperationalEvidenceBundle = (
     value: unknown
-): value is VisionOperationalDecisionCard => {
+): value is VisionOperationalEvidenceBundle => {
+    if (!value || typeof value !== 'object') return false;
+    const bundle = value as Partial<VisionOperationalEvidenceBundle>;
+    const normalizedBundle = normalizeVisionOperationalEvidenceBundle(bundle);
+    return bundle.contractVersion === 'vision-operational-evidence-bundle/v1'
+        && Array.isArray(bundle.items)
+        && bundle.items.every(item => normalizedEvidenceItem(item) !== null)
+        && bundle.complete === normalizedBundle.complete
+        && Array.isArray(bundle.missingEvidence)
+        && bundle.missingEvidence.every(item => typeof item === 'string')
+        && sameStringList(bundle.missingEvidence, normalizedBundle.missingEvidence);
+};
+
+const isOperationalDecisionCardCore = (
+    value: unknown
+): value is Omit<VisionOperationalDecisionCard, 'evidenceBundle'> => {
     if (!value || typeof value !== 'object') return false;
     const card = value as Partial<VisionOperationalDecisionCard>;
     return card.contractVersion === 'vision-operational-decision-card/v1'
@@ -656,6 +805,14 @@ const isOperationalDecisionCard = (
         && isVersionSnapshot(card.targetVersion)
         && card.requiresHumanApproval === true
         && card.autoApplyAllowed === false;
+};
+
+const isOperationalDecisionCard = (
+    value: unknown
+): value is VisionOperationalDecisionCard => {
+    if (!isOperationalDecisionCardCore(value)) return false;
+    const card = value as Partial<VisionOperationalDecisionCard>;
+    return isOperationalEvidenceBundle(card.evidenceBundle);
 };
 
 const isOperationalOperatorDecision = (
@@ -690,6 +847,7 @@ const isOperationalOperatorDecision = (
         && isVersionSnapshot(decision.targetVersion)
         && Array.isArray(decision.blockingReasons)
         && decision.blockingReasons.every(reason => typeof reason === 'string')
+        && isOperationalEvidenceBundle(decision.evidenceBundle)
         && decision.autoApplied === false;
 };
 
@@ -750,15 +908,29 @@ export const parseVisionOperationalReleaseReport = (
     const reportWithOptionalCard = report as Omit<VisionOperationalReleaseReport, 'decisionCard'> & {
         decisionCard?: VisionOperationalDecisionCard;
     };
-    const expectedCard = buildVisionOperationalDecisionCard(reportWithOptionalCard);
+    const evidenceBundle = normalizeVisionOperationalEvidenceBundle(report.evidenceBundle);
+    if (report.evidenceBundle && !isOperationalEvidenceBundle(report.evidenceBundle)) {
+        throw new Error('Invalid Vision operational release report: evidence bundle is malformed.');
+    }
+    const expectedCard = buildVisionOperationalDecisionCard({
+        ...reportWithOptionalCard,
+        evidenceBundle
+    });
     if (report.decisionCard) {
+        const cardEvidence = (report.decisionCard as Partial<VisionOperationalDecisionCard>)
+            .evidenceBundle;
         if (
-            !isOperationalDecisionCard(report.decisionCard)
+            !isOperationalDecisionCardCore(report.decisionCard)
+            || (cardEvidence !== undefined && !isOperationalEvidenceBundle(cardEvidence))
             || report.decisionCard.status !== expectedCard.status
             || report.decisionCard.severity !== expectedCard.severity
             || report.decisionCard.primaryAction !== expectedCard.primaryAction
             || !sameVersionSnapshot(report.decisionCard.targetVersion, expectedCard.targetVersion)
             || !sameStringList(report.decisionCard.blockingReasons, expectedCard.blockingReasons)
+            || (
+                cardEvidence !== undefined
+                && !sameEvidenceBundle(cardEvidence, expectedCard.evidenceBundle)
+            )
         ) {
             throw new Error('Invalid Vision operational release report: decision card is inconsistent.');
         }
@@ -774,12 +946,14 @@ export const parseVisionOperationalReleaseReport = (
             || report.operatorDecision.reportGeneratedAt !== report.generatedAt
             || !sameVersionSnapshot(report.operatorDecision.targetVersion, expectedCard.targetVersion)
             || !sameStringList(report.operatorDecision.blockingReasons, expectedCard.blockingReasons)
+            || !sameEvidenceBundle(report.operatorDecision.evidenceBundle, expectedCard.evidenceBundle)
         ) {
             throw new Error('Invalid Vision operational release report: operator decision is stale.');
         }
     }
     return {
         ...reportWithOptionalCard,
+        evidenceBundle,
         decisionCard: expectedCard,
         operatorDecision: report.operatorDecision
     };

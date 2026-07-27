@@ -48,5 +48,7 @@
       "expectedDefectClass": "whitening",
       "humanVerified": true
     }
-  }
+  },
+  "commonAgentEvidenceUri": "common-agent://datasets/images/export/approved-holdout-YYYYMMDD",
+  "graphEvidenceUri": "neo4j://mold-master/approved-graph-002"
 }

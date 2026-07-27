@@ -484,8 +484,10 @@ Top-1/Top-3·선택 정확도·위험 오판·ECE·P95 회귀 게이트, 직전 
 결정 카드로 표준화해 설정 화면, CLI artifact, legacy report import가 같은
 운영 조치와 대상 스냅샷을 사용하게 했다. 이어서 담당자, 코멘트, 확인 시각,
 대상 스냅샷, 자동 적용 금지 여부를 `operatorDecision`으로 저장하고 전환
-리포트 JSON에 포함하도록 했다. 실제 승인 현장 데이터의 운영 합격 판정은
-계속 보류한다.
+리포트 JSON에 포함하도록 했다. 또한 baseline/candidate benchmark, release
+config, Common Agent export URI, Graph snapshot URI를 `evidenceBundle`로
+표준화하고 카드와 담당자 확인 기록에 같은 근거 묶음을 붙였다. 실제 승인
+현장 데이터의 운영 합격 판정은 계속 보류한다.
 
 개발:
 
@@ -562,9 +564,10 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
    실패 없이 기준 미달 항목을 수집
 3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행
    후 `enforce`로 승격
-4. 2026-07-27 운영 릴리스 보고서의 결정 카드와 담당자 확인 기록을
-   구현했다. 남은 작업은 실제 benchmark artifact와 Common Agent/Graph
-   evidence URI를 연결해 앱 안에서 승격, 보류, 롤백을 최종 확정하는 단계다.
+4. 2026-07-27 운영 릴리스 보고서의 결정 카드, 담당자 확인 기록,
+   evidenceBundle 연결을 구현했다. 남은 작업은 실제 Common Agent export와
+   Graph snapshot URI가 포함된 운영 benchmark artifact를 누적해 앱 안에서
+   승격, 보류, 롤백을 최종 확정하는 단계다.
 5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
    반대 근거, 추가 촬영 요구를 함께 저장
 

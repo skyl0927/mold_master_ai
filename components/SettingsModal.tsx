@@ -53,6 +53,18 @@ const releaseActionLabel = (
   return 'Shadow 유지 및 데이터 보강';
 };
 
+const releaseEvidenceKindLabel = (kind: string): string => {
+  if (kind === 'baseline_benchmark') return 'Baseline benchmark';
+  if (kind === 'candidate_benchmark') return 'Candidate benchmark';
+  if (kind === 'release_config') return 'Release config';
+  if (kind === 'release_report') return 'Release report';
+  if (kind === 'common_agent_dataset_export') return 'Common Agent export';
+  if (kind === 'common_agent_review_packet') return 'Common Agent review';
+  if (kind === 'graph_snapshot') return 'Graph snapshot';
+  if (kind === 'graph_release_evidence') return 'Graph evidence';
+  return kind;
+};
+
 const optionalNumber = (value: string): number | undefined => {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -610,7 +622,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
               </div>
               {releaseImportStatus && (
                 <p className={`mt-2 text-[9px] ${
-                  releaseImportStatus.startsWith('보고서 등록 실패')
+                  releaseImportStatus.includes('실패')
                     ? 'text-red-300'
                     : 'text-emerald-300'
                 }`}>
@@ -633,6 +645,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       <span className="rounded bg-gray-800 px-2 py-1 text-[9px] text-gray-200">
                         자동 적용 금지
                       </span>
+                      <span className={`rounded px-2 py-1 text-[9px] ${
+                        operationalRelease.decisionCard.evidenceBundle.complete
+                          ? 'bg-emerald-900/60 text-emerald-200'
+                          : 'bg-amber-900/60 text-amber-200'
+                      }`}>
+                        근거 {operationalRelease.decisionCard.evidenceBundle.items.length}건
+                      </span>
+                    </div>
+                    <div className="rounded border border-gray-700/70 bg-gray-950/40 p-2">
+                      <p className={`font-semibold ${
+                        operationalRelease.decisionCard.evidenceBundle.complete
+                          ? 'text-emerald-300'
+                          : 'text-amber-300'
+                      }`}>
+                        {operationalRelease.decisionCard.evidenceBundle.complete
+                          ? '운영 근거 연결 완료'
+                          : `운영 근거 미연결: ${operationalRelease.decisionCard.evidenceBundle.missingEvidence.map(releaseEvidenceKindLabel).join(', ')}`}
+                      </p>
+                      {operationalRelease.decisionCard.evidenceBundle.items.slice(0, 3).map(item => (
+                        <p key={`${item.kind}:${item.uri}`} className="mt-1 break-words text-[9px] text-gray-400">
+                          {releaseEvidenceKindLabel(item.kind)}: {item.uri}
+                        </p>
+                      ))}
                     </div>
                     <div>
                       <p className="font-semibold text-sky-200">운영 확인 절차</p>
@@ -737,7 +772,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           <button
                             type="button"
                             onClick={handleConfirmOperationalDecision}
-                            className="rounded bg-sky-700 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-600"
+                            disabled={!operationalRelease.decisionCard.evidenceBundle.complete}
+                            className="rounded bg-sky-700 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {releaseActionLabel(operationalRelease.decisionCard.primaryAction)} 확인
                           </button>

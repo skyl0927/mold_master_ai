@@ -62,7 +62,37 @@ const path = require('node:path');
         splitAudit: { passed: true, sampleCount: 60, issues: [] },
         cohorts: [],
         checks: { top1Accuracy: false },
-        blockingReasons: ['top1Accuracy', 'unsafeFalsePositive', 'calibration', 'latency']
+        blockingReasons: ['top1Accuracy', 'unsafeFalsePositive', 'calibration', 'latency'],
+        evidenceBundle: {
+          contractVersion: 'vision-operational-evidence-bundle/v1',
+          items: [
+            {
+              kind: 'baseline_benchmark',
+              uri: 'file:///artifacts/baseline-vision-report.json',
+              sha256: 'a'.repeat(64)
+            },
+            {
+              kind: 'candidate_benchmark',
+              uri: 'file:///artifacts/candidate-vision-report.json',
+              sha256: 'b'.repeat(64)
+            },
+            {
+              kind: 'release_config',
+              uri: 'file:///artifacts/vision-release-config.json',
+              sha256: 'c'.repeat(64)
+            },
+            {
+              kind: 'common_agent_dataset_export',
+              uri: 'common-agent://datasets/images/export/approved-holdout-20260727'
+            },
+            {
+              kind: 'graph_snapshot',
+              uri: 'neo4j://mold-master/approved-graph-43'
+            }
+          ],
+          complete: true,
+          missingEvidence: []
+        }
       }));
     }, [
       {
@@ -178,13 +208,18 @@ const path = require('node:path');
       hasVisionReviewQueueSample: bodyText.includes('image-2'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uAE30\uC900 Vision \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
+      hasReleaseEvidenceComplete: bodyText.includes('\uC6B4\uC601 \uADFC\uAC70 \uC5F0\uACB0 \uC644\uB8CC'),
       hasOperatorDecision: bodyText.includes('\uC6B4\uC601 \uC870\uCE58 \uD655\uC778 \uC644\uB8CC'),
       releaseDecision: captured.report.operationalRelease?.decision,
+      releaseEvidenceComplete: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.complete,
+      releaseEvidenceItemCount: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.items?.length,
       releaseOperatorDecisionAction: captured.report.operationalRelease?.operatorDecision?.action,
       releaseOperatorDecisionTarget:
         captured.report.operationalRelease?.operatorDecision?.targetVersion?.modelVersion,
       releaseOperatorDecisionAutoApplied:
         captured.report.operationalRelease?.operatorDecision?.autoApplied,
+      releaseOperatorDecisionEvidenceComplete:
+        captured.report.operationalRelease?.operatorDecision?.evidenceBundle?.complete,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
@@ -222,11 +257,15 @@ const path = require('node:path');
       || !result.hasVisionReviewQueueSample
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
+      || !result.hasReleaseEvidenceComplete
       || !result.hasOperatorDecision
       || result.releaseDecision !== 'rollback_required'
+      || result.releaseEvidenceComplete !== true
+      || result.releaseEvidenceItemCount !== 5
       || result.releaseOperatorDecisionAction !== 'restore_baseline_snapshot'
       || result.releaseOperatorDecisionTarget !== 'vision-model-2026.06'
       || result.releaseOperatorDecisionAutoApplied !== false
+      || result.releaseOperatorDecisionEvidenceComplete !== true
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50

@@ -1,5 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
+const { pathToFileURL } = require('node:url');
 const { buildSync } = require('esbuild');
 const {
   buildShadowReleaseInput
@@ -19,6 +21,38 @@ const requiredPath = flag => {
 const readJson = filePath => JSON.parse(
   fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '')
 );
+const sha256File = filePath =>
+  crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+const fileEvidence = (kind, filePath, label) => ({
+  kind,
+  uri: pathToFileURL(filePath).href,
+  sha256: sha256File(filePath),
+  label
+});
+const evidenceItemsFromConfig = config => {
+  const bundleItems = Array.isArray(config?.evidenceBundle?.items)
+    ? config.evidenceBundle.items
+    : [];
+  const commonAgentUris = [
+    config?.commonAgentEvidenceUri,
+    ...(Array.isArray(config?.commonAgentEvidenceUris) ? config.commonAgentEvidenceUris : [])
+  ].filter(Boolean).map(uri => ({
+    kind: 'common_agent_dataset_export',
+    uri
+  }));
+  const graphUris = [
+    config?.graphEvidenceUri,
+    ...(Array.isArray(config?.graphEvidenceUris) ? config.graphEvidenceUris : [])
+  ].filter(Boolean).map(uri => ({
+    kind: 'graph_snapshot',
+    uri
+  }));
+  return [
+    ...bundleItems,
+    ...commonAgentUris,
+    ...graphUris
+  ];
+};
 
 const loadGate = () => {
   const outputDirectory = path.join(root, '.tmp-tools');
@@ -48,6 +82,22 @@ const run = () => {
   const config = readJson(configPath);
   const built = buildShadowReleaseInput(baselineReport, candidateReport, config);
   const { evaluateVisionOperationalRelease } = loadGate();
+  built.gateInput.evidenceBundle = {
+    contractVersion: 'vision-operational-evidence-bundle/v1',
+    items: [
+      fileEvidence('baseline_benchmark', baselinePath, 'baseline benchmark report'),
+      fileEvidence('candidate_benchmark', candidatePath, 'candidate benchmark report'),
+      fileEvidence('release_config', configPath, 'release gate config'),
+      {
+        kind: 'release_report',
+        uri: pathToFileURL(outputPath).href,
+        label: 'generated release report'
+      },
+      ...evidenceItemsFromConfig(config)
+    ],
+    complete: false,
+    missingEvidence: []
+  };
   const report = evaluateVisionOperationalRelease(built.gateInput);
   const artifact = {
     ...report,

@@ -6,6 +6,7 @@ import {
     attachVisionOperationalOperatorDecision,
     evaluateVisionOperationalRelease,
     parseVisionOperationalReleaseReport,
+    VisionOperationalEvidenceBundle,
     VisionShadowSample,
     VisionVersionSnapshot
 } from '../services/visionOperationalReleaseGate';
@@ -22,7 +23,7 @@ const candidateVersion: VisionVersionSnapshot = {
     graphVersion: 'approved-graph-43'
 };
 
-const completeEvidenceBundle = {
+const completeEvidenceBundle: VisionOperationalEvidenceBundle = {
     contractVersion: 'vision-operational-evidence-bundle/v1',
     items: [
         {
@@ -51,7 +52,7 @@ const completeEvidenceBundle = {
     ],
     complete: true,
     missingEvidence: []
-} as const;
+};
 
 const makeShadowSamples = (
     count = 30,
@@ -281,6 +282,33 @@ test('release parser enriches legacy reports with a decision card', () => {
     assert.deepEqual(parsed.decisionCard.targetVersion, baselineVersion);
 });
 
+test('release parser enriches a legacy decision card that has no evidence bundle', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: completeEvidenceBundle
+    });
+    const { evidenceBundle: _cardEvidence, ...legacyDecisionCard } = report.decisionCard;
+    const { evidenceBundle: _reportEvidence, ...legacyReport } = report;
+
+    const parsed = parseVisionOperationalReleaseReport(JSON.stringify({
+        ...legacyReport,
+        decisionCard: legacyDecisionCard
+    }));
+
+    assert.equal(parsed.decisionCard.evidenceBundle.complete, false);
+    assert.deepEqual(parsed.decisionCard.evidenceBundle.missingEvidence, [
+        'baseline_benchmark',
+        'candidate_benchmark',
+        'release_config',
+        'common_agent_dataset_export',
+        'graph_snapshot'
+    ]);
+});
+
 test('release parser rejects a malformed decision card instead of trusting stale operator actions', () => {
     const validReport = evaluateVisionOperationalRelease({
         baselineVersion,
@@ -447,7 +475,11 @@ test('release parser keeps a valid operator decision and rejects a stale one aft
                 ...approved.operatorDecision,
                 evidenceBundle: {
                     ...approved.operatorDecision?.evidenceBundle,
-                    items: approved.operatorDecision?.evidenceBundle.items.slice(1)
+                    items: approved.operatorDecision?.evidenceBundle.items.map((item, index) =>
+                        index === 0
+                            ? { ...item, uri: 'file:///artifacts/changed-baseline.json' }
+                            : item
+                    )
                 }
             }
         })),
