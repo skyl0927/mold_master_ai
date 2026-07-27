@@ -294,3 +294,58 @@ test('legacy unlinked candidates can be displayed but never become probable', ()
   assert.equal(observation.decisionStatus, 'needs_review');
   assert.equal(observation.decisionReason, 'legacy_observation_contract');
 });
+
+test('rejected image quality suppresses high-confidence defect candidates', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    quality_status: 'reject',
+    quality_concerns: ['motion blur', 'ROI too small'],
+    observations: [{
+      observation_id: 'obs-white',
+      category: 'color',
+      description: '\uD750\uB9B0 \uBC31\uC0C9 \uC601\uC5ED',
+      region: '\uCDE8\uCD9C\uBD80',
+      confidence: 0.88
+    }],
+    candidates: [{
+      defect_type: '\uBC31\uD654',
+      confidence: 0.96,
+      supporting_observation_ids: ['obs-white']
+    }]
+  });
+
+  assert.equal(observation.qualityStatus, 'reject');
+  assert.equal(observation.candidates.length, 0);
+  assert.equal(observation.primaryCandidate, null);
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+  assert.equal(observation.decisionReason, 'image_quality_rejected');
+  assert.equal(observation.abstentionReason, 'image_quality_rejected');
+  assert.ok(observation.validationIssues.includes('image_quality_rejected'));
+});
+
+test('Graph retrieval query does not include candidates from rejected quality images', () => {
+  const query = buildVisionRetrievalQuery({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    quality_status: 'fail',
+    quality_concerns: ['over exposure'],
+    observations: [{
+      observation_id: 'obs-line',
+      category: 'boundary',
+      description: '\uC120\uD615 \uACBD\uACC4\uAC00 \uBCF4\uC784',
+      confidence: 0.91
+    }],
+    candidates: [{
+      defect_type: '\uC6F0\uB4DC\uB77C\uC778',
+      confidence: 0.94,
+      supporting_observation_ids: ['obs-line']
+    }]
+  }, '\uCDE8\uCD9C\uC2DC \uC18C\uC74C \uBC1C\uC0DD');
+
+  assert.match(query, /Quality status: reject/);
+  assert.match(query, /Candidate defects: unclassifiable/);
+  assert.doesNotMatch(query, /\uC6F0\uB4DC\uB77C\uC778/);
+});
