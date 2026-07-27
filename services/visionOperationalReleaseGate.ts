@@ -207,6 +207,44 @@ export interface VisionOperationalReleaseReport {
     operatorDecision?: VisionOperationalOperatorDecision;
 }
 
+export type VisionOperationalReleaseHistoryStatus =
+    | 'no_history'
+    | 'blocked_missing_evidence'
+    | 'awaiting_operator_decision'
+    | 'confirmed';
+
+export interface VisionOperationalReleaseHistoryEntry {
+    id: string;
+    recordedAt: string;
+    decision: VisionOperationalReleaseDecision;
+    action: VisionOperationalDecisionAction;
+    candidateVersion: VisionVersionSnapshot;
+    targetVersion: VisionVersionSnapshot;
+    evidenceComplete: boolean;
+    operatorConfirmed: boolean;
+    report: VisionOperationalReleaseReport;
+}
+
+export interface VisionOperationalReleaseHistory {
+    schemaVersion: 'vision-operational-release-history/v1';
+    updatedAt: string;
+    entries: VisionOperationalReleaseHistoryEntry[];
+}
+
+export interface VisionOperationalReleaseHistorySummary {
+    totalReports: number;
+    completeEvidenceReports: number;
+    operatorConfirmedReports: number;
+    promoteCandidates: number;
+    shadowHolds: number;
+    rollbackRequired: number;
+    latestStatus: VisionOperationalReleaseHistoryStatus;
+    latestReportId?: string;
+    latestDecision?: VisionOperationalReleaseDecision;
+    latestAction?: VisionOperationalDecisionAction;
+    latestCandidateVersion?: VisionVersionSnapshot;
+}
+
 export interface VisionOperationalReleaseInput {
     baselineVersion: VisionVersionSnapshot;
     candidateVersion: VisionVersionSnapshot;
@@ -222,6 +260,10 @@ export interface VisionOperationalReleaseInput {
 
 export const VISION_OPERATIONAL_RELEASE_STORAGE_KEY =
     'mold-master-ai:vision-operational-release:v1';
+export const VISION_OPERATIONAL_RELEASE_HISTORY_STORAGE_KEY =
+    'mold-master-ai:vision-operational-release-history:v1';
+
+const VISION_OPERATIONAL_RELEASE_HISTORY_LIMIT = 50;
 
 const round = (value: number, digits = 4): number => {
     const scale = 10 ** digits;
@@ -710,6 +752,7 @@ export const saveVisionOperationalReleaseReport = (
 ): void => {
     try {
         localStorage.setItem(VISION_OPERATIONAL_RELEASE_STORAGE_KEY, JSON.stringify(report));
+        recordVisionOperationalReleaseHistory(report);
     } catch {
         // Storage may be unavailable in hardened renderer or test environments.
     }
@@ -959,6 +1002,200 @@ export const parseVisionOperationalReleaseReport = (
     };
 };
 
+const historyTimestamp = (value: string): number => {
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? 0 : time;
+};
+
+export const buildVisionOperationalReleaseReportId = (
+    report: VisionOperationalReleaseReport
+): string => [
+    report.schemaVersion,
+    report.generatedAt,
+    report.decision,
+    report.baselineVersion.modelVersion,
+    report.baselineVersion.promptVersion,
+    report.baselineVersion.graphVersion,
+    report.candidateVersion.modelVersion,
+    report.candidateVersion.promptVersion,
+    report.candidateVersion.graphVersion
+].join('|');
+
+const buildVisionOperationalReleaseHistoryEntry = (
+    report: VisionOperationalReleaseReport,
+    recordedAt: string
+): VisionOperationalReleaseHistoryEntry => {
+    const canonicalReport = parseVisionOperationalReleaseReport(JSON.stringify(report));
+    return {
+        id: buildVisionOperationalReleaseReportId(canonicalReport),
+        recordedAt,
+        decision: canonicalReport.decision,
+        action: canonicalReport.decisionCard.primaryAction,
+        candidateVersion: { ...canonicalReport.candidateVersion },
+        targetVersion: { ...canonicalReport.decisionCard.targetVersion },
+        evidenceComplete: canonicalReport.decisionCard.evidenceBundle.complete,
+        operatorConfirmed: canonicalReport.operatorDecision?.status === 'confirmed',
+        report: canonicalReport
+    };
+};
+
+const sortVisionOperationalReleaseHistoryEntries = (
+    entries: VisionOperationalReleaseHistoryEntry[]
+): VisionOperationalReleaseHistoryEntry[] =>
+    [...entries].sort((left, right) =>
+        historyTimestamp(right.recordedAt) - historyTimestamp(left.recordedAt)
+        || historyTimestamp(right.report.generatedAt) - historyTimestamp(left.report.generatedAt)
+        || right.id.localeCompare(left.id)
+    );
+
+export const upsertVisionOperationalReleaseHistory = (
+    history: VisionOperationalReleaseHistory | null | undefined,
+    report: VisionOperationalReleaseReport,
+    recordedAt = new Date().toISOString()
+): VisionOperationalReleaseHistory => {
+    const entry = buildVisionOperationalReleaseHistoryEntry(report, recordedAt);
+    const existingEntries = history?.schemaVersion === 'vision-operational-release-history/v1'
+        ? history.entries
+        : [];
+    const entries = sortVisionOperationalReleaseHistoryEntries([
+        entry,
+        ...existingEntries.filter(existing => existing.id !== entry.id)
+    ]).slice(0, VISION_OPERATIONAL_RELEASE_HISTORY_LIMIT);
+
+    return {
+        schemaVersion: 'vision-operational-release-history/v1',
+        updatedAt: recordedAt,
+        entries
+    };
+};
+
+export const summarizeVisionOperationalReleaseHistory = (
+    history: VisionOperationalReleaseHistory | null | undefined
+): VisionOperationalReleaseHistorySummary => {
+    const entries = sortVisionOperationalReleaseHistoryEntries(
+        history?.schemaVersion === 'vision-operational-release-history/v1'
+            ? history.entries
+            : []
+    );
+    const latest = entries[0];
+    const latestStatus: VisionOperationalReleaseHistoryStatus = !latest
+        ? 'no_history'
+        : !latest.evidenceComplete
+            ? 'blocked_missing_evidence'
+            : latest.operatorConfirmed
+                ? 'confirmed'
+                : 'awaiting_operator_decision';
+
+    return {
+        totalReports: entries.length,
+        completeEvidenceReports: entries.filter(entry => entry.evidenceComplete).length,
+        operatorConfirmedReports: entries.filter(entry => entry.operatorConfirmed).length,
+        promoteCandidates: entries.filter(entry => entry.decision === 'promote_candidate').length,
+        shadowHolds: entries.filter(entry => entry.decision === 'hold_shadow').length,
+        rollbackRequired: entries.filter(entry => entry.decision === 'rollback_required').length,
+        latestStatus,
+        latestReportId: latest?.id,
+        latestDecision: latest?.decision,
+        latestAction: latest?.action,
+        latestCandidateVersion: latest ? { ...latest.candidateVersion } : undefined
+    };
+};
+
+export const parseVisionOperationalReleaseHistory = (
+    raw: string
+): VisionOperationalReleaseHistory => {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new Error('Invalid Vision operational release history: JSON parse failed.');
+    }
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid Vision operational release history: object required.');
+    }
+    const history = parsed as Partial<VisionOperationalReleaseHistory>;
+    if (
+        history.schemaVersion !== 'vision-operational-release-history/v1'
+        || typeof history.updatedAt !== 'string'
+        || !Array.isArray(history.entries)
+    ) {
+        throw new Error('Invalid Vision operational release history: required fields are missing.');
+    }
+    const entries = history.entries.map(entry => {
+        if (!entry || typeof entry !== 'object') {
+            throw new Error('Invalid Vision operational release history: entry object required.');
+        }
+        const candidate = entry as Partial<VisionOperationalReleaseHistoryEntry>;
+        if (
+            typeof candidate.id !== 'string'
+            || typeof candidate.recordedAt !== 'string'
+            || !candidate.report
+        ) {
+            throw new Error('Invalid Vision operational release history: entry fields are missing.');
+        }
+        const rebuilt = buildVisionOperationalReleaseHistoryEntry(
+            parseVisionOperationalReleaseReport(JSON.stringify(candidate.report)),
+            candidate.recordedAt
+        );
+        if (candidate.id !== rebuilt.id) {
+            throw new Error('Invalid Vision operational release history: entry id is stale.');
+        }
+        return rebuilt;
+    });
+
+    return {
+        schemaVersion: 'vision-operational-release-history/v1',
+        updatedAt: history.updatedAt,
+        entries: sortVisionOperationalReleaseHistoryEntries(entries)
+            .slice(0, VISION_OPERATIONAL_RELEASE_HISTORY_LIMIT)
+    };
+};
+
+export const readVisionOperationalReleaseHistory = (): VisionOperationalReleaseHistory => {
+    try {
+        const value = localStorage.getItem(VISION_OPERATIONAL_RELEASE_HISTORY_STORAGE_KEY);
+        return value
+            ? parseVisionOperationalReleaseHistory(value)
+            : {
+                schemaVersion: 'vision-operational-release-history/v1',
+                updatedAt: '',
+                entries: []
+            };
+    } catch {
+        return {
+            schemaVersion: 'vision-operational-release-history/v1',
+            updatedAt: '',
+            entries: []
+        };
+    }
+};
+
+export const saveVisionOperationalReleaseHistory = (
+    history: VisionOperationalReleaseHistory
+): void => {
+    try {
+        localStorage.setItem(
+            VISION_OPERATIONAL_RELEASE_HISTORY_STORAGE_KEY,
+            JSON.stringify(history)
+        );
+    } catch {
+        // Storage may be unavailable in hardened renderer or test environments.
+    }
+};
+
+export const recordVisionOperationalReleaseHistory = (
+    report: VisionOperationalReleaseReport,
+    recordedAt = new Date().toISOString()
+): VisionOperationalReleaseHistory => {
+    const history = upsertVisionOperationalReleaseHistory(
+        readVisionOperationalReleaseHistory(),
+        report,
+        recordedAt
+    );
+    saveVisionOperationalReleaseHistory(history);
+    return history;
+};
+
 export const readVisionOperationalReleaseReport = (): VisionOperationalReleaseReport | null => {
     try {
         const value = localStorage.getItem(VISION_OPERATIONAL_RELEASE_STORAGE_KEY);
@@ -971,6 +1208,14 @@ export const readVisionOperationalReleaseReport = (): VisionOperationalReleaseRe
 export const clearVisionOperationalReleaseReport = (): void => {
     try {
         localStorage.removeItem(VISION_OPERATIONAL_RELEASE_STORAGE_KEY);
+    } catch {
+        // Storage may be unavailable in hardened renderer or test environments.
+    }
+};
+
+export const clearVisionOperationalReleaseHistory = (): void => {
+    try {
+        localStorage.removeItem(VISION_OPERATIONAL_RELEASE_HISTORY_STORAGE_KEY);
     } catch {
         // Storage may be unavailable in hardened renderer or test environments.
     }

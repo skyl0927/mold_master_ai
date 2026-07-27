@@ -26,9 +26,12 @@ import { DEFECT_CLASS_LABELS } from '../shared/defect-taxonomy';
 import {
   attachVisionOperationalOperatorDecision,
   parseVisionOperationalReleaseReport,
+  readVisionOperationalReleaseHistory,
   readVisionOperationalReleaseReport,
   saveVisionOperationalReleaseReport,
+  summarizeVisionOperationalReleaseHistory,
   VisionOperationalDecisionAction,
+  VisionOperationalReleaseHistoryStatus,
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
 
@@ -51,6 +54,15 @@ const releaseActionLabel = (
   if (action === 'activate_candidate') return '후보 버전 활성화';
   if (action === 'restore_baseline_snapshot') return '기준 버전 복원';
   return 'Shadow 유지 및 데이터 보강';
+};
+
+const releaseHistoryStatusLabel = (
+  status: VisionOperationalReleaseHistoryStatus
+): string => {
+  if (status === 'blocked_missing_evidence') return '운영 근거 보강 필요';
+  if (status === 'awaiting_operator_decision') return '작업자 승인 대기';
+  if (status === 'confirmed') return '운영 조치 확인 완료';
+  return '이력 없음';
 };
 
 const releaseEvidenceKindLabel = (kind: string): string => {
@@ -143,6 +155,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalRelease, setOperationalRelease] = useState(
     () => readVisionOperationalReleaseReport()
   );
+  const [operationalReleaseHistory, setOperationalReleaseHistory] = useState(
+    () => readVisionOperationalReleaseHistory()
+  );
+  const operationalReleaseHistorySummary =
+    summarizeVisionOperationalReleaseHistory(operationalReleaseHistory);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
@@ -274,6 +291,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
         generatedAt
       ),
       operationalRelease,
+      operationalReleaseHistory,
+      operationalReleaseHistorySummary,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -299,6 +318,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       const report = parseVisionOperationalReleaseReport(await file.text());
       saveVisionOperationalReleaseReport(report);
       setOperationalRelease(report);
+      setOperationalReleaseHistory(readVisionOperationalReleaseHistory());
       setReleaseOperator('');
       setReleaseOperatorComment('');
       setReleaseImportStatus('운영 평가 보고서를 검증하고 등록했습니다.');
@@ -321,6 +341,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       });
       saveVisionOperationalReleaseReport(report);
       setOperationalRelease(report);
+      setOperationalReleaseHistory(readVisionOperationalReleaseHistory());
       setReleaseImportStatus('운영 조치 확인 기록을 저장했습니다.');
     } catch (error) {
       setReleaseImportStatus(
@@ -629,6 +650,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   {releaseImportStatus}
                 </p>
               )}
+              <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
+                <p className="font-semibold text-sky-200">
+                  릴리스 이력 {operationalReleaseHistorySummary.totalReports}건 · 근거완료{' '}
+                  {operationalReleaseHistorySummary.completeEvidenceReports}건 · 운영확인{' '}
+                  {operationalReleaseHistorySummary.operatorConfirmedReports}건
+                </p>
+                <p className="mt-1 text-gray-400">
+                  최신 상태: {releaseHistoryStatusLabel(operationalReleaseHistorySummary.latestStatus)}
+                  {operationalReleaseHistory.entries[0]
+                    ? ` · ${operationalReleaseHistory.entries[0].report.decisionCard.title}`
+                    : ''}
+                </p>
+              </div>
               {operationalRelease ? (
                 <>
                   <div className="mt-3 space-y-2 text-[10px] text-gray-300">

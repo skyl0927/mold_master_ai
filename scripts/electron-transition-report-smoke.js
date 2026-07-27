@@ -210,6 +210,7 @@ const path = require('node:path');
       hasRollbackDecision: bodyText.includes('\uAE30\uC900 Vision \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       hasReleaseEvidenceComplete: bodyText.includes('\uC6B4\uC601 \uADFC\uAC70 \uC5F0\uACB0 \uC644\uB8CC'),
       hasOperatorDecision: bodyText.includes('\uC6B4\uC601 \uC870\uCE58 \uD655\uC778 \uC644\uB8CC'),
+      hasReleaseHistoryPanel: bodyText.includes('\uB9B4\uB9AC\uC2A4 \uC774\uB825'),
       releaseDecision: captured.report.operationalRelease?.decision,
       releaseEvidenceComplete: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.complete,
       releaseEvidenceItemCount: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.items?.length,
@@ -220,6 +221,11 @@ const path = require('node:path');
         captured.report.operationalRelease?.operatorDecision?.autoApplied,
       releaseOperatorDecisionEvidenceComplete:
         captured.report.operationalRelease?.operatorDecision?.evidenceBundle?.complete,
+      releaseHistoryEntries: captured.report.operationalReleaseHistory?.entries?.length,
+      releaseHistoryTotal: captured.report.operationalReleaseHistorySummary?.totalReports,
+      releaseHistoryConfirmed: captured.report.operationalReleaseHistorySummary?.operatorConfirmedReports,
+      releaseHistoryLatestStatus: captured.report.operationalReleaseHistorySummary?.latestStatus,
+      releaseHistoryLatestAction: captured.report.operationalReleaseHistorySummary?.latestAction,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
@@ -259,6 +265,7 @@ const path = require('node:path');
       || !result.hasRollbackDecision
       || !result.hasReleaseEvidenceComplete
       || !result.hasOperatorDecision
+      || !result.hasReleaseHistoryPanel
       || result.releaseDecision !== 'rollback_required'
       || result.releaseEvidenceComplete !== true
       || result.releaseEvidenceItemCount !== 5
@@ -266,6 +273,11 @@ const path = require('node:path');
       || result.releaseOperatorDecisionTarget !== 'vision-model-2026.06'
       || result.releaseOperatorDecisionAutoApplied !== false
       || result.releaseOperatorDecisionEvidenceComplete !== true
+      || result.releaseHistoryEntries !== 1
+      || result.releaseHistoryTotal !== 1
+      || result.releaseHistoryConfirmed !== 1
+      || result.releaseHistoryLatestStatus !== 'confirmed'
+      || result.releaseHistoryLatestAction !== 'restore_baseline_snapshot'
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50
