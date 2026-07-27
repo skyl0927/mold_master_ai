@@ -16,7 +16,8 @@ buildSync({
 const result = spawnSync(process.execPath, [
     '--test',
     output,
-    path.join(root, 'tests', 'apiConfigDefaults.test.js')
+    path.join(root, 'tests', 'apiConfigDefaults.test.js'),
+    path.join(root, 'tests', 'visionDiagnosisGuard.test.js')
 ], {
     cwd: root,
     stdio: 'inherit'

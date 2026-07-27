@@ -8,6 +8,7 @@ import {
     VisionGraphGroundingSummary
 } from '../types';
 import { normalizeVisionObservation } from '../visionObservation';
+import { guardDefectAnalysisForVisionRisk } from '../visionDiagnosisGuard';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
@@ -936,7 +937,7 @@ export class CommonAgentApiService {
             item.citations.map(citation => citation.pathText)
         ) || [];
 
-        return compactDefectAnalysis({
+        const analysis = compactDefectAnalysis({
             defectType: visionSummary.primaryCandidate?.defectType
                 || (!isGroundedV2 ? observation.defect_type : undefined)
                 || '판정 불가 (사람 검토 필요)',
@@ -973,5 +974,8 @@ export class CommonAgentApiService {
                 graphValidation
             }
         });
+        return isGroundedV2
+            ? guardDefectAnalysisForVisionRisk(analysis, enrichedVisionSummary, { graphValidation })
+            : analysis;
     }
 }

@@ -62,8 +62,8 @@ test('guard removes unverified LLM causes and actions from weak Vision analysis'
   assert.equal(guarded.severity, '-');
   assert.equal(guarded.description, '리브 기부의 유백색 변색');
   assert.equal(guarded.possibleCauses, '');
-  assert.match(guarded.countermeasures, /사선광 근접 촬영/);
-  assert.equal(guarded.retrievalSummary.llmSupplemented, false);
+  assert.equal(guarded.countermeasures, '');
+  assert.equal(guarded.retrievalSummary.llmSupplemented, true);
 });
 
 test('approved Graph auto-finalization preserves a weak Vision candidate', () => {

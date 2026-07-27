@@ -166,7 +166,7 @@ test('grounded Vision v2 rejects unlinked candidates and does not inject causes 
 
     const analysis = CommonAgentApiService.toDefectAnalysis(response);
 
-    assert.equal(analysis.defectType, '판정 불가 (사람 검토 필요)');
+    assert.equal(analysis.defectType, '판정 보류 (사람 검토 필요)');
     assert.equal(analysis.description, '동일 간격으로 반복되는 리브가 보임');
     assert.equal(analysis.severity, '-');
     assert.equal(analysis.possibleCauses, '');

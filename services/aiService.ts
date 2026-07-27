@@ -3,6 +3,11 @@ import OpenAI from "openai";
 import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
 import { buildVisionRetrievalQuery, parseVisionObservationText } from '../visionObservation';
 import {
+    buildVisionDiagnosisGuard,
+    buildVisionGuardAbstentionAnalysis,
+    guardDefectAnalysisForVisionRisk
+} from '../visionDiagnosisGuard';
+import {
     getClients,
     handleApiError,
     OPENAI_EFFICIENT_MODEL,
@@ -341,6 +346,13 @@ export const analyzeMoldDefect = async (
 ): Promise<DefectAnalysis> => {
     try {
         const { defectHint, visualDescription, visionSummary } = await analyzeImageWithVisionModel(base64Data);
+        const diagnosisGuard = buildVisionDiagnosisGuard(visionSummary);
+        if (!diagnosisGuard.allowGraphRetrieval) {
+            return buildVisionGuardAbstentionAnalysis(visionSummary, {
+                modeUsed: retrievalMode,
+                rawOutput: JSON.stringify({ visionSummary, diagnosisGuard }, null, 2)
+            });
+        }
         const retrieval = await retrieveKnowledge(buildVisionRetrievalQuery(visionSummary, fieldContext), {
             mode: retrievalMode,
             topK: retrievalMode === 'graph_only' ? 5 : 4,
@@ -351,11 +363,14 @@ export const analyzeMoldDefect = async (
         const graphDraft = buildGraphFirstDraft(retrieval);
 
         if (retrievalMode === 'graph_only' && graphGroundedAnalysis) {
-            return { ...graphGroundedAnalysis, visionSummary };
+            return guardDefectAnalysisForVisionRisk(
+                { ...graphGroundedAnalysis, visionSummary },
+                visionSummary
+            );
         }
 
         if (graphGroundedAnalysis && !shouldSupplementWithLlm(graphDraft)) {
-            return {
+            return guardDefectAnalysisForVisionRisk({
                 ...graphGroundedAnalysis,
                 visionSummary,
                 retrievalSummary: {
@@ -363,7 +378,27 @@ export const analyzeMoldDefect = async (
                     graphGrounded: true,
                     llmSupplemented: false
                 }
-            };
+            }, visionSummary);
+        }
+
+        if (!diagnosisGuard.allowLlmSupplement && !graphGroundedAnalysis) {
+            return guardDefectAnalysisForVisionRisk({
+                defectType: defectHint,
+                severity: '-',
+                description: visualDescription,
+                possibleCauses: '',
+                countermeasures: '',
+                rawOutput: JSON.stringify({ visionSummary, diagnosisGuard }, null, 2),
+                visionSummary,
+                retrievalSummary: {
+                    modeUsed: retrieval.modeUsed,
+                    citations: retrieval.citations,
+                    evidenceCount: retrieval.evidence.length,
+                    graphTrace: graphDraft.graphTrace,
+                    graphGrounded: false,
+                    llmSupplemented: false
+                }
+            }, visionSummary);
         }
 
         const analysis = await createLlmBackedAnalysis(
@@ -373,7 +408,7 @@ export const analyzeMoldDefect = async (
             retrieval,
             graphGroundedAnalysis
         );
-        return { ...analysis, visionSummary };
+        return guardDefectAnalysisForVisionRisk({ ...analysis, visionSummary }, visionSummary);
     } catch (error) {
         throw handleApiError(error);
     }
