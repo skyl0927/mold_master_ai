@@ -295,6 +295,141 @@ test('readiness audit exposes pending HITL queue, template, and decision verific
   assert.match(audit.gates.hitlWorkflow.nextCommand, /vision:hitl:verify-decisions/);
 });
 
+test('readiness audit exposes approved label conflict workflow through apply dry-run', () => {
+  const audit = buildVisionOperationalReadinessAudit({
+    referenceGateReport: referenceGatePassed,
+    postHitlVerificationReport: {
+      ...postHitlPassed,
+      status: 'waiting_for_human_hitl',
+      readyToDisableLegacyFallback: false,
+      benchmarksExecuted: false,
+      blockers: [{
+        code: 'approved_label_conflicts',
+        count: 4
+      }]
+    },
+    labelConflictPacket: {
+      contractVersion: 'vision-approved-label-conflict-review-packet/v1',
+      status: 'action_required',
+      totalConflicts: 4,
+      serviceWritesPerformed: false,
+      conflicts: Array.from({ length: 4 }, (_, index) => ({
+        conflictId: `conflict-${String(index + 1).padStart(3, '0')}`
+      }))
+    },
+    labelConflictDecisionTemplate: {
+      contractVersion: 'vision-approved-label-conflict-decisions/v1',
+      templateVersion: 'vision-approved-label-conflict-decisions-template/v1',
+      status: 'template_ready',
+      summary: {
+        conflicts: 4,
+        decisionsPrepared: 4
+      },
+      serviceWritesPerformed: false
+    },
+    labelConflictDecisionVerificationReport: {
+      contractVersion: 'vision-approved-label-conflict-decision-verification-report/v1',
+      status: 'ready_for_manual_import',
+      summary: {
+        conflicts: 4,
+        decisionsReceived: 4,
+        acceptedDecisions: 4,
+        invalidDecisions: 0,
+        pendingConflicts: 0,
+        resolvedLabelConflicts: 3,
+        recaptureRequests: 1
+      },
+      serviceWritesPerformed: false
+    },
+    labelConflictApplyReport: {
+      contractVersion: 'vision-approved-label-conflict-decision-apply-report/v1',
+      status: 'dry_run_ready',
+      applyRequested: false,
+      summary: {
+        plannedCaseUpdates: 5,
+        appliedCaseUpdates: 0,
+        resolvedQualityIssues: 4,
+        invalidTargets: 0
+      },
+      localFixtureWritesPerformed: false,
+      serviceWritesPerformed: false
+    }
+  });
+
+  assert.equal(audit.status, 'action_required');
+  assert.equal(audit.gates.labelConflictWorkflow.status, 'dry_run_ready');
+  assert.equal(audit.gates.labelConflictWorkflow.packet.conflicts, 4);
+  assert.equal(audit.gates.labelConflictWorkflow.template.decisionsPrepared, 4);
+  assert.equal(audit.gates.labelConflictWorkflow.verification.status, 'ready_for_manual_import');
+  assert.equal(audit.gates.labelConflictWorkflow.verification.resolvedLabelConflicts, 3);
+  assert.equal(audit.gates.labelConflictWorkflow.apply.status, 'dry_run_ready');
+  assert.equal(audit.gates.labelConflictWorkflow.apply.plannedCaseUpdates, 5);
+  assert.equal(audit.gates.labelConflictWorkflow.apply.localFixtureWritesPerformed, false);
+  assert.equal(audit.gates.labelConflictWorkflow.policy.autoApplyAllowed, false);
+  assert.equal(audit.gates.labelConflictWorkflow.policy.allowGraphPromotion, false);
+  assert.match(audit.gates.labelConflictWorkflow.nextCommand, /vision:label-conflicts:apply/);
+  assert.match(audit.gates.labelConflictWorkflow.nextActionKo, /--apply/);
+});
+
+test('readiness audit routes applied label conflict decisions to post-HITL verification', () => {
+  const audit = buildVisionOperationalReadinessAudit({
+    referenceGateReport: referenceGatePassed,
+    postHitlVerificationReport: {
+      ...postHitlPassed,
+      status: 'waiting_for_human_hitl',
+      readyToDisableLegacyFallback: false,
+      benchmarksExecuted: false,
+      blockers: [{
+        code: 'approved_label_conflicts',
+        count: 4
+      }]
+    },
+    labelConflictPacket: {
+      contractVersion: 'vision-approved-label-conflict-review-packet/v1',
+      status: 'action_required',
+      totalConflicts: 4,
+      serviceWritesPerformed: false
+    },
+    labelConflictDecisionTemplate: {
+      contractVersion: 'vision-approved-label-conflict-decisions/v1',
+      status: 'template_ready',
+      summary: {
+        decisionsPrepared: 4
+      },
+      serviceWritesPerformed: false
+    },
+    labelConflictDecisionVerificationReport: {
+      contractVersion: 'vision-approved-label-conflict-decision-verification-report/v1',
+      status: 'ready_for_manual_import',
+      summary: {
+        acceptedDecisions: 4,
+        pendingConflicts: 0,
+        invalidDecisions: 0
+      },
+      serviceWritesPerformed: false
+    },
+    labelConflictApplyReport: {
+      contractVersion: 'vision-approved-label-conflict-decision-apply-report/v1',
+      status: 'applied',
+      applyRequested: true,
+      summary: {
+        plannedCaseUpdates: 5,
+        appliedCaseUpdates: 5,
+        resolvedQualityIssues: 4,
+        invalidTargets: 0
+      },
+      localFixtureWritesPerformed: true,
+      serviceWritesPerformed: false
+    }
+  });
+
+  assert.equal(audit.gates.labelConflictWorkflow.status, 'applied');
+  assert.equal(audit.gates.labelConflictWorkflow.apply.localFixtureWritesPerformed, true);
+  assert.equal(audit.gates.labelConflictWorkflow.serviceWritesPerformed, false);
+  assert.equal(audit.gates.labelConflictWorkflow.nextCommand, 'npm run migration:verify-post-hitl');
+  assert.match(audit.gates.labelConflictWorkflow.nextActionKo, /post-HITL/);
+});
+
 test('readiness audit routes verified HITL decisions to the authorization bridge', () => {
   const audit = buildVisionOperationalReadinessAudit({
     referenceGateReport: referenceGatePassed,

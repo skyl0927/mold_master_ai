@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  summarizeVisionOperationalHitlWorkflowDisplay
+  summarizeVisionOperationalHitlWorkflowDisplay,
+  summarizeVisionOperationalLabelConflictWorkflowDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -120,4 +121,86 @@ test('shows the authorization bridge as the next step after decision verificatio
 test('returns null when no HITL workflow is available to display', () => {
   assert.equal(summarizeVisionOperationalHitlWorkflowDisplay({ tasks: [] }), null);
   assert.equal(summarizeVisionOperationalHitlWorkflowDisplay(null), null);
+});
+
+test('summarizes approved label conflict workflow for Settings UI display', () => {
+  const display = summarizeVisionOperationalLabelConflictWorkflowDisplay({
+    tasks: [{
+      code: 'resolve_label_conflicts',
+      workflowStatus: {
+        status: 'dry_run_ready',
+        packet: {
+          conflicts: 4
+        },
+        template: {
+          decisionsPrepared: 4
+        },
+        verification: {
+          acceptedDecisions: 4,
+          invalidDecisions: 0,
+          pendingConflicts: 0
+        },
+        apply: {
+          plannedCaseUpdates: 5,
+          appliedCaseUpdates: 0,
+          localFixtureWritesPerformed: false
+        },
+        nextCommand: 'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
+        nextActionKo: 'dry-run 결과를 확인한 뒤 사람이 승인하면 --apply로 로컬 fixture에 반영하세요.'
+      }
+    }]
+  });
+
+  assert.equal(display.title, 'Label Conflict Workflow');
+  assert.equal(display.statusLabel, 'Apply 승인 대기');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.summaryText, '충돌 4건 · 템플릿 4건 · 검증 4건 · 미해결 0건 · 적용계획 5건');
+  assert.match(display.nextCommand, /vision:label-conflicts:apply/);
+  assert.match(display.nextActionKo, /--apply/);
+  assert.deepEqual(display.safetyBadges, [
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Reference 학습 금지'
+  ]);
+});
+
+test('highlights applied label conflict workflow as requiring post-HITL verification', () => {
+  const display = summarizeVisionOperationalLabelConflictWorkflowDisplay({
+    commonAgentHandoff: {
+      items: [{
+        taskCode: 'resolve_label_conflicts',
+        workflowStatus: {
+          status: 'applied',
+          packet: {
+            conflicts: 4
+          },
+          template: {
+            decisionsPrepared: 4
+          },
+          verification: {
+            acceptedDecisions: 4,
+            invalidDecisions: 0,
+            pendingConflicts: 0
+          },
+          apply: {
+            plannedCaseUpdates: 5,
+            appliedCaseUpdates: 5,
+            localFixtureWritesPerformed: true
+          },
+          nextCommand: 'npm run migration:verify-post-hitl',
+          nextActionKo: 'post-HITL 검증을 다시 실행하세요.'
+        }
+      }]
+    }
+  });
+
+  assert.equal(display.statusLabel, '로컬 반영 완료');
+  assert.equal(display.severity, 'success');
+  assert.equal(display.summaryText, '충돌 4건 · 템플릿 4건 · 검증 4건 · 미해결 0건 · 적용계획 5건 · 반영 5건');
+  assert.equal(display.nextCommand, 'npm run migration:verify-post-hitl');
+});
+
+test('returns null when no label conflict workflow is available to display', () => {
+  assert.equal(summarizeVisionOperationalLabelConflictWorkflowDisplay({ tasks: [] }), null);
+  assert.equal(summarizeVisionOperationalLabelConflictWorkflowDisplay(null), null);
 });

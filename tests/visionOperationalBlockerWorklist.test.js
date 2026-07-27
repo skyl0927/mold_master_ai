@@ -145,6 +145,56 @@ test('blocker worklist surfaces HITL queue, template, and decision verification 
   assert.equal(worklist.commonAgentHandoff.items.find(item => item.taskCode === 'close_hitl_reviews').workflowStatus.status, 'awaiting_human_review');
 });
 
+test('blocker worklist surfaces approved label conflict workflow status', () => {
+  const worklist = buildVisionOperationalBlockerWorklist({
+    readinessAudit: {
+      ...actionRequiredAudit,
+      gates: {
+        labelConflictWorkflow: {
+          status: 'dry_run_ready',
+          packet: {
+            status: 'action_required',
+            conflicts: 4
+          },
+          template: {
+            status: 'template_ready',
+            decisionsPrepared: 4
+          },
+          verification: {
+            status: 'ready_for_manual_import',
+            acceptedDecisions: 4,
+            pendingConflicts: 0,
+            invalidDecisions: 0
+          },
+          apply: {
+            status: 'dry_run_ready',
+            plannedCaseUpdates: 5,
+            appliedCaseUpdates: 0,
+            localFixtureWritesPerformed: false
+          },
+          nextCommand: 'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
+          nextActionKo: 'dry-run 결과를 확인한 뒤 사람이 승인하면 --apply로 로컬 fixture에 반영하세요.',
+          policy: {
+            autoApplyAllowed: false,
+            allowGraphPromotion: false,
+            allowReferenceLearning: false
+          }
+        }
+      }
+    }
+  });
+
+  const task = worklist.tasks.find(item => item.code === 'resolve_label_conflicts');
+  assert.equal(task.workflowStatus.status, 'dry_run_ready');
+  assert.equal(task.workflowStatus.packet.conflicts, 4);
+  assert.equal(task.workflowStatus.apply.plannedCaseUpdates, 5);
+  assert.match(task.descriptionKo, /dry-run/);
+  assert.equal(
+    worklist.commonAgentHandoff.items.find(item => item.taskCode === 'resolve_label_conflicts').workflowStatus.status,
+    'dry_run_ready'
+  );
+});
+
 test('blocker worklist asks only for operator approval when machine gates passed', () => {
   const worklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: {
