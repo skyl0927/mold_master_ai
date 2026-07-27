@@ -231,6 +231,10 @@ test('applies a stricter bbox grounding profile for close-up defect views', () =
   assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, false);
   assert.ok(observation.safetyGate.reasons.includes('low_region_bbox_confidence'));
   assert.ok(observation.safetyGate.reasons.includes('overbroad_region_bbox'));
+  assert.deepEqual(observation.requiredAdditionalViews, [
+    'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+    'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+  ]);
 });
 
 test('downgrades a high-confidence candidate when only one visual observation supports it', () => {
