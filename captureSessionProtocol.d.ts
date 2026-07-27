@@ -63,6 +63,18 @@ export interface RecaptureCaptureGuidance {
   message: string;
 }
 
+export interface CaptureLearningEligibility {
+  eligible: boolean;
+  reason:
+    | 'approved_capture_ready'
+    | 'hitl_not_approved'
+    | 'capture_protocol_not_ready'
+    | 'recapture_guidance_view_mismatch'
+    | 'recapture_guidance_missing_view_tag'
+    | 'recapture_guidance_not_fulfilled'
+    | `recapture_guidance_${string}`;
+}
+
 export const CAPTURE_VIEW_OPTIONS: CaptureViewOption[];
 export const VALID_CAPTURE_SOURCES: Set<CaptureSource>;
 export const VALID_IMAGE_KINDS: Set<CaptureImageKind>;
@@ -97,6 +109,11 @@ export function buildRecaptureSourceFromReview(options?: {
 export function buildRecaptureCaptureGuidance(
   source?: Partial<RecaptureSource>
 ): RecaptureCaptureGuidance;
+
+export function resolveCaptureLearningEligibility(
+  reviewDecision: string,
+  captureMetadata?: Partial<CaptureMetadata>
+): CaptureLearningEligibility;
 
 export function collectSessionDiagnosisImages<T extends Partial<CapturedImage>>(
   selectedImage: T,

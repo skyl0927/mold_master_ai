@@ -51,6 +51,7 @@ import {
     buildRecaptureSourceFromReview,
     collectSessionDiagnosisImages,
     createCaptureSessionId,
+    resolveCaptureLearningEligibility,
     selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
@@ -950,6 +951,7 @@ const App: React.FC = () => {
 
                         const imageBlob = dataURItoBlob(image.dataUrl);
                         const contentSha256 = await sha256Hex(imageBlob);
+                        const captureLearningEligibility = resolveCaptureLearningEligibility(status, captureMetadata);
                         if (decision.promoteToGraph) {
                             const conflicts = await CommonAgentApiService.findApprovedImageLabelConflicts({
                                 contentSha256,
@@ -997,7 +999,9 @@ const App: React.FC = () => {
                                 human_review_decision: status,
                                 human_correction_applied: status === 'corrected',
                                 recapture_required: status === 'recapture',
-                                learning_candidate_eligible: status === 'approved',
+                                learning_candidate_eligible: captureLearningEligibility.eligible,
+                                capture_learning_candidate_eligible: captureLearningEligibility.eligible,
+                                capture_learning_candidate_eligibility_reason: captureLearningEligibility.reason,
                                 fine_tuning_auto_start_allowed: false,
                                 orchestration: correctedData.orchestrationSummary,
                                 ...buildVisionHitlReviewMetadata(correctedData, status),

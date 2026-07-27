@@ -268,6 +268,37 @@ const buildCaptureMetadata = (image, images) => {
   };
 };
 
+const resolveCaptureLearningEligibility = (reviewDecision, captureMetadata = {}) => {
+  if (reviewDecision !== 'approved') {
+    return {
+      eligible: false,
+      reason: 'hitl_not_approved'
+    };
+  }
+
+  if (
+    captureMetadata.recapture_lineage_protocol_version
+    && captureMetadata.recapture_guidance_fulfilled !== true
+  ) {
+    return {
+      eligible: false,
+      reason: `recapture_guidance_${captureMetadata.recapture_guidance_fulfillment_status || 'not_fulfilled'}`
+    };
+  }
+
+  if (captureMetadata.capture_protocol_ready === false) {
+    return {
+      eligible: false,
+      reason: 'capture_protocol_not_ready'
+    };
+  }
+
+  return {
+    eligible: true,
+    reason: 'approved_capture_ready'
+  };
+};
+
 const collectSessionDiagnosisImages = (selectedImage, images, maxViews = 8) => {
   if (
     !selectedImage
@@ -338,6 +369,7 @@ module.exports = {
   buildRecaptureSourceFromReview,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,
   summarizeCaptureSession
 };

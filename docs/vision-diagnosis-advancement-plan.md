@@ -226,7 +226,12 @@ guidance/v1`을 추가해 bbox 과대 영역, 낮은 bbox 신뢰도, 사선광/�
 수 있게 했다. Fresh recapture 이미지의 실제 `captureViewTag`가 권장 시점과
 일치하는지도 `recapture_guidance_fulfilled`,
 `recapture_guidance_fulfillment_status`, `recapture_actual_view_tags`로 기록해,
-잘못된 시점으로 다시 촬영된 이미지는 `view_mismatch`로 분리할 수 있다.
+잘못된 시점으로 다시 촬영된 이미지는 `view_mismatch`로 분리할 수 있다. 이후
+HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()`로
+계산해, 사람이 승인하더라도 재촬영 권장 시점이 충족되지 않은 이미지는
+`learning_candidate_eligible=false`,
+`capture_learning_candidate_eligibility_reason=recapture_guidance_view_mismatch`
+로 남겨 GraphRAG/vision reference 학습 승격을 차단한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 
