@@ -402,6 +402,7 @@ export interface MigrationGateStatus {
     top3Accuracy: number;
     failedGateChecks: string[];
     blockers: Array<{ code: string; detail?: unknown }>;
+    recommendedAction?: string;
     artifactGeneratedAt?: string | null;
   };
   blockers: Array<{ code: string; count?: number; detail?: unknown; details?: unknown }>;

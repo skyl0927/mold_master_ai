@@ -95,7 +95,8 @@ const summarizeVisionReferenceGate = report => {
             top1Accuracy: 0,
             top3Accuracy: 0,
             failedGateChecks: [],
-            blockers: []
+            blockers: [],
+            recommendedAction: ''
         };
     }
     const referenceStore = report.referenceStore || {};
@@ -117,6 +118,7 @@ const summarizeVisionReferenceGate = report => {
         top3Accuracy: Number(benchmark.top3Accuracy) || 0,
         failedGateChecks: asArray(benchmark.failedGateChecks),
         blockers: asArray(report.blockers),
+        recommendedAction: String(report.recommendedAction || ''),
         artifactGeneratedAt: report.generatedAt || null
     };
 };
@@ -249,7 +251,8 @@ const buildMigrationGateStatus = ({
         recommendedAction: canDisableLegacyFallback
             ? '안전 게이트가 충족되었습니다. 직접 LLM fallback 제거 변경을 별도 릴리스로 검증하세요.'
             : visionReference.required && !visionReference.readyForGraphRetrieval
-                ? 'Common Agent Vision Reference Store를 갱신하고 reference benchmark gate를 먼저 통과시키세요.'
+                ? visionReference.recommendedAction
+                    || 'Common Agent Vision Reference Store를 갱신하고 reference benchmark gate를 먼저 통과시키세요.'
                 : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
                 : failedChecks.includes('captureProtocol')
