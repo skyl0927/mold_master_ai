@@ -64,6 +64,7 @@
     "test:electron:migrate": "npm run build && node scripts/electron-process-knowledge-migration-smoke.js",
     "test:electron:transition": "npm run build && node scripts/electron-transition-report-smoke.js",
     "test:electron:multimodal": "npm run build && node scripts/electron-multimodal-diagnosis-smoke.js",
+    "test:electron:vision-recapture-policy": "npm run build && node scripts/electron-vision-recapture-policy-smoke.js",
     "test:electron:hitl": "npm run build && node scripts/electron-hitl-review-smoke.js",
     "test:electron:vision-readiness": "npm run build && node scripts/electron-vision-readiness-smoke.js",
     "test:electron:dataset-manager": "npm run build && node scripts/electron-dataset-manager-smoke.js",
