@@ -1084,7 +1084,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                     <p className="font-bold text-cyan-100">승인 Vision 데이터 품질 게이트</p>
                                     <p className="mt-1 text-xs text-gray-300">
                                         {visionReadiness
-                                            ? `유효 승인 ${visionReadiness.cleanApproved}/20 · 추가 필요 ${visionReadiness.additionalCleanImagesRequired} · 동일 이미지 중복 ${visionReadiness.duplicateRecords}건 · 충돌 ${visionReadiness.conflictGroups.length}그룹`
+                                            ? `유효 승인 ${visionReadiness.cleanApproved}/20 · 추가 필요 ${visionReadiness.additionalCleanImagesRequired} · 동일 이미지 중복 ${visionReadiness.duplicateRecords}건 · 충돌 ${visionReadiness.conflictGroups.length}그룹${visionReadiness.learningIneligibleApproved > 0 ? ` · 학습 제외 ${visionReadiness.learningIneligibleApproved}건` : ''}`
                                             : isLoadingVision ? '원본 파일 해시와 검토 상태 확인 중...' : '데이터 없음'}
                                     </p>
                                 </div>

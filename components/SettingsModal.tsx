@@ -669,7 +669,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       {visionReadiness
                         ? visionReadiness.retirementDataReady
                           ? '실데이터 수량 및 필수 결함군 기준 충족'
-                          : `유효 승인 ${visionReadiness.cleanApproved}/20건 · ${visionReadiness.additionalCleanImagesRequired}건 추가 필요`
+                          : `유효 승인 ${visionReadiness.cleanApproved}/20건 · ${visionReadiness.additionalCleanImagesRequired}건 추가 필요${visionReadiness.learningIneligibleApproved > 0 ? ` · 학습 제외 ${visionReadiness.learningIneligibleApproved}건` : ''}`
                         : isLoadingVisionReadiness ? '승인 이미지와 원본 해시 확인 중...' : '데이터를 조회하지 못했습니다.'}
                     </p>
                   </div>

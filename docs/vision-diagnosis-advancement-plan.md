@@ -231,7 +231,10 @@ HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()
 계산해, 사람이 승인하더라도 재촬영 권장 시점이 충족되지 않은 이미지는
 `learning_candidate_eligible=false`,
 `capture_learning_candidate_eligibility_reason=recapture_guidance_view_mismatch`
-로 남겨 GraphRAG/vision reference 학습 승격을 차단한다.
+로 남겨 GraphRAG/vision reference 학습 승격을 차단한다. Readiness 계산에서도
+`capture_learning_candidate_eligible=false` 또는 `learning_candidate_eligible=false`
+가 명시된 승인 이미지는 `cleanApproved`, class coverage, sample gate에서 제외하고,
+설정/DB 화면에는 `학습 제외 N건`과 사유 요약을 노출할 수 있게 했다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

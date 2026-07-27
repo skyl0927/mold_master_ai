@@ -36,6 +36,8 @@ export interface VisionDatasetReadiness {
     candidate: number;
     rejected: number;
     cleanApproved: number;
+    learningIneligibleApproved: number;
+    learningIneligibleReasons: Array<{ reason: string; count: number }>;
     missingHashApproved: number;
     missingLabelApproved: number;
     conflictGroups: VisionDatasetConflict[];
@@ -64,15 +66,39 @@ const normalizeLabel = (value?: string): string =>
 const getContentHash = (item: VisionDatasetItem): string =>
     String(item.metadata?.content_sha256 || '').trim().toLocaleLowerCase();
 
+const getLearningIneligibilityReason = (item: VisionDatasetItem): string => {
+    if (item.metadata?.capture_learning_candidate_eligible === false) {
+        return String(
+            item.metadata.capture_learning_candidate_eligibility_reason
+            || 'capture_learning_candidate_ineligible'
+        );
+    }
+    if (item.metadata?.learning_candidate_eligible === false) {
+        return String(
+            item.metadata.learning_candidate_eligibility_reason
+            || 'learning_candidate_ineligible'
+        );
+    }
+    return '';
+};
+
 export const calculateVisionDatasetReadiness = (
     items: VisionDatasetItem[],
     minimumSamples = 20,
     minimumSamplesPerClass = 2
 ): VisionDatasetReadiness => {
     const approvedItems = items.filter(item => item.review_status === 'approved');
+    const learningIneligibilityReasonById = new Map<string, string>();
+    approvedItems.forEach(item => {
+        const reason = getLearningIneligibilityReason(item).trim();
+        if (reason) learningIneligibilityReasonById.set(item.image_id, reason);
+    });
+    const learningEligibleApprovedItems = approvedItems.filter(
+        item => !learningIneligibilityReasonById.has(item.image_id)
+    );
     const hashGroups = new Map<string, VisionDatasetItem[]>();
 
-    approvedItems.forEach(item => {
+    learningEligibleApprovedItems.forEach(item => {
         const hash = getContentHash(item);
         if (!hash) return;
         const group = hashGroups.get(hash) || [];
@@ -98,7 +124,7 @@ export const calculateVisionDatasetReadiness = (
     const conflictedIds = new Set(conflictGroups.flatMap(group => group.imageIds));
     const cleanByHash = new Map<string, VisionDatasetItem>();
     let duplicateRecords = 0;
-    approvedItems.forEach(item => {
+    learningEligibleApprovedItems.forEach(item => {
         const hash = getContentHash(item);
         if (
             !hash
@@ -137,6 +163,13 @@ export const calculateVisionDatasetReadiness = (
         };
     });
     const cleanApproved = cleanItems.length;
+    const learningIneligibleReasonCounts = new Map<string, number>();
+    learningIneligibilityReasonById.forEach(reason => {
+        learningIneligibleReasonCounts.set(
+            reason,
+            (learningIneligibleReasonCounts.get(reason) || 0) + 1
+        );
+    });
     const sampleGateReady = cleanApproved >= minimumSamples && conflictGroups.length === 0;
     const classCoverageReady = defectClassCoverage.every(item => item.covered);
     return {
@@ -146,6 +179,10 @@ export const calculateVisionDatasetReadiness = (
         candidate: items.filter(item => item.review_status === 'candidate').length,
         rejected: items.filter(item => item.review_status === 'rejected').length,
         cleanApproved,
+        learningIneligibleApproved: learningIneligibilityReasonById.size,
+        learningIneligibleReasons: Array.from(learningIneligibleReasonCounts.entries())
+            .map(([reason, count]) => ({ reason, count }))
+            .sort((left, right) => right.count - left.count || left.reason.localeCompare(right.reason)),
         missingHashApproved: approvedItems.filter(item => !getContentHash(item)).length,
         missingLabelApproved: approvedItems.filter(item => !normalizeLabel(item.defect_type)).length,
         conflictGroups,
