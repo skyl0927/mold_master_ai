@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     auditVisionEvaluationSplit,
+    attachVisionOperationalOperatorDecision,
     evaluateVisionOperationalRelease,
     parseVisionOperationalReleaseReport,
     VisionShadowSample,
@@ -246,5 +247,119 @@ test('release parser rejects a malformed decision card instead of trusting stale
             }
         })),
         /invalid vision operational release report/i
+    );
+});
+
+test('operator decision records approval only when it matches the release card action and target snapshot', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    const approved = attachVisionOperationalOperatorDecision(report, {
+        action: 'activate_candidate',
+        targetVersion: candidateVersion,
+        operator: 'quality-lead',
+        comment: 'Holdout 지표와 Graph snapshot을 확인함.',
+        confirmed: true,
+        decidedAt: '2026-07-27T08:00:00.000Z'
+    });
+
+    assert.equal(approved.operatorDecision?.status, 'confirmed');
+    assert.equal(approved.operatorDecision?.action, 'activate_candidate');
+    assert.equal(approved.operatorDecision?.decisionCardStatus, 'ready_to_promote');
+    assert.equal(approved.operatorDecision?.reportGeneratedAt, report.generatedAt);
+    assert.deepEqual(approved.operatorDecision?.targetVersion, candidateVersion);
+    assert.equal(approved.operatorDecision?.autoApplied, false);
+});
+
+test('operator decision refuses mismatched action, target, missing confirmation, and empty comment', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(30, 7, 1).map((sample, index) => ({
+            ...sample,
+            candidate: {
+                ...sample.candidate,
+                confidence: sample.candidate.correct ? 0.98 : 0.92,
+                latencyMs: index === 29 ? 2600 : 1800
+            }
+        })),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+    const validInput = {
+        action: 'restore_baseline_snapshot' as const,
+        targetVersion: baselineVersion,
+        operator: 'quality-lead',
+        comment: '안전 기준 미달로 기준 버전 복원을 승인함.',
+        confirmed: true,
+        decidedAt: '2026-07-27T08:05:00.000Z'
+    };
+
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            ...validInput,
+            action: 'activate_candidate'
+        }),
+        /operator decision does not match/i
+    );
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            ...validInput,
+            targetVersion: candidateVersion
+        }),
+        /target version does not match/i
+    );
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            ...validInput,
+            confirmed: false
+        }),
+        /confirmation is required/i
+    );
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            ...validInput,
+            comment: ' '
+        }),
+        /comment is required/i
+    );
+});
+
+test('release parser keeps a valid operator decision and rejects a stale one after report mutation', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T07:00:00.000Z'
+    });
+    const approved = attachVisionOperationalOperatorDecision(report, {
+        action: 'activate_candidate',
+        targetVersion: candidateVersion,
+        operator: 'quality-lead',
+        comment: '승격 조건과 차단 기준 없음 확인.',
+        confirmed: true,
+        decidedAt: '2026-07-27T08:00:00.000Z'
+    });
+
+    assert.equal(
+        parseVisionOperationalReleaseReport(JSON.stringify(approved)).operatorDecision?.status,
+        'confirmed'
+    );
+    assert.throws(
+        () => parseVisionOperationalReleaseReport(JSON.stringify({
+            ...approved,
+            candidateVersion: {
+                ...candidateVersion,
+                promptVersion: 'vision-prompt-v7'
+            }
+        })),
+        /operator decision is stale/i
     );
 });
