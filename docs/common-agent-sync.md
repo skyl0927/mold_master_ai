@@ -259,6 +259,13 @@ Settings의 `비전 릴리스 게이트` 안 `Vision 운영 작업 목록`에도
 카드가 표시되며 queue/template/pending/error 카운트, 다음 명령, 자동 적용 금지
 정책을 함께 보여준다.
 
+승인 라벨 충돌도 같은 방식으로 최신 conflict packet, decision template,
+decision verification, apply report를 `gates.labelConflictWorkflow`에 요약한다.
+`resolve_label_conflicts.workflowStatus`와 Settings의 `Label Conflict Workflow`
+카드는 충돌 수, 템플릿 수, 검증 수, 미해결 수, apply 계획/반영 수, 다음 명령을
+표시한다. 사람이 `--apply`를 승인하기 전에는 dry-run 상태로 멈추며, 로컬 fixture
+반영 후에도 다음 단계는 반드시 `npm run migration:verify-post-hitl`이다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한

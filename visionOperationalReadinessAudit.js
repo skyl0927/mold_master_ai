@@ -258,6 +258,150 @@ const hitlWorkflowGate = ({
   };
 };
 
+const labelConflictWorkflowNext = status => ({
+  missing_conflict_packet: {
+    command: 'npm run vision:label-conflicts:packet',
+    actionKo: '승인 라벨 충돌 검토 패킷을 먼저 생성하세요.'
+  },
+  decision_template_missing: {
+    command: 'npm run vision:label-conflicts:decision-template',
+    actionKo: '품질/HITL 담당자가 채울 라벨 충돌 판정 템플릿을 생성하세요.'
+  },
+  awaiting_decision_verification: {
+    command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    actionKo: '작성된 라벨 충돌 판정 파일을 검증하세요.'
+  },
+  awaiting_human_review: {
+    command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    actionKo: '품질/HITL 라벨 충돌 판정 파일을 작성하고 검증하세요.'
+  },
+  invalid_decisions: {
+    command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    actionKo: '유효하지 않은 라벨 충돌 판정을 수정하고 다시 검증하세요.'
+  },
+  partial_human_review: {
+    command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    actionKo: '남은 라벨 충돌 그룹을 추가 검토하고 다시 검증하세요.'
+  },
+  ready_for_apply: {
+    command: 'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json>',
+    actionKo: '검증된 라벨 충돌 해소안을 dry-run으로 확인하세요.'
+  },
+  dry_run_ready: {
+    command: 'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
+    actionKo: 'dry-run 결과를 확인한 뒤 사람이 승인하면 --apply로 로컬 fixture에 반영하세요.'
+  },
+  applied: {
+    command: 'npm run migration:verify-post-hitl',
+    actionKo: '로컬 fixture 반영 후 post-HITL 검증을 다시 실행하세요.'
+  },
+  apply_target_mismatch: {
+    command: 'npm run vision:label-conflicts:packet',
+    actionKo: '현재 fixture와 판정 대상이 일치하지 않습니다. 최신 충돌 패킷부터 다시 생성하세요.'
+  },
+  not_ready_for_apply: {
+    command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    actionKo: '라벨 충돌 판정 검증 보고서가 준비되지 않았습니다. 판정 파일을 완성하고 다시 검증하세요.'
+  },
+  clear: {
+    command: 'npm run migration:verify-post-hitl',
+    actionKo: '라벨 충돌 blocker가 닫혔는지 post-HITL 검증을 다시 실행하세요.'
+  }
+}[status] || {
+  command: 'npm run vision:label-conflicts:packet',
+  actionKo: '라벨 충돌 workflow artifact 상태를 확인하세요.'
+});
+
+const labelConflictWorkflowGate = ({
+  labelConflictPacket,
+  labelConflictDecisionTemplate,
+  labelConflictDecisionVerificationReport,
+  labelConflictApplyReport
+}) => {
+  const conflicts = numberFrom(
+    labelConflictPacket?.totalConflicts,
+    labelConflictPacket?.summary?.conflicts,
+    asArray(labelConflictPacket?.conflicts).length
+  );
+  const decisionsPrepared = numberFrom(
+    labelConflictDecisionTemplate?.summary?.decisionsPrepared,
+    asArray(labelConflictDecisionTemplate?.decisions).length
+  );
+  const verificationSummary = labelConflictDecisionVerificationReport?.summary || {};
+  const applySummary = labelConflictApplyReport?.summary || {};
+  const packetStatus = compact(labelConflictPacket?.status) || 'missing_conflict_packet';
+  const templateStatus = compact(labelConflictDecisionTemplate?.status)
+    || (conflicts > 0 ? 'missing_decision_template' : 'clear');
+  const verificationStatus = compact(labelConflictDecisionVerificationReport?.status)
+    || (conflicts > 0 ? 'awaiting_decision_verification' : 'clear');
+  const applyStatus = compact(labelConflictApplyReport?.status)
+    || (verificationStatus === 'ready_for_manual_import' ? 'apply_report_missing' : 'not_ready');
+  let status = 'clear';
+
+  if (!labelConflictPacket) {
+    status = 'missing_conflict_packet';
+  } else if (conflicts <= 0 || packetStatus === 'clear') {
+    status = 'clear';
+  } else if (!labelConflictDecisionTemplate) {
+    status = 'decision_template_missing';
+  } else if (!labelConflictDecisionVerificationReport) {
+    status = 'awaiting_decision_verification';
+  } else if (verificationStatus !== 'ready_for_manual_import') {
+    status = verificationStatus;
+  } else if (!labelConflictApplyReport) {
+    status = 'ready_for_apply';
+  } else {
+    status = applyStatus;
+  }
+
+  const next = labelConflictWorkflowNext(status);
+  return {
+    status,
+    packet: {
+      status: packetStatus,
+      conflicts
+    },
+    template: {
+      status: templateStatus,
+      decisionsPrepared
+    },
+    verification: {
+      status: verificationStatus,
+      decisionsReceived: numberFrom(verificationSummary.decisionsReceived),
+      acceptedDecisions: numberFrom(verificationSummary.acceptedDecisions),
+      invalidDecisions: numberFrom(verificationSummary.invalidDecisions),
+      pendingConflicts: numberFrom(verificationSummary.pendingConflicts, conflicts),
+      resolvedLabelConflicts: numberFrom(verificationSummary.resolvedLabelConflicts),
+      needsReviewConflicts: numberFrom(verificationSummary.needsReviewConflicts),
+      rejectedConflicts: numberFrom(verificationSummary.rejectedConflicts),
+      recaptureRequests: numberFrom(verificationSummary.recaptureRequests)
+    },
+    apply: {
+      status: applyStatus,
+      applyRequested: labelConflictApplyReport?.applyRequested === true,
+      plannedCaseUpdates: numberFrom(applySummary.plannedCaseUpdates),
+      appliedCaseUpdates: numberFrom(applySummary.appliedCaseUpdates),
+      resolvedQualityIssues: numberFrom(applySummary.resolvedQualityIssues),
+      invalidTargets: numberFrom(applySummary.invalidTargets),
+      localFixtureWritesPerformed: labelConflictApplyReport?.localFixtureWritesPerformed === true
+    },
+    policy: {
+      requiresHumanReview: true,
+      autoApplyAllowed: false,
+      allowGraphPromotion: false,
+      allowReferenceLearning: false,
+      allowModelTraining: false
+    },
+    serviceWritesPerformed: labelConflictPacket?.serviceWritesPerformed === true
+      || labelConflictDecisionTemplate?.serviceWritesPerformed === true
+      || labelConflictDecisionVerificationReport?.serviceWritesPerformed === true
+      || labelConflictApplyReport?.serviceWritesPerformed === true,
+    nextCommand: next.command,
+    nextCommands: next.commands || [next.command],
+    nextActionKo: next.actionKo
+  };
+};
+
 const releaseGate = (releaseReport, releaseEvidenceAlignment) => {
   const evidenceAlignment = releaseEvidenceAlignmentFor(releaseReport, releaseEvidenceAlignment);
   const evidenceComplete = releaseEvidenceComplete(releaseReport);
@@ -364,7 +508,11 @@ const buildVisionOperationalReadinessAudit = ({
   hitlQueuePacket = null,
   hitlDecisionTemplate = null,
   hitlDecisionVerificationReport = null,
-  hitlNonApprovalWorklist = null
+  hitlNonApprovalWorklist = null,
+  labelConflictPacket = null,
+  labelConflictDecisionTemplate = null,
+  labelConflictDecisionVerificationReport = null,
+  labelConflictApplyReport = null
 } = {}) => {
   const reference = referenceGate(referenceGateReport);
   const postHitl = postHitlGate(postHitlVerificationReport);
@@ -373,6 +521,12 @@ const buildVisionOperationalReadinessAudit = ({
     hitlDecisionTemplate,
     hitlDecisionVerificationReport,
     hitlNonApprovalWorklist
+  });
+  const labelConflictWorkflow = labelConflictWorkflowGate({
+    labelConflictPacket,
+    labelConflictDecisionTemplate,
+    labelConflictDecisionVerificationReport,
+    labelConflictApplyReport
   });
   const release = releaseGate(releaseReport, releaseEvidenceAlignment);
   const blockers = [
@@ -406,6 +560,7 @@ const buildVisionOperationalReadinessAudit = ({
       reference,
       postHitl,
       hitlWorkflow,
+      labelConflictWorkflow,
       release
     },
     blockers,

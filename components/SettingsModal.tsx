@@ -37,7 +37,10 @@ import {
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
 import { buildVisionOperationalBlockerWorklist } from '../visionOperationalBlockerWorklist';
-import { summarizeVisionOperationalHitlWorkflowDisplay } from '../visionOperationalHitlWorkflowDisplay';
+import {
+  summarizeVisionOperationalHitlWorkflowDisplay,
+  summarizeVisionOperationalLabelConflictWorkflowDisplay
+} from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -205,6 +208,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   });
   const operationalHitlWorkflowDisplay =
     summarizeVisionOperationalHitlWorkflowDisplay(operationalBlockerWorklist);
+  const operationalLabelConflictWorkflowDisplay =
+    summarizeVisionOperationalLabelConflictWorkflowDisplay(operationalBlockerWorklist);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
@@ -788,6 +793,53 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     {task.missing !== undefined ? ` · 부족 ${task.missing}건` : ''}
                   </p>
                 ))}
+                {operationalLabelConflictWorkflowDisplay && (
+                  <div
+                    aria-label="Label Conflict Workflow"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalLabelConflictWorkflowDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalLabelConflictWorkflowDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-orange-800/70 bg-orange-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-orange-100">
+                          {operationalLabelConflictWorkflowDisplay.title}
+                        </p>
+                        <p className="mt-1 text-orange-200">
+                          {operationalLabelConflictWorkflowDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalLabelConflictWorkflowDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalLabelConflictWorkflowDisplay.summaryText}
+                    </p>
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalLabelConflictWorkflowDisplay.nextActionKo}
+                    </p>
+                    {operationalLabelConflictWorkflowDisplay.nextCommand && (
+                      <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-orange-100">
+                        {operationalLabelConflictWorkflowDisplay.nextCommand}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalLabelConflictWorkflowDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {operationalHitlWorkflowDisplay && (
                   <div
                     aria-label="HITL Workflow"

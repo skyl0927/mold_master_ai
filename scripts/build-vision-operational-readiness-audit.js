@@ -77,6 +77,26 @@ const paths = {
     '--hitl-non-approval-worklist',
     'VISION_PENDING_HITL_NON_APPROVAL_WORKLIST',
     latestArtifact('vision-pending-hitl-non-approval-worklist-')
+  ),
+  labelConflictPacket: optionalSourcePath(
+    '--label-conflict-packet',
+    'VISION_APPROVED_LABEL_CONFLICT_PACKET',
+    latestArtifact('vision-approved-label-conflict-review-packet-')
+  ),
+  labelConflictDecisionTemplate: optionalSourcePath(
+    '--label-conflict-decision-template',
+    'VISION_APPROVED_LABEL_CONFLICT_DECISION_TEMPLATE',
+    latestArtifact('vision-approved-label-conflict-decisions-template-')
+  ),
+  labelConflictDecisionVerification: optionalSourcePath(
+    '--label-conflict-decision-verification',
+    'VISION_APPROVED_LABEL_CONFLICT_DECISION_VERIFICATION_REPORT',
+    latestArtifact('vision-approved-label-conflict-decision-verification-report-')
+  ),
+  labelConflictApplyReport: optionalSourcePath(
+    '--label-conflict-apply-report',
+    'VISION_APPROVED_LABEL_CONFLICT_APPLY_REPORT',
+    latestArtifact('vision-approved-label-conflict-decision-apply-report-')
   )
 };
 
@@ -101,7 +121,11 @@ const run = () => {
     hitlQueuePacket: readOptionalJson(paths.hitlQueuePacket),
     hitlDecisionTemplate: readOptionalJson(paths.hitlDecisionTemplate),
     hitlDecisionVerificationReport: readOptionalJson(paths.hitlDecisionVerification),
-    hitlNonApprovalWorklist: readOptionalJson(paths.hitlNonApprovalWorklist)
+    hitlNonApprovalWorklist: readOptionalJson(paths.hitlNonApprovalWorklist),
+    labelConflictPacket: readOptionalJson(paths.labelConflictPacket),
+    labelConflictDecisionTemplate: readOptionalJson(paths.labelConflictDecisionTemplate),
+    labelConflictDecisionVerificationReport: readOptionalJson(paths.labelConflictDecisionVerification),
+    labelConflictApplyReport: readOptionalJson(paths.labelConflictApplyReport)
   });
   const artifact = {
     ...audit,

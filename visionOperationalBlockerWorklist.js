@@ -115,20 +115,27 @@ const hitlReviewDescription = workflow =>
     ? `고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다. 현재 단계: ${workflow.nextActionKo}`
     : '고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다.';
 
+const labelConflictDescription = workflow =>
+  workflow?.nextActionKo
+    ? `동일 이미지 또는 동일 해시의 불량 라벨이 충돌합니다. 현재 단계: ${workflow.nextActionKo}`
+    : '동일 이미지 또는 동일 해시의 불량 라벨이 충돌합니다. HITL에서 정답 라벨을 확정하기 전에는 reference learning과 Graph 승격을 막습니다.';
+
 const actionTasksFor = (blockers, readinessAudit = {}) => {
   const tasks = [];
   const conflict = blockerByCode(blockers, 'approved_label_conflicts');
   if (conflict) {
+    const workflow = readinessAudit?.gates?.labelConflictWorkflow || null;
     tasks.push(blockerTask({
       code: 'resolve_label_conflicts',
       priority: 100,
       owner: 'quality_hitl',
       titleKo: '승인 이미지 라벨 충돌 해결',
-      descriptionKo: '동일 이미지 또는 동일 해시의 불량 라벨이 충돌합니다. HITL에서 정답 라벨을 확정하기 전에는 reference learning과 Graph 승격을 막습니다.',
+      descriptionKo: labelConflictDescription(workflow),
       sourceBlockers: [conflict],
       commands: labelConflictWorkflowCommands,
       count: Number(conflict.count) || asArray(conflict.conflicts).length,
-      sampleRefs: conflictSampleRefs(conflict.conflicts)
+      sampleRefs: conflictSampleRefs(conflict.conflicts),
+      workflowStatus: workflow
     }));
   }
 
