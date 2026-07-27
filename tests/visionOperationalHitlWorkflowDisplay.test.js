@@ -7,7 +7,8 @@ const {
   summarizeOperationalHitlActionPackDisplay,
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
-  summarizeOperationalHitlReviewSessionPlanDisplay
+  summarizeOperationalHitlReviewSessionPlanDisplay,
+  summarizeOperationalHitlReviewSessionPacketDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -593,4 +594,86 @@ test('summarizes operational HITL review session plan for Settings UI display', 
 test('returns null when no operational HITL review session plan is available to display', () => {
   assert.equal(summarizeOperationalHitlReviewSessionPlanDisplay(null), null);
   assert.equal(summarizeOperationalHitlReviewSessionPlanDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes operational HITL review session packet for Settings UI display', () => {
+  const display = summarizeOperationalHitlReviewSessionPacketDisplay({
+    contractVersion: 'operational-hitl-review-session-packet/v1',
+    status: 'ready_for_human_review',
+    packetDir: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files',
+    summary: {
+      totalRows: 59,
+      sessionPacketCount: 4,
+      highRiskRows: 9,
+      filesToWrite: 8
+    },
+    packets: [
+      {
+        code: 'label_conflict_session',
+        titleKo: '승인 이미지 라벨 충돌 선검토',
+        priority: 1,
+        rowCount: 4,
+        highRiskRows: 4,
+        csvFileName: '01-label-conflict-session.csv',
+        markdownFileName: '01-label-conflict-session.md',
+        csvPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\01-label-conflict-session.csv',
+        markdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\01-label-conflict-session.md'
+      },
+      {
+        code: 'recapture_session',
+        titleKo: '재촬영 요청 검토',
+        priority: 2,
+        rowCount: 5,
+        highRiskRows: 5,
+        csvFileName: '02-recapture-session.csv',
+        markdownFileName: '02-recapture-session.md',
+        csvPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\02-recapture-session.csv',
+        markdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\02-recapture-session.md'
+      }
+    ],
+    recommendedAction: '세션별 CSV/Markdown을 사람이 검토한 뒤 원본 worktable CSV에 필요한 값만 옮겨 적으세요.'
+  });
+
+  assert.equal(display.title, 'HITL Review Session Packet');
+  assert.equal(display.statusLabel, '세션별 검토 파일 준비');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.summaryText, '전체 59건 · 패킷 4건 · 고위험 9건 · 파일 8개');
+  assert.equal(display.packetDir, 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files');
+  assert.match(display.nextActionKo, /세션별 CSV/);
+  assert.deepEqual(display.packetPreviews, [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 선검토',
+      priority: 1,
+      rowCount: 4,
+      highRiskRows: 4,
+      csvFileName: '01-label-conflict-session.csv',
+      markdownFileName: '01-label-conflict-session.md',
+      csvPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\01-label-conflict-session.csv',
+      markdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\01-label-conflict-session.md'
+    },
+    {
+      code: 'recapture_session',
+      titleKo: '재촬영 요청 검토',
+      priority: 2,
+      rowCount: 5,
+      highRiskRows: 5,
+      csvFileName: '02-recapture-session.csv',
+      markdownFileName: '02-recapture-session.md',
+      csvPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\02-recapture-session.csv',
+      markdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet-files\\02-recapture-session.md'
+    }
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Packet-only',
+    'newAction 자동 입력 금지',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Model 학습 금지'
+  ]);
+});
+
+test('returns null when no operational HITL review session packet is available to display', () => {
+  assert.equal(summarizeOperationalHitlReviewSessionPacketDisplay(null), null);
+  assert.equal(summarizeOperationalHitlReviewSessionPacketDisplay({ contractVersion: 'unknown/v1' }), null);
 });

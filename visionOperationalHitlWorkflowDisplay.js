@@ -172,6 +172,19 @@ const reviewSessionPlanSeverityFor = status => {
   return 'warning';
 };
 
+const reviewSessionPacketStatusLabelFor = status => {
+  if (status === 'ready_for_human_review') return '세션별 검토 파일 준비';
+  if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (status === 'clear') return '검토 패킷 없음';
+  return compact(status);
+};
+
+const reviewSessionPacketSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (status === 'clear') return 'success';
+  return 'warning';
+};
+
 const copyableTextFor = fields => {
   const parts = (Array.isArray(fields) ? fields : [])
     .map(field => `${compact(field?.worktableColumn)}=${compact(field?.value)}`)
@@ -448,6 +461,52 @@ const summarizeOperationalHitlReviewSessionPlanDisplay = sessionPlan => {
   };
 };
 
+const summarizeOperationalHitlReviewSessionPacketDisplay = sessionPacket => {
+  if (sessionPacket?.contractVersion !== 'operational-hitl-review-session-packet/v1') {
+    return null;
+  }
+
+  const summary = sessionPacket.summary || {};
+  const status = compact(sessionPacket.status);
+  const summaryParts = [
+    `전체 ${numberValue(summary.totalRows)}건`,
+    `패킷 ${numberValue(summary.sessionPacketCount)}건`,
+    numberValue(summary.highRiskRows) > 0 ? `고위험 ${numberValue(summary.highRiskRows)}건` : '',
+    numberValue(summary.filesToWrite) > 0 ? `파일 ${numberValue(summary.filesToWrite)}개` : ''
+  ].filter(Boolean);
+
+  return {
+    title: 'HITL Review Session Packet',
+    status,
+    statusLabel: reviewSessionPacketStatusLabelFor(status),
+    severity: reviewSessionPacketSeverityFor(status),
+    summaryText: summaryParts.join(' · '),
+    packetDir: compact(sessionPacket.packetDir),
+    nextActionKo: compact(sessionPacket.recommendedAction)
+      || '세션별 CSV/Markdown을 검토한 뒤 원본 worktable CSV에 필요한 값만 옮겨 적으세요.',
+    packetPreviews: (Array.isArray(sessionPacket.packets) ? sessionPacket.packets : [])
+      .slice(0, 4)
+      .map(packet => ({
+        code: compact(packet?.code),
+        titleKo: compact(packet?.titleKo),
+        priority: numberValue(packet?.priority),
+        rowCount: numberValue(packet?.rowCount),
+        highRiskRows: numberValue(packet?.highRiskRows),
+        csvFileName: compact(packet?.csvFileName),
+        markdownFileName: compact(packet?.markdownFileName),
+        csvPath: compact(packet?.csvPath),
+        markdownPath: compact(packet?.markdownPath)
+      })),
+    safetyBadges: [
+      'Packet-only',
+      'newAction 자동 입력 금지',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Model 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -497,5 +556,6 @@ module.exports = {
   summarizeOperationalHitlActionPackDisplay,
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
-  summarizeOperationalHitlReviewSessionPlanDisplay
+  summarizeOperationalHitlReviewSessionPlanDisplay,
+  summarizeOperationalHitlReviewSessionPacketDisplay
 };

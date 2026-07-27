@@ -52,3 +52,21 @@ npm run operational:hitl:review-session-packet
 
 `operational:hitl:pipeline-status`는 최신 review session packet manifest를 읽어
 검토 패킷 수와 생성 파일 수를 summary, stage trail, Markdown에 표시한다.
+
+## Settings UI 연동
+
+Settings의 `비전 릴리스 게이트` 영역에 `Session Packet 등록` 버튼을 추가했다.
+최신 `artifacts/operational-hitl-review-session-packet-*.json` manifest를 등록하면
+`Vision 운영 작업 목록` 아래에 `HITL Review Session Packet` 카드가 표시된다.
+
+카드는 전체 row, 세션 패킷 수, 고위험 row, 생성 파일 수, 패킷 폴더, 세션별 CSV와
+Markdown 파일명을 보여준다. 이 UI도 localStorage 표시 전용이며 원본 worktable CSV,
+editable JSON, Common Agent, SQL, Graph, Reference store, 모델 학습에는 쓰지 않는다.
+
+검증:
+
+```powershell
+npm run test:vision-operational-hitl-display
+```
+
+결과: Settings UI 표시 요약 테스트 18개 통과.

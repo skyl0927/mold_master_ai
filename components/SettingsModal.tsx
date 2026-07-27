@@ -43,7 +43,8 @@ import {
   summarizeOperationalHitlActionPackDisplay,
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
-  summarizeOperationalHitlReviewSessionPlanDisplay
+  summarizeOperationalHitlReviewSessionPlanDisplay,
+  summarizeOperationalHitlReviewSessionPacketDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -98,6 +99,8 @@ const OPERATIONAL_HITL_WORKTABLE_SUGGESTION_STORAGE_KEY =
   'mold-master-ai:operational-hitl-worktable-suggestion:v1';
 const OPERATIONAL_HITL_REVIEW_SESSION_PLAN_STORAGE_KEY =
   'mold-master-ai:operational-hitl-review-session-plan:v1';
+const OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY =
+  'mold-master-ai:operational-hitl-review-session-packet:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -182,6 +185,23 @@ const readOperationalHitlReviewSessionPlan = (): any | null => {
 const saveOperationalHitlReviewSessionPlan = (sessionPlan: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_HITL_REVIEW_SESSION_PLAN_STORAGE_KEY, JSON.stringify(sessionPlan));
+};
+
+const readOperationalHitlReviewSessionPacket = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-hitl-review-session-packet/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalHitlReviewSessionPacket = (sessionPacket: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY, JSON.stringify(sessionPacket));
 };
 
 const operationalWorklistStatusLabel = (status: string): string => {
@@ -295,6 +315,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlReviewSessionPlan, setOperationalHitlReviewSessionPlan] = useState(
     () => readOperationalHitlReviewSessionPlan()
   );
+  const [operationalHitlReviewSessionPacket, setOperationalHitlReviewSessionPacket] = useState(
+    () => readOperationalHitlReviewSessionPacket()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -310,12 +333,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeOperationalHitlWorktableSuggestionDisplay(operationalHitlWorktableSuggestion);
   const operationalHitlReviewSessionPlanDisplay =
     summarizeOperationalHitlReviewSessionPlanDisplay(operationalHitlReviewSessionPlan);
+  const operationalHitlReviewSessionPacketDisplay =
+    summarizeOperationalHitlReviewSessionPacketDisplay(operationalHitlReviewSessionPacket);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
   const [operationalHitlPipelineStatusImportStatus, setOperationalHitlPipelineStatusImportStatus] = useState('');
   const [operationalHitlWorktableSuggestionImportStatus, setOperationalHitlWorktableSuggestionImportStatus] = useState('');
   const [operationalHitlReviewSessionPlanImportStatus, setOperationalHitlReviewSessionPlanImportStatus] = useState('');
+  const [operationalHitlReviewSessionPacketImportStatus, setOperationalHitlReviewSessionPacketImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -456,6 +482,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalHitlPipelineStatus,
       operationalHitlWorktableSuggestion,
       operationalHitlReviewSessionPlan,
+      operationalHitlReviewSessionPacket,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -593,6 +620,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalHitlReviewSessionPlanImportStatus(
         error instanceof Error ? `Session plan 등록 실패: ${error.message}` : 'Session plan 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalHitlReviewSessionPacketImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const sessionPacket = JSON.parse(await file.text());
+      if (sessionPacket?.contractVersion !== 'operational-hitl-review-session-packet/v1') {
+        throw new Error('invalid operational HITL review session packet');
+      }
+      saveOperationalHitlReviewSessionPacket(sessionPacket);
+      setOperationalHitlReviewSessionPacket(sessionPacket);
+      setOperationalHitlReviewSessionPacketImportStatus('HITL review session packet을 등록했습니다.');
+    } catch (error) {
+      setOperationalHitlReviewSessionPacketImportStatus(
+        error instanceof Error ? `Session packet 등록 실패: ${error.message}` : 'Session packet 등록 실패'
       );
     }
   };
@@ -947,6 +995,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalHitlReviewSessionPlanImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-fuchsia-800 px-2 py-1 text-[9px] text-fuchsia-100 hover:bg-fuchsia-700">
+                    Session Packet 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalHitlReviewSessionPacketImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -1006,6 +1063,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalHitlReviewSessionPlanImportStatus}
+                </p>
+              )}
+              {operationalHitlReviewSessionPacketImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalHitlReviewSessionPacketImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalHitlReviewSessionPacketImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -1194,6 +1260,84 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     )}
                     <div className="mt-2 flex flex-wrap gap-1">
                       {operationalHitlReviewSessionPlanDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {operationalHitlReviewSessionPacketDisplay && (
+                  <div
+                    aria-label="HITL Review Session Packet"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlReviewSessionPacketDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlReviewSessionPacketDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-fuchsia-800/70 bg-fuchsia-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-fuchsia-100">
+                          {operationalHitlReviewSessionPacketDisplay.title}
+                        </p>
+                        <p className="mt-1 text-fuchsia-200">
+                          {operationalHitlReviewSessionPacketDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlReviewSessionPacketDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlReviewSessionPacketDisplay.summaryText}
+                    </p>
+                    {operationalHitlReviewSessionPacketDisplay.packetDir && (
+                      <p className="mt-1 break-words font-mono text-[8px] text-fuchsia-100">
+                        {operationalHitlReviewSessionPacketDisplay.packetDir}
+                      </p>
+                    )}
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlReviewSessionPacketDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlReviewSessionPacketDisplay.packetPreviews.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {operationalHitlReviewSessionPacketDisplay.packetPreviews.map(packet => (
+                          <div
+                            key={packet.code}
+                            className="rounded border border-fuchsia-900/50 bg-gray-950/35 px-2 py-1"
+                          >
+                            <p className="break-words text-[8px] font-bold text-fuchsia-50">
+                              P{packet.priority} {packet.titleKo} · {packet.rowCount}건
+                              {packet.highRiskRows > 0 ? ` · 고위험 ${packet.highRiskRows}건` : ''}
+                            </p>
+                            <p className="mt-1 break-words font-mono text-[8px] text-fuchsia-100">
+                              CSV: {packet.csvFileName}
+                            </p>
+                            <p className="mt-1 break-words font-mono text-[8px] text-fuchsia-100">
+                              MD: {packet.markdownFileName}
+                            </p>
+                            {packet.csvPath && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-400">
+                                {packet.csvPath}
+                              </p>
+                            )}
+                            {packet.markdownPath && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                {packet.markdownPath}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlReviewSessionPacketDisplay.safetyBadges.map(badge => (
                         <span
                           key={badge}
                           className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
