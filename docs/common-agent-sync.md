@@ -90,6 +90,7 @@ npm run operational:hitl:action-pack
 npm run operational:hitl:prepare-plan
 npm run operational:hitl:prepare-run
 npm run operational:hitl:decision-review-packet
+npm run operational:hitl:reviewer-worksheet
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -129,6 +130,12 @@ template/guide 생성 명령만 Node 스크립트로 직접 실행하고
 수량, `action=pending` 상태, 필수 입력 필드, 검증 명령, 우선순위를 한 장으로
 정리해 사람이 판정 파일을 채우기 전에 누락을 줄인다. 이 단계도 artifact-only라
 Common Agent, SQL, Graph DB, Reference store, 모델 학습에는 쓰지 않는다.
+
+`operational:hitl:reviewer-worksheet`는 위 입력 검토 패킷을 사람이 읽기 쉬운
+Markdown 워크시트로 변환한다. 큐별 우선순위, 결정 ID 미리보기, 필수 필드,
+허용 action, 검증 명령, 공통 체크리스트를 포함해 실제 HITL 판정자가 JSON
+템플릿을 채우기 전에 빠르게 확인할 수 있다. 이 워크시트도 자동 승인, 적용,
+Graph/Reference/Model 승격을 수행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
