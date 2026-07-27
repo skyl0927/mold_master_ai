@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "vision-operational-evidence-packet/v1",
+  "generatedAt": "2026-07-27T09:00:00.000Z",
+  "commonAgentDatasetExport": {
+    "uri": "common-agent://datasets/images/export/approved-holdout-20260727",
+    "generatedAt": "2026-07-27T09:00:00.000Z",
+    "recordCount": 128
+  },
+  "commonAgentReviewPacket": {
+    "uri": "common-agent://review-packets/vision/approved-holdout-20260727",
+    "generatedAt": "2026-07-27T09:00:00.000Z"
+  },
+  "graphSnapshot": {
+    "uri": "neo4j://mold-master/approved-graph-002/snapshots/release-20260727",
+    "graphVersion": "approved-graph-002",
+    "generatedAt": "2026-07-27T09:00:00.000Z",
+    "nodeCount": 71,
+    "edgeCount": 214
+  },
+  "graphReleaseEvidence": {
+    "uri": "common-agent://graph/release-evidence/approved-graph-002/20260727",
+    "generatedAt": "2026-07-27T09:00:00.000Z"
+  }
+}
