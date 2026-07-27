@@ -26,6 +26,22 @@ const conflictPacket = {
         { action: 'mark_needs_review' },
         { action: 'reject_conflicting_cases' },
         { action: 'request_recapture' }
+      ],
+      caseEvidence: [
+        {
+          caseId: 'approved-image-a',
+          fixtureFound: true,
+          manifestStatus: 'active',
+          fixtureFile: 'image-a.json',
+          fileName: 'same.png',
+          expectedDefectType: '백화',
+          expectedDefectClass: 'whitening',
+          sourceReview: {
+            originalVisionDefectType: '백화',
+            priorObservationSummary: '리브 주변 유백색 응력 흔적입니다.'
+          },
+          humanReviewFocusKo: '동일 이미지 hash에서 백화와 웰드라인 중 지배 결함을 확인하세요.'
+        }
       ]
     },
     {
@@ -77,6 +93,12 @@ test('builds a no-write decision template for approved label conflicts', () => {
   assert.equal(template.decisions[0].imageSetConfirmed, false);
   assert.equal(template.decisions[0].labelConfirmed, false);
   assert.equal(template.decisions[0].reviewerGuidance.includes('자동 승격'), true);
+  assert.equal(template.decisions[0].evidence.caseEvidence.length, 1);
+  assert.equal(template.decisions[0].evidence.caseEvidence[0].caseId, 'approved-image-a');
+  assert.equal(template.decisions[0].evidence.caseEvidence[0].fixtureFile, 'image-a.json');
+  assert.equal(template.decisions[0].evidence.caseEvidence[0].expectedDefectType, '백화');
+  assert.match(template.decisions[0].evidence.caseEvidence[0].humanReviewFocusKo, /지배 결함/);
+  assert.match(template.decisions[0].reviewerGuidance, /fixture 근거/);
   assert.equal(template.sources.conflictPacket, 'artifacts/vision-approved-label-conflict-review-packet.json');
 });
 

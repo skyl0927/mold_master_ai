@@ -79,6 +79,93 @@ test('can also build the packet from post-HITL verification reports', () => {
   assert.equal(packet.conflicts[0].conflictType, 'same_hash_multi_label');
 });
 
+test('enriches conflicts with approved fixture evidence for HITL review', () => {
+  const packet = buildVisionApprovedLabelConflictReviewPacket({
+    generatedAt: '2026-07-27T12:35:00.000Z',
+    readinessAudit,
+    approvedManifest: {
+      cases: [
+        {
+          id: 'approved-image-a',
+          file: 'image-a.json',
+          status: 'active',
+          tags: ['approved-image', 'capture-needs_views']
+        },
+        {
+          id: 'approved-image-b',
+          file: 'image-b.json',
+          status: 'needs_review',
+          tags: ['approved-image', 'vision-label-conflict']
+        }
+      ]
+    },
+    fixturesByCaseId: {
+      'approved-image-a': {
+        id: 'approved-image-a',
+        title: '제팅 approved image',
+        fileName: 'same.png',
+        contentHash: 'a'.repeat(64),
+        captureProtocol: {
+          imageKind: 'physical_product',
+          availableViews: ['defect_closeup'],
+          roiConfirmed: true
+        },
+        expected: {
+          defectType: '제팅',
+          defectClass: 'jetting'
+        },
+        sourceReview: {
+          reviewStatus: 'approved',
+          priorObservationDefectType: '제팅',
+          originalVisionDefectType: '제팅',
+          priorObservationSummary: '게이트 유입 후 뱀형 유동 흔적이 관찰됩니다.'
+        }
+      },
+      'approved-image-b': {
+        id: 'approved-image-b',
+        title: '플로우마크 approved image',
+        fileName: 'same.png',
+        contentHash: 'a'.repeat(64),
+        captureProtocol: {
+          imageKind: 'physical_product',
+          availableViews: [],
+          roiConfirmed: false
+        },
+        expected: {
+          defectType: '플로우마크',
+          defectClass: 'flow_mark'
+        },
+        sourceReview: {
+          reviewStatus: 'approved',
+          priorObservationDefectType: '플로우마크',
+          originalVisionDefectType: '흐름 자국',
+          priorObservationSummary: '표면의 반복적인 유동 방향성 띠가 지배적입니다.'
+        }
+      }
+    },
+    approvedFixtureRoot: 'eval/vision-approved'
+  });
+
+  const firstConflict = packet.conflicts[0];
+  assert.equal(firstConflict.reviewEvidenceStatus, 'fixture_evidence_ready');
+  assert.equal(firstConflict.caseEvidence.length, 2);
+  assert.equal(firstConflict.caseEvidence[0].caseId, 'approved-image-a');
+  assert.equal(firstConflict.caseEvidence[0].manifestStatus, 'active');
+  assert.equal(firstConflict.caseEvidence[0].fixtureFile, 'image-a.json');
+  assert.deepEqual(firstConflict.caseEvidence[0].manifestTags, ['approved-image', 'capture-needs_views']);
+  assert.equal(firstConflict.caseEvidence[0].fixtureFound, true);
+  assert.equal(firstConflict.caseEvidence[0].expectedDefectType, '제팅');
+  assert.equal(firstConflict.caseEvidence[0].expectedDefectClass, 'jetting');
+  assert.equal(firstConflict.caseEvidence[0].captureProtocol.imageKind, 'physical_product');
+  assert.equal(firstConflict.caseEvidence[0].captureProtocol.roiConfirmed, true);
+  assert.equal(firstConflict.caseEvidence[0].sourceReview.originalVisionDefectType, '제팅');
+  assert.match(firstConflict.caseEvidence[0].sourceReview.priorObservationSummary, /뱀형 유동 흔적/);
+  assert.match(firstConflict.caseEvidence[0].humanReviewFocusKo, /동일 이미지 hash/);
+  assert.equal(packet.summary.evidenceReadyCases, 2);
+  assert.equal(packet.summary.evidenceMissingCases, 1);
+  assert.equal(packet.sources.approvedFixtureRoot, 'eval/vision-approved');
+});
+
 test('fails closed with a clear packet when no conflicts are present', () => {
   const packet = buildVisionApprovedLabelConflictReviewPacket({
     readinessAudit: {
