@@ -22,6 +22,37 @@ const candidateVersion: VisionVersionSnapshot = {
     graphVersion: 'approved-graph-43'
 };
 
+const completeEvidenceBundle = {
+    contractVersion: 'vision-operational-evidence-bundle/v1',
+    items: [
+        {
+            kind: 'baseline_benchmark',
+            uri: 'file:///artifacts/baseline-vision-report.json',
+            sha256: 'a'.repeat(64)
+        },
+        {
+            kind: 'candidate_benchmark',
+            uri: 'file:///artifacts/candidate-vision-report.json',
+            sha256: 'b'.repeat(64)
+        },
+        {
+            kind: 'release_config',
+            uri: 'file:///artifacts/vision-release-config.json',
+            sha256: 'c'.repeat(64)
+        },
+        {
+            kind: 'common_agent_dataset_export',
+            uri: 'common-agent://datasets/images/export/approved-holdout-20260727'
+        },
+        {
+            kind: 'graph_snapshot',
+            uri: 'neo4j://mold-master/approved-graph-43'
+        }
+    ],
+    complete: true,
+    missingEvidence: []
+} as const;
+
 const makeShadowSamples = (
     count = 30,
     candidateWrong = 1,
@@ -119,7 +150,8 @@ test('release gate promotes a candidate only after paired shadow metrics pass ev
         candidateVersion,
         samples: makeShadowSamples(),
         newProductFamilies: ['NEW-GRILLE'],
-        latencyTargetP95Ms: 1500
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: completeEvidenceBundle
     });
 
     assert.equal(report.decision, 'promote_candidate');
@@ -137,6 +169,8 @@ test('release gate promotes a candidate only after paired shadow metrics pass ev
     assert.deepEqual(report.decisionCard.targetVersion, candidateVersion);
     assert.equal(report.decisionCard.requiresHumanApproval, true);
     assert.equal(report.decisionCard.autoApplyAllowed, false);
+    assert.equal(report.evidenceBundle.complete, true);
+    assert.equal(report.decisionCard.evidenceBundle.items.length, 5);
 });
 
 test('release gate selects the exact baseline snapshot when candidate safety regresses', () => {
@@ -185,6 +219,25 @@ test('release report parser accepts only a complete operational gate artifact', 
         () => parseVisionOperationalReleaseReport('{"decision":"promote_candidate"}'),
         /invalid vision operational release report/i
     );
+});
+
+test('release gate marks evidence incomplete until benchmark and central evidence are attached', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    assert.equal(report.evidenceBundle.complete, false);
+    assert.deepEqual(report.decisionCard.evidenceBundle.missingEvidence, [
+        'baseline_benchmark',
+        'candidate_benchmark',
+        'release_config',
+        'common_agent_dataset_export',
+        'graph_snapshot'
+    ]);
 });
 
 test('release decision card keeps shadow hold as an explicit data collection action', () => {
@@ -256,7 +309,8 @@ test('operator decision records approval only when it matches the release card a
         candidateVersion,
         samples: makeShadowSamples(),
         newProductFamilies: ['NEW-GRILLE'],
-        latencyTargetP95Ms: 1500
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: completeEvidenceBundle
     });
 
     const approved = attachVisionOperationalOperatorDecision(report, {
@@ -274,6 +328,28 @@ test('operator decision records approval only when it matches the release card a
     assert.equal(approved.operatorDecision?.reportGeneratedAt, report.generatedAt);
     assert.deepEqual(approved.operatorDecision?.targetVersion, candidateVersion);
     assert.equal(approved.operatorDecision?.autoApplied, false);
+    assert.equal(approved.operatorDecision?.evidenceBundle.complete, true);
+});
+
+test('operator decision refuses confirmation until release evidence is complete', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            action: 'activate_candidate',
+            targetVersion: candidateVersion,
+            operator: 'quality-lead',
+            comment: '근거 미연결 상태 확인.',
+            confirmed: true
+        }),
+        /evidence bundle is incomplete/i
+    );
 });
 
 test('operator decision refuses mismatched action, target, missing confirmation, and empty comment', () => {
@@ -289,7 +365,8 @@ test('operator decision refuses mismatched action, target, missing confirmation,
             }
         })),
         newProductFamilies: ['NEW-GRILLE'],
-        latencyTargetP95Ms: 1500
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: completeEvidenceBundle
     });
     const validInput = {
         action: 'restore_baseline_snapshot' as const,
@@ -337,7 +414,8 @@ test('release parser keeps a valid operator decision and rejects a stale one aft
         samples: makeShadowSamples(),
         newProductFamilies: ['NEW-GRILLE'],
         latencyTargetP95Ms: 1500,
-        generatedAt: '2026-07-27T07:00:00.000Z'
+        generatedAt: '2026-07-27T07:00:00.000Z',
+        evidenceBundle: completeEvidenceBundle
     });
     const approved = attachVisionOperationalOperatorDecision(report, {
         action: 'activate_candidate',
@@ -358,6 +436,19 @@ test('release parser keeps a valid operator decision and rejects a stale one aft
             operatorDecision: {
                 ...approved.operatorDecision,
                 targetVersion: baselineVersion
+            }
+        })),
+        /operator decision is stale/i
+    );
+    assert.throws(
+        () => parseVisionOperationalReleaseReport(JSON.stringify({
+            ...approved,
+            operatorDecision: {
+                ...approved.operatorDecision,
+                evidenceBundle: {
+                    ...approved.operatorDecision?.evidenceBundle,
+                    items: approved.operatorDecision?.evidenceBundle.items.slice(1)
+                }
             }
         })),
         /operator decision is stale/i
