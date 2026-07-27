@@ -224,3 +224,73 @@ test('readiness audit aggregates reference, HITL, evidence, and release blockers
     ]
   );
 });
+
+test('readiness audit exposes pending HITL queue, template, and decision verification state', () => {
+  const audit = buildVisionOperationalReadinessAudit({
+    referenceGateReport: referenceGatePassed,
+    postHitlVerificationReport: {
+      ...postHitlPassed,
+      status: 'waiting_for_human_hitl',
+      readyToDisableLegacyFallback: false,
+      benchmarksExecuted: false,
+      blockers: [{
+        code: 'human_review_required',
+        count: 12
+      }]
+    },
+    releaseReport: null,
+    hitlQueuePacket: {
+      contractVersion: 'vision-pending-hitl-review-queue-packet/v1',
+      status: 'action_required',
+      summary: {
+        pendingHighConfidence: 12,
+        resolvedHighConfidence: 6,
+        pendingByClass: {
+          sink: 3,
+          burn: 3,
+          flash: 3,
+          short_shot: 2,
+          weld_line: 1
+        }
+      },
+      serviceWritesPerformed: false,
+      items: Array.from({ length: 12 }, (_, index) => ({
+        queueId: `pending-hitl-${String(index + 1).padStart(3, '0')}`
+      }))
+    },
+    hitlDecisionTemplate: {
+      contractVersion: 'common-agent-hitl-review-decisions/v1',
+      templateVersion: 'common-agent-hitl-review-decisions-template/v1',
+      status: 'template_ready',
+      summary: {
+        queueItems: 12,
+        decisionsPrepared: 12
+      },
+      serviceWritesPerformed: false
+    },
+    hitlDecisionVerificationReport: {
+      contractVersion: 'vision-pending-hitl-decision-verification-report/v1',
+      status: 'awaiting_human_review',
+      summary: {
+        queueItems: 12,
+        decisionsReceived: 0,
+        acceptedDecisions: 0,
+        invalidDecisions: 0,
+        pendingQueueItems: 12
+      },
+      serviceWritesPerformed: false
+    }
+  });
+
+  assert.equal(audit.status, 'action_required');
+  assert.equal(audit.gates.hitlWorkflow.status, 'awaiting_human_review');
+  assert.equal(audit.gates.hitlWorkflow.queue.status, 'action_required');
+  assert.equal(audit.gates.hitlWorkflow.queue.pendingHighConfidence, 12);
+  assert.equal(audit.gates.hitlWorkflow.template.status, 'template_ready');
+  assert.equal(audit.gates.hitlWorkflow.template.decisionsPrepared, 12);
+  assert.equal(audit.gates.hitlWorkflow.verification.status, 'awaiting_human_review');
+  assert.equal(audit.gates.hitlWorkflow.verification.pendingQueueItems, 12);
+  assert.equal(audit.gates.hitlWorkflow.policy.autoApplyAllowed, false);
+  assert.equal(audit.gates.hitlWorkflow.policy.allowGraphPromotion, false);
+  assert.match(audit.gates.hitlWorkflow.nextCommand, /vision:hitl:verify-decisions/);
+});

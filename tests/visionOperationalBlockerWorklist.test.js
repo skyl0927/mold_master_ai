@@ -92,6 +92,50 @@ test('blocker worklist turns readiness blockers into prioritized human tasks', (
   assert.equal(worklist.commonAgentHandoff.items.length, 5);
 });
 
+test('blocker worklist surfaces HITL queue, template, and decision verification workflow', () => {
+  const worklist = buildVisionOperationalBlockerWorklist({
+    readinessAudit: {
+      ...actionRequiredAudit,
+      gates: {
+        hitlWorkflow: {
+          status: 'awaiting_human_review',
+          queue: {
+            status: 'action_required',
+            pendingHighConfidence: 12
+          },
+          template: {
+            status: 'template_ready',
+            decisionsPrepared: 12
+          },
+          verification: {
+            status: 'awaiting_human_review',
+            pendingQueueItems: 12,
+            invalidDecisions: 0
+          },
+          nextCommand: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+          nextActionKo: 'Common Agent/HITL 판정 파일을 작성하고 검증하세요.'
+        }
+      }
+    }
+  });
+
+  const task = worklist.tasks.find(item => item.code === 'close_hitl_reviews');
+  assert.equal(task.workflowStatus.status, 'awaiting_human_review');
+  assert.equal(task.workflowStatus.queue.pendingHighConfidence, 12);
+  assert.equal(task.workflowStatus.template.decisionsPrepared, 12);
+  assert.equal(task.workflowStatus.verification.pendingQueueItems, 12);
+  assert.deepEqual(task.commands, [
+    'npm run vision:hitl:pending-packet',
+    'npm run vision:hitl:decision-template',
+    'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    'npm run vision:hitl:prepare',
+    'npm run vision:hitl:approve -- --authorization <reviewed-json>',
+    'npm run migration:verify-post-hitl'
+  ]);
+  assert.match(task.descriptionKo, /판정 파일/);
+  assert.equal(worklist.commonAgentHandoff.items.find(item => item.taskCode === 'close_hitl_reviews').workflowStatus.status, 'awaiting_human_review');
+});
+
 test('blocker worklist asks only for operator approval when machine gates passed', () => {
   const worklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: {
