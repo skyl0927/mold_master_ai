@@ -39,6 +39,10 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
 - queue/template/pending 카운트를 `큐 12건 · 템플릿 12건 · 미판정 12건`처럼
   한 줄로 표시한다.
 - `invalid_decisions`는 위험 상태로 표시하고 오류 건수를 포함한다.
+- `ready_for_manual_import` 상태에서 non-approval worklist item이 있으면
+  `비승인 조치 N건`을 같은 요약 줄에 표시한다.
+- `nextCommands`가 있으면 authorization bridge와 non-approval worklist 생성
+  명령을 모두 보존한다.
 - 안전 배지는 `자동 적용 금지`, `Graph 승격 금지`, `Reference 학습 금지`를
   항상 표시한다.
 
@@ -46,7 +50,7 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
 
 ```text
 npm run test:vision-operational-hitl-display
-PASS 3
+PASS 4
 ```
 
 Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가 표시되고,

@@ -72,6 +72,11 @@ const paths = {
     '--hitl-decision-verification',
     'VISION_PENDING_HITL_DECISION_VERIFICATION_REPORT',
     latestArtifact('vision-pending-hitl-decision-verification-report-')
+  ),
+  hitlNonApprovalWorklist: optionalSourcePath(
+    '--hitl-non-approval-worklist',
+    'VISION_PENDING_HITL_NON_APPROVAL_WORKLIST',
+    latestArtifact('vision-pending-hitl-non-approval-worklist-')
   )
 };
 
@@ -95,7 +100,8 @@ const run = () => {
     releaseEvidenceAlignment: readOptionalJson(paths.releaseEvidenceAlignment),
     hitlQueuePacket: readOptionalJson(paths.hitlQueuePacket),
     hitlDecisionTemplate: readOptionalJson(paths.hitlDecisionTemplate),
-    hitlDecisionVerificationReport: readOptionalJson(paths.hitlDecisionVerification)
+    hitlDecisionVerificationReport: readOptionalJson(paths.hitlDecisionVerification),
+    hitlNonApprovalWorklist: readOptionalJson(paths.hitlNonApprovalWorklist)
   });
   const artifact = {
     ...audit,

@@ -111,6 +111,10 @@ const hitlWorkflowNext = status => ({
   },
   ready_for_manual_import: {
     command: 'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+    commands: [
+      'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+      'npm run vision:hitl:non-approval-worklist -- --decision-verification <vision-pending-hitl-decision-verification-report.json>'
+    ],
     actionKo: '검증된 판정을 live approval authorization으로 변환하세요.'
   },
   clear: {
@@ -125,7 +129,8 @@ const hitlWorkflowNext = status => ({
 const hitlWorkflowGate = ({
   hitlQueuePacket,
   hitlDecisionTemplate,
-  hitlDecisionVerificationReport
+  hitlDecisionVerificationReport,
+  hitlNonApprovalWorklist
 }) => {
   const queueItems = asArray(hitlQueuePacket?.items);
   const queuePending = numberFrom(
@@ -139,6 +144,9 @@ const hitlWorkflowGate = ({
     templateDecisions.length
   );
   const verificationSummary = hitlDecisionVerificationReport?.summary || {};
+  const expectedNonApprovalTotal = numberFrom(verificationSummary.needsReviewItems)
+    + numberFrom(verificationSummary.rejectedCandidates)
+    + numberFrom(verificationSummary.recaptureRequests);
   const queueStatus = compact(hitlQueuePacket?.status) || 'missing_queue_packet';
   const templateStatus = compact(hitlDecisionTemplate?.status)
     || (queuePending > 0 ? 'missing_decision_template' : 'clear');
@@ -159,6 +167,55 @@ const hitlWorkflowGate = ({
   }
 
   const next = hitlWorkflowNext(status);
+  const worklistSummary = hitlNonApprovalWorklist?.summary || {};
+  const worklistStatus = compact(hitlNonApprovalWorklist?.status);
+  const nonApprovalWorklist = (() => {
+    if (status !== 'ready_for_manual_import') {
+      return {
+        status: 'not_ready',
+        totalItems: 0,
+        needsReviewItems: 0,
+        rejectedCandidates: 0,
+        recaptureRequests: 0,
+        approvalCandidatesExcluded: 0,
+        serviceWritesPerformed: false
+      };
+    }
+    if (expectedNonApprovalTotal <= 0) {
+      return {
+        status: 'clear',
+        totalItems: 0,
+        needsReviewItems: 0,
+        rejectedCandidates: 0,
+        recaptureRequests: 0,
+        approvalCandidatesExcluded: numberFrom(verificationSummary.approvalCandidates),
+        serviceWritesPerformed: hitlNonApprovalWorklist?.serviceWritesPerformed === true
+      };
+    }
+    if (
+      hitlNonApprovalWorklist?.contractVersion
+        !== 'vision-pending-hitl-non-approval-worklist/v1'
+    ) {
+      return {
+        status: 'worklist_missing',
+        totalItems: expectedNonApprovalTotal,
+        needsReviewItems: numberFrom(verificationSummary.needsReviewItems),
+        rejectedCandidates: numberFrom(verificationSummary.rejectedCandidates),
+        recaptureRequests: numberFrom(verificationSummary.recaptureRequests),
+        approvalCandidatesExcluded: numberFrom(verificationSummary.approvalCandidates),
+        serviceWritesPerformed: false
+      };
+    }
+    return {
+      status: worklistStatus || 'unknown',
+      totalItems: numberFrom(worklistSummary.totalItems),
+      needsReviewItems: numberFrom(worklistSummary.needsReviewItems),
+      rejectedCandidates: numberFrom(worklistSummary.rejectedCandidates),
+      recaptureRequests: numberFrom(worklistSummary.recaptureRequests),
+      approvalCandidatesExcluded: numberFrom(worklistSummary.approvalCandidatesExcluded),
+      serviceWritesPerformed: hitlNonApprovalWorklist?.serviceWritesPerformed === true
+    };
+  })();
 
   return {
     status,
@@ -179,8 +236,11 @@ const hitlWorkflowGate = ({
       invalidDecisions: numberFrom(verificationSummary.invalidDecisions),
       pendingQueueItems: numberFrom(verificationSummary.pendingQueueItems, queuePending),
       approvalCandidates: numberFrom(verificationSummary.approvalCandidates),
+      needsReviewItems: numberFrom(verificationSummary.needsReviewItems),
+      rejectedCandidates: numberFrom(verificationSummary.rejectedCandidates),
       recaptureRequests: numberFrom(verificationSummary.recaptureRequests)
     },
+    nonApprovalWorklist,
     policy: {
       requiresHumanReview: true,
       autoApplyAllowed: false,
@@ -190,8 +250,10 @@ const hitlWorkflowGate = ({
     },
     serviceWritesPerformed: hitlQueuePacket?.serviceWritesPerformed === true
       || hitlDecisionTemplate?.serviceWritesPerformed === true
-      || hitlDecisionVerificationReport?.serviceWritesPerformed === true,
+      || hitlDecisionVerificationReport?.serviceWritesPerformed === true
+      || hitlNonApprovalWorklist?.serviceWritesPerformed === true,
     nextCommand: next.command,
+    nextCommands: next.commands || [next.command],
     nextActionKo: next.actionKo
   };
 };
@@ -301,14 +363,16 @@ const buildVisionOperationalReadinessAudit = ({
   releaseEvidenceAlignment = null,
   hitlQueuePacket = null,
   hitlDecisionTemplate = null,
-  hitlDecisionVerificationReport = null
+  hitlDecisionVerificationReport = null,
+  hitlNonApprovalWorklist = null
 } = {}) => {
   const reference = referenceGate(referenceGateReport);
   const postHitl = postHitlGate(postHitlVerificationReport);
   const hitlWorkflow = hitlWorkflowGate({
     hitlQueuePacket,
     hitlDecisionTemplate,
-    hitlDecisionVerificationReport
+    hitlDecisionVerificationReport,
+    hitlNonApprovalWorklist
   });
   const release = releaseGate(releaseReport, releaseEvidenceAlignment);
   const blockers = [

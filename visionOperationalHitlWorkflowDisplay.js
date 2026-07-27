@@ -44,11 +44,13 @@ const summarizeVisionOperationalHitlWorkflowDisplay = worklist => {
   const pendingCount = numberValue(workflow.verification?.pendingQueueItems);
   const invalidCount = numberValue(workflow.verification?.invalidDecisions);
   const acceptedCount = numberValue(workflow.verification?.acceptedDecisions);
+  const nonApprovalCount = numberValue(workflow.nonApprovalWorklist?.totalItems);
   const parts = [
     `큐 ${queueCount}건`,
     `템플릿 ${templateCount}건`,
     acceptedCount > 0 ? `검증 ${acceptedCount}건` : '',
     `미판정 ${pendingCount}건`,
+    nonApprovalCount > 0 ? `비승인 조치 ${nonApprovalCount}건` : '',
     invalidCount > 0 ? `오류 ${invalidCount}건` : ''
   ].filter(Boolean);
 
@@ -59,6 +61,9 @@ const summarizeVisionOperationalHitlWorkflowDisplay = worklist => {
     severity: severityFor(status, invalidCount),
     summaryText: parts.join(' · '),
     nextCommand: compact(workflow.nextCommand),
+    nextCommands: Array.isArray(workflow.nextCommands)
+      ? workflow.nextCommands.map(compact).filter(Boolean)
+      : [compact(workflow.nextCommand)].filter(Boolean),
     nextActionKo: compact(workflow.nextActionKo),
     safetyBadges: [
       '자동 적용 금지',

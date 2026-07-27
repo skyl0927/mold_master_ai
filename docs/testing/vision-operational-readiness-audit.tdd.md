@@ -31,6 +31,13 @@ decision is recorded. Only then does it report `approved_for_manual_activation`.
   operator confirmation. `autoActivationAllowed` remains `false`.
 - Reference gate, post-HITL, release metric, and evidence-alignment failures are
   all surfaced as source-tagged blockers.
+- HITL decision verification status now includes a `nonApprovalWorklist`
+  summary. When verification is `ready_for_manual_import` and non-approval
+  outcomes exist, the audit reports `worklist_missing` until
+  `vision-pending-hitl-non-approval-worklist/v1` is generated.
+- The HITL workflow exposes both `nextCommand` for the legacy authorization
+  bridge and `nextCommands` for authorization plus non-approval worklist
+  generation.
 - `npm run vision:operational:readiness` writes a local audit JSON artifact for
   the current operational evidence bundle.
 
@@ -47,6 +54,9 @@ decision is recorded. Only then does it report `approved_for_manual_activation`.
   reference refresh failed, approved sample count short by 8, four approved label
   conflict groups, 12 unresolved human-review items, and missing operational
   release report.
+- `npm run vision:operational:readiness`: produced a current audit where
+  `gates.hitlWorkflow.nonApprovalWorklist.status = not_ready` because the live
+  HITL decision verification report is still awaiting human review.
 
 ## Known Gaps
 
