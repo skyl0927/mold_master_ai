@@ -56,6 +56,23 @@ const worktableImport = status => ({
   }
 });
 
+const worktableSuggestion = () => ({
+  contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
+  status: 'ready_for_human_review',
+  serviceWritesPerformed: false,
+  summary: {
+    totalRows: 59,
+    pendingRows: 59,
+    suggestionRows: 59,
+    approveCandidateSuggestions: 7,
+    approveCardSuggestions: 43,
+    recaptureSuggestions: 5,
+    needsReviewSuggestions: 4,
+    needsChangesSuggestions: 0,
+    rejectSuggestions: 0
+  }
+});
+
 const preflight = status => ({
   contractVersion: 'operational-hitl-editable-decision-preflight/v1',
   status,
@@ -144,6 +161,39 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
   ]);
   assert.equal(status.policy.allowGraphPromotion, false);
   assert.equal(status.serviceWritesPerformed, false);
+});
+
+test('surfaces worktable suggestion metrics while awaiting human CSV decisions', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    generatedAt: '2026-07-27T15:10:00.000Z',
+    intakeStatus: intakeStatus(),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableSuggestion: worktableSuggestion(),
+    worktableImport: worktableImport('no_actionable_rows'),
+    preflightReport: preflight('needs_human_input'),
+    sourceArtifacts: {
+      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json'
+    }
+  });
+
+  assert.equal(status.currentStage.code, 'awaiting_human_csv_decisions');
+  assert.equal(status.summary.worktableSuggestionRows, 59);
+  assert.equal(status.summary.worktableRecaptureSuggestions, 5);
+  assert.equal(status.summary.worktableApproveCandidateSuggestions, 7);
+  assert.equal(status.summary.worktableApproveCardSuggestions, 43);
+  assert.equal(status.summary.worktableNeedsReviewSuggestions, 4);
+  assert.equal(status.sources.worktableSuggestion, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json');
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'worktable_suggestion'),
+    {
+      code: 'worktable_suggestion',
+      titleKo: 'Worktable suggestion',
+      status: 'ready_for_human_review'
+    }
+  );
+  assert.match(status.markdown, /추천 row: 59/);
+  assert.match(status.markdown, /재촬영 추천: 5/);
 });
 
 test('routes dry-run update plans to explicit worktable apply', () => {
