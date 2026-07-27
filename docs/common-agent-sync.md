@@ -95,6 +95,7 @@ npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
 npm run operational:hitl:common-agent-import-package
+npm run operational:hitl:post-import-validation-plan
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -167,6 +168,13 @@ Web Knowledge HITL의 최신 decision verification report를 하나로 묶어
 `blocked_pending_hitl_verification` 상태로 멈춘다. 이 패키지는 Common Agent가
 수동 import 검토에 사용할 후보 artifact이며, 외부 API 호출, SQL 쓰기, Graph 승격,
 Reference 학습, 모델 학습을 직접 수행하지 않는다.
+
+`operational:hitl:post-import-validation-plan`은 위 import package가 준비된 뒤
+Common Agent 수동 반영 결과를 Mold Master AI에서 검증할 test case를 만든다.
+Graph RAG 답변 근거 검증, Vision approved 라벨 왕복 검증, 라벨 충돌 해소 검증을
+분리하며, 각 case는 기대 키워드, Common Agent 요청 템플릿, acceptance criteria,
+출처 artifact를 포함한다. 현재 import package가 아직 blocked이면 test case를
+비운 `blocked_import_package_not_ready` 상태로 저장한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
