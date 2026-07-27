@@ -95,8 +95,8 @@ const hitlWorkflowCommands = [
   'npm run vision:hitl:pending-packet',
   'npm run vision:hitl:decision-template',
   'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
-  'npm run vision:hitl:prepare',
-  'npm run vision:hitl:approve -- --authorization <reviewed-json>',
+  'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+  'npm run vision:hitl:approve -- --authorization <vision-hitl-authorization-from-decisions.json>',
   'npm run migration:verify-post-hitl'
 ];
 

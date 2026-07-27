@@ -110,8 +110,8 @@ const hitlWorkflowNext = status => ({
     actionKo: '남은 HITL queue item을 추가 검토하고 다시 검증하세요.'
   },
   ready_for_manual_import: {
-    command: 'npm run vision:hitl:prepare',
-    actionKo: '검증된 판정을 기반으로 수동 import/승인 절차를 준비하세요.'
+    command: 'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+    actionKo: '검증된 판정을 live approval authorization으로 변환하세요.'
   },
   clear: {
     command: 'npm run migration:verify-post-hitl',

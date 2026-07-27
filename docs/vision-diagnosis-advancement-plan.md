@@ -31,6 +31,8 @@ Mold Master AI의 비전 진단을 단일 사진 분류 기능이 아니라 다�
 - 승인된 Vision 데이터셋 및 SHA-256 계보 검증
 - Graph 우선 검색과 LLM 보조 응답
 - HITL 승인, 보류, 반려 및 승인 데이터 승격
+- Common Agent HITL 판정 검증 보고서에서 승인 후보만 live approval
+  authorization으로 변환하는 no-write 브리지
 - 결함별 필수 촬영 시점 정의와 준비도 평가
 - 비영속 Vision/Graph 벤치마크
 
@@ -237,6 +239,14 @@ HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()
 설정/DB 화면에는 `학습 제외 N건`과 사유 요약을 노출할 수 있게 했다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
+
+2026-07-27에는 Common Agent HITL decision verification report가
+`ready_for_manual_import`가 된 경우에만 승인 후보를 기존
+`vision:hitl:approve` authorization 파일로 변환하는 브리지를 추가했다.
+이 브리지는 approval만 분리하고 needs-review/reject/recapture는 별도 운영
+조치로 보존하며, Common Agent/Graph DB/model training에 직접 쓰지 않는다.
+따라서 현재 단계는 “데이터 확보 및 사람 판정 대기”에서 “판정 완료 시 안전하게
+승인 실행으로 이어질 수 있는 운영 연결부 준비 완료”로 한 단계 이동했다.
 
 개발:
 

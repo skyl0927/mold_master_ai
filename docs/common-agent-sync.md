@@ -159,6 +159,30 @@ npm run vision:hitl:verify-decisions -- --decisions <common-agent-hitl-decisions
 거부된다. 이 단계 또한 자동 import가 아니며 `serviceWritesPerformed=false`,
 `autoApplyAllowed=false`를 유지한다.
 
+검증 보고서가 `ready_for_manual_import`가 된 뒤에는 승인 후보만 기존 live
+approval 입력 파일로 변환한다.
+
+```powershell
+npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>
+```
+
+생성되는 `vision-pending-hitl-authorization-bridge/v1`은 `approve_candidate`
+판정만 `I_CONFIRM_EACH_IMAGE_AND_LABEL` authorization으로 옮긴다. 보류,
+반려, 재촬영 판정은 승인 파일에 섞지 않고 `nonApprovalDecisions`에 남긴다.
+브리지 단계도 `serviceWritesPerformed=false`이며 Common Agent, Graph DB,
+reference learning, model training을 직접 변경하지 않는다.
+
+실제 승인 반영은 생성된 authorization 파일을 운영자가 확인한 뒤에만 별도
+실행한다.
+
+```powershell
+npm run vision:hitl:approve -- --authorization <vision-hitl-authorization-from-decisions.json>
+```
+
+판정 보고서가 아직 `awaiting_human_review`, `partial_human_review`,
+`invalid_decisions` 상태이거나 승인 hash가 review packet manifest와 맞지 않으면
+브리지는 authorization을 만들지 않고 fail-closed 상태로 종료한다.
+
 `npm run vision:operational:readiness`는 최신 HITL queue, decision template,
 decision verification artifact를 자동으로 찾아 `gates.hitlWorkflow`에 요약한다.
 `npm run vision:operational:worklist`의 `close_hitl_reviews` 작업과 Common

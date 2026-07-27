@@ -294,3 +294,58 @@ test('readiness audit exposes pending HITL queue, template, and decision verific
   assert.equal(audit.gates.hitlWorkflow.policy.allowGraphPromotion, false);
   assert.match(audit.gates.hitlWorkflow.nextCommand, /vision:hitl:verify-decisions/);
 });
+
+test('readiness audit routes verified HITL decisions to the authorization bridge', () => {
+  const audit = buildVisionOperationalReadinessAudit({
+    referenceGateReport: referenceGatePassed,
+    postHitlVerificationReport: {
+      ...postHitlPassed,
+      status: 'waiting_for_human_hitl',
+      readyToDisableLegacyFallback: false,
+      benchmarksExecuted: false,
+      blockers: [{
+        code: 'human_review_required',
+        count: 12
+      }]
+    },
+    hitlQueuePacket: {
+      contractVersion: 'vision-pending-hitl-review-queue-packet/v1',
+      status: 'action_required',
+      summary: {
+        pendingHighConfidence: 12,
+        resolvedHighConfidence: 6
+      },
+      serviceWritesPerformed: false,
+      items: Array.from({ length: 12 }, (_, index) => ({
+        queueId: `pending-hitl-${String(index + 1).padStart(3, '0')}`
+      }))
+    },
+    hitlDecisionTemplate: {
+      contractVersion: 'common-agent-hitl-review-decisions/v1',
+      status: 'template_ready',
+      summary: {
+        decisionsPrepared: 12
+      },
+      serviceWritesPerformed: false
+    },
+    hitlDecisionVerificationReport: {
+      contractVersion: 'vision-pending-hitl-decision-verification-report/v1',
+      status: 'ready_for_manual_import',
+      summary: {
+        queueItems: 12,
+        decisionsReceived: 12,
+        acceptedDecisions: 12,
+        invalidDecisions: 0,
+        pendingQueueItems: 0,
+        approvalCandidates: 8,
+        recaptureRequests: 2
+      },
+      serviceWritesPerformed: false
+    }
+  });
+
+  assert.equal(audit.gates.hitlWorkflow.status, 'ready_for_manual_import');
+  assert.equal(audit.gates.hitlWorkflow.verification.approvalCandidates, 8);
+  assert.match(audit.gates.hitlWorkflow.nextCommand, /vision:hitl:authorization-bridge/);
+  assert.match(audit.gates.hitlWorkflow.nextActionKo, /authorization/);
+});
