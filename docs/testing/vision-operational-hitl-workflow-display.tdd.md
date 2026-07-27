@@ -51,7 +51,8 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
   항상 표시한다.
 - `operational-hitl-pipeline-status/v1`는 `HITL Pipeline Status` 카드로 표시하고
   `CSV 판정 입력 대기`, `미입력 56건`, `작업표 59건`, `추천 59건`,
-  `재촬영 5건`, `Vision 후보 7건`, `Web 후보 43건`을 요약한다.
+  `검토세션 4건`, `고위험 9건`, `재촬영 5건`, `Vision 후보 7건`,
+  `Web 후보 43건`을 요약한다.
 - Pipeline Status 카드의 안전 배지는 `Artifact-only`, `자동 적용 금지`,
   `Graph 승격 금지`, `Reference 학습 금지`, `Model 학습 금지`를 표시한다.
 - `operational-hitl-decision-worktable-suggestion/v1`는 `HITL Worktable

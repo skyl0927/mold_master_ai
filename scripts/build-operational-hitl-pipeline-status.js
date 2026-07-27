@@ -98,6 +98,12 @@ const worktableSuggestionPath = resolveOptionalPath(
   latestArtifact('operational-hitl-decision-worktable-suggestion-')
 );
 
+const reviewSessionPlanPath = resolveOptionalPath(
+  valueAfter('--review-session-plan'),
+  process.env.OPERATIONAL_HITL_REVIEW_SESSION_PLAN,
+  latestArtifact('operational-hitl-review-session-plan-')
+);
+
 const preflightPath = resolveOptionalPath(
   valueAfter('--preflight'),
   process.env.OPERATIONAL_HITL_EDITABLE_DECISION_PREFLIGHT_REPORT,
@@ -135,6 +141,7 @@ const run = () => {
     workspaceManifest: readOptionalJson(workspaceManifestPath),
     worktableExport: readOptionalJson(worktableExportPath),
     worktableSuggestion: readOptionalJson(worktableSuggestionPath),
+    reviewSessionPlan: readOptionalJson(reviewSessionPlanPath),
     worktableImport: readOptionalJson(worktableImportPath),
     preflightReport: readOptionalJson(preflightPath),
     verificationRun: readOptionalJson(verificationRunPath),
@@ -146,6 +153,7 @@ const run = () => {
       worktableExport: worktableExportPath,
       worktableCsv: worktableCsvPath,
       worktableSuggestion: worktableSuggestionPath,
+      reviewSessionPlan: reviewSessionPlanPath,
       worktableImport: worktableImportPath,
       preflightReport: preflightPath,
       verificationRun: verificationRunPath,
@@ -170,6 +178,8 @@ const run = () => {
     totalDecisionInputsMissing: report.summary.totalDecisionInputsMissing,
     worktableRows: report.summary.worktableRows,
     worktableSuggestionRows: report.summary.worktableSuggestionRows,
+    worktableReviewSessionCount: report.summary.worktableReviewSessionCount,
+    worktableReviewSessionHighRiskRows: report.summary.worktableReviewSessionHighRiskRows,
     worktableRecaptureSuggestions: report.summary.worktableRecaptureSuggestions,
     worktableApproveCandidateSuggestions: report.summary.worktableApproveCandidateSuggestions,
     worktableApproveCardSuggestions: report.summary.worktableApproveCardSuggestions,

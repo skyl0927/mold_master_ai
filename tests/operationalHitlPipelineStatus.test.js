@@ -73,6 +73,22 @@ const worktableSuggestion = () => ({
   }
 });
 
+const reviewSessionPlan = () => ({
+  contractVersion: 'operational-hitl-review-session-plan/v1',
+  status: 'ready_for_human_review',
+  serviceWritesPerformed: false,
+  summary: {
+    totalRows: 59,
+    sessionCount: 4,
+    highRiskRows: 9,
+    recaptureRows: 5,
+    approveCandidateRows: 7,
+    approveCardRows: 43,
+    needsReviewRows: 4,
+    needsChangesRows: 0
+  }
+});
+
 const preflight = status => ({
   contractVersion: 'operational-hitl-editable-decision-preflight/v1',
   status,
@@ -156,6 +172,7 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
   assert.match(status.nextActions[0].instructionKo, /newAction/);
   assert.deepEqual(status.nextActions[0].commands, [
     'npm run operational:hitl:worktable-suggest',
+    'npm run operational:hitl:review-session-plan',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
     'npm run operational:hitl:worktable-import'
   ]);
@@ -170,10 +187,12 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
     workspaceManifest: workspaceManifest(),
     worktableExport: worktableExport(),
     worktableSuggestion: worktableSuggestion(),
+    reviewSessionPlan: reviewSessionPlan(),
     worktableImport: worktableImport('no_actionable_rows'),
     preflightReport: preflight('needs_human_input'),
     sourceArtifacts: {
-      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json'
+      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
+      reviewSessionPlan: 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json'
     }
   });
 
@@ -183,7 +202,10 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.equal(status.summary.worktableApproveCandidateSuggestions, 7);
   assert.equal(status.summary.worktableApproveCardSuggestions, 43);
   assert.equal(status.summary.worktableNeedsReviewSuggestions, 4);
+  assert.equal(status.summary.worktableReviewSessionCount, 4);
+  assert.equal(status.summary.worktableReviewSessionHighRiskRows, 9);
   assert.equal(status.sources.worktableSuggestion, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json');
+  assert.equal(status.sources.reviewSessionPlan, 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json');
   assert.deepEqual(
     status.stageTrail.find(item => item.code === 'worktable_suggestion'),
     {
@@ -192,7 +214,16 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
       status: 'ready_for_human_review'
     }
   );
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'review_session_plan'),
+    {
+      code: 'review_session_plan',
+      titleKo: 'Review session plan',
+      status: 'ready_for_human_review'
+    }
+  );
   assert.match(status.markdown, /추천 row: 59/);
+  assert.match(status.markdown, /검토 세션: 4/);
   assert.match(status.markdown, /재촬영 추천: 5/);
 });
 

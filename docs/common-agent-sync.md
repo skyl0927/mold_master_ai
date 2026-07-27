@@ -172,6 +172,12 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 worktable CSV에 옮겨 적어야 하며, 이 명령도 SQL, Graph, Reference, 모델 학습에
 쓰지 않는다.
 
+`operational:hitl:review-session-plan`은 최신 worktable suggestion을 라벨 충돌,
+재촬영, Vision 승인 후보, Web 카드 승인 후보 같은 검토 세션으로 나눈다.
+각 세션은 우선순위, 고위험 row 수, copyableFields, 사람이 직접 확인해야 할
+manualConfirmationFields를 포함한다. 이 산출물도 추천 전용이며 원본 CSV의
+`newAction`을 자동 입력하지 않고 외부 서비스 쓰기를 수행하지 않는다.
+
 `operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
 decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,
 `queueCode`, `decisionId`, `newAction`, reviewer, comment, decidedAt, 확인 boolean,
@@ -206,11 +212,12 @@ Graph RAG 답변 근거 검증, Vision approved 라벨 왕복 검증, 라벨 충
 비운 `blocked_import_package_not_ready` 상태로 저장한다.
 
 `operational:hitl:pipeline-status`는 최신 intake, editable workspace, worktable,
-worktable suggestion, preflight, verification run, Common Agent import package,
-post-import validation artifact를 한 장의 `operational-hitl-pipeline-status/v1`로
-요약한다. 현재 병목 단계, 남은 사람 입력 수, 추천 row/재촬영/승인 후보 분포,
-다음 실행 명령, Common Agent 수동 검토 가능 여부를 표시하지만, 이 명령도 외부
-서비스 호출, SQL 쓰기, Graph 승격, Reference 학습, 모델 학습을 수행하지 않는다.
+worktable suggestion, review session plan, preflight, verification run,
+Common Agent import package, post-import validation artifact를 한 장의
+`operational-hitl-pipeline-status/v1`로 요약한다. 현재 병목 단계, 남은 사람 입력 수,
+추천 row/재촬영/승인 후보 분포, 검토 세션/고위험 row, 다음 실행 명령,
+Common Agent 수동 검토 가능 여부를 표시하지만, 이 명령도 외부 서비스 호출,
+SQL 쓰기, Graph 승격, Reference 학습, 모델 학습을 수행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,

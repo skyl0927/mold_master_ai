@@ -236,6 +236,12 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
     numberValue(summary.worktableSuggestionRows) > 0
       ? `추천 ${numberValue(summary.worktableSuggestionRows)}건`
       : '',
+    numberValue(summary.worktableReviewSessionCount) > 0
+      ? `검토세션 ${numberValue(summary.worktableReviewSessionCount)}건`
+      : '',
+    numberValue(summary.worktableReviewSessionHighRiskRows) > 0
+      ? `고위험 ${numberValue(summary.worktableReviewSessionHighRiskRows)}건`
+      : '',
     numberValue(summary.worktableRecaptureSuggestions) > 0
       ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
       : '',

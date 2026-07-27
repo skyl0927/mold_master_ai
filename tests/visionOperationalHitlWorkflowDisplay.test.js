@@ -291,6 +291,8 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
       worktableApproveCandidateSuggestions: 7,
       worktableApproveCardSuggestions: 43,
       worktableNeedsReviewSuggestions: 4,
+      worktableReviewSessionCount: 4,
+      worktableReviewSessionHighRiskRows: 9,
       worktablePlannedUpdates: 0,
       preflightPendingDecisions: 59,
       commonAgentApprovedPayloads: 0
@@ -314,7 +316,7 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
   assert.equal(display.severity, 'warning');
   assert.equal(
     display.summaryText,
-    '미입력 56건 · 작업표 59건 · 추천 59건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
+    '미입력 56건 · 작업표 59건 · 추천 59건 · 검토세션 4건 · 고위험 9건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
   );
   assert.equal(display.stageText, 'CSV HITL 판정 입력 대기');
   assert.equal(display.suggestionText, '추천 분포: 재촬영 5건 · Vision 후보 7건 · Web 후보 43건 · 검토필요 4건');
