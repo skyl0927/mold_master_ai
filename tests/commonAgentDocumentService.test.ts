@@ -766,6 +766,24 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
         observability.visionDecisionRecommendedActions[1].message,
         /dual_model_disagreement.*VLM.*Classifier/
     );
+    assert.deepEqual(observability.visionDecisionReviewQueue, [
+        {
+            priority: 100,
+            actionCode: 'improve_vision_capture_quality',
+            status: 'unclassifiable',
+            reason: 'image_quality_rejected',
+            count: 1,
+            sampleImageIds: ['image-3']
+        },
+        {
+            priority: 90,
+            actionCode: 'review_vision_decision_disagreement',
+            status: 'needs_review',
+            reason: 'dual_model_disagreement',
+            count: 1,
+            sampleImageIds: ['image-2']
+        }
+    ]);
     assert.deepEqual(observability.visionClassifierDisagreementTargets, [
         {
             visionCandidate: '백화',

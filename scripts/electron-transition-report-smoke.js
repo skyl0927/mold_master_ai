@@ -171,6 +171,8 @@ const path = require('node:path');
       hasVisionDecisionReason: bodyText.includes('dual_model_disagreement'),
       hasVisionDecisionAction: bodyText.includes('Vision 권장 조치'),
       hasVisionDecisionActionDetail: bodyText.includes('VLM/Classifier'),
+      hasVisionReviewQueue: bodyText.includes('Vision 우선 검토'),
+      hasVisionReviewQueueSample: bodyText.includes('image-2'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       releaseDecision: captured.report.operationalRelease?.decision,
@@ -183,6 +185,7 @@ const path = require('node:path');
       reportVisionNeedsReviewRate: captured.report.observability.visionNeedsReviewRate,
       reportVisionDecisionReasonTargets: captured.report.observability.visionDecisionReasonTargets,
       reportVisionDecisionActions: captured.report.observability.visionDecisionRecommendedActions.map(action => action.code),
+      reportVisionReviewQueue: captured.report.observability.visionDecisionReviewQueue,
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
       reportRetrievalModes: captured.report.observability.retrievalModes,
@@ -203,6 +206,8 @@ const path = require('node:path');
       || !result.hasVisionDecisionReason
       || !result.hasVisionDecisionAction
       || !result.hasVisionDecisionActionDetail
+      || !result.hasVisionReviewQueue
+      || !result.hasVisionReviewQueueSample
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
       || result.releaseDecision !== 'rollback_required'
@@ -216,6 +221,7 @@ const path = require('node:path');
       || result.reportVisionNeedsReviewRate !== 50
       || result.reportVisionDecisionReasonTargets?.[0]?.reason !== 'dual_model_disagreement'
       || !result.reportVisionDecisionActions.includes('review_vision_decision_disagreement')
+      || result.reportVisionReviewQueue?.[0]?.sampleImageIds?.[0] !== 'image-2'
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
       || result.reportRetrievalModes.graph_only !== 1
