@@ -52,9 +52,17 @@ const classifierReviewReason = visionSummary => compact(
   || visionSummary?.classifier_summary?.decision_reason
 );
 
+const genericDecisionReasons = new Set([
+  'vision_safety_gate_requires_review',
+  'vision_review_required'
+]);
+
 const gateReasons = visionSummary => {
+  const classifierReason = classifierRequiresReview(visionSummary)
+    ? classifierReviewReason(visionSummary)
+    : '';
   const reasons = [
-    classifierReviewReason(visionSummary),
+    classifierReason,
     compact(visionSummary?.decisionReason || visionSummary?.decision_reason),
     ...asArray(visionSummary?.validationIssues || visionSummary?.validation_issues).map(compact),
     ...asArray(visionSummary?.safetyGate?.reasons).map(compact),
@@ -104,7 +112,11 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
       ? `판정 보류 (${candidate} 후보 검토 필요)`
       : '판정 보류 (사람 검토 필요)';
   const reasons = gateReasons(visionSummary);
-  const classifierReason = classifierReviewReason(visionSummary);
+  const classifierReason = classifierBlocked ? classifierReviewReason(visionSummary) : '';
+  const rawPrimaryVisionReason = compact(visionSummary?.decisionReason || visionSummary?.decision_reason);
+  const primaryVisionReason = genericDecisionReasons.has(rawPrimaryVisionReason)
+    ? ''
+    : rawPrimaryVisionReason;
   const graphReviewReason = graphValidation?.requiresHumanReview === true
     ? compact(graphValidation.decisionReason || graphValidation.decision_status)
     : '';
@@ -117,6 +129,7 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
     guardedDefectType,
     reviewReason: graphReviewReason
       || classifierReason
+      || primaryVisionReason
       || reasons.join(', ')
       || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
     observationText: visibleObservationText(visionSummary),

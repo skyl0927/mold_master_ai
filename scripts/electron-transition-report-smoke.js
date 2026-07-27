@@ -91,6 +91,8 @@ const path = require('node:path');
         visionClassifierTopCandidate: '백화',
         visionClassifierReferenceCount: 5,
         visionClassifierMinimumReferenceSupport: 3,
+        visionDecisionStatus: 'probable',
+        visionDecisionReason: 'probable_multiview_consensus',
         contextProvided: true,
         roiCount: 1,
         ocrProvided: false
@@ -117,6 +119,8 @@ const path = require('node:path');
         visionClassifierTopCandidate: '웰드라인',
         visionClassifierReferenceCount: 3,
         visionClassifierMinimumReferenceSupport: 3,
+        visionDecisionStatus: 'needs_review',
+        visionDecisionReason: 'dual_model_disagreement',
         contextProvided: false,
         roiCount: 0,
         ocrProvided: true,
@@ -163,6 +167,8 @@ const path = require('node:path');
       hasClassifierMetric: bodyText.includes('Classifier 합의'),
       hasClassifierAction: bodyText.includes('Classifier 권장 조치'),
       hasClassifierTarget: bodyText.includes('백화 -> 웰드라인'),
+      hasVisionDecisionMetric: bodyText.includes('Vision 보류'),
+      hasVisionDecisionReason: bodyText.includes('dual_model_disagreement'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       releaseDecision: captured.report.operationalRelease?.decision,
@@ -172,6 +178,8 @@ const path = require('node:path');
       reportClassifierAverageReferenceCount: captured.report.observability.averageClassifierReferenceCount,
       reportClassifierActions: captured.report.observability.visionClassifierRecommendedActions.map(action => action.code),
       reportClassifierDisagreementTargets: captured.report.observability.visionClassifierDisagreementTargets,
+      reportVisionNeedsReviewRate: captured.report.observability.visionNeedsReviewRate,
+      reportVisionDecisionReasonTargets: captured.report.observability.visionDecisionReasonTargets,
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
       reportRetrievalModes: captured.report.observability.retrievalModes,
@@ -188,6 +196,8 @@ const path = require('node:path');
       || !result.hasClassifierMetric
       || !result.hasClassifierAction
       || !result.hasClassifierTarget
+      || !result.hasVisionDecisionMetric
+      || !result.hasVisionDecisionReason
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
       || result.releaseDecision !== 'rollback_required'
@@ -198,6 +208,8 @@ const path = require('node:path');
       || !result.reportClassifierActions.includes('review_classifier_disagreement')
       || result.reportClassifierDisagreementTargets?.[0]?.visionCandidate !== '백화'
       || result.reportClassifierDisagreementTargets?.[0]?.classifierCandidate !== '웰드라인'
+      || result.reportVisionNeedsReviewRate !== 50
+      || result.reportVisionDecisionReasonTargets?.[0]?.reason !== 'dual_model_disagreement'
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
       || result.reportRetrievalModes.graph_only !== 1

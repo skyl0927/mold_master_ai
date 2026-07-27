@@ -1046,14 +1046,28 @@ export class CommonAgentApiService {
                     : graphGrounding.decision_reason
             }
             : undefined;
+        const fusionBlocksFinalization = Boolean(
+            fusionSummary && fusionSummary.decisionStatus !== 'probable'
+        );
+        const finalVisionDecisionStatus: VisionObservationSummary['decisionStatus'] =
+            graphValidation?.requiresHumanReview
+                ? 'needs_review'
+                : classifierBlocksFinalization
+                    ? 'needs_review'
+                    : fusionBlocksFinalization
+                        ? fusionSummary!.decisionStatus
+                        : visionSummary.decisionStatus;
+        const finalVisionDecisionReason = graphValidation?.requiresHumanReview
+            ? graphValidation.decisionReason
+            : classifierBlocksFinalization
+                ? classifierSummary?.decisionReason || 'vision_classifier_review_required'
+                : fusionBlocksFinalization
+                    ? fusionSummary!.decisionReason
+                    : visionSummary.decisionReason;
         const enrichedVisionSummary: VisionObservationSummary = {
             ...visionSummary,
-            decisionStatus: graphValidation?.requiresHumanReview
-                ? 'needs_review'
-                : visionSummary.decisionStatus,
-            decisionReason: graphValidation?.requiresHumanReview
-                ? graphValidation.decisionReason
-                : visionSummary.decisionReason,
+            decisionStatus: finalVisionDecisionStatus,
+            decisionReason: finalVisionDecisionReason,
             fusionSummary,
             viewEvidence,
             classifierSummary

@@ -69,6 +69,7 @@ export interface DiagnosisComparisonRecord {
     visionQualityScore?: number;
     visionQualityIssueCodes?: string[];
     visionDecisionStatus?: VisionDecisionStatus;
+    visionDecisionReason?: string;
     visionCandidateCount?: number;
     visionViewCount?: number;
     visionDisagreementScore?: number;
@@ -147,6 +148,13 @@ export interface DiagnosisVisionClassifierReferenceTarget {
     sampleImageIds: string[];
 }
 
+export interface DiagnosisVisionDecisionReasonTarget {
+    status: VisionDecisionStatus;
+    reason: string;
+    count: number;
+    sampleImageIds: string[];
+}
+
 export interface DiagnosisObservability {
     total: number;
     commonAgentLatencyMs: DiagnosisLatencySummary;
@@ -163,6 +171,10 @@ export interface DiagnosisObservability {
     visionClassifierDisagreementRate: number;
     visionClassifierInsufficientReferenceRate: number;
     averageClassifierReferenceCount: number;
+    visionProbableRate: number;
+    visionNeedsReviewRate: number;
+    visionUnclassifiableRate: number;
+    visionDecisionReasonTargets: DiagnosisVisionDecisionReasonTarget[];
     visionClassifierDisagreementTargets: DiagnosisVisionClassifierDisagreementTarget[];
     visionClassifierReferenceTargets: DiagnosisVisionClassifierReferenceTarget[];
     visionClassifierRecommendedActions: DiagnosisObservabilityAction[];
@@ -178,6 +190,7 @@ export interface DiagnosisObservability {
         llmSupplemented: number;
         graphValidation: number;
         visionClassifier: number;
+        visionDecision: number;
         evidence: number;
         contextProvided: number;
         roiContext: number;
@@ -547,10 +560,49 @@ const compactClassifierLabel = (value?: string): string => {
     return compact || '미확인';
 };
 
+const isVisionDecisionStatus = (value?: string): value is VisionDecisionStatus =>
+    value === 'probable' || value === 'needs_review' || value === 'unclassifiable';
+
+const visionDecisionStatusPriority = (status: VisionDecisionStatus): number => {
+    if (status === 'needs_review') return 0;
+    if (status === 'unclassifiable') return 1;
+    return 2;
+};
+
 const pushSampleImageId = (sampleImageIds: string[], imageId: string): void => {
     if (sampleImageIds.includes(imageId)) return;
     if (sampleImageIds.length >= 3) return;
     sampleImageIds.push(imageId);
+};
+
+const summarizeVisionDecisionReasonTargets = (
+    records: DiagnosisComparisonRecord[]
+): DiagnosisVisionDecisionReasonTarget[] => {
+    const groups = new Map<string, DiagnosisVisionDecisionReasonTarget>();
+    for (const record of records) {
+        if (!isVisionDecisionStatus(record.visionDecisionStatus)) continue;
+        const reason = compactClassifierLabel(
+            record.visionDecisionReason || record.visionFusionDecisionReason
+        );
+        const key = `${record.visionDecisionStatus}\u0000${reason}`;
+        const previous = groups.get(key);
+        if (previous) {
+            previous.count += 1;
+            pushSampleImageId(previous.sampleImageIds, record.imageId);
+            continue;
+        }
+        groups.set(key, {
+            status: record.visionDecisionStatus,
+            reason,
+            count: 1,
+            sampleImageIds: [record.imageId]
+        });
+    }
+    return Array.from(groups.values()).sort((left, right) =>
+        visionDecisionStatusPriority(left.status) - visionDecisionStatusPriority(right.status)
+        || right.count - left.count
+        || left.reason.localeCompare(right.reason, 'ko')
+    );
 };
 
 const summarizeVisionClassifierDisagreementTargets = (
@@ -726,6 +778,9 @@ export const calculateDiagnosisObservability = (
     const classifierMeasured = records.filter(record =>
         typeof record.visionClassifierStatus === 'string'
     );
+    const visionDecisionMeasured = records.filter(record =>
+        isVisionDecisionStatus(record.visionDecisionStatus)
+    );
     const classifierReferenceMeasured = records.filter(record =>
         typeof record.visionClassifierReferenceCount === 'number'
         && Number.isFinite(record.visionClassifierReferenceCount)
@@ -749,9 +804,23 @@ export const calculateDiagnosisObservability = (
         classifierMeasured.filter(record => record.visionClassifierStatus === 'insufficient_reference').length,
         classifierMeasured.length
     );
+    const visionProbableRate = roundedRate(
+        visionDecisionMeasured.filter(record => record.visionDecisionStatus === 'probable').length,
+        visionDecisionMeasured.length
+    );
+    const visionNeedsReviewRate = roundedRate(
+        visionDecisionMeasured.filter(record => record.visionDecisionStatus === 'needs_review').length,
+        visionDecisionMeasured.length
+    );
+    const visionUnclassifiableRate = roundedRate(
+        visionDecisionMeasured.filter(record => record.visionDecisionStatus === 'unclassifiable').length,
+        visionDecisionMeasured.length
+    );
     const averageClassifierReferenceCount = roundedAverage(
         classifierReferenceMeasured.map(record => record.visionClassifierReferenceCount!)
     );
+    const visionDecisionReasonTargets =
+        summarizeVisionDecisionReasonTargets(visionDecisionMeasured);
     const visionClassifierDisagreementTargets =
         summarizeVisionClassifierDisagreementTargets(classifierMeasured);
     const visionClassifierReferenceTargets =
@@ -814,6 +883,10 @@ export const calculateDiagnosisObservability = (
         visionClassifierDisagreementRate,
         visionClassifierInsufficientReferenceRate,
         averageClassifierReferenceCount,
+        visionProbableRate,
+        visionNeedsReviewRate,
+        visionUnclassifiableRate,
+        visionDecisionReasonTargets,
         visionClassifierDisagreementTargets,
         visionClassifierReferenceTargets,
         visionClassifierRecommendedActions: buildVisionClassifierRecommendedActions({
@@ -850,6 +923,7 @@ export const calculateDiagnosisObservability = (
             llmSupplemented: llmMeasured.length,
             graphValidation: graphValidationMeasured.length,
             visionClassifier: classifierMeasured.length,
+            visionDecision: visionDecisionMeasured.length,
             evidence: evidenceMeasured.length,
             contextProvided: contextMeasured.length,
             roiContext: roiMeasured.length,
@@ -1012,6 +1086,7 @@ export class CommonAgentGateway {
             visionQualityScore: options.visionQuality?.score,
             visionQualityIssueCodes: options.visionQuality?.issues.map(issue => issue.code),
             visionDecisionStatus: selectedAnalysis.visionSummary?.decisionStatus,
+            visionDecisionReason: selectedAnalysis.visionSummary?.decisionReason,
             visionCandidateCount: selectedAnalysis.visionSummary?.candidates.length,
             visionViewCount: selectedAnalysis.visionSummary?.fusionSummary?.validViewCount,
             visionDisagreementScore: selectedAnalysis.visionSummary?.fusionSummary?.disagreementScore,

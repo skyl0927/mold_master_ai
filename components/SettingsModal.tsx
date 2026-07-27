@@ -59,6 +59,13 @@ const optionalCsv = (value: string): string[] | undefined => {
   return items.length > 0 ? items : undefined;
 };
 
+const visionDecisionStatusLabel = (status: string): string => {
+  if (status === 'probable') return '확정 후보';
+  if (status === 'needs_review') return '보류';
+  if (status === 'unclassifiable') return '판정불가';
+  return status;
+};
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialConfig }) => {
   const [provider, setProvider] = useState<ApiProvider>(initialConfig?.provider || 'gemini');
   const [aiOrchestrationMode, setAiOrchestrationMode] = useState<AiOrchestrationMode>(
@@ -411,6 +418,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     </strong>
                   </span>
                   <span>
+                    Vision 확정{' '}
+                    <strong className="text-white">
+                      {diagnosisObservability.metricSamples.visionDecision > 0
+                        ? `${diagnosisObservability.visionProbableRate}%`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
+                    Vision 보류{' '}
+                    <strong className={diagnosisObservability.visionNeedsReviewRate > 0 ? 'text-amber-300' : 'text-white'}>
+                      {diagnosisObservability.metricSamples.visionDecision > 0
+                        ? `${diagnosisObservability.visionNeedsReviewRate}%`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
+                    Vision 판정불가{' '}
+                    <strong className={diagnosisObservability.visionUnclassifiableRate > 0 ? 'text-red-300' : 'text-white'}>
+                      {diagnosisObservability.metricSamples.visionDecision > 0
+                        ? `${diagnosisObservability.visionUnclassifiableRate}%`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
                     현장 컨텍스트{' '}
                     <strong className="text-white">
                       {diagnosisObservability.metricSamples.contextProvided > 0
@@ -451,6 +482,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       .map(([mode, count]) => `${mode} ${count}`)
                       .join(' · ')}
                   </p>
+                )}
+                {diagnosisObservability.visionDecisionReasonTargets.length > 0 && (
+                  <div className="mt-2 rounded border border-sky-900/50 bg-sky-950/20 p-2 text-[9px] text-sky-100">
+                    <p className="font-bold text-sky-200">Vision 판정 사유</p>
+                    {diagnosisObservability.visionDecisionReasonTargets.slice(0, 3).map(target => (
+                      <p key={`${target.status}:${target.reason}`} className="mt-1 break-words">
+                        {visionDecisionStatusLabel(target.status)} {target.count}건: {target.reason}
+                      </p>
+                    ))}
+                  </div>
                 )}
                 {diagnosisObservability.visionClassifierRecommendedActions.length > 0 && (
                   <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 p-2 text-[9px] text-amber-100">

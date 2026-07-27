@@ -205,6 +205,11 @@ multipart 전송, 시점별 독립 Vision V2 관찰, 시점·관찰 범주 가�
 후보 충돌·필수 시점 누락·정상 반대 근거 안전 게이트, 시점별 데이터 계보,
 Graph 전달 및 Electron 자동화 검증 완료. 승인 현장 사진을 이용한 클래스별
 temperature/isotonic calibration과 목표 정확도 측정은 운영 검증 대기.
+2026-07-27 comparison record와 운영 관측성에 Vision 판정 상태별 확정률,
+보류율, 판정불가율과 보류 사유 타깃을 추가했다. 설정 화면과 전환 리포트
+JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확정을
+막은 1차 사유를 확인할 수 있으며, classifier agreement 사유가 실제 보류
+사유를 덮지 않도록 guard 우선순위도 정리했다.
 
 개발:
 
