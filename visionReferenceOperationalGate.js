@@ -36,6 +36,12 @@ const buildVisionReferenceBenchmarkRequest = ({
 
 const storeBlocker = status => {
   if (status?.ready === true) return null;
+  if (status?.status === 'api_missing') {
+    return {
+      code: 'reference_api_missing',
+      detail: String(status?.message || 'Common Agent Vision reference API endpoint is not available')
+    };
+  }
   return {
     code: status?.status === 'invalid'
       ? 'reference_store_invalid'
@@ -62,6 +68,11 @@ const benchmarkBlockers = report => {
     : [{ code: 'benchmark_not_ready' }];
 };
 
+const isNotFoundError = value => {
+  const text = String(value || '').toLowerCase();
+  return text.includes('404') || text.includes('not found');
+};
+
 const buildVisionReferenceOperationalReport = ({
   generatedAt = new Date().toISOString(),
   agentUrl,
@@ -81,7 +92,9 @@ const buildVisionReferenceOperationalReport = ({
   if (prototype) blockers.push(prototype);
   if (refreshError) {
     blockers.push({
-      code: 'reference_refresh_failed',
+      code: isNotFoundError(refreshError)
+        ? 'reference_refresh_api_missing'
+        : 'reference_refresh_failed',
       detail: String(refreshError)
     });
   }
@@ -135,6 +148,8 @@ const buildVisionReferenceOperationalReport = ({
     blockers,
     recommendedAction: readyForGraphRetrieval
       ? 'Mold Master AI Vision benchmark gate can stay in shadow and collect production traces before enforce mode.'
+      : blockers.some(blocker => blocker.code.includes('api_missing'))
+        ? 'Upgrade or restart Common Agent with the Vision reference API endpoints, then rerun the operational gate.'
       : statusBlocker
         ? 'Run the Common Agent Vision reference refresh after the server and approved multi-view dataset are available.'
         : prototype
@@ -183,11 +198,12 @@ const runVisionReferenceOperationalGate = async ({
   try {
     beforeStatus = await fetchJson(currentUrl);
   } catch (error) {
+    const message = `GET ${currentUrl}: ${errorText(error)}`;
     beforeStatus = {
       ready: false,
-      status: 'invalid',
+      status: isNotFoundError(message) ? 'api_missing' : 'invalid',
       reference_count: 0,
-      message: `GET ${currentUrl}: ${errorText(error)}`
+      message
     };
   }
 

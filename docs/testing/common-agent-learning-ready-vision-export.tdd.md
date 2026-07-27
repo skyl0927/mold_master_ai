@@ -32,6 +32,7 @@ evidence is repeatable after the external server comes online.
 | Dataset manager shows the reference store alongside approval quality data | Not applicable | `npm run test:electron:dataset-manager` passed with `referenceStatusVisible=true`, `failedRequests=[]`, and `consoleErrors=[]` | The Common Agent Vision tab displays the current store model/version/count and keeps the existing conflict-blocked approval flow intact |
 | Operational Vision reference gate creates repeatable server evidence | `npm run test:vision-reference-gate` failed with missing `visionReferenceOperationalGate` module | `npm run test:vision-reference-gate` passed with 6 tests | The runner performs `current -> refresh -> current -> benchmark-current`, blocks missing/prototype/failed benchmark states, and writes an artifact without claiming readiness on connection failure |
 | Migration gate requires the Vision reference gate before fallback retirement | `npm run test:migration-gate-status` failed with `Cannot read properties of undefined (reading 'readyForGraphRetrieval')` | `npm run test:migration-gate-status` passed with 8 tests | The migration status now reads `artifacts/vision-reference-operational-gate.json`; missing or blocked reference evidence prevents `canDisableLegacyFallback` and surfaces a Reference Store action |
+| Reference API 404 is separated from network/store failures | `npm run test:vision-reference-gate` failed because 404 was still `reference_store_invalid` | `npm run test:vision-reference-gate` passed with 7 tests | A running but outdated Common Agent now reports `reference_api_missing` / `reference_refresh_api_missing` and recommends upgrade or restart with the Vision reference endpoints |
 
 ## Validation Commands
 
@@ -55,6 +56,19 @@ npm run vision:reference:gate
 Result: blocked as expected because the external server was unreachable from
 this PC. The artifact records
 `GET http://218.151.133.137:5011/v1/vision/classifier/references/current: fetch failed`.
+
+Local server smoke on 2026-07-27:
+
+```powershell
+npm run vision:reference:gate
+```
+
+Result: blocked because the local Common Agent process responded with 404 for
+`/v1/vision/classifier/references/current` and
+`/v1/vision/classifier/references/refresh`. The artifact classifies this as
+`reference_api_missing`, meaning the running server must be upgraded or
+restarted with the latest Vision reference API code before model accuracy can be
+measured.
 
 ## Known Gaps
 
