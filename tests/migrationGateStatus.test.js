@@ -453,6 +453,74 @@ test('Vision reference backfill plan explains why reference learning is blocked'
     ]);
 });
 
+test('Vision HITL re-evaluation plan blocks retirement until corrected cases are rechecked or recaptured', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'passed',
+            readyForGraphRetrieval: true,
+            referenceStore: { referenceCount: 20 },
+            benchmark: { evaluatedCount: 20, failedGateChecks: [] },
+            blockers: []
+        },
+        visionHitlReevaluationPlan: {
+            status: 'action_required',
+            summary: {
+                totalInputItems: 23,
+                totalHitlReviewItems: 4,
+                readyForShadowRecheck: 2,
+                waitingForRecapture: 1,
+                pendingHumanReview: 0,
+                excludedRejected: 0,
+                blocked: 1,
+                queueCounts: {
+                    vision_candidate_recheck: 2,
+                    vision_recapture_required: 1
+                },
+                reasonCounts: {
+                    learning_candidate_must_remain_false: 1
+                }
+            },
+            recommendedAction:
+                'Run the generated HITL recheck Vision benchmark manifest, then review failures before refreshing the Vision reference store.'
+        }
+    });
+
+    assert.equal(status.visionHitlReevaluation.readyForShadowRecheck, 2);
+    assert.equal(status.visionHitlReevaluation.waitingForRecapture, 1);
+    assert.equal(status.visionHitlReevaluation.blocked, 1);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.deepEqual(status.blockers, [
+        { code: 'vision_hitl_recheck_required', count: 2 },
+        { code: 'vision_hitl_recapture_required', count: 1 },
+        {
+            code: 'vision_hitl_reevaluation_blocked',
+            count: 1,
+            reasonCounts: {
+                learning_candidate_must_remain_false: 1
+            }
+        }
+    ]);
+    assert.match(status.recommendedAction, /HITL recheck Vision benchmark/);
+});
+
 test('post-apply backfill verification blocks reference refresh when applied rows are not learning-ready', () => {
     const status = buildMigrationGateStatus({
         agentHealth: { online: true },
