@@ -170,6 +170,69 @@ test('downgrades a high-confidence candidate when supporting bbox evidence is we
   assert.ok(observation.safetyGate.reasons.includes('overbroad_region_bbox'));
 });
 
+test('applies a stricter bbox grounding profile for close-up defect views', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    capture_view_tag: 'defect_closeup',
+    observations: [
+      {
+        observation_id: 'obs-whitening-color',
+        category: 'color',
+        description: 'localized milky whitening near the rib edge',
+        region: 'rib edge close-up',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.08,
+          y: 0.1,
+          width: 0.75,
+          height: 0.8,
+          confidence: 0.68
+        },
+        confidence: 0.92
+      },
+      {
+        observation_id: 'obs-whitening-location',
+        category: 'location',
+        description: 'defect candidate is around the rib base',
+        region: 'rib base close-up',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.18,
+          y: 0.18,
+          width: 0.32,
+          height: 0.24,
+          confidence: 0.82
+        },
+        confidence: 0.9
+      }
+    ],
+    candidates: [
+      {
+        defect_type: 'whitening',
+        confidence: 0.88,
+        supporting_observation_ids: ['obs-whitening-color', 'obs-whitening-location'],
+        contradicting_observation_ids: []
+      },
+      {
+        defect_type: 'sink mark',
+        confidence: 0.18,
+        supporting_observation_ids: ['obs-whitening-location'],
+        contradicting_observation_ids: ['obs-whitening-color']
+      }
+    ]
+  });
+
+  assert.equal(observation.decisionStatus, 'needs_review');
+  assert.equal(observation.safetyGate.bboxGroundingProfileId, 'defect_closeup_precision');
+  assert.equal(observation.safetyGate.bboxGroundingThresholds.minConfidence, 0.72);
+  assert.equal(observation.safetyGate.bboxGroundingThresholds.maxArea, 0.55);
+  assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, false);
+  assert.ok(observation.safetyGate.reasons.includes('low_region_bbox_confidence'));
+  assert.ok(observation.safetyGate.reasons.includes('overbroad_region_bbox'));
+});
+
 test('downgrades a high-confidence candidate when only one visual observation supports it', () => {
   const observation = normalizeVisionObservation({
     contract_version: 'vision-observation/v2',
