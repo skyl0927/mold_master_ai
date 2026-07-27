@@ -357,6 +357,11 @@ Classifier 후보` 충돌쌍과 참조 부족 결함군별 평균 참조 수/목
 Common Agent에 전달한다. Electron HITL 스모크는 실제 review request body에
 프로토콜 버전, next action, queue, Graph 승격 허용, 학습 적격 값이 포함되는지
 검증한다.
+이어서 `vision:hitl:reeval-plan` 명령을 추가해 Common Agent dataset rows의
+HITL metadata를 재평가 plan으로 변환한다. `corrected` 항목은
+`eval/vision-hitl-recheck/manifest.json`의 shadow benchmark 후보가 되고,
+`recapture` 항목은 새 이미지가 들어오기 전까지 benchmark와 reference learning
+대상에서 제외된다.
 
 개발:
 
@@ -370,6 +375,10 @@ Common Agent에 전달한다. Electron HITL 스모크는 실제 review request b
 - 승인 외 결정은 Graph 승격과 로컬 지식 행렬 학습을 차단
 - 승인 외 결정은 Common Agent에 재평가 큐, 재촬영 큐, 제외 큐로 구조화해
   전달
+- 교정 큐는 별도 shadow benchmark manifest로 변환해 blind Vision 재평가를
+  실행
+- 재촬영 큐는 새 이미지가 들어오기 전까지 benchmark와 reference store
+  refresh 대상에서 제외
 - 재촬영 요청은 우선순위 100으로 검토 큐 최상단에 배치
 - 반복 모델 교정, 희소 클래스, Vision-Graph 충돌을 코호트 우선순위에 반영
 - 승인 데이터도 fine-tuning 자동 실행 없이 `candidate_only` 상태로 격리
