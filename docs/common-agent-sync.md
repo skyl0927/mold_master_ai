@@ -95,6 +95,7 @@ npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
 npm run operational:hitl:worktable-import
+npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
 ```
@@ -168,6 +169,14 @@ decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 d
 또는 허용되지 않은 action이 있으면 `invalid_worktable`로 중단하고 어떤 파일도
 쓰지 않는다. 사람이 dry-run 결과를 확인한 뒤에만 `--apply`를 붙여 로컬
 workspace의 editable JSON을 수정한다.
+
+`operational:hitl:verify-run`은 `editable-preflight`가 `ready_for_verification`
+상태일 때만 세 큐의 `verify-decisions` 명령을 실행할 수 있게 하는 로컬 검증
+게이트다. 기본 실행은 검증 명령 계획만 만드는 dry-run이며, 사람이 계획을
+확인한 뒤 `--execute`를 붙여야 실제 verification report artifact가 생성된다.
+허용 명령은 `vision:label-conflicts:verify-decisions`,
+`vision:hitl:verify-decisions`, `knowledge:web:hitl:verify-decisions`뿐이며,
+`apply`, `approve`, 임의 셸 명령은 실행하지 않는다.
 
 `operational:hitl:common-agent-import-package`는 라벨 충돌, Vision pending HITL,
 Web Knowledge HITL의 최신 decision verification report를 하나로 묶어
