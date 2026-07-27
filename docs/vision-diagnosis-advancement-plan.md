@@ -175,7 +175,10 @@ prompt_version
 개발 상태: 2026-07-24 V2 구조화 관찰 계약, 관찰 ID 기반 후보 근거,
 정상·문서 hard-negative, Vision/Graph 책임 분리 및 Electron 자동화 검증
 완료. 2026-07-27 품질 `reject/fail` 이미지는 후보를 제거하고 Graph 질의에
-결함명을 전달하지 않는 재촬영 보류 계약을 추가했다. 실제 승인 사진을
+결함명을 전달하지 않는 재촬영 보류 계약을 추가했다. 또한 VLM이
+`quality_status`를 생략하더라도 `motion blur`, `ROI too small`, 식별 불가,
+심한 과노출/저노출 같은 `quality_concerns`를 반환하면 자동으로 품질 reject로
+승격해 후보 사용을 차단한다. 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 
 개발:
@@ -187,6 +190,8 @@ prompt_version
 - 모든 V2 결함 후보가 유효한 `observation_id`를 인용하도록 fail-closed 처리
 - 품질 `reject/fail` 이미지는 고신뢰 후보도 폐기하고 `image_quality_rejected`
   상태로 재촬영을 요구
+- 재촬영급 `quality_concerns`만 반환된 경우도 후보를 폐기하고 Graph 후보
+  사용을 차단
 - 비전 단계의 원인·대책·현장 설명을 Graph 질의 근거와 분리
 
 합격 기준:
@@ -195,6 +200,7 @@ prompt_version
 - 관찰 근거 없는 결함 후보 반환 0건
 - 문서·도면의 물리 결함 오판 0건
 - 품질 reject/fail 이미지의 Graph 후보 전달 0건
+- 품질 우려 기반 재촬영 이미지의 Graph 후보 전달 0건
 
 ### Phase 3. 다중 시점 융합과 선택적 판정
 

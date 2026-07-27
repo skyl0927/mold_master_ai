@@ -148,6 +148,47 @@ const providerContractBlockedPayload = (payload, errors) => ({
   provider_contract_errors: errors
 });
 
+const QUALITY_CONCERN_REJECT_MARKERS = [
+  'motionblur',
+  'outoffocus',
+  'defocus',
+  'unreadable',
+  'cannotdistinguish',
+  'cannotidentify',
+  'notvisible',
+  'hides',
+  'obscured',
+  'roitoosmall',
+  'toosmall',
+  'lowresolution',
+  'severeunderexposed',
+  'severelyunderexposed',
+  'severeoverexposed',
+  'severelyoverexposed',
+  'highlightclipping',
+  'shadowclipping',
+  '초점불량',
+  '초점이맞지않음',
+  '흔들림',
+  '모션블러',
+  '흐림으로식별불가',
+  '식별불가',
+  '판독불가',
+  'roi너무작',
+  'roi부족',
+  '해상도부족',
+  '심한과노출',
+  '심한저노출',
+  '강한반사',
+  '반사로가림'
+];
+
+const qualityConcernRequiresReject = qualityConcerns =>
+  qualityConcerns.some(concern => {
+    const key = normalizedKey(concern);
+    return QUALITY_CONCERN_REJECT_MARKERS.some(marker => key.includes(marker));
+  });
+
 const normalizeQualityStatus = (value, qualityConcerns = []) => {
   const normalized = normalizedKey(value);
   if ([
@@ -159,6 +200,9 @@ const normalizeQualityStatus = (value, qualityConcerns = []) => {
     'invalid',
     'unreadable'
   ].some(marker => normalized.includes(marker))) {
+    return 'reject';
+  }
+  if (qualityConcernRequiresReject(qualityConcerns)) {
     return 'reject';
   }
   if ([

@@ -397,6 +397,50 @@ test('Graph retrieval query does not include candidates from rejected quality im
   assert.doesNotMatch(query, /\uC6F0\uB4DC\uB77C\uC778/);
 });
 
+test('blocking quality concerns reject candidates even when provider omits quality status', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    quality_concerns: ['motion blur hides the defect edge', 'ROI too small for surface diagnosis'],
+    observations: [
+      {
+        observation_id: 'obs-color',
+        category: 'color',
+        description: '\uB9AC\uBE0C \uC8FC\uBCC0\uC5D0 \uD750\uB9B0 \uC720\uBC31\uC0C9 \uC601\uC5ED',
+        region: '\uB9AC\uBE0C \uAE30\uBD80',
+        confidence: 0.9
+      },
+      {
+        observation_id: 'obs-location',
+        category: 'location',
+        description: '\uC758\uC2EC \uC601\uC5ED\uC774 ROI \uD558\uB2E8\uC5D0 \uC77C\uBD80\uB9CC \uD3EC\uD568\uB428',
+        region: 'ROI \uD558\uB2E8',
+        confidence: 0.86
+      }
+    ],
+    candidates: [
+      {
+        defect_type: '\uBC31\uD654',
+        confidence: 0.93,
+        supporting_observation_ids: ['obs-color', 'obs-location']
+      },
+      {
+        defect_type: '\uC2F1\uD06C',
+        confidence: 0.12,
+        supporting_observation_ids: ['obs-location']
+      }
+    ]
+  });
+
+  assert.equal(observation.qualityStatus, 'reject');
+  assert.equal(observation.candidates.length, 0);
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+  assert.equal(observation.decisionReason, 'image_quality_rejected');
+  assert.equal(observation.safetyGate.candidateUsePolicy, 'do_not_use_vision_candidate');
+  assert.ok(observation.validationIssues.includes('image_quality_rejected'));
+});
+
 test('Graph retrieval query carries the Vision safety gate for weakly grounded candidates', () => {
   const query = buildVisionRetrievalQuery({
     contract_version: 'vision-observation/v2',
