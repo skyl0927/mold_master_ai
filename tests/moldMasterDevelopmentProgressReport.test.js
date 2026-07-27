@@ -166,6 +166,57 @@ const actionRequiredAccuracyPlan = {
   }]
 };
 
+const actionRequiredHitlIntakeStatus = {
+  contractVersion: 'operational-hitl-decision-intake-status/v1',
+  status: 'action_required',
+  serviceWritesPerformed: false,
+  summary: {
+    totalDecisionInputsMissing: 56,
+    firstQueueCode: 'vision_label_conflicts',
+    labelConflictPending: 4,
+    visionHitlPending: 12,
+    webHitlMissing: 40,
+    staleDecisionEvidenceCount: 0
+  },
+  queues: [
+    {
+      code: 'vision_label_conflicts',
+      titleKo: '승인 이미지 라벨 충돌 판정',
+      owner: 'quality_hitl',
+      status: 'awaiting_human_review',
+      decisionsPrepared: 4,
+      decisionsReceived: 0,
+      pending: 4,
+      commands: [
+        'npm run vision:label-conflicts:decision-template',
+        'npm run vision:label-conflicts:review-guide',
+        'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+      ],
+      nextActionKo: '품질/HITL 라벨 충돌 판정 파일을 작성하고 검증하세요.'
+    },
+    {
+      code: 'vision_pending_hitl',
+      titleKo: 'Vision pending HITL 판정',
+      owner: 'quality_hitl',
+      status: 'awaiting_human_review',
+      decisionsPrepared: 12,
+      decisionsReceived: 0,
+      pending: 12,
+      commands: ['npm run vision:hitl:decision-template']
+    },
+    {
+      code: 'web_knowledge_hitl',
+      titleKo: 'Web Knowledge HITL 승인',
+      owner: 'knowledge_owner',
+      status: 'awaiting_human_review',
+      decisionsPrepared: 40,
+      decisionsReceived: 0,
+      pending: 40,
+      commands: ['npm run knowledge:web:hitl:decision-template']
+    }
+  ]
+};
+
 test('summarizes the current development phase and remaining operational blockers', () => {
   const report = buildMoldMasterDevelopmentProgressReport({
     generatedAt: '2026-07-27T11:00:00.000Z',
@@ -264,6 +315,46 @@ test('surfaces Vision accuracy bottlenecks when the improvement plan exists', ()
   assert.match(stage.feedbackKo, /Top-1 46\.2%/);
   assert.match(report.progressFeedbackKo.join('\n'), /촬영 프로토콜/);
   assert.equal(report.sources.visionAccuracyPlan, 'artifacts/vision-accuracy-improvement-plan.json');
+});
+
+test('surfaces operational HITL decision intake status when available', () => {
+  const report = buildMoldMasterDevelopmentProgressReport({
+    generatedAt: '2026-07-27T11:00:00.000Z',
+    visionReadiness: actionRequiredReadiness,
+    visionWorklist: actionRequiredWorklist,
+    commonAgentHandoff: blockedHandoff,
+    webKnowledgeReadiness: awaitingWebReadiness,
+    operationalHitlIntakeStatus: actionRequiredHitlIntakeStatus,
+    sourceArtifacts: {
+      operationalHitlIntakeStatus: 'artifacts/operational-hitl-decision-intake-status.json'
+    }
+  });
+
+  assert.equal(report.summary.operationalHitlIntakeStatus, 'action_required');
+  assert.equal(report.summary.operationalHitlDecisionInputsMissing, 56);
+  assert.equal(report.summary.operationalHitlFirstQueueCode, 'vision_label_conflicts');
+  assert.equal(report.summary.operationalHitlLabelConflictPending, 4);
+  assert.equal(report.summary.operationalHitlVisionPending, 12);
+  assert.equal(report.summary.operationalHitlWebMissing, 40);
+
+  const stage = report.stageCards.find(item => item.id === 'operational_hitl_decision_intake');
+  assert.equal(stage.status, 'action_required');
+  assert.equal(stage.owner, 'quality_hitl');
+  assert.equal(stage.metrics.totalDecisionInputsMissing, 56);
+  assert.equal(stage.metrics.firstQueueCode, 'vision_label_conflicts');
+  assert.deepEqual(stage.metrics.queueBreakdown, [
+    ['vision_label_conflicts', 4],
+    ['vision_pending_hitl', 12],
+    ['web_knowledge_hitl', 40]
+  ]);
+  assert.deepEqual(stage.commands, [
+    'npm run vision:label-conflicts:decision-template',
+    'npm run vision:label-conflicts:review-guide',
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+  ]);
+  assert.match(stage.feedbackKo, /decision 입력 56건/);
+  assert.match(report.progressFeedbackKo.join('\n'), /HITL decision 입력 56건/);
+  assert.equal(report.sources.operationalHitlIntakeStatus, 'artifacts/operational-hitl-decision-intake-status.json');
 });
 
 test('reports ready for operator review only when Vision and Web knowledge gates are closed', () => {
