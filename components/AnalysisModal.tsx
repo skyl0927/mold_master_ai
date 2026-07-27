@@ -162,6 +162,15 @@ const buildVisionReviewReasonText = (summary: VisionObservationSummary) => {
     return uniqueReasons.length > 0 ? uniqueReasons.slice(0, 5).join(', ') : '없음';
 };
 
+const isVisionCauseActionBlocked = (summary?: VisionObservationSummary) =>
+    Boolean(
+        summary?.safetyGate
+        && (
+            summary.safetyGate.status === 'blocked'
+            || summary.safetyGate.candidateUsePolicy === 'do_not_use_vision_candidate'
+        )
+    );
+
 // Interface for Custom Defect Data
 interface CustomDefectData {
     defectType: string;
@@ -825,6 +834,16 @@ ${data.countermeasures}
                                                     </div>
                                                 ))}
                                             </div>
+                                        </div>
+                                    )}
+                                    {isVisionCauseActionBlocked(editableData.visionSummary) && (
+                                        <div className="rounded-lg border border-red-800/70 bg-red-950/25 p-4">
+                                            <h4 className="text-sm font-semibold text-red-200 mb-2 uppercase tracking-wider">
+                                                원인/대책 생성 차단
+                                            </h4>
+                                            <p className="text-sm text-red-100">
+                                                Vision 후보를 Graph에 사용할 수 없어 재촬영 또는 HITL 확정 전까지 원인/대책을 작성하지 않습니다.
+                                            </p>
                                         </div>
                                     )}
                                     <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
