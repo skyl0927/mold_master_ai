@@ -131,6 +131,11 @@ test('release gate promotes a candidate only after paired shadow metrics pass ev
     assert.equal(report.candidate.minimumClassReproduction, 0.9667);
     assert.equal(report.cohorts[0].humanVerifiedSamples, 30);
     assert.equal(Object.values(report.checks).every(Boolean), true);
+    assert.equal(report.decisionCard.status, 'ready_to_promote');
+    assert.equal(report.decisionCard.primaryAction, 'activate_candidate');
+    assert.deepEqual(report.decisionCard.targetVersion, candidateVersion);
+    assert.equal(report.decisionCard.requiresHumanApproval, true);
+    assert.equal(report.decisionCard.autoApplyAllowed, false);
 });
 
 test('release gate selects the exact baseline snapshot when candidate safety regresses', () => {
@@ -156,6 +161,10 @@ test('release gate selects the exact baseline snapshot when candidate safety reg
     assert.equal(report.checks.unsafeFalsePositive, false);
     assert.equal(report.checks.calibration, false);
     assert.equal(report.checks.latency, false);
+    assert.equal(report.decisionCard.status, 'rollback_required');
+    assert.equal(report.decisionCard.primaryAction, 'restore_baseline_snapshot');
+    assert.deepEqual(report.decisionCard.targetVersion, baselineVersion);
+    assert.equal(report.decisionCard.severity, 'critical');
 });
 
 test('release report parser accepts only a complete operational gate artifact', () => {
@@ -173,6 +182,66 @@ test('release report parser accepts only a complete operational gate artifact', 
     );
     assert.throws(
         () => parseVisionOperationalReleaseReport('{"decision":"promote_candidate"}'),
+        /invalid vision operational release report/i
+    );
+});
+
+test('release decision card keeps shadow hold as an explicit data collection action', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion: {
+            ...candidateVersion,
+            graphVersion: ''
+        },
+        samples: makeShadowSamples(12, 1, 2),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    assert.equal(report.decision, 'hold_shadow');
+    assert.equal(report.decisionCard.status, 'shadow_hold');
+    assert.equal(report.decisionCard.primaryAction, 'continue_shadow_and_collect');
+    assert.deepEqual(report.decisionCard.targetVersion, candidateVersion);
+    assert.equal(report.decisionCard.severity, 'warning');
+    assert.deepEqual(report.decisionCard.blockingReasons, report.blockingReasons);
+    assert.ok(report.decisionCard.operatorSteps.some(step => step.includes('Shadow')));
+});
+
+test('release parser enriches legacy reports with a decision card', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(30, 8, 1),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+    const { decisionCard: _decisionCard, ...legacyReport } = report;
+
+    const parsed = parseVisionOperationalReleaseReport(JSON.stringify(legacyReport));
+
+    assert.equal(parsed.decision, 'rollback_required');
+    assert.equal(parsed.decisionCard.primaryAction, 'restore_baseline_snapshot');
+    assert.deepEqual(parsed.decisionCard.targetVersion, baselineVersion);
+});
+
+test('release parser rejects a malformed decision card instead of trusting stale operator actions', () => {
+    const validReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500
+    });
+
+    assert.throws(
+        () => parseVisionOperationalReleaseReport(JSON.stringify({
+            ...validReport,
+            decisionCard: {
+                ...validReport.decisionCard,
+                primaryAction: 'activate_candidate',
+                targetVersion: baselineVersion
+            }
+        })),
         /invalid vision operational release report/i
     );
 });
