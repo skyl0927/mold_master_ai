@@ -527,6 +527,11 @@ needs_review 전환, rejected 전환, 재촬영 요청 중 하나를 사람이 �
 artifact 기준 `pendingHighConfidence=12`, `resolvedHighConfidence=6`,
 `matchesPostHitlReport=true`이며 이 패킷도 `serviceWritesPerformed=false`로
 Graph promotion, reference learning, model training을 모두 금지한다. 이어서
+`common-agent-hitl-review-decisions-template/v1`과
+`npm run vision:hitl:decision-template`을 추가해 12건 queue item을 사람이
+채울 수 있는 `action=pending` 판정 입력 파일로 변환한다. 템플릿은 승인에
+필요한 이미지 확인, 라벨 확인, reviewer, 판정 시각, 코멘트 필드를 명시하고
+자동 승격은 수행하지 않는다. 또한
 `vision-pending-hitl-decision-verification-report/v1`과
 `npm run vision:hitl:verify-decisions`를 추가해 Common Agent/HITL 판정 결과가
 돌아왔을 때 queue id와 content hash, 승인 라벨 class, 사람 확인 플래그,
@@ -614,7 +619,7 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
    evidenceBundle, release history ledger, evidence alignment gate, release
    trend summary, final readiness audit, blocker worklist, Common Agent
    handoff packet, 승인 라벨 충돌 review packet, 미해결 HITL 후보 review
-   queue packet, HITL 판정 검증 report 연결을 구현했고,
+   queue packet, HITL 판정 template, HITL 판정 검증 report 연결을 구현했고,
    `vision:release:evidence:merge`로 중앙 증거 패킷을 release config에
    병합할 수 있게 했다. 남은 작업은 실제 Common Agent export와 Graph
    snapshot URI가 포함된 운영 benchmark artifact를 승인 현장 데이터로
@@ -624,6 +629,7 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
    `npm run vision:operational:handoff`,
    `npm run vision:label-conflicts:packet`,
    `npm run vision:hitl:pending-packet`,
+   `npm run vision:hitl:decision-template`,
    `npm run vision:hitl:verify-decisions`에서 함께 확인하는 단계다.
 5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
    반대 근거, 추가 촬영 요구를 함께 저장

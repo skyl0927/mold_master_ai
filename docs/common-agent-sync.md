@@ -133,6 +133,18 @@ Common Agent API를 직접 호출하지 않으며 `serviceWritesPerformed=false`
 사람 승인 전에는 Graph promotion, reference learning, model training이 모두
 금지된다.
 
+검토자가 채울 판정 입력 파일은 다음 명령으로 생성한다.
+
+```powershell
+npm run vision:hitl:decision-template
+```
+
+생성되는 `common-agent-hitl-review-decisions/v1` 템플릿은 모든 항목을
+`action=pending`으로 시작한다. 승인하려면 항목별로 `approve_candidate`를
+선택하고 원본 제조 이미지 확인, 최종 라벨 확인, 판정 시각, 검토 코멘트를
+채워야 한다. 근거가 부족하면 `mark_needs_review`, 부적합하면
+`reject_candidate`, 추가 촬영이 필요하면 `request_recapture`를 선택한다.
+
 Common Agent 또는 사람이 판정 결과 파일을 반환하면 다음 명령으로 먼저 검증
 보고서를 만든다.
 
