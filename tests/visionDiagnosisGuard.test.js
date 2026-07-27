@@ -66,6 +66,87 @@ test('guard removes unverified LLM causes and actions from weak Vision analysis'
   assert.equal(guarded.retrievalSummary.llmSupplemented, true);
 });
 
+test('reliable Vision without Graph grounding cannot pass LLM-only causes and actions', () => {
+  const reliableObservation = {
+    ...weakObservation,
+    decisionStatus: 'probable',
+    decisionReason: 'probable_multiview_consensus',
+    visibleFeatures: ['리브 기부의 유백색 변색', '취출 방향 주변 경계 변화'],
+    safetyGate: {
+      ...weakObservation.safetyGate,
+      status: 'reliable',
+      reasons: [],
+      candidateUsePolicy: 'candidate_primary_graph_cross_check',
+      autoGraphCandidateUseAllowed: true,
+      humanReviewRequired: false,
+      supportObservationCount: 2,
+      supportCategoryCount: 2
+    }
+  };
+
+  const guarded = guardDefectAnalysisForVisionRisk({
+    defectType: '백화',
+    severity: 'Medium',
+    description: '리브 주변 백화로 판단됨',
+    possibleCauses: 'LLM 단독 추정 원인',
+    countermeasures: 'LLM 단독 추정 대책',
+    rawOutput: 'raw',
+    retrievalSummary: {
+      modeUsed: 'hybrid',
+      citations: [],
+      evidenceCount: 0,
+      graphTrace: [],
+      graphGrounded: false,
+      llmSupplemented: true
+    }
+  }, reliableObservation);
+
+  assert.equal(guarded.defectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guarded.possibleCauses, '');
+  assert.equal(guarded.countermeasures, '');
+  assert.equal(guarded.visionSummary.decisionReason, 'missing_graph_grounding');
+});
+
+test('local Graph-grounded analysis can finalize when it matches the Vision candidate', () => {
+  const reliableObservation = {
+    ...weakObservation,
+    decisionStatus: 'probable',
+    decisionReason: 'probable_multiview_consensus',
+    visibleFeatures: ['리브 기부의 유백색 변색', '취출 방향 주변 경계 변화'],
+    safetyGate: {
+      ...weakObservation.safetyGate,
+      status: 'reliable',
+      reasons: [],
+      candidateUsePolicy: 'candidate_primary_graph_cross_check',
+      autoGraphCandidateUseAllowed: true,
+      humanReviewRequired: false,
+      supportObservationCount: 2,
+      supportCategoryCount: 2
+    }
+  };
+
+  const guarded = guardDefectAnalysisForVisionRisk({
+    defectType: '백화',
+    severity: 'Medium',
+    description: 'Graph 승인 경로로 백화를 확인함',
+    possibleCauses: '1. 취출 저항',
+    countermeasures: '1. 구배 점검',
+    rawOutput: 'raw',
+    retrievalSummary: {
+      modeUsed: 'graph_only',
+      citations: ['path-1'],
+      evidenceCount: 1,
+      graphTrace: ['백화 -> 취출 저항 -> 구배 점검'],
+      graphGrounded: true,
+      llmSupplemented: false
+    }
+  }, reliableObservation);
+
+  assert.equal(guarded.defectType, '백화');
+  assert.equal(guarded.possibleCauses, '1. 취출 저항');
+  assert.equal(guarded.countermeasures, '1. 구배 점검');
+});
+
 test('approved Graph auto-finalization preserves a weak Vision candidate', () => {
   const guarded = guardDefectAnalysisForVisionRisk({
     defectType: '백화',

@@ -60,6 +60,33 @@ export interface VisionSafetyGateSummary {
   supportCategoryCount: number;
   topCandidateMargin: number | null;
 }
+
+export interface VisionConsensusGateSummary {
+  contractVersion: 'vision-consensus-gate/v1';
+  status: 'accepted' | 'needs_review' | 'blocked';
+  finalizationAllowed: boolean;
+  allowGraphRetrieval: boolean;
+  allowLlmSupplement: boolean;
+  primaryReason: string;
+  reasons: string[];
+  candidateUsePolicy:
+    | 'verified_graph_candidate'
+    | 'graph_cross_check_only'
+    | 'do_not_use_vision_candidate';
+  evidence: {
+    visionContractVersion: string;
+    visionDecisionStatus: string;
+    visionSafetyStatus: string;
+    visionTopCandidate: string;
+    graphGrounded: boolean;
+    graphTopCandidateSupported: boolean;
+    graphAutoFinalizeAllowed: boolean;
+    graphRequiresHumanReview: boolean;
+    visionGraphConflict: boolean;
+    classifierStatus: string;
+    classifierAgreementWithVisionTop1: boolean | null;
+  };
+}
 export type VisionObservationCategory =
   | 'color'
   | 'boundary'
@@ -135,6 +162,7 @@ export interface VisionObservationSummary {
   fusionSummary?: VisionFusionSummary;
   viewEvidence?: VisionViewEvidence[];
   classifierSummary?: VisionClassifierSummary;
+  consensusGate?: VisionConsensusGateSummary;
 }
 
 export interface VisionFusionCandidateSupport {

@@ -569,6 +569,47 @@ ${data.countermeasures}
                                                     </p>
                                                 </div>
                                             )}
+                                            {editableData.visionSummary.consensusGate && (
+                                                <div className={`mt-3 rounded-lg border p-3 ${
+                                                    editableData.visionSummary.consensusGate.status === 'accepted'
+                                                        ? 'border-emerald-700/60 bg-emerald-950/20'
+                                                        : editableData.visionSummary.consensusGate.status === 'blocked'
+                                                            ? 'border-red-700/60 bg-red-950/25'
+                                                            : 'border-amber-700/60 bg-amber-950/20'
+                                                }`}>
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="text-xs font-semibold tracking-wider text-cyan-200">
+                                                            Vision Consensus Gate
+                                                        </span>
+                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] text-gray-200">
+                                                            {editableData.visionSummary.consensusGate.status === 'accepted'
+                                                                ? 'Graph 검증 통과'
+                                                                : editableData.visionSummary.consensusGate.status === 'blocked'
+                                                                    ? '분석 차단'
+                                                                    : 'HITL 검토 필요'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 grid gap-2 text-xs text-gray-200 sm:grid-cols-3">
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 px-3 py-2">
+                                                            Graph 검색: {editableData.visionSummary.consensusGate.allowGraphRetrieval ? '허용' : '차단'}
+                                                        </div>
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 px-3 py-2">
+                                                            최종 확정: {editableData.visionSummary.consensusGate.finalizationAllowed ? '허용' : '보류'}
+                                                        </div>
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 px-3 py-2">
+                                                            LLM 보조: {editableData.visionSummary.consensusGate.allowLlmSupplement ? '허용' : '차단'}
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-2 text-xs text-amber-100">
+                                                        1차 사유: {editableData.visionSummary.consensusGate.primaryReason}
+                                                    </p>
+                                                    {editableData.visionSummary.consensusGate.reasons.length > 0 && (
+                                                        <p className="mt-1 text-xs text-gray-400">
+                                                            상세: {editableData.visionSummary.consensusGate.reasons.join(', ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                             {editableData.visionSummary.fusionSummary && (
                                                 <div className="mt-3 rounded-lg border border-sky-700/60 bg-sky-950/40 p-3">
                                                     <div className="flex flex-wrap items-center gap-2 text-[10px]">

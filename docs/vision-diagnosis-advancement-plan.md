@@ -231,7 +231,11 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
 미검증 Vision 원인/대책 문장을 계속 숨기는 Electron 스모크를 추가했다.
 관리자 모드에서도 품질 반려·판정 보류 Vision 결과는 `승인·Graph 승격`
 버튼을 `Graph 승격 차단`으로 대체하고, App 저장 경로에서도 동일 guard로
-승격 요청을 fail-closed 처리한다.
+승격 요청을 fail-closed 처리한다. 이어서 `vision-consensus-gate/v1`을 추가해
+Vision-only LLM 원인/대책 확정을 `missing_graph_grounding`으로 차단하고,
+Graph 충돌과 classifier 불일치는 최종 확정 및 LLM 보조를 모두 보류하도록
+통합했다. 분석 모달에는 Graph 검색, 최종 확정, LLM 보조 허용 여부와 1차
+차단 사유를 표시한다.
 
 개발:
 

@@ -1,9 +1,31 @@
+const {
+  buildVisionConsensusGate
+} = require('./visionConsensusGate');
+
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
 const asArray = value => Array.isArray(value) ? value : [];
 
 const isV2Observation = visionSummary =>
   compact(visionSummary?.contractVersion || visionSummary?.contract_version) === 'vision-observation/v2';
+
+const normalizedLabel = value => compact(value)
+  .toLocaleLowerCase()
+  .replace(/[\s()[\]{}_\-.,:;/'"]/g, '');
+
+const labelsAgree = (left, right) => {
+  const normalizedLeft = normalizedLabel(left);
+  const normalizedRight = normalizedLabel(right);
+  return Boolean(
+    normalizedLeft
+    && normalizedRight
+    && (
+      normalizedLeft === normalizedRight
+      || normalizedLeft.includes(normalizedRight)
+      || normalizedRight.includes(normalizedLeft)
+    )
+  );
+};
 
 const topCandidateName = visionSummary => compact(
   visionSummary?.primaryCandidate?.defectType
@@ -22,14 +44,6 @@ const visibleObservationText = visionSummary => {
     .slice(0, 3)
     .join('; ');
 };
-
-const graphAllowsFinalization = graphValidation => Boolean(
-  graphValidation
-  && graphValidation.graphGrounded !== false
-  && graphValidation.autoFinalizeAllowed === true
-  && graphValidation.requiresHumanReview !== true
-  && graphValidation.topCandidateSupported !== false
-);
 
 const classifierRequiresReview = visionSummary => {
   const classifier = visionSummary?.classifierSummary || visionSummary?.classifier_summary;
@@ -57,6 +71,60 @@ const genericDecisionReasons = new Set([
   'vision_review_required'
 ]);
 
+const nonActionableGraphText = /(찾지 못했습니다|추가 분석 중|추가 분석|미확인|보류|없습니다)/;
+
+const hasActionableGraphText = value => {
+  const text = compact(value);
+  return Boolean(text) && !nonActionableGraphText.test(text);
+};
+
+const buildImplicitGraphValidation = (analysis, visionSummary) => {
+  const retrievalSummary = analysis?.retrievalSummary;
+  if (!retrievalSummary || retrievalSummary.graphGrounded !== true) return null;
+
+  const evidenceCount = Number(retrievalSummary.evidenceCount) || 0;
+  const citations = asArray(retrievalSummary.citations).map(compact).filter(Boolean);
+  const graphTrace = asArray(retrievalSummary.graphTrace).map(compact).filter(Boolean);
+  const visionCandidate = topCandidateName(visionSummary);
+  const graphCandidate = compact(analysis?.defectType);
+  const topCandidateSupported = labelsAgree(visionCandidate, graphCandidate)
+    || graphTrace.some(trace => labelsAgree(trace, visionCandidate));
+  const visionGraphConflict = Boolean(
+    visionCandidate
+    && graphCandidate
+    && !labelsAgree(visionCandidate, graphCandidate)
+  );
+  const hasCauses = hasActionableGraphText(analysis?.possibleCauses);
+  const hasCountermeasures = hasActionableGraphText(analysis?.countermeasures);
+  const graphComplete = evidenceCount > 0 && hasCauses && hasCountermeasures;
+  const autoFinalizeAllowed = graphComplete && topCandidateSupported && !visionGraphConflict;
+  const decisionReason = visionGraphConflict
+    ? 'local_graph_candidate_conflict'
+    : !topCandidateSupported
+      ? 'local_graph_top_candidate_not_supported'
+      : !graphComplete
+        ? 'local_graph_path_incomplete'
+        : 'local_graph_candidate_supported';
+
+  return {
+    contractVersion: 'vision-graph-grounding/v1',
+    candidateGrounding: [],
+    graphGrounded: true,
+    topCandidateSupported,
+    visionGraphConflict,
+    approvedPathCount: evidenceCount,
+    citationCount: citations.length,
+    groundedCauses: hasCauses ? [compact(analysis.possibleCauses)] : [],
+    groundedCountermeasures: hasCountermeasures ? [compact(analysis.countermeasures)] : [],
+    requiresHumanReview: !autoFinalizeAllowed,
+    autoFinalizeAllowed,
+    llmSupplementAllowed: false,
+    llmSupplementTrainingEligible: false,
+    decisionStatus: autoFinalizeAllowed ? 'grounded' : 'needs_review',
+    decisionReason
+  };
+};
+
 const gateReasons = visionSummary => {
   const classifierReason = classifierRequiresReview(visionSummary)
     ? classifierReviewReason(visionSummary)
@@ -83,28 +151,13 @@ const additionalViewAction = visionSummary => {
 
 const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {}) => {
   const candidate = topCandidateName(visionSummary);
-  const safetyGate = visionSummary?.safetyGate || {};
-  const decisionStatus = compact(visionSummary?.decisionStatus || visionSummary?.decision_status);
-  const safetyStatus = compact(safetyGate.status);
-  const candidateUsePolicy = compact(safetyGate.candidateUsePolicy || safetyGate.candidate_use_policy);
+  const consensusGate = buildVisionConsensusGate(visionSummary, { graphValidation });
   const classifierBlocked = classifierRequiresReview(visionSummary);
-  const finalByGraph = graphAllowsFinalization(graphValidation) && !classifierBlocked;
-
-  const blocked = isV2Observation(visionSummary) && (
-    decisionStatus === 'unclassifiable'
-    || safetyStatus === 'blocked'
-    || candidateUsePolicy === 'do_not_use_vision_candidate'
-  );
-  const weak = isV2Observation(visionSummary) && !blocked && (
-    decisionStatus !== 'probable'
-    || safetyStatus === 'needs_review'
-    || safetyGate.autoGraphCandidateUseAllowed === false
-    || candidateUsePolicy === 'graph_cross_check_only'
-    || classifierBlocked
-  );
+  const blocked = isV2Observation(visionSummary) && consensusGate.status === 'blocked';
+  const weak = isV2Observation(visionSummary) && !blocked && consensusGate.status !== 'accepted';
   const finalizationAllowed = !isV2Observation(visionSummary)
     ? true
-    : finalByGraph || (!blocked && !weak);
+    : consensusGate.finalizationAllowed && !classifierBlocked;
 
   const guardedDefectType = finalizationAllowed
     ? candidate
@@ -117,23 +170,33 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
   const primaryVisionReason = genericDecisionReasons.has(rawPrimaryVisionReason)
     ? ''
     : rawPrimaryVisionReason;
+  const blockingPrimaryVisionReason = /^probable_/i.test(primaryVisionReason)
+    ? ''
+    : primaryVisionReason;
+  const actionableVisionReasons = reasons.filter(reason =>
+    !genericDecisionReasons.has(reason) && !/^probable_/i.test(reason)
+  );
   const graphReviewReason = graphValidation?.requiresHumanReview === true
     ? compact(graphValidation.decisionReason || graphValidation.decision_status)
     : '';
+  const consensusReason = compact(consensusGate.primaryReason);
 
   return {
     status: finalizationAllowed ? 'finalizable' : blocked ? 'blocked' : 'needs_review',
     finalizationAllowed,
-    allowGraphRetrieval: !blocked,
-    allowLlmSupplement: finalizationAllowed,
+    allowGraphRetrieval: consensusGate.allowGraphRetrieval,
+    allowLlmSupplement: consensusGate.allowLlmSupplement,
     guardedDefectType,
     reviewReason: graphReviewReason
       || classifierReason
-      || primaryVisionReason
-      || reasons.join(', ')
+      || blockingPrimaryVisionReason
+      || actionableVisionReasons.join(', ')
+      || (finalizationAllowed ? primaryVisionReason : '')
+      || consensusReason
       || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
     observationText: visibleObservationText(visionSummary),
-    recommendedReviewAction: additionalViewAction(visionSummary)
+    recommendedReviewAction: additionalViewAction(visionSummary),
+    consensusGate
   };
 };
 
@@ -142,8 +205,26 @@ const guardDefectAnalysisForVisionRisk = (
   visionSummary,
   { graphValidation = null } = {}
 ) => {
-  const guard = buildVisionDiagnosisGuard(visionSummary, { graphValidation });
-  if (guard.finalizationAllowed) return analysis;
+  const effectiveGraphValidation = graphValidation || buildImplicitGraphValidation(analysis, visionSummary);
+  const guard = buildVisionDiagnosisGuard(visionSummary, { graphValidation: effectiveGraphValidation });
+  const enrichedVisionSummary = {
+    ...(analysis.visionSummary || visionSummary),
+    consensusGate: guard.consensusGate
+  };
+  const enrichedRetrievalSummary = analysis.retrievalSummary
+    ? {
+        ...analysis.retrievalSummary,
+        graphValidation: analysis.retrievalSummary.graphValidation || effectiveGraphValidation || undefined
+      }
+    : analysis.retrievalSummary;
+
+  if (guard.finalizationAllowed) {
+    return {
+      ...analysis,
+      visionSummary: enrichedVisionSummary,
+      retrievalSummary: enrichedRetrievalSummary
+    };
+  }
 
   return {
     ...analysis,
@@ -154,16 +235,16 @@ const guardDefectAnalysisForVisionRisk = (
     countermeasures: '',
     retrievalSummary: analysis.retrievalSummary
       ? {
-          ...analysis.retrievalSummary
+          ...enrichedRetrievalSummary
         }
       : analysis.retrievalSummary,
-    visionSummary: analysis.visionSummary
+    visionSummary: enrichedVisionSummary
       ? {
-          ...analysis.visionSummary,
+          ...enrichedVisionSummary,
           decisionStatus: 'needs_review',
           decisionReason: guard.reviewReason
         }
-      : analysis.visionSummary,
+      : enrichedVisionSummary,
     rawOutput: analysis.rawOutput
   };
 };
