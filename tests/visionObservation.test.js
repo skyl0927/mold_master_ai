@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   buildVisionRetrievalQuery,
   normalizeVisionObservation,
+  parseProviderVisionObservationText,
   parseVisionObservationText
 } = require('../visionObservation');
 
@@ -425,4 +426,92 @@ test('Graph retrieval query carries the Vision safety gate for weakly grounded c
   assert.match(query, /Vision safety gate: needs_review/);
   assert.match(query, /candidate_use_policy: graph_cross_check_only/);
   assert.match(query, /insufficient_independent_visual_evidence/);
+});
+
+test('provider Vision parser accepts a schema-compliant v2 observation contract', () => {
+  const observation = parseProviderVisionObservationText(JSON.stringify({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [
+      {
+        observation_id: 'obs-color-1',
+        category: 'color',
+        description: '\uB9AC\uBE0C \uC8FC\uBCC0 \uC720\uBC31\uC0C9 \uBCC0\uC0C9',
+        region: '\uB9AC\uBE0C \uC8FC\uBCC0',
+        confidence: 0.91
+      },
+      {
+        observation_id: 'obs-location-1',
+        category: 'location',
+        description: '\uBCC0\uC0C9\uC774 \uB9AC\uBE0C \uAE30\uBD80\uC5D0 \uAD6D\uBD80\uC801\uC73C\uB85C \uC9D1\uC911\uB428',
+        region: '\uB9AC\uBE0C \uAE30\uBD80',
+        confidence: 0.88
+      }
+    ],
+    candidates: [
+      {
+        defect_type: '\uBC31\uD654',
+        confidence: 0.84,
+        supporting_observation_ids: ['obs-color-1', 'obs-location-1'],
+        contradicting_observation_ids: []
+      },
+      {
+        defect_type: '\uC2F1\uD06C',
+        confidence: 0.12,
+        supporting_observation_ids: ['obs-location-1'],
+        contradicting_observation_ids: ['obs-color-1']
+      }
+    ],
+    required_additional_views: [],
+    quality_concerns: [],
+    abstention_reason: ''
+  }));
+
+  assert.equal(observation.providerContractValid, true);
+  assert.deepEqual(observation.providerContractErrors, []);
+  assert.equal(observation.primaryCandidate.defectType, '\uBC31\uD654');
+  assert.doesNotMatch(observation.validationIssues.join(','), /provider_contract/);
+});
+
+test('provider Vision parser blocks schema violations instead of silently repairing them', () => {
+  const observation = parseProviderVisionObservationText(JSON.stringify({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'photo_of_product',
+    normality_status: 'defect_visible',
+    observations: [{
+      observation_id: 'obs-color-1',
+      category: 'color',
+      description: '\uC720\uBC31\uC0C9 \uBCC0\uC0C9',
+      region: '\uB9AC\uBE0C',
+      confidence: 0.9
+    }],
+    candidates: [{
+      defect_type: '\uBC31\uD654',
+      confidence: 0.88,
+      supporting_observation_ids: ['obs-color-1'],
+      contradicting_observation_ids: []
+    }],
+    required_additional_views: [],
+    abstention_reason: ''
+  }));
+
+  assert.equal(observation.providerContractValid, false);
+  assert.ok(observation.providerContractErrors.includes('missing_required:quality_concerns'));
+  assert.ok(observation.providerContractErrors.includes('invalid_enum:image_kind'));
+  assert.ok(observation.validationIssues.includes('provider_contract_invalid'));
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+  assert.equal(observation.safetyGate.status, 'blocked');
+  assert.equal(observation.safetyGate.candidateUsePolicy, 'do_not_use_vision_candidate');
+  assert.equal(observation.candidates.length, 0);
+});
+
+test('provider Vision parser blocks non-JSON provider responses', () => {
+  const observation = parseProviderVisionObservationText('\uC774 \uC774\uBBF8\uC9C0\uB294 \uBC31\uD654\uB85C \uBCF4\uC785\uB2C8\uB2E4.');
+
+  assert.equal(observation.providerContractValid, false);
+  assert.ok(observation.providerContractErrors.includes('provider_contract_json_parse_failed'));
+  assert.ok(observation.validationIssues.includes('provider_contract_invalid'));
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+  assert.equal(observation.primaryCandidate, null);
 });
