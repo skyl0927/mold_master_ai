@@ -222,6 +222,43 @@ test('vision scoring treats a separated high-confidence candidate as an accepted
   assert.equal(result.unsafeAcceptedError, false);
 });
 
+test('vision scoring treats failed image quality as rejected and unclassifiable', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 600,
+    response: {
+      observation: {
+        contract_version: 'vision-observation/v2',
+        image_kind: 'physical_product',
+        normality_status: 'defect_visible',
+        quality_status: 'fail',
+        quality_concerns: ['motion blur'],
+        observations: [{
+          observation_id: 'obs-color-1',
+          category: 'color',
+          description: '흐릿한 유백색 영역',
+          region: '리브 기부',
+          confidence: 0.92
+        }],
+        candidates: [{
+          defect_type: '백화',
+          confidence: 0.91,
+          supporting_observation_ids: ['obs-color-1']
+        }]
+      },
+      answer: '품질 부적합 표본은 Graph 추론에 사용하지 않는다.',
+      evidence: []
+    }
+  });
+
+  assert.equal(result.qualityStatus, 'reject');
+  assert.equal(result.qualityEligible, false);
+  assert.equal(result.classifiable, false);
+  assert.equal(result.actualDefectType, '');
+  assert.equal(result.acceptedPrediction, false);
+  assert.equal(result.decisionStatus, 'unclassifiable');
+});
+
 test('vision benchmark reports selective risk and confidence calibration', () => {
   const results = [
     {
