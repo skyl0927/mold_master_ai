@@ -130,6 +130,42 @@ test('capture metadata preserves session lineage for Common Agent', () => {
   });
 });
 
+test('capture metadata preserves fresh recapture lineage for Common Agent', () => {
+  const recaptured = image({
+    id: 'image-recapture-fresh',
+    captureViewTag: 'defect_closeup',
+    recaptureSource: {
+      localImageId: 'image-original',
+      commonAgentImageId: 'agent-image-original',
+      reviewDecisionId: 'review-recapture-1',
+      safetyGateReasons: ['low_region_bbox_confidence', 'overbroad_region_bbox'],
+      requiredAdditionalViews: [
+        'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+        'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+      ],
+      bboxGroundingProfileId: 'defect_closeup_precision'
+    }
+  });
+  const metadata = buildCaptureMetadata(recaptured, [
+    image({ id: 'image-original', commonAgentImageId: 'agent-image-original' }),
+    recaptured
+  ]);
+
+  assert.equal(metadata.recapture_lineage_protocol_version, 'vision-recapture-lineage/v1');
+  assert.equal(metadata.recapture_source_local_image_id, 'image-original');
+  assert.equal(metadata.recapture_source_common_agent_image_id, 'agent-image-original');
+  assert.equal(metadata.recapture_review_decision_id, 'review-recapture-1');
+  assert.deepEqual(metadata.recapture_safety_gate_reasons, [
+    'low_region_bbox_confidence',
+    'overbroad_region_bbox'
+  ]);
+  assert.deepEqual(metadata.recapture_required_additional_views, [
+    'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+    'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+  ]);
+  assert.equal(metadata.recapture_bbox_grounding_profile_id, 'defect_closeup_precision');
+});
+
 test('session diagnosis collects every physical view with the selected image first', () => {
   const selected = image({
     id: 'image-closeup',
