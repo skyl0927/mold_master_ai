@@ -98,11 +98,21 @@ export type VisionObservationCategory =
   | 'contrast'
   | 'other';
 
+export interface VisionRegionBbox {
+  coordinateSystem: 'normalized_xywh';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
+}
+
 export interface VisionVisualObservation {
   observationId: string;
   category: VisionObservationCategory;
   description: string;
   region: string;
+  regionBbox?: VisionRegionBbox;
   confidence: number;
   source: 'image';
 }

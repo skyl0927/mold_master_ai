@@ -116,6 +116,8 @@ Perform a blind visual observation of this image. Do not use field context and d
  - Treat repeated, symmetric, and mold-functional geometry as normal unless an actual abnormality is visible.
  - Describe only visible color, surface, geometry, boundary, location, orientation, repetition, and contrast.
  - Give each observation a unique observation_id and return up to 3 competing defect candidates.
+ - Every observation must include region_bbox using normalized_xywh coordinates from 0 to 1.
+ - If the visible clue cannot be tightly localized, use the smallest defensible area; use the full image only with low bbox confidence.
  - Every candidate must cite one or more valid supporting_observation_ids.
  - Confidence is a number from 0 to 1 and is not a final judgment.
  - If the image is insufficient, use an empty candidate list and explain abstention_reason.
@@ -131,6 +133,14 @@ Perform a blind visual observation of this image. Do not use field context and d
        "category": "color | boundary | geometry | surface | location | repetition | orientation | contrast | other",
        "description": "string",
        "region": "string",
+       "region_bbox": {
+         "coordinate_system": "normalized_xywh",
+         "x": 0.0,
+         "y": 0.0,
+         "width": 1.0,
+         "height": 1.0,
+         "confidence": 0.0
+       },
        "confidence": 0.0
      }
    ],

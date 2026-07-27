@@ -683,6 +683,11 @@ ${data.countermeasures}
                                                                 {observation.region && <span className="text-gray-500">영역: {observation.region}</span>}
                                                                 <span className="ml-auto text-gray-500">{Math.round(observation.confidence * 100)}%</span>
                                                             </div>
+                                                            {observation.regionBbox && (
+                                                                <p className="mt-1 font-mono text-[10px] text-sky-300">
+                                                                    bbox {observation.regionBbox.coordinateSystem}: x={observation.regionBbox.x.toFixed(3)}, y={observation.regionBbox.y.toFixed(3)}, w={observation.regionBbox.width.toFixed(3)}, h={observation.regionBbox.height.toFixed(3)}, conf={Math.round(observation.regionBbox.confidence * 100)}%
+                                                                </p>
+                                                            )}
                                                             <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
                                                         </div>
                                                     ))}

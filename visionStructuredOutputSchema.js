@@ -35,6 +35,7 @@ const VISION_OBSERVATION_JSON_SCHEMA = {
           'category',
           'description',
           'region',
+          'region_bbox',
           'confidence'
         ],
         properties: {
@@ -61,6 +62,49 @@ const VISION_OBSERVATION_JSON_SCHEMA = {
           },
           region: {
             type: 'string'
+          },
+          region_bbox: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'coordinate_system',
+              'x',
+              'y',
+              'width',
+              'height',
+              'confidence'
+            ],
+            properties: {
+              coordinate_system: {
+                type: 'string',
+                enum: ['normalized_xywh']
+              },
+              x: {
+                type: 'number',
+                minimum: 0,
+                maximum: 1
+              },
+              y: {
+                type: 'number',
+                minimum: 0,
+                maximum: 1
+              },
+              width: {
+                type: 'number',
+                minimum: 0.001,
+                maximum: 1
+              },
+              height: {
+                type: 'number',
+                minimum: 0.001,
+                maximum: 1
+              },
+              confidence: {
+                type: 'number',
+                minimum: 0,
+                maximum: 1
+              }
+            }
           },
           confidence: {
             type: 'number',

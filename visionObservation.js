@@ -17,6 +17,11 @@ const confidenceValue = value => {
 
 const clampScore = value => Math.min(100, Math.max(0, Math.round(value)));
 
+const finiteNumber = value => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
@@ -120,7 +125,10 @@ const validateVisionObservationProviderPayload = payload => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return ['provider_contract_json_parse_failed'];
   }
-  return validateAgainstSchema(VISION_OBSERVATION_JSON_SCHEMA, payload)
+  return [
+    ...validateAgainstSchema(VISION_OBSERVATION_JSON_SCHEMA, payload),
+    ...validateRegionBboxBounds(payload)
+  ]
     .filter(error => error !== 'invalid_type:root');
 };
 
@@ -225,6 +233,74 @@ const normalizeQualityStatus = (value, qualityConcerns = []) => {
   return qualityConcerns.length > 0 ? 'warn' : 'pass';
 };
 
+const normalizeRegionBbox = raw => {
+  const bbox = raw?.regionBbox || raw?.region_bbox || raw?.bbox;
+  if (!bbox || typeof bbox !== 'object' || Array.isArray(bbox)) return undefined;
+  const coordinateSystem = compact(bbox.coordinateSystem || bbox.coordinate_system);
+  const x = finiteNumber(bbox.x);
+  const y = finiteNumber(bbox.y);
+  const width = finiteNumber(bbox.width ?? bbox.w);
+  const height = finiteNumber(bbox.height ?? bbox.h);
+  const confidence = finiteNumber(bbox.confidence);
+  if (
+    coordinateSystem !== 'normalized_xywh'
+    || x === null
+    || y === null
+    || width === null
+    || height === null
+    || confidence === null
+    || x < 0
+    || y < 0
+    || x > 1
+    || y > 1
+    || width <= 0
+    || height <= 0
+    || width > 1
+    || height > 1
+    || confidence < 0
+    || confidence > 1
+  ) {
+    return undefined;
+  }
+
+  return {
+    coordinateSystem,
+    x,
+    y,
+    width,
+    height,
+    confidence
+  };
+};
+
+const validateRegionBboxBounds = payload => {
+  const errors = [];
+  const observations = Array.isArray(payload?.observations) ? payload.observations : [];
+  observations.forEach((observation, index) => {
+    const bbox = observation?.region_bbox;
+    if (!bbox || typeof bbox !== 'object') return;
+    const x = finiteNumber(bbox.x);
+    const y = finiteNumber(bbox.y);
+    const width = finiteNumber(bbox.width);
+    const height = finiteNumber(bbox.height);
+    if (
+      x !== null
+      && width !== null
+      && x + width > 1.001
+    ) {
+      errors.push(`bbox_out_of_bounds:observations[${index}].region_bbox`);
+    }
+    if (
+      y !== null
+      && height !== null
+      && y + height > 1.001
+    ) {
+      errors.push(`bbox_out_of_bounds:observations[${index}].region_bbox`);
+    }
+  });
+  return errors;
+};
+
 const normalizeVisualObservations = (input, isV2) => {
   const rawObservations = Array.isArray(input?.observations)
     ? input.observations
@@ -250,11 +326,13 @@ const normalizeVisualObservations = (input, isV2) => {
       ? rawCategory
       : 'other';
     seenIds.add(observationId);
+    const regionBbox = normalizeRegionBbox(raw);
     observations.push({
       observationId,
       category,
       description,
       region: compact(raw?.region),
+      ...(regionBbox ? { regionBbox } : {}),
       confidence: confidenceValue(raw?.confidence),
       source: 'image'
     });
@@ -708,6 +786,9 @@ const buildVisionRetrievalQuery = (observation, fieldContext = '') => {
   const observationLines = normalized.visualObservations.map(item => [
     `${item.observationId} [${item.category}]`,
     item.region ? `region: ${item.region}` : '',
+    item.regionBbox
+      ? `bbox: ${item.regionBbox.coordinateSystem} x=${item.regionBbox.x.toFixed(3)} y=${item.regionBbox.y.toFixed(3)} w=${item.regionBbox.width.toFixed(3)} h=${item.regionBbox.height.toFixed(3)} conf=${item.regionBbox.confidence.toFixed(2)}`
+      : '',
     item.description,
     `confidence: ${item.confidence.toFixed(2)}`
   ].filter(Boolean).join(' | '));

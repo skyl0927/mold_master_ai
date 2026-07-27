@@ -178,7 +178,11 @@ prompt_version
 결함명을 전달하지 않는 재촬영 보류 계약을 추가했다. 또한 VLM이
 `quality_status`를 생략하더라도 `motion blur`, `ROI too small`, 식별 불가,
 심한 과노출/저노출 같은 `quality_concerns`를 반환하면 자동으로 품질 reject로
-승격해 후보 사용을 차단한다. 실제 승인 사진을
+승격해 후보 사용을 차단한다. 이어서 신규 provider V2 관찰에는 필수
+`region_bbox`를 추가해 각 관찰의 정규화 위치 좌표와 confidence를 검증하고,
+Graph 검색 쿼리와 분석 모달에 bbox 근거를 함께 표시하도록 했다. 기존
+Common Agent/과거 데이터는 bbox가 없어도 읽을 수 있게 호환성을 유지한다.
+실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 
 개발:
@@ -188,6 +192,8 @@ prompt_version
 - 정상 형상과 결함을 구분하는 hard-negative 규칙 추가
 - 이미지 종류가 도면, 화면, 문서이면 물리 결함 자동 판정 금지
 - 모든 V2 결함 후보가 유효한 `observation_id`를 인용하도록 fail-closed 처리
+- 신규 provider V2 관찰은 `normalized_xywh` bbox를 필수로 반환해 AI가 본
+  위치 근거를 저장
 - 품질 `reject/fail` 이미지는 고신뢰 후보도 폐기하고 `image_quality_rejected`
   상태로 재촬영을 요구
 - 재촬영급 `quality_concerns`만 반환된 경우도 후보를 폐기하고 Graph 후보
@@ -201,6 +207,7 @@ prompt_version
 - 문서·도면의 물리 결함 오판 0건
 - 품질 reject/fail 이미지의 Graph 후보 전달 0건
 - 품질 우려 기반 재촬영 이미지의 Graph 후보 전달 0건
+- 신규 provider 응답의 bbox 계약 오류가 자동 후보로 전달되는 건 0건
 
 ### Phase 3. 다중 시점 융합과 선택적 판정
 

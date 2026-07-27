@@ -23,6 +23,14 @@ export interface CommonAgentObservation {
         category: VisionObservationCategory;
         description: string;
         region?: string;
+        region_bbox?: {
+            coordinate_system: 'normalized_xywh';
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            confidence: number;
+        };
         confidence?: number;
         source?: 'image';
     }>;
