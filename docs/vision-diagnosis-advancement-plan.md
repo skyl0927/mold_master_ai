@@ -543,8 +543,10 @@ queue, decision template, decision verification artifact를 자동으로 요약�
 `gates.hitlWorkflow`와 `close_hitl_reviews.workflowStatus`에 노출하도록
 연결했다. 현재 실제 artifact 기준 workflow status는
 `awaiting_human_review`, `pendingHighConfidence=12`,
-`decisionsPrepared=12`, `pendingQueueItems=12`이다. 실제 승인 현장 데이터의
-운영 합격 판정은 계속 보류한다.
+`decisionsPrepared=12`, `pendingQueueItems=12`이다. 이어서 Settings 화면의
+`Vision 운영 작업 목록`에 `HITL Workflow` 카드를 추가해 queue/template/pending/
+error 카운트, 다음 명령, 자동 적용·Graph 승격·Reference 학습 금지 배지를 바로
+보이게 했다. 실제 승인 현장 데이터의 운영 합격 판정은 계속 보류한다.
 
 개발:
 

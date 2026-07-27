@@ -164,6 +164,9 @@ decision verification artifact를 자동으로 찾아 `gates.hitlWorkflow`에 �
 `npm run vision:operational:worklist`의 `close_hitl_reviews` 작업과 Common
 Agent handoff item에도 같은 `workflowStatus`가 포함되므로, 운영자는 현재 단계가
 템플릿 생성인지, 판정 작성인지, 판정 검증인지 바로 확인할 수 있다.
+Settings의 `비전 릴리스 게이트` 안 `Vision 운영 작업 목록`에도 `HITL Workflow`
+카드가 표시되며 queue/template/pending/error 카운트, 다음 명령, 자동 적용 금지
+정책을 함께 보여준다.
 
 ## 수동 문서 중앙 소유권
 

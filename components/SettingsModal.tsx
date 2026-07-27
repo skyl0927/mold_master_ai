@@ -37,6 +37,7 @@ import {
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
 import { buildVisionOperationalBlockerWorklist } from '../visionOperationalBlockerWorklist';
+import { summarizeVisionOperationalHitlWorkflowDisplay } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -202,6 +203,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
+  const operationalHitlWorkflowDisplay =
+    summarizeVisionOperationalHitlWorkflowDisplay(operationalBlockerWorklist);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
@@ -785,6 +788,53 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     {task.missing !== undefined ? ` · 부족 ${task.missing}건` : ''}
                   </p>
                 ))}
+                {operationalHitlWorkflowDisplay && (
+                  <div
+                    aria-label="HITL Workflow"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlWorkflowDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlWorkflowDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-cyan-800/70 bg-cyan-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-cyan-100">
+                          {operationalHitlWorkflowDisplay.title}
+                        </p>
+                        <p className="mt-1 text-cyan-200">
+                          {operationalHitlWorkflowDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlWorkflowDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlWorkflowDisplay.summaryText}
+                    </p>
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlWorkflowDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlWorkflowDisplay.nextCommand && (
+                      <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-cyan-100">
+                        {operationalHitlWorkflowDisplay.nextCommand}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlWorkflowDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <p className="mt-1 text-gray-500">
                   Common Agent handoff: Graph/Model 활성화 금지 · HITL 필요
                 </p>
