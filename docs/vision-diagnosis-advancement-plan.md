@@ -195,7 +195,9 @@ missing 상태를 분석 모달에 표시하고, bbox 검수 완료와 Graph 승
 추가로 `vision-bbox-hitl-review/v1` 패킷을 생성해 원본 bbox, 보정 후보 bbox,
 observation id, 검토 사유를 Common Agent/HITL에 전달할 수 있게 했으며, 분석
 모달 관찰 카드에서 해당 패킷을 복사할 수 있게 했다. 이 패킷은 사람 승인 전
-Graph 승격과 학습 승격을 모두 차단한다.
+Graph 승격과 학습 승격을 모두 차단한다. 이어서 관찰 카드에 x/y/width/height
+수동 보정 draft 입력을 추가해 유효한 normalized 좌표만 `corrected_bbox`로
+패킷에 포함되도록 했다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

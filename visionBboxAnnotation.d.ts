@@ -6,6 +6,19 @@ export function buildVisionBboxAnnotationPayloads(options: {
   existingAnnotations?: Array<{ metadata?: Record<string, any> }>;
 }): CommonAgentAnnotationRequest[];
 
+export interface VisionBboxCorrectionDraft {
+  protocolVersion: 'vision-bbox-correction-draft/v1';
+  observationId: string;
+  originalBbox: NormalizedBbox & { coordinate_system: 'normalized_xywh' };
+  correctedBbox: (NormalizedBbox & {
+    coordinateSystem: 'normalized_xywh';
+    confidence: number;
+  }) | null;
+  isValid: boolean;
+  hasChanges: boolean;
+  errors: string[];
+}
+
 export interface VisionBboxReviewPacket {
   protocolVersion: 'vision-bbox-hitl-review/v1';
   schema_version: 'vision-bbox-hitl-review/v1';
@@ -35,3 +48,16 @@ export function buildVisionBboxReviewPacket(options: {
   }>;
   reviewerNote?: string;
 }): VisionBboxReviewPacket | null;
+
+export function buildVisionBboxCorrectionDraft(options: {
+  image?: Partial<CapturedImage>;
+  observationId?: string;
+  draftValues?: Partial<{
+    x: number | string;
+    y: number | string;
+    width: number | string;
+    height: number | string;
+    w?: number | string;
+    h?: number | string;
+  }>;
+}): VisionBboxCorrectionDraft | null;

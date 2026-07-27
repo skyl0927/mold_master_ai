@@ -123,16 +123,8 @@ const reviewStatusForAction = reviewAction => {
   return 'needs_review';
 };
 
-const buildVisionBboxReviewPacket = ({
-  image,
-  observationId,
-  reviewAction = 'needs_review',
-  correctedBbox,
-  reviewerNote = ''
-} = {}) => {
-  const analysis = image?.analysis || {};
-  const visionSummary = analysis.visionSummary || {};
-  const observations = Array.isArray(visionSummary.visualObservations)
+const findVisionObservation = (visionSummary, observationId) => {
+  const observations = Array.isArray(visionSummary?.visualObservations)
     ? visionSummary.visualObservations
     : [];
   const targetObservationId = compact(observationId);
@@ -142,7 +134,102 @@ const buildVisionBboxReviewPacket = ({
     const localObservationId = compact(item?.observationId || item?.observation_id || `obs-${index + 1}`);
     return localObservationId === targetObservationId;
   });
-  if (!observation) return null;
+  return observation ? { observation, observationId: targetObservationId } : null;
+};
+
+const sameCoordinate = (left, right) => Math.abs(Number(left) - Number(right)) < 0.0005;
+
+const buildVisionBboxCorrectionDraft = ({
+  image,
+  observationId,
+  draftValues = {}
+} = {}) => {
+  const analysis = image?.analysis || {};
+  const visionSummary = analysis.visionSummary || {};
+  const found = findVisionObservation(visionSummary, observationId);
+  if (!found) return null;
+
+  const original = validNormalizedBbox(found.observation?.regionBbox || found.observation?.region_bbox);
+  if (!original) return null;
+
+  const fields = {
+    x: draftValues.x ?? original.bbox.x,
+    y: draftValues.y ?? original.bbox.y,
+    width: draftValues.width ?? draftValues.w ?? original.bbox.width,
+    height: draftValues.height ?? draftValues.h ?? original.bbox.height
+  };
+  const x = finiteNumber(fields.x);
+  const y = finiteNumber(fields.y);
+  const width = finiteNumber(fields.width);
+  const height = finiteNumber(fields.height);
+  const errors = [];
+
+  if (x === null) errors.push('x_not_number');
+  if (y === null) errors.push('y_not_number');
+  if (width === null) errors.push('width_not_number');
+  if (height === null) errors.push('height_not_number');
+  if (x !== null && x < 0) errors.push('x_below_0');
+  if (y !== null && y < 0) errors.push('y_below_0');
+  if (x !== null && x > 1) errors.push('x_above_1');
+  if (y !== null && y > 1) errors.push('y_above_1');
+  if (width !== null && width <= 0) errors.push('width_not_positive');
+  if (height !== null && height <= 0) errors.push('height_not_positive');
+  if (width !== null && width > 1) errors.push('width_above_1');
+  if (height !== null && height > 1) errors.push('height_above_1');
+  if (x !== null && width !== null && x + width > 1.001) errors.push('x_plus_width_exceeds_1');
+  if (y !== null && height !== null && y + height > 1.001) errors.push('y_plus_height_exceeds_1');
+
+  if (errors.length > 0) {
+    return {
+      protocolVersion: 'vision-bbox-correction-draft/v1',
+      observationId: found.observationId,
+      originalBbox: original.bbox,
+      correctedBbox: null,
+      isValid: false,
+      hasChanges: false,
+      errors
+    };
+  }
+
+  const hasChanges = !sameCoordinate(x, original.bbox.x)
+    || !sameCoordinate(y, original.bbox.y)
+    || !sameCoordinate(width, original.bbox.width)
+    || !sameCoordinate(height, original.bbox.height);
+  const correctedBbox = {
+    coordinateSystem: 'normalized_xywh',
+    x,
+    y,
+    width,
+    height,
+    confidence: 1
+  };
+
+  return {
+    protocolVersion: 'vision-bbox-correction-draft/v1',
+    observationId: found.observationId,
+    originalBbox: original.bbox,
+    correctedBbox,
+    isValid: true,
+    hasChanges,
+    errors: []
+  };
+};
+
+const buildVisionBboxReviewPacket = ({
+  image,
+  observationId,
+  reviewAction = 'needs_review',
+  correctedBbox,
+  reviewerNote = ''
+} = {}) => {
+  const analysis = image?.analysis || {};
+  const visionSummary = analysis.visionSummary || {};
+  const targetObservationId = compact(observationId);
+  if (!targetObservationId) return null;
+
+  const found = findVisionObservation(visionSummary, targetObservationId);
+  if (!found) return null;
+  const observation = found.observation;
 
   const original = validNormalizedBbox(observation?.regionBbox || observation?.region_bbox);
   if (!original) return null;
@@ -223,6 +310,7 @@ const buildVisionBboxReviewPacket = ({
 };
 
 module.exports = {
+  buildVisionBboxCorrectionDraft,
   buildVisionBboxReviewPacket,
   buildVisionBboxAnnotationPayloads
 };

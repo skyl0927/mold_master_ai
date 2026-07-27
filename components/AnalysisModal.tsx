@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CapturedImage, DefectAnalysis, VisionObservationSummary, VisionSafetyGateSummary } from '../types';
+import { CapturedImage, DefectAnalysis, VisionObservationSummary, VisionSafetyGateSummary, VisionVisualObservation } from '../types';
 import { CloseIcon, ClipboardIcon, SparklesIcon, SaveIcon, LockIcon } from './Icons';
 import {
     canPromoteVisionAnalysisToGraph,
@@ -10,7 +10,7 @@ import {
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
 import { buildVisionBboxOverlayReviewModel, overlayItemStyle } from '../visionBboxOverlay';
-import { buildVisionBboxReviewPacket } from '../visionBboxAnnotation';
+import { buildVisionBboxCorrectionDraft, buildVisionBboxReviewPacket } from '../visionBboxAnnotation';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -21,6 +21,13 @@ interface AnalysisModalProps {
   onTrainAI: (correctedAnalysis: DefectAnalysis, status: VisionHitlDecision) => Promise<void> | void;
   isAdmin: boolean;
 }
+
+type VisionBboxDraftFields = {
+    x: string;
+    y: string;
+    width: string;
+    height: string;
+};
 
 // EXTENDED DATASET for Data Binding
 const DEFECT_TEMPLATES: Record<string, { desc: string; cause: string; counter: string }> = {
@@ -189,6 +196,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose
     const [editableData, setEditableData] = useState<DefectAnalysis | null>(null);
     const [trainStatus, setTrainStatus] = useState('');
     const [activeVisionObservationId, setActiveVisionObservationId] = useState('');
+    const [visionBboxCorrectionDrafts, setVisionBboxCorrectionDrafts] = useState<Record<string, VisionBboxDraftFields>>({});
     const observationCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     // Updated: Store full defect info for custom types
@@ -203,6 +211,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose
 
     useEffect(() => {
         setActiveVisionObservationId('');
+        setVisionBboxCorrectionDrafts({});
         observationCardRefs.current = {};
     }, [image?.id]);
 
@@ -345,16 +354,76 @@ ${data.countermeasures}
         });
     };
 
+    const getVisionBboxDraftValues = (observation: VisionVisualObservation): VisionBboxDraftFields => {
+        const saved = visionBboxCorrectionDrafts[observation.observationId];
+        if (saved) return saved;
+        const bbox = observation.regionBbox;
+        return {
+            x: bbox ? bbox.x.toFixed(3) : '',
+            y: bbox ? bbox.y.toFixed(3) : '',
+            width: bbox ? bbox.width.toFixed(3) : '',
+            height: bbox ? bbox.height.toFixed(3) : ''
+        };
+    };
+
+    const handleUpdateVisionBboxCorrectionDraft = (
+        observation: VisionVisualObservation,
+        field: keyof VisionBboxDraftFields,
+        value: string
+    ) => {
+        const bbox = observation.regionBbox;
+        setVisionBboxCorrectionDrafts(prev => ({
+            ...prev,
+            [observation.observationId]: {
+                ...(prev[observation.observationId] || {
+                    x: bbox ? bbox.x.toFixed(3) : '',
+                    y: bbox ? bbox.y.toFixed(3) : '',
+                    width: bbox ? bbox.width.toFixed(3) : '',
+                    height: bbox ? bbox.height.toFixed(3) : ''
+                }),
+                [field]: value
+            }
+        }));
+    };
+
+    const handleResetVisionBboxCorrectionDraft = (observationId: string) => {
+        setVisionBboxCorrectionDrafts(prev => {
+            const next = { ...prev };
+            delete next[observationId];
+            return next;
+        });
+    };
+
     const handleCopyVisionBboxReviewPacket = (observationId: string) => {
         if (!image) return;
+        const draftValues = visionBboxCorrectionDrafts[observationId];
+        const draft = draftValues
+            ? buildVisionBboxCorrectionDraft({
+                image: {
+                    ...image,
+                    analysis: editableData || image.analysis
+                },
+                observationId,
+                draftValues
+            })
+            : null;
+        if (draftValues && (!draft || !draft.isValid)) {
+            setCopySuccess(`bbox 보정값 오류: ${draft?.errors.join(', ') || '검증 실패'}`);
+            setTimeout(() => setCopySuccess(''), 2500);
+            return;
+        }
+
         const packet = buildVisionBboxReviewPacket({
             image: {
                 ...image,
                 analysis: editableData || image.analysis
             },
             observationId,
-            reviewAction: 'needs_review',
-            reviewerNote: 'Mold Master AI bbox HITL review request'
+            reviewAction: draft?.hasChanges ? 'corrected_bbox' : 'needs_review',
+            correctedBbox: draft?.hasChanges ? draft.correctedBbox || undefined : undefined,
+            reviewerNote: draft?.hasChanges
+                ? 'Mold Master AI bbox correction draft'
+                : 'Mold Master AI bbox HITL review request'
         });
 
         if (!packet) {
@@ -798,6 +867,17 @@ ${data.countermeasures}
                                                             : overlayItem?.isDimmed
                                                                 ? 'opacity-65'
                                                                 : '';
+                                                        const bboxDraftValues = getVisionBboxDraftValues(observation);
+                                                        const bboxDraftPreview = overlayItem && observation.regionBbox
+                                                            ? buildVisionBboxCorrectionDraft({
+                                                                image: {
+                                                                    ...image,
+                                                                    analysis: editableData || image.analysis
+                                                                },
+                                                                observationId: observation.observationId,
+                                                                draftValues: bboxDraftValues
+                                                            })
+                                                            : null;
 
                                                         return (
                                                             <div
@@ -831,6 +911,69 @@ ${data.countermeasures}
                                                                     </p>
                                                                 )}
                                                                 <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
+                                                                {overlayItem && observation.regionBbox && (
+                                                                    <div
+                                                                        className="mt-2 rounded-md border border-gray-700 bg-gray-950/50 p-2"
+                                                                        onClick={(event) => event.stopPropagation()}
+                                                                    >
+                                                                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
+                                                                                bbox 보정 draft
+                                                                            </span>
+                                                                            {bboxDraftPreview?.hasChanges ? (
+                                                                                <span className="rounded-full border border-amber-600/70 px-2 py-0.5 text-[10px] text-amber-200">
+                                                                                    corrected_bbox 포함
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] text-gray-400">
+                                                                                    원본값
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                                            {(['x', 'y', 'width', 'height'] as const).map(field => (
+                                                                                <label key={field} className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                                                                    {field}
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="0"
+                                                                                        max="1"
+                                                                                        step="0.001"
+                                                                                        className="mt-1 w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 font-mono text-[11px] text-gray-100 focus:border-cyan-400 focus:outline-none"
+                                                                                        value={bboxDraftValues[field]}
+                                                                                        onChange={(event) => handleUpdateVisionBboxCorrectionDraft(
+                                                                                            observation,
+                                                                                            field,
+                                                                                            event.target.value
+                                                                                        )}
+                                                                                    />
+                                                                                </label>
+                                                                            ))}
+                                                                        </div>
+                                                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="rounded border border-gray-700 px-2 py-1 text-[10px] font-semibold text-gray-300 transition hover:border-gray-500 hover:text-white"
+                                                                                onClick={() => handleResetVisionBboxCorrectionDraft(observation.observationId)}
+                                                                            >
+                                                                                원본 bbox로 되돌림
+                                                                            </button>
+                                                                            {bboxDraftPreview && !bboxDraftPreview.isValid ? (
+                                                                                <span className="text-[10px] text-red-300">
+                                                                                    오류: {bboxDraftPreview.errors.join(', ')}
+                                                                                </span>
+                                                                            ) : bboxDraftPreview?.hasChanges ? (
+                                                                                <span className="text-[10px] text-amber-200">
+                                                                                    복사 시 보정 bbox가 HITL 패킷에 포함됩니다.
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-[10px] text-gray-500">
+                                                                                    값을 바꾸면 보정 후보로 기록됩니다.
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                                 {overlayItem && (
                                                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                                                         <button
