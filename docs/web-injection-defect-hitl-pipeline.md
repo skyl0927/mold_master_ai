@@ -44,6 +44,23 @@
 
 원문 카드 내용이 바뀌면 저장된 승인 해시가 달라져 기존 승인은 자동으로 무효화된다. 동일 해시의 후보를 다시 적재하면 로컬 적재 원장이 중복 요청을 차단한다.
 
+## Batch HITL 판정 파일
+
+UI에서 한 건씩 검토하는 대신 Common Agent 또는 다른 보조 에이전트가 판정
+파일을 작성할 수 있도록 no-write 템플릿을 생성할 수 있다.
+
+```powershell
+npm run knowledge:web:hitl:decision-template
+npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-common-agent-web-knowledge-hitl-decisions.json>
+```
+
+템플릿은 `common-agent-web-knowledge-hitl-decisions-template/v1`이고, 기본으로
+미승인 또는 stale Web Case 전체를 `action=pending`으로 내보낸다. 검토자는
+`approve_card`, `mark_needs_changes`, `reject_card` 중 하나를 선택한다.
+검증 보고서 `web-knowledge-hitl-decision-verification-report/v1`은 완성된
+판정을 `localLedgerUpdates`로 정규화하지만 로컬 원장, Common Agent, Graph에는
+직접 쓰지 않는다. 실제 반영은 별도 수동 import 절차에서만 가능하다.
+
 ## Vision HITL 후보 연결
 
 라이선스 이미지 카드에서 결함군 최소 표본을 먼저 채우고, 남는 이미지는
@@ -85,6 +102,8 @@ npm run test:web-knowledge
 npm run knowledge:web:audit
 npm run knowledge:web:validate-common-agent
 npm run knowledge:web:readiness
+npm run knowledge:web:hitl:decision-template
+npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-common-agent-web-knowledge-hitl-decisions.json>
 npm run test:electron:web-knowledge-hitl
 ```
 
@@ -99,6 +118,8 @@ Common Agent 비저장 검증, 로컬 HITL 승인, 중앙 승인 상태를 하�
 - Common Agent 비저장 검증: `artifacts/web-knowledge-common-agent-validation.json`
 - 카드 내용 품질 감사: `artifacts/web-knowledge-quality-audit.json`
 - 운영 readiness: `artifacts/web-knowledge-operational-readiness-*.json`
+- Batch HITL 템플릿: `artifacts/common-agent-web-knowledge-hitl-decisions-template-*.json`
+- Batch HITL 검증: `artifacts/web-knowledge-hitl-decision-verification-report-*.json`
 - Electron 왕복 화면: `artifacts/electron-web-knowledge-hitl.png`
 - 운영 HITL 원장: Electron `userData/web-knowledge-review-decisions.json`
 - 운영 중앙 적재 원장: Electron `userData/web-knowledge-central-ingestions.json`

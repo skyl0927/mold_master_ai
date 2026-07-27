@@ -91,7 +91,11 @@ test('builds a no-write Web Case HITL decision template for unresolved cards', (
 test('verifies completed Web Case HITL decisions into a local ledger import plan without writes', () => {
   const report = buildWebKnowledgeHitlDecisionVerificationReport({
     generatedAt: '2026-07-27T15:10:00.000Z',
-    reviewQueue: [queueItem(1), queueItem(2), queueItem(3)],
+    reviewQueue: [
+      queueItem(1),
+      queueItem(2),
+      queueItem(3, { decision: 'approved', isCurrent: false })
+    ],
     decisionPacket: {
       schemaVersion: 1,
       contractVersion: 'common-agent-web-knowledge-hitl-decisions/v1',
@@ -142,7 +146,7 @@ test('verifies completed Web Case HITL decisions into a local ledger import plan
   assert.equal(report.sources.decisionPacket, 'artifacts/common-agent-web-knowledge-hitl-decisions.json');
 });
 
-test('fails closed for duplicate, stale, or incomplete approval decisions', () => {
+test('fails closed for duplicate, hash-mismatched, or incomplete approval decisions', () => {
   const report = buildWebKnowledgeHitlDecisionVerificationReport({
     reviewQueue: [queueItem(1), queueItem(2)],
     decisionPacket: {

@@ -251,6 +251,11 @@ HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()
 추가해 사출 결함 웹 case 43/40건, Common Agent 비저장 검증 43/43건은 이미
 충족됐고, 실제 남은 병목이 Web Case HITL 승인 0/40건과 중앙 승인 0/40건임을
 명확히 분리했다.
+이후 `common-agent-web-knowledge-hitl-decisions-template/v1`와
+`web-knowledge-hitl-decision-verification-report/v1`를 추가해 Common Agent 또는
+다른 보조 에이전트가 43건 후보를 batch 판정 파일로 검토하고, 검증된 결과만
+로컬 HITL import plan으로 넘길 수 있게 했다. 이 단계도 자동 적재와 Graph
+승격은 수행하지 않는다.
 
 개발:
 
