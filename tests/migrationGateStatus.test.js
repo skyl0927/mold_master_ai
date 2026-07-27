@@ -387,3 +387,68 @@ test('blocked Vision reference operational gate prevents fallback retirement', (
     }]);
     assert.match(status.recommendedAction, /Reference Store/);
 });
+
+test('Vision reference API missing action is surfaced by migration gate', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'blocked',
+            readyForGraphRetrieval: false,
+            recommendedAction:
+                'Upgrade or restart Common Agent with the Vision reference API endpoints, then rerun the operational gate.',
+            referenceStore: {
+                referenceCount: 0,
+                modelVersion: null,
+                productionReady: null
+            },
+            benchmark: {
+                evaluatedCount: 0,
+                failedGateChecks: []
+            },
+            blockers: [
+                {
+                    code: 'reference_api_missing',
+                    detail: 'GET http://agent.test/v1/vision/classifier/references/current: 404 {"detail":"Not Found"}'
+                },
+                {
+                    code: 'reference_refresh_api_missing',
+                    detail: 'POST http://agent.test/v1/vision/classifier/references/refresh: 404 {"detail":"Not Found"}'
+                }
+            ]
+        }
+    });
+
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.match(status.visionReference.recommendedAction, /Upgrade or restart Common Agent/);
+    assert.match(status.recommendedAction, /Common Agent.*Vision reference API/);
+    assert.deepEqual(status.blockers, [{
+        code: 'vision_reference_gate_failed',
+        details: [
+            {
+                code: 'reference_api_missing',
+                detail: 'GET http://agent.test/v1/vision/classifier/references/current: 404 {"detail":"Not Found"}'
+            },
+            {
+                code: 'reference_refresh_api_missing',
+                detail: 'POST http://agent.test/v1/vision/classifier/references/refresh: 404 {"detail":"Not Found"}'
+            }
+        ]
+    }]);
+});
