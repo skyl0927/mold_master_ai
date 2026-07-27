@@ -420,6 +420,7 @@ test('dual validation prefers the analysis with a richer structured Vision contr
                         contradictingObservationIds: []
                     },
                     requiredAdditionalViews: [],
+                    qualityStatus: 'pass',
                     qualityConcerns: [],
                     abstentionReason: '',
                     validationIssues: [],
@@ -483,6 +484,7 @@ test('dual validation prefers the analysis with a richer structured Vision contr
                         contradictingObservationIds: []
                     },
                     requiredAdditionalViews: ['사광 확대 사진'],
+                    qualityStatus: 'pass',
                     qualityConcerns: [],
                     abstentionReason: '',
                     validationIssues: [],

@@ -53,6 +53,39 @@ const VALID_NORMALITY_STATUSES = new Set([
   'uncertain'
 ]);
 
+const normalizeQualityStatus = (value, qualityConcerns = []) => {
+  const normalized = normalizedKey(value);
+  if ([
+    'reject',
+    'rejected',
+    'fail',
+    'failed',
+    'blocked',
+    'invalid',
+    'unreadable'
+  ].some(marker => normalized.includes(marker))) {
+    return 'reject';
+  }
+  if ([
+    'warn',
+    'warning',
+    'lowquality',
+    'review'
+  ].some(marker => normalized.includes(marker))) {
+    return 'warn';
+  }
+  if ([
+    'pass',
+    'passed',
+    'ok',
+    'ready',
+    'good'
+  ].some(marker => normalized.includes(marker))) {
+    return 'pass';
+  }
+  return qualityConcerns.length > 0 ? 'warn' : 'pass';
+};
+
 const normalizeVisualObservations = (input, isV2) => {
   const rawObservations = Array.isArray(input?.observations)
     ? input.observations
@@ -157,6 +190,7 @@ const decisionFor = (
     isV2,
     imageKind,
     normalityStatus,
+    qualityStatus,
     validationIssues
   }
 ) => {
@@ -164,6 +198,12 @@ const decisionFor = (
     return {
       decisionStatus: 'unclassifiable',
       decisionReason: 'non_physical_image'
+    };
+  }
+  if (qualityStatus === 'reject') {
+    return {
+      decisionStatus: 'unclassifiable',
+      decisionReason: 'image_quality_rejected'
     };
   }
   if (normalityStatus === 'no_defect_visible') {
@@ -232,6 +272,11 @@ const normalizeVisionObservation = input => {
   const normalityStatus = VALID_NORMALITY_STATUSES.has(rawNormalityStatus)
     ? rawNormalityStatus
     : 'uncertain';
+  const qualityConcerns = stringList(input?.qualityConcerns || input?.quality_concerns);
+  const qualityStatus = normalizeQualityStatus(
+    input?.qualityStatus || input?.quality_status,
+    qualityConcerns
+  );
   const visualObservations = normalizeVisualObservations(input, isV2);
   const observationById = new Map(
     visualObservations.map(observation => [observation.observationId, observation])
@@ -239,6 +284,9 @@ const normalizeVisionObservation = input => {
   const validationIssues = [];
   if (isV2 && visualObservations.length === 0) {
     validationIssues.push('missing_visual_observations');
+  }
+  if (qualityStatus === 'reject') {
+    validationIssues.push('image_quality_rejected');
   }
 
   let rawCandidates = Array.isArray(input?.candidates)
@@ -285,6 +333,7 @@ const normalizeVisionObservation = input => {
     .slice(0, 3);
   if (
     imageKind === 'document_or_diagram'
+    || qualityStatus === 'reject'
     || normalityStatus === 'no_defect_visible'
   ) {
     candidates = [];
@@ -294,6 +343,7 @@ const normalizeVisionObservation = input => {
     isV2,
     imageKind,
     normalityStatus,
+    qualityStatus,
     validationIssues
   });
   const groundingStatus = isV2
@@ -302,14 +352,17 @@ const normalizeVisionObservation = input => {
   const explicitAbstention = compact(input?.abstentionReason || input?.abstention_reason);
   const abstentionReason = imageKind === 'document_or_diagram'
     ? 'non_physical_image'
-    : normalityStatus === 'no_defect_visible'
-      ? 'no_visible_defect'
-      : explicitAbstention || (explicitUnclassifiable ? 'vision_model_abstained' : '');
+    : qualityStatus === 'reject'
+      ? 'image_quality_rejected'
+      : normalityStatus === 'no_defect_visible'
+        ? 'no_visible_defect'
+        : explicitAbstention || (explicitUnclassifiable ? 'vision_model_abstained' : '');
 
   return {
     contractVersion,
     imageKind,
     normalityStatus,
+    qualityStatus,
     visualObservations,
     visibleFeatures: visualObservations.map(observation => observation.description),
     candidates,
@@ -317,7 +370,7 @@ const normalizeVisionObservation = input => {
     requiredAdditionalViews: stringList(
       input?.requiredAdditionalViews || input?.required_additional_views
     ),
-    qualityConcerns: stringList(input?.qualityConcerns || input?.quality_concerns),
+    qualityConcerns,
     abstentionReason,
     validationIssues,
     groundingStatus,
@@ -387,6 +440,10 @@ const buildVisionRetrievalQuery = (observation, fieldContext = '') => {
     `Vision observation contract: ${normalized.contractVersion}`,
     `Image kind: ${normalized.imageKind}`,
     `Normality status: ${normalized.normalityStatus}`,
+    `Quality status: ${normalized.qualityStatus}`,
+    normalized.qualityConcerns.length > 0
+      ? `Quality concerns: ${normalized.qualityConcerns.join(', ')}`
+      : '',
     observationLines.length > 0
       ? `Pixel-grounded observations:\n${observationLines.join('\n')}`
       : 'Pixel-grounded observations: none',

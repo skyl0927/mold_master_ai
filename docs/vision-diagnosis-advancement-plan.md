@@ -170,8 +170,9 @@ prompt_version
 
 개발 상태: 2026-07-24 V2 구조화 관찰 계약, 관찰 ID 기반 후보 근거,
 정상·문서 hard-negative, Vision/Graph 책임 분리 및 Electron 자동화 검증
-완료. 실제 승인 사진을 사용한 라이브 모델 JSON 준수율과 오판율 측정은
-운영 검증 대기.
+완료. 2026-07-27 품질 `reject/fail` 이미지는 후보를 제거하고 Graph 질의에
+결함명을 전달하지 않는 재촬영 보류 계약을 추가했다. 실제 승인 사진을
+사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 
 개발:
 
@@ -180,6 +181,8 @@ prompt_version
 - 정상 형상과 결함을 구분하는 hard-negative 규칙 추가
 - 이미지 종류가 도면, 화면, 문서이면 물리 결함 자동 판정 금지
 - 모든 V2 결함 후보가 유효한 `observation_id`를 인용하도록 fail-closed 처리
+- 품질 `reject/fail` 이미지는 고신뢰 후보도 폐기하고 `image_quality_rejected`
+  상태로 재촬영을 요구
 - 비전 단계의 원인·대책·현장 설명을 Graph 질의 근거와 분리
 
 합격 기준:
@@ -187,6 +190,7 @@ prompt_version
 - JSON Schema 준수율 100%
 - 관찰 근거 없는 결함 후보 반환 0건
 - 문서·도면의 물리 결함 오판 0건
+- 품질 reject/fail 이미지의 Graph 후보 전달 0건
 
 ### Phase 3. 다중 시점 융합과 선택적 판정
 

@@ -194,8 +194,7 @@ const executeCase = async testCase => {
       confidence: visionSummary.primaryCandidate?.confidence || observation.confidence || 0,
       visionConfidence: visionSummary.primaryCandidate?.confidence || observation.confidence || 0,
       visionDecisionStatus: visionSummary.decisionStatus,
-      qualityStatus: observation.quality_status
-        || (visionSummary.qualityConcerns.length > 0 ? 'warn' : 'pass'),
+      qualityStatus: visionSummary.qualityStatus,
       retrievalConfidence: askPayload.confidence || 0,
       reasoning_trace: trace,
       graph_policy_applied: trace.some(item =>

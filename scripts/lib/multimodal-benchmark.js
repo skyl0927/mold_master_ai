@@ -179,7 +179,8 @@ const evaluateVisionResult = (testCase, execution) => {
   const acceptedPrediction = decisionStatus === 'probable' && classifiable;
   const unsafeAcceptedError = acceptedPrediction && !top1Accurate;
   const qualityStatus =
-    response.qualityStatus
+    visionSummary.qualityStatus
+    || response.qualityStatus
     || response.visionQuality?.status
     || observation.quality_status
     || (visionSummary.qualityConcerns.length > 0 ? 'warn' : 'pass');

@@ -78,6 +78,7 @@ export interface VisionObservationSummary {
   contractVersion: string;
   imageKind: 'physical_product' | 'document_or_diagram' | 'unknown';
   normalityStatus: 'defect_visible' | 'no_defect_visible' | 'uncertain';
+  qualityStatus: VisionImageQualityReport['status'];
   visualObservations: VisionVisualObservation[];
   visibleFeatures: string[];
   candidates: VisionHypothesis[];

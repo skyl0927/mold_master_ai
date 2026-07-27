@@ -1,6 +1,7 @@
 # Grounded Vision Observation V2 TDD Evidence
 
 작성일: 2026-07-24
+갱신일: 2026-07-27
 
 ## 사용자 여정
 
@@ -17,6 +18,7 @@
 | V2 관찰 ID 누락 시 서버가 임의 ID를 생성하지 않는다 | Mold/Common Agent Vision 계약 테스트 | PASS |
 | 관찰 근거가 없는 V2 후보는 폐기한다 | `tests/commonAgentDocumentService.test.ts` | PASS |
 | 정상 판정은 고신뢰 결함 후보보다 우선한다 | `tests/visionObservation.test.js` | PASS |
+| 품질 `reject/fail` 이미지는 고신뢰 후보를 제거하고 재촬영 보류로 전환한다 | `tests/visionObservation.test.js`, `tests/multimodalBenchmark.test.js` | PASS |
 | 결함 가시성 불확실 상태는 유력 후보로 자동 승격하지 않는다 | Common Agent `tests/test_vision_candidate_contract.py` | PASS |
 | 알 수 없는 Vision 계약 버전은 fail-closed 처리한다 | Common Agent `tests/test_vision_candidate_contract.py` | PASS |
 | 문서·도면은 물리 결함 진단에서 격리한다 | `tests/visionObservation.test.js` | PASS |
@@ -41,6 +43,8 @@
 ## GREEN
 
 - `npm run test:vision-observation`: 17/17 PASS
+- 2026-07-27 추가 GREEN: `npm run test:vision-observation`: 19/19 PASS
+- 2026-07-27 추가 GREEN: `npm run test:benchmark`: 30/30 PASS
 - `npm run test:contracts`: 30/30 PASS
 - `npx tsc --noEmit`: PASS
 - `npm run build`: PASS
