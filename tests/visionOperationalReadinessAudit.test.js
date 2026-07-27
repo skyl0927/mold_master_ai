@@ -338,6 +338,8 @@ test('readiness audit routes verified HITL decisions to the authorization bridge
         invalidDecisions: 0,
         pendingQueueItems: 0,
         approvalCandidates: 8,
+        needsReviewItems: 1,
+        rejectedCandidates: 1,
         recaptureRequests: 2
       },
       serviceWritesPerformed: false
@@ -346,6 +348,78 @@ test('readiness audit routes verified HITL decisions to the authorization bridge
 
   assert.equal(audit.gates.hitlWorkflow.status, 'ready_for_manual_import');
   assert.equal(audit.gates.hitlWorkflow.verification.approvalCandidates, 8);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.status, 'worklist_missing');
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.totalItems, 4);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.needsReviewItems, 1);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.rejectedCandidates, 1);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.recaptureRequests, 2);
   assert.match(audit.gates.hitlWorkflow.nextCommand, /vision:hitl:authorization-bridge/);
+  assert.ok(audit.gates.hitlWorkflow.nextCommands.some(command =>
+    command.includes('vision:hitl:non-approval-worklist')
+  ));
   assert.match(audit.gates.hitlWorkflow.nextActionKo, /authorization/);
+});
+
+test('readiness audit exposes generated non-approval worklist counts', () => {
+  const audit = buildVisionOperationalReadinessAudit({
+    referenceGateReport: referenceGatePassed,
+    postHitlVerificationReport: {
+      ...postHitlPassed,
+      status: 'waiting_for_human_hitl',
+      readyToDisableLegacyFallback: false,
+      benchmarksExecuted: false,
+      blockers: [{ code: 'human_review_required', count: 12 }]
+    },
+    hitlQueuePacket: {
+      contractVersion: 'vision-pending-hitl-review-queue-packet/v1',
+      status: 'action_required',
+      summary: {
+        pendingHighConfidence: 12,
+        resolvedHighConfidence: 6
+      },
+      serviceWritesPerformed: false,
+      items: Array.from({ length: 12 }, (_, index) => ({
+        queueId: `pending-hitl-${String(index + 1).padStart(3, '0')}`
+      }))
+    },
+    hitlDecisionTemplate: {
+      contractVersion: 'common-agent-hitl-review-decisions/v1',
+      status: 'template_ready',
+      summary: { decisionsPrepared: 12 },
+      serviceWritesPerformed: false
+    },
+    hitlDecisionVerificationReport: {
+      contractVersion: 'vision-pending-hitl-decision-verification-report/v1',
+      status: 'ready_for_manual_import',
+      summary: {
+        queueItems: 12,
+        decisionsReceived: 12,
+        acceptedDecisions: 12,
+        invalidDecisions: 0,
+        pendingQueueItems: 0,
+        approvalCandidates: 8,
+        needsReviewItems: 1,
+        rejectedCandidates: 1,
+        recaptureRequests: 2
+      },
+      serviceWritesPerformed: false
+    },
+    hitlNonApprovalWorklist: {
+      contractVersion: 'vision-pending-hitl-non-approval-worklist/v1',
+      status: 'action_required',
+      summary: {
+        totalItems: 4,
+        needsReviewItems: 1,
+        rejectedCandidates: 1,
+        recaptureRequests: 2,
+        approvalCandidatesExcluded: 8
+      },
+      serviceWritesPerformed: false
+    }
+  });
+
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.status, 'action_required');
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.totalItems, 4);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.approvalCandidatesExcluded, 8);
+  assert.equal(audit.gates.hitlWorkflow.nonApprovalWorklist.serviceWritesPerformed, false);
 });

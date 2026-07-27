@@ -89,7 +89,18 @@ test('shows the authorization bridge as the next step after decision verificatio
           invalidDecisions: 0,
           acceptedDecisions: 12
         },
+        nonApprovalWorklist: {
+          status: 'action_required',
+          totalItems: 4,
+          needsReviewItems: 1,
+          rejectedCandidates: 1,
+          recaptureRequests: 2
+        },
         nextCommand: 'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+        nextCommands: [
+          'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+          'npm run vision:hitl:non-approval-worklist -- --decision-verification <vision-pending-hitl-decision-verification-report.json>'
+        ],
         nextActionKo: '검증된 판정을 authorization bridge로 변환하세요.'
       }
     }]
@@ -97,8 +108,12 @@ test('shows the authorization bridge as the next step after decision verificatio
 
   assert.equal(display.statusLabel, '수동 Import 준비');
   assert.equal(display.severity, 'success');
-  assert.equal(display.summaryText, '큐 12건 · 템플릿 12건 · 검증 12건 · 미판정 0건');
+  assert.equal(display.summaryText, '큐 12건 · 템플릿 12건 · 검증 12건 · 미판정 0건 · 비승인 조치 4건');
   assert.match(display.nextCommand, /vision:hitl:authorization-bridge/);
+  assert.deepEqual(display.nextCommands, [
+    'npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pending-hitl-decision-verification-report.json>',
+    'npm run vision:hitl:non-approval-worklist -- --decision-verification <vision-pending-hitl-decision-verification-report.json>'
+  ]);
   assert.match(display.nextActionKo, /authorization bridge/);
 });
 
