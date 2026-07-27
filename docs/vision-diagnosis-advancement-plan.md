@@ -232,8 +232,11 @@ Common Agent 진단 진입점에도 승인 참조 이미지 벤치마크 게이�
 Common Agent worker 환경에서 DINOv2 `facebook/dinov2-base`와 SigLIP2
 `google/siglip2-base-patch16-224` 실제 런타임 스모크를 완료했고, benchmark
 응답에 provider, model, dimension, device, runtime, production-ready 계보를
-노출하도록 확장했다. 학습 헤드는 승인 다중 시점 데이터가 클래스별 최소
-30세션에 도달한 뒤 실측 holdout 기준으로 승격한다.
+노출하도록 확장했다. 또한 `GET /v1/vision/classifier/references/current`로
+현재 reference store 준비 상태를 조회하고, Mold Master AI 데이터 관리자에서
+상태 확인과 수동 refresh를 실행할 수 있게 했다. 학습 헤드는 승인 다중
+시점 데이터가 클래스별 최소 30세션에 도달한 뒤 실측 holdout 기준으로
+승격한다.
 
 개발:
 

@@ -9,7 +9,8 @@ import {
 } from '../types';
 import {
     CommonAgentApiService,
-    type CommonAgentImageReviewRequest
+    type CommonAgentImageReviewRequest,
+    type CommonAgentVisionReferenceCurrentStatus
 } from '../services/commonAgentApiService';
 import {
     calculateVisionDatasetReadiness,
@@ -128,6 +129,18 @@ const captureViewLabel: Record<string, string> = {
     release_sequence: '취출 전후 상태'
 };
 
+const referenceStatusLabel: Record<string, string> = {
+    ready: 'READY',
+    missing: 'MISSING',
+    invalid: 'INVALID'
+};
+
+const referenceStatusClass = (status?: CommonAgentVisionReferenceCurrentStatus | null) => {
+    if (status?.ready) return 'border-emerald-700 bg-emerald-950/30 text-emerald-200';
+    if (status?.status === 'invalid') return 'border-red-700 bg-red-950/30 text-red-200';
+    return 'border-amber-700 bg-amber-950/30 text-amber-200';
+};
+
 type CaptureProtocolEdit = {
     imageKind: 'unknown' | 'physical_product' | 'document_or_diagram';
     availableViews: string[];
@@ -167,6 +180,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     const [visionStatus, setVisionStatus] = useState('');
     const [isRunningBenchmark, setIsRunningBenchmark] = useState(false);
     const [benchmarkResult, setBenchmarkResult] = useState<VisionBenchmarkRunResult | null>(null);
+    const [referenceStatus, setReferenceStatus] = useState<CommonAgentVisionReferenceCurrentStatus | null>(null);
+    const [isLoadingReferenceStatus, setIsLoadingReferenceStatus] = useState(false);
+    const [isRefreshingReferences, setIsRefreshingReferences] = useState(false);
     const [suggestingImageId, setSuggestingImageId] = useState<string | null>(null);
     const [labelSuggestions, setLabelSuggestions] = useState<Record<string, VisionLabelSuggestion>>({});
     const [captureProtocolEdits, setCaptureProtocolEdits] = useState<Record<string, CaptureProtocolEdit>>({});
@@ -241,8 +257,65 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
         }
     };
 
+    const fetchVisionReferenceStatus = async (
+        options: { announceFailure?: boolean; announceSuccess?: boolean } = {}
+    ) => {
+        setIsLoadingReferenceStatus(true);
+        try {
+            const status = await CommonAgentApiService.getCurrentVisionReferenceStatus();
+            setReferenceStatus(status);
+            if (options.announceSuccess) {
+                setVisionStatus(
+                    status.ready
+                        ? `Reference Store 준비 완료 · ${status.reference_count} refs · ${status.embedding_model_version || 'model unknown'}`
+                        : `Reference Store 미준비 · ${status.status}${status.message ? ` · ${status.message}` : ''}`
+                );
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Reference Store 상태 조회 실패';
+            setReferenceStatus({
+                ready: false,
+                status: 'invalid',
+                reference_count: 0,
+                warnings: [],
+                message
+            });
+            if (options.announceFailure) {
+                setVisionStatus(`Reference Store 상태 조회 실패: ${message}`);
+            }
+        } finally {
+            setIsLoadingReferenceStatus(false);
+        }
+    };
+
+    const refreshVisionReferences = async () => {
+        setIsRefreshingReferences(true);
+        setVisionStatus('Common Agent 승인 이미지로 Reference Store를 갱신 중입니다...');
+        try {
+            const result = await CommonAgentApiService.refreshVisionReferences();
+            await Promise.all([
+                fetchVisionReferenceStatus({ announceFailure: false }),
+                fetchVisionData({ clearStatus: false })
+            ]);
+            setVisionStatus(
+                `Reference Store 갱신 완료 · ${result.reference_count} refs`
+                + `${result.embedding_model_version ? ` · ${result.embedding_model_version}` : ''}`
+                + `${result.warnings?.length ? ` · 경고 ${result.warnings.length}건` : ''}`
+            );
+        } catch (error) {
+            setVisionStatus(
+                error instanceof Error ? `Reference Store 갱신 실패: ${error.message}` : 'Reference Store 갱신 실패'
+            );
+        } finally {
+            setIsRefreshingReferences(false);
+        }
+    };
+
     useEffect(() => {
-        if (activeTab === 'common-agent') void fetchVisionData();
+        if (activeTab === 'common-agent') {
+            void fetchVisionData();
+            void fetchVisionReferenceStatus();
+        }
         if (activeTab === 'legacy') void fetchLegacyFeedback();
     }, [activeTab]);
 
@@ -889,6 +962,70 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                     </button>
                                 </div>
                             </div>
+
+                            <section
+                                data-testid="vision-reference-store-status"
+                                className={`rounded-lg border p-4 ${referenceStatusClass(referenceStatus)}`}
+                            >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="font-bold">Current Reference Store</p>
+                                            <span className="rounded border border-current px-2 py-0.5 text-[10px] font-bold">
+                                                {isLoadingReferenceStatus
+                                                    ? 'CHECKING'
+                                                    : referenceStatusLabel[referenceStatus?.status || 'missing'] || 'UNKNOWN'}
+                                            </span>
+                                            {referenceStatus?.embedding_production_ready === false && (
+                                                <span className="rounded border border-red-500/60 bg-red-950/40 px-2 py-0.5 text-[10px] font-bold text-red-200">
+                                                    PROTOTYPE BLOCKED
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-300">
+                                            {referenceStatus?.ready
+                                                ? `${referenceStatus.reference_count} refs · ${referenceStatus.embedding_model_version || 'model unknown'}`
+                                                : referenceStatus?.message || '아직 current reference manifest가 없습니다.'}
+                                        </p>
+                                        {referenceStatus?.ready && (
+                                            <p className="mt-1 text-[11px] text-gray-400">
+                                                {[
+                                                    referenceStatus.embedding_provider,
+                                                    referenceStatus.embedding_model_name,
+                                                    referenceStatus.embedding_dimensions ? `${referenceStatus.embedding_dimensions}d` : '',
+                                                    referenceStatus.embedding_device,
+                                                    referenceStatus.embedding_runtime
+                                                ].filter(Boolean).join(' · ')}
+                                                {referenceStatus.updated_at ? ` · updated ${referenceStatus.updated_at}` : ''}
+                                            </p>
+                                        )}
+                                        {referenceStatus?.warnings?.length ? (
+                                            <p className="mt-1 text-[11px] text-amber-200">
+                                                경고 {referenceStatus.warnings.length}건: {referenceStatus.warnings.slice(0, 2).join(' / ')}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => void fetchVisionReferenceStatus({
+                                                announceFailure: true,
+                                                announceSuccess: true
+                                            })}
+                                            disabled={isLoadingReferenceStatus || isRefreshingReferences}
+                                            className="rounded bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {isLoadingReferenceStatus ? '확인 중...' : 'Store 상태 확인'}
+                                        </button>
+                                        <button
+                                            onClick={() => void refreshVisionReferences()}
+                                            disabled={isRefreshingReferences || isLoadingReferenceStatus}
+                                            className="rounded bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {isRefreshingReferences ? '갱신 중...' : 'Reference Store 갱신'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
 
                             {visionReadiness && (
                                 <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">

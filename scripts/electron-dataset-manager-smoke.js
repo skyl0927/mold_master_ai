@@ -16,11 +16,29 @@ const path = require('node:path');
       window.center();
     });
     const consoleErrors = [];
+    const failedRequests = [];
     const reviewCalls = [];
     let rejectedImageId = '';
     page.on('console', message => {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
+    page.on('requestfailed', request => {
+      failedRequests.push({
+        url: request.url(),
+        failure: request.failure()?.errorText || ''
+      });
+    });
+
+    await page.route('http://agent.test/healthz', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok' })
+    }));
+    await page.route('http://agent.test/health', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok' })
+    }));
 
     await page.evaluate(async () => {
       await window.electronAPI.setApiConfig({
@@ -64,6 +82,42 @@ const path = require('node:path');
       contentType: 'application/json',
       body: JSON.stringify({ status: 'ok' })
     }));
+    await page.route('http://agent.test/v1/vision/classifier/references/current', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ready: true,
+        status: 'ready',
+        store_dir: '/app/data/vision-reference-store',
+        manifest_id: 'dinov2-base-ready',
+        manifest_path: '/app/data/vision-reference-store/manifests/dinov2-base-ready.json',
+        embedding_model_version: 'dinov2:facebook/dinov2-base',
+        embedding_provider: 'dinov2',
+        embedding_model_name: 'facebook/dinov2-base',
+        embedding_dimensions: 768,
+        embedding_device: 'cpu',
+        embedding_runtime: 'transformers',
+        embedding_production_ready: true,
+        reference_count: 42,
+        source_item_count: 44,
+        source_learning_ready_only: true,
+        generated_at: '2026-07-27T00:00:00Z',
+        updated_at: '2026-07-27T00:01:00Z',
+        warnings: []
+      })
+    }));
+    await page.route('http://agent.test/v1/vision/classifier/references/refresh', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'promoted',
+        manifest_id: 'dinov2-base-ready',
+        reference_count: 42,
+        store_dir: '/app/data/vision-reference-store',
+        embedding_model_version: 'dinov2:facebook/dinov2-base',
+        warnings: []
+      })
+    }));
     await page.route('http://agent.test/v1/datasets/images?**', route => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -97,6 +151,8 @@ const path = require('node:path');
 
     await page.getByText('DATABASE TREE').click();
     await page.getByText(/유효 승인 1\/20 .* 충돌 1그룹/).waitFor({ timeout: 15000 });
+    await page.getByTestId('vision-reference-store-status').getByText(/42 refs/).waitFor({ timeout: 15000 });
+    const referenceStoreText = await page.getByTestId('vision-reference-store-status').textContent();
     const layout = await page.evaluate(() => {
       const modal = document.querySelector('[data-testid="dataset-manager-modal"]');
       const tabs = document.querySelector('[data-testid="dataset-manager-tabs"]');
@@ -151,9 +207,11 @@ const path = require('node:path');
       contentHashForwarded: Boolean(reviewCalls[0]?.payload?.metadata?.content_sha256),
       conflictResolved: rejectedImageId === 'duplicate-surface',
       remainingApprovalEnabled,
+      referenceStatusVisible: /dinov2:facebook\/dinov2-base/.test(referenceStoreText || ''),
       layout,
       screenshot,
       isolatedProfile: profilePath,
+      failedRequests,
       consoleErrors
     };
     console.log(JSON.stringify(result, null, 2));
@@ -166,6 +224,7 @@ const path = require('node:path');
       || !result.contentHashForwarded
       || !result.conflictResolved
       || !result.remainingApprovalEnabled
+      || !result.referenceStatusVisible
       || !result.layout.modal
       || result.layout.modal.height < result.layout.viewport.height * 0.95
       || !result.layout.tabs

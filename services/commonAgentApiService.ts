@@ -355,6 +355,37 @@ export interface CommonAgentVisionReferenceBenchmarkResponse {
     warnings: string[];
 }
 
+export interface CommonAgentVisionReferenceCurrentStatus {
+    ready: boolean;
+    status: 'ready' | 'missing' | 'invalid';
+    store_dir?: string | null;
+    manifest_id?: string | null;
+    manifest_path?: string | null;
+    embedding_model_version?: string | null;
+    embedding_provider?: string | null;
+    embedding_model_name?: string | null;
+    embedding_dimensions?: number | null;
+    embedding_device?: string | null;
+    embedding_runtime?: string | null;
+    embedding_production_ready?: boolean | null;
+    reference_count: number;
+    source_item_count?: number;
+    source_learning_ready_only?: boolean;
+    generated_at?: string | null;
+    updated_at?: string | null;
+    warnings: string[];
+    message?: string | null;
+}
+
+export interface CommonAgentVisionReferenceRefreshResponse {
+    status: string;
+    manifest_id: string;
+    reference_count: number;
+    store_dir: string;
+    embedding_model_version?: string | null;
+    warnings: string[];
+}
+
 const getAgentUrl = async (path: string): Promise<string> => {
     const baseUrl = await getAgentServerBaseUrl();
     return `${baseUrl}${path}`;
@@ -707,6 +738,19 @@ export class CommonAgentApiService {
         return await postJson<CommonAgentVisionReferenceBenchmarkResponse>(
             '/v1/vision/classifier/benchmark-current',
             payload
+        );
+    }
+
+    static async getCurrentVisionReferenceStatus(): Promise<CommonAgentVisionReferenceCurrentStatus> {
+        return await getJson<CommonAgentVisionReferenceCurrentStatus>(
+            '/v1/vision/classifier/references/current'
+        );
+    }
+
+    static async refreshVisionReferences(): Promise<CommonAgentVisionReferenceRefreshResponse> {
+        return await postJson<CommonAgentVisionReferenceRefreshResponse>(
+            '/v1/vision/classifier/references/refresh',
+            {}
         );
     }
 
