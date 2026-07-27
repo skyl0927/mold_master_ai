@@ -137,6 +137,35 @@ const awaitingWebReadiness = {
   ]
 };
 
+const actionRequiredAccuracyPlan = {
+  contractVersion: 'vision-accuracy-improvement-plan/v1',
+  status: 'action_required',
+  serviceWritesPerformed: false,
+  summary: {
+    totalCases: 13,
+    top1Accuracy: 46.2,
+    top3Accuracy: 53.8,
+    captureProtocolReadyRate: 0,
+    referenceRefreshAllowedNow: false,
+    coreMissingViews: [
+      { view: 'defect_closeup', count: 13 },
+      { view: 'full_part_context', count: 13 }
+    ],
+    undercoveredDefectClasses: ['burn', 'sink', 'ejection'],
+    zeroAccuracyDefectClasses: ['sink', 'ejection']
+  },
+  improvementTracks: [{
+    code: 'repair_capture_protocol',
+    priority: 100,
+    titleKo: '촬영 프로토콜 보강',
+    commands: [
+      'npm run eval:vision:approved:validate',
+      'npm run vision:hitl:review-guide',
+      'npm run vision:reference:backfill-plan'
+    ]
+  }]
+};
+
 test('summarizes the current development phase and remaining operational blockers', () => {
   const report = buildMoldMasterDevelopmentProgressReport({
     generatedAt: '2026-07-27T11:00:00.000Z',
@@ -192,6 +221,49 @@ test('summarizes the current development phase and remaining operational blocker
   assert.ok(report.progress.software.percent > report.progress.operational.percent);
   assert.match(report.progressFeedbackKo[0], /운영 전환 전/);
   assert.equal(report.sources.visionReadiness, 'artifacts/vision-operational-readiness-audit.json');
+});
+
+test('surfaces Vision accuracy bottlenecks when the improvement plan exists', () => {
+  const report = buildMoldMasterDevelopmentProgressReport({
+    generatedAt: '2026-07-27T11:00:00.000Z',
+    visionReadiness: actionRequiredReadiness,
+    visionWorklist: actionRequiredWorklist,
+    commonAgentHandoff: blockedHandoff,
+    webKnowledgeReadiness: awaitingWebReadiness,
+    visionAccuracyPlan: actionRequiredAccuracyPlan,
+    sourceArtifacts: {
+      visionAccuracyPlan: 'artifacts/vision-accuracy-improvement-plan.json'
+    }
+  });
+
+  assert.equal(report.summary.visionAccuracyStatus, 'action_required');
+  assert.equal(report.summary.visionTop1Accuracy, 46.2);
+  assert.equal(report.summary.visionTop3Accuracy, 53.8);
+  assert.equal(report.summary.visionCaptureProtocolReadyRate, 0);
+  assert.equal(report.summary.visionAccuracyFirstTrackCode, 'repair_capture_protocol');
+  assert.deepEqual(report.summary.visionCoreMissingViews, [
+    { view: 'defect_closeup', count: 13 },
+    { view: 'full_part_context', count: 13 }
+  ]);
+  assert.deepEqual(report.summary.visionUndercoveredDefectClasses, ['burn', 'sink', 'ejection']);
+
+  const stage = report.stageCards.find(item => item.id === 'vision_accuracy_improvement');
+  assert.equal(stage.status, 'action_required');
+  assert.equal(stage.softwareImplemented, true);
+  assert.equal(stage.metrics.top1Accuracy, 46.2);
+  assert.equal(stage.metrics.captureProtocolReadyRate, 0);
+  assert.deepEqual(stage.metrics.coreMissingViews, [
+    { view: 'defect_closeup', count: 13 },
+    { view: 'full_part_context', count: 13 }
+  ]);
+  assert.deepEqual(stage.commands, [
+    'npm run eval:vision:approved:validate',
+    'npm run vision:hitl:review-guide',
+    'npm run vision:reference:backfill-plan'
+  ]);
+  assert.match(stage.feedbackKo, /Top-1 46\.2%/);
+  assert.match(report.progressFeedbackKo.join('\n'), /촬영 프로토콜/);
+  assert.equal(report.sources.visionAccuracyPlan, 'artifacts/vision-accuracy-improvement-plan.json');
 });
 
 test('reports ready for operator review only when Vision and Web knowledge gates are closed', () => {
