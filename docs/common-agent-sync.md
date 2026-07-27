@@ -89,6 +89,7 @@ npm run operational:hitl:intake-status
 npm run operational:hitl:action-pack
 npm run operational:hitl:prepare-plan
 npm run operational:hitl:prepare-run
+npm run operational:hitl:decision-review-packet
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -122,6 +123,12 @@ template/guide 생성 명령만 Node 스크립트로 직접 실행하고
 `operational-hitl-preparation-run/v1` manifest를 남긴다. 셸 실행은 사용하지
 않으며, `verify-decisions`, `apply`, `approve` 계열 명령은 자동 실행하지 않고
 `skippedCommands.reason=human_decision_required`로 기록한다.
+
+`operational:hitl:decision-review-packet`은 준비된 3종 decision template를 읽어
+`operational-hitl-decision-input-review-packet/v1`을 만든다. 각 큐의 작성 대상
+수량, `action=pending` 상태, 필수 입력 필드, 검증 명령, 우선순위를 한 장으로
+정리해 사람이 판정 파일을 채우기 전에 누락을 줄인다. 이 단계도 artifact-only라
+Common Agent, SQL, Graph DB, Reference store, 모델 학습에는 쓰지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
