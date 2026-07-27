@@ -27,6 +27,20 @@ const sourcePath = (flag, envName, fallback) => path.resolve(
   || fallback
 );
 
+const latestArtifact = prefix => {
+  if (!fs.existsSync(artifactRoot)) return null;
+  const matches = fs.readdirSync(artifactRoot)
+    .filter(name => name.startsWith(prefix) && name.endsWith('.json'))
+    .map(name => path.join(artifactRoot, name))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
+  return matches[0] || null;
+};
+
+const optionalSourcePath = (flag, envName, fallback) => {
+  const candidate = valueAfter(flag) || process.env[envName] || fallback;
+  return candidate ? path.resolve(candidate) : null;
+};
+
 const paths = {
   referenceGate: sourcePath(
     '--reference-gate',
@@ -43,7 +57,22 @@ const paths = {
     'VISION_OPERATIONAL_RELEASE_REPORT',
     path.join(artifactRoot, 'vision-operational-release-report.json')
   ),
-  releaseEvidenceAlignment: valueAfter('--release-evidence-alignment') || process.env.VISION_OPERATIONAL_RELEASE_EVIDENCE_ALIGNMENT
+  releaseEvidenceAlignment: valueAfter('--release-evidence-alignment') || process.env.VISION_OPERATIONAL_RELEASE_EVIDENCE_ALIGNMENT,
+  hitlQueuePacket: optionalSourcePath(
+    '--hitl-queue',
+    'VISION_PENDING_HITL_REVIEW_QUEUE_PACKET',
+    latestArtifact('vision-pending-hitl-review-queue-packet-')
+  ),
+  hitlDecisionTemplate: optionalSourcePath(
+    '--hitl-decision-template',
+    'VISION_PENDING_HITL_DECISION_TEMPLATE',
+    latestArtifact('common-agent-hitl-review-decisions-template-')
+  ),
+  hitlDecisionVerification: optionalSourcePath(
+    '--hitl-decision-verification',
+    'VISION_PENDING_HITL_DECISION_VERIFICATION_REPORT',
+    latestArtifact('vision-pending-hitl-decision-verification-report-')
+  )
 };
 
 const readOptionalJson = filePath => {
@@ -63,7 +92,10 @@ const run = () => {
     referenceGateReport: readOptionalJson(paths.referenceGate),
     postHitlVerificationReport: readOptionalJson(paths.postHitlVerification),
     releaseReport: readOptionalJson(paths.releaseReport),
-    releaseEvidenceAlignment: readOptionalJson(paths.releaseEvidenceAlignment)
+    releaseEvidenceAlignment: readOptionalJson(paths.releaseEvidenceAlignment),
+    hitlQueuePacket: readOptionalJson(paths.hitlQueuePacket),
+    hitlDecisionTemplate: readOptionalJson(paths.hitlDecisionTemplate),
+    hitlDecisionVerificationReport: readOptionalJson(paths.hitlDecisionVerification)
   });
   const artifact = {
     ...audit,

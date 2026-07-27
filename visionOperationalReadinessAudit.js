@@ -79,6 +79,123 @@ const postHitlGate = report => {
   };
 };
 
+const numberFrom = (...values) => {
+  const value = values.find(item => Number.isFinite(Number(item)));
+  return value === undefined ? 0 : Number(value);
+};
+
+const hitlWorkflowNext = status => ({
+  missing_queue_packet: {
+    command: 'npm run vision:hitl:pending-packet',
+    actionKo: '미해결 HITL 후보 queue packet을 먼저 생성하세요.'
+  },
+  decision_template_missing: {
+    command: 'npm run vision:hitl:decision-template',
+    actionKo: 'Common Agent/HITL 담당자가 채울 판정 템플릿을 생성하세요.'
+  },
+  awaiting_decision_verification: {
+    command: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    actionKo: '작성된 HITL 판정 파일을 검증하세요.'
+  },
+  awaiting_human_review: {
+    command: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    actionKo: 'Common Agent/HITL 판정 파일을 작성하고 검증하세요.'
+  },
+  invalid_decisions: {
+    command: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    actionKo: '유효하지 않은 HITL 판정을 수정하고 다시 검증하세요.'
+  },
+  partial_human_review: {
+    command: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    actionKo: '남은 HITL queue item을 추가 검토하고 다시 검증하세요.'
+  },
+  ready_for_manual_import: {
+    command: 'npm run vision:hitl:prepare',
+    actionKo: '검증된 판정을 기반으로 수동 import/승인 절차를 준비하세요.'
+  },
+  clear: {
+    command: 'npm run migration:verify-post-hitl',
+    actionKo: 'HITL blocker가 닫혔는지 post-HITL 검증을 다시 실행하세요.'
+  }
+}[status] || {
+  command: 'npm run vision:hitl:pending-packet',
+  actionKo: 'HITL workflow artifact 상태를 확인하세요.'
+});
+
+const hitlWorkflowGate = ({
+  hitlQueuePacket,
+  hitlDecisionTemplate,
+  hitlDecisionVerificationReport
+}) => {
+  const queueItems = asArray(hitlQueuePacket?.items);
+  const queuePending = numberFrom(
+    hitlQueuePacket?.summary?.pendingHighConfidence,
+    hitlQueuePacket?.summary?.queueItems,
+    queueItems.length
+  );
+  const templateDecisions = asArray(hitlDecisionTemplate?.decisions);
+  const decisionsPrepared = numberFrom(
+    hitlDecisionTemplate?.summary?.decisionsPrepared,
+    templateDecisions.length
+  );
+  const verificationSummary = hitlDecisionVerificationReport?.summary || {};
+  const queueStatus = compact(hitlQueuePacket?.status) || 'missing_queue_packet';
+  const templateStatus = compact(hitlDecisionTemplate?.status)
+    || (queuePending > 0 ? 'missing_decision_template' : 'clear');
+  const verificationStatus = compact(hitlDecisionVerificationReport?.status)
+    || (queuePending > 0 ? 'awaiting_decision_verification' : 'clear');
+  let status = 'clear';
+
+  if (!hitlQueuePacket) {
+    status = 'missing_queue_packet';
+  } else if (queuePending <= 0 || queueStatus === 'clear') {
+    status = 'clear';
+  } else if (!hitlDecisionTemplate) {
+    status = 'decision_template_missing';
+  } else if (!hitlDecisionVerificationReport) {
+    status = 'awaiting_decision_verification';
+  } else {
+    status = verificationStatus;
+  }
+
+  const next = hitlWorkflowNext(status);
+
+  return {
+    status,
+    queue: {
+      status: queueStatus,
+      pendingHighConfidence: queuePending,
+      resolvedHighConfidence: numberFrom(hitlQueuePacket?.summary?.resolvedHighConfidence),
+      pendingByClass: hitlQueuePacket?.summary?.pendingByClass || {}
+    },
+    template: {
+      status: templateStatus,
+      decisionsPrepared
+    },
+    verification: {
+      status: verificationStatus,
+      decisionsReceived: numberFrom(verificationSummary.decisionsReceived),
+      acceptedDecisions: numberFrom(verificationSummary.acceptedDecisions),
+      invalidDecisions: numberFrom(verificationSummary.invalidDecisions),
+      pendingQueueItems: numberFrom(verificationSummary.pendingQueueItems, queuePending),
+      approvalCandidates: numberFrom(verificationSummary.approvalCandidates),
+      recaptureRequests: numberFrom(verificationSummary.recaptureRequests)
+    },
+    policy: {
+      requiresHumanReview: true,
+      autoApplyAllowed: false,
+      allowGraphPromotion: false,
+      allowReferenceLearning: false,
+      allowModelTraining: false
+    },
+    serviceWritesPerformed: hitlQueuePacket?.serviceWritesPerformed === true
+      || hitlDecisionTemplate?.serviceWritesPerformed === true
+      || hitlDecisionVerificationReport?.serviceWritesPerformed === true,
+    nextCommand: next.command,
+    nextActionKo: next.actionKo
+  };
+};
+
 const releaseGate = (releaseReport, releaseEvidenceAlignment) => {
   const evidenceAlignment = releaseEvidenceAlignmentFor(releaseReport, releaseEvidenceAlignment);
   const evidenceComplete = releaseEvidenceComplete(releaseReport);
@@ -181,10 +298,18 @@ const buildVisionOperationalReadinessAudit = ({
   referenceGateReport = null,
   postHitlVerificationReport = null,
   releaseReport = null,
-  releaseEvidenceAlignment = null
+  releaseEvidenceAlignment = null,
+  hitlQueuePacket = null,
+  hitlDecisionTemplate = null,
+  hitlDecisionVerificationReport = null
 } = {}) => {
   const reference = referenceGate(referenceGateReport);
   const postHitl = postHitlGate(postHitlVerificationReport);
+  const hitlWorkflow = hitlWorkflowGate({
+    hitlQueuePacket,
+    hitlDecisionTemplate,
+    hitlDecisionVerificationReport
+  });
   const release = releaseGate(releaseReport, releaseEvidenceAlignment);
   const blockers = [
     ...reference.blockers,
@@ -216,6 +341,7 @@ const buildVisionOperationalReadinessAudit = ({
     gates: {
       reference,
       postHitl,
+      hitlWorkflow,
       release
     },
     blockers,

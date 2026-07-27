@@ -538,7 +538,13 @@ Graph promotion, reference learning, model training을 모두 금지한다. 이�
 reviewer, 판정 시각을 검증하고 manual import plan으로만 분리하도록 했다.
 현재 판정 파일이 없는 실제 상태에서는 `status=awaiting_human_review`,
 `queueItems=12`, `pendingQueueItems=12`로 보고되며 자동 쓰기와 자동 승격은
-계속 금지된다. 실제 승인 현장 데이터의 운영 합격 판정은 계속 보류한다.
+계속 금지된다. 또한 운영 readiness audit과 blocker worklist가 최신 HITL
+queue, decision template, decision verification artifact를 자동으로 요약해
+`gates.hitlWorkflow`와 `close_hitl_reviews.workflowStatus`에 노출하도록
+연결했다. 현재 실제 artifact 기준 workflow status는
+`awaiting_human_review`, `pendingHighConfidence=12`,
+`decisionsPrepared=12`, `pendingQueueItems=12`이다. 실제 승인 현장 데이터의
+운영 합격 판정은 계속 보류한다.
 
 개발:
 

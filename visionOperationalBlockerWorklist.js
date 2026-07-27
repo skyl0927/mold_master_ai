@@ -26,7 +26,8 @@ const blockerTask = ({
   current,
   required,
   missing,
-  sampleRefs = []
+  sampleRefs = [],
+  workflowStatus = null
 }) => ({
   code,
   priority,
@@ -46,7 +47,8 @@ const blockerTask = ({
   ...(current !== undefined ? { current } : {}),
   ...(required !== undefined ? { required } : {}),
   ...(missing !== undefined ? { missing } : {}),
-  ...(sampleRefs.length ? { sampleRefs } : {})
+  ...(sampleRefs.length ? { sampleRefs } : {}),
+  ...(workflowStatus ? { workflowStatus } : {})
 });
 
 const buildMissingAuditWorklist = generatedAt => ({
@@ -89,7 +91,21 @@ const buildMissingAuditWorklist = generatedAt => ({
   recommendedAction: '먼저 npm run vision:operational:readiness를 실행해 최신 readiness audit을 생성하세요.'
 });
 
-const actionTasksFor = blockers => {
+const hitlWorkflowCommands = [
+  'npm run vision:hitl:pending-packet',
+  'npm run vision:hitl:decision-template',
+  'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+  'npm run vision:hitl:prepare',
+  'npm run vision:hitl:approve -- --authorization <reviewed-json>',
+  'npm run migration:verify-post-hitl'
+];
+
+const hitlReviewDescription = workflow =>
+  workflow?.nextActionKo
+    ? `고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다. 현재 단계: ${workflow.nextActionKo}`
+    : '고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다.';
+
+const actionTasksFor = (blockers, readinessAudit = {}) => {
   const tasks = [];
   const conflict = blockerByCode(blockers, 'approved_label_conflicts');
   if (conflict) {
@@ -107,19 +123,18 @@ const actionTasksFor = blockers => {
 
   const humanReview = blockerByCode(blockers, 'human_review_required');
   if (humanReview) {
+    const workflow = readinessAudit?.gates?.hitlWorkflow || null;
     tasks.push(blockerTask({
       code: 'close_hitl_reviews',
       priority: 90,
       owner: 'quality_hitl',
       titleKo: '미해결 HITL 검토 종료',
-      descriptionKo: '고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다.',
+      descriptionKo: hitlReviewDescription(workflow),
       sourceBlockers: [humanReview],
       count: Number(humanReview.count) || 0,
-      commands: [
-        'npm run vision:hitl:reeval-plan',
-        'npm run vision:hitl:reeval-verify'
-      ],
-      dependsOn: conflict ? ['resolve_label_conflicts'] : []
+      commands: hitlWorkflowCommands,
+      dependsOn: conflict ? ['resolve_label_conflicts'] : [],
+      workflowStatus: workflow
     }));
   }
 
@@ -229,7 +244,8 @@ const handoffFor = tasks => ({
     priority: task.priority,
     titleKo: task.titleKo,
     sourceBlockers: task.sourceBlockers,
-    sampleRefs: task.sampleRefs || []
+    sampleRefs: task.sampleRefs || [],
+    ...(task.workflowStatus ? { workflowStatus: task.workflowStatus } : {})
   }))
 });
 
@@ -260,7 +276,7 @@ const buildVisionOperationalBlockerWorklist = ({
     return buildMissingAuditWorklist(generatedAt);
   }
 
-  const blockerTasks = actionTasksFor(asArray(readinessAudit.blockers));
+  const blockerTasks = actionTasksFor(asArray(readinessAudit.blockers), readinessAudit);
   const operatorTasks = operatorTasksFor(readinessAudit);
   const tasks = readinessAudit.status === 'approved_for_manual_activation'
     ? []

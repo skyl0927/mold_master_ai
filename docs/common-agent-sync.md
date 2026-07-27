@@ -159,6 +159,12 @@ npm run vision:hitl:verify-decisions -- --decisions <common-agent-hitl-decisions
 거부된다. 이 단계 또한 자동 import가 아니며 `serviceWritesPerformed=false`,
 `autoApplyAllowed=false`를 유지한다.
 
+`npm run vision:operational:readiness`는 최신 HITL queue, decision template,
+decision verification artifact를 자동으로 찾아 `gates.hitlWorkflow`에 요약한다.
+`npm run vision:operational:worklist`의 `close_hitl_reviews` 작업과 Common
+Agent handoff item에도 같은 `workflowStatus`가 포함되므로, 운영자는 현재 단계가
+템플릿 생성인지, 판정 작성인지, 판정 검증인지 바로 확인할 수 있다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한
