@@ -24,6 +24,7 @@
     "vision:operational:handoff": "node scripts/build-vision-operational-common-agent-handoff.js",
     "vision:label-conflicts:packet": "node scripts/build-vision-approved-label-conflict-review-packet.js",
     "vision:label-conflicts:decision-template": "node scripts/build-vision-approved-label-conflict-decision-template.js",
+    "vision:label-conflicts:review-guide": "node scripts/build-vision-approved-label-conflict-review-guide.js",
     "vision:label-conflicts:verify-decisions": "node scripts/verify-vision-approved-label-conflict-decisions.js",
     "vision:label-conflicts:apply": "node scripts/apply-vision-approved-label-conflict-decisions.js",
     "vision:hitl:pending-packet": "node scripts/build-vision-pending-hitl-review-queue-packet.js",
