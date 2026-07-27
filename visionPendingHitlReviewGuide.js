@@ -9,11 +9,54 @@ const confidenceValue = value => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const labelKey = value => compact(value).toLowerCase();
+const labelAliases = {
+  미성형: ['미성형', 'short shot', 'short_shot', '단락 충전'],
+  '흑점/탄화': ['흑점/탄화', '흑점', '탄화', '번 마크', 'burn mark', 'burn'],
+  싱크: ['싱크', '수축', '싱크마크', 'sink'],
+  플래시: ['플래시', '버', '바리', 'flash'],
+  백화: ['백화', 'whitening'],
+  제팅: ['제팅', 'jetting'],
+  웰드라인: ['웰드라인', '웰드 라인', 'weld line', 'weld_line'],
+  플로우마크: ['플로우마크', '흐름 자국', 'flow mark', 'flow_mark'],
+  '밀핀 자국': ['밀핀 자국', '이젝터 자국', 'ejection'],
+  '표면 긁힘': ['표면 긁힘', '스크래치', 'scratch']
+};
+
+const stripParenthetical = value => compact(value)
+  .replace(/\([^)]*\)/g, '')
+  .replace(/（[^）]*）/g, '')
+  .trim();
+
+const labelKey = value => stripParenthetical(value)
+  .toLowerCase()
+  .replace(/\s+/g, '')
+  .replace(/_/g, '');
+
+const labelTerms = value => {
+  const raw = compact(value).toLowerCase();
+  const base = stripParenthetical(value).toLowerCase();
+  return unique([raw, base, labelKey(value)]);
+};
+
+const canonicalLabel = value => {
+  const terms = labelTerms(value);
+  const normalizedTerms = terms.map(term => term.replace(/\s+/g, '').replace(/_/g, ''));
+  const match = Object.entries(labelAliases).find(([, aliases]) =>
+    aliases.some(alias => {
+      const aliasRaw = compact(alias).toLowerCase();
+      const aliasKey = labelKey(alias);
+      return terms.includes(aliasRaw)
+        || normalizedTerms.includes(aliasKey)
+        || terms.some(term => term.includes(aliasRaw))
+        || normalizedTerms.some(term => term.includes(aliasKey));
+    })
+  );
+  return match ? match[0] : labelKey(value);
+};
 
 const sourceVisionAgree = decision =>
-  Boolean(labelKey(decision?.evidence?.sourceLabel))
-  && labelKey(decision?.evidence?.sourceLabel) === labelKey(decision?.evidence?.visionSuggestedLabel);
+  Boolean(canonicalLabel(decision?.evidence?.sourceLabel))
+  && canonicalLabel(decision?.evidence?.sourceLabel) === canonicalLabel(decision?.evidence?.visionSuggestedLabel);
 
 const riskFlagsFor = decision => {
   const confidence = confidenceValue(decision?.evidence?.visionConfidence);
