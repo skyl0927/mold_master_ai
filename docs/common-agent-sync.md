@@ -97,6 +97,21 @@ npm run vision:operational:handoff
 승인까지 완료된 후에도 자동 쓰기는 금지되며, Common Agent 쪽에서는 이
 패킷을 승인된 학습 데이터가 아니라 검토 artifact로 취급해야 한다.
 
+## 승인 라벨 충돌 검토 패킷
+
+운영 readiness의 1순위 blocker가 `resolve_label_conflicts`이면 다음 명령으로
+사람 검토용 충돌 목록을 먼저 만든다.
+
+```powershell
+npm run vision:label-conflicts:packet
+```
+
+생성되는 `vision-approved-label-conflict-review-packet/v1`은 각 충돌 그룹의
+case id, content hash, 후보 라벨, 허용된 결정 옵션을 포함한다. 허용 옵션은
+정답 라벨 유지, 전체 needs_review 전환, rejected 전환, 재촬영 요청이며 자동
+정정은 없다. 이 패킷도 `serviceWritesPerformed=false`이고 Graph promotion,
+reference learning, model training을 모두 금지한다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한
