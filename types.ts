@@ -89,6 +89,30 @@ export interface VisionHypothesis {
   contradictingObservationIds: string[];
 }
 
+export interface VisionClassifierCandidateSummary {
+  rank: number;
+  defectType: string;
+  confidence: number;
+  referenceCount?: number;
+  distance?: number;
+  supportImageIds: string[];
+}
+
+export interface VisionClassifierSummary {
+  contractVersion: string;
+  embeddingModelVersion?: string;
+  embeddingProvider?: string;
+  embeddingModelName?: string;
+  candidates: VisionClassifierCandidateSummary[];
+  topCandidate: VisionClassifierCandidateSummary | null;
+  minimumReferenceSupport: number;
+  agreementWithVisionTop1: boolean | null;
+  status: 'agreed' | 'disagreed' | 'insufficient_reference' | 'unavailable';
+  decisionReason: string;
+  graphCandidateUseAllowed: boolean;
+  requiresHumanReview: boolean;
+}
+
 export interface VisionObservationSummary {
   contractVersion: string;
   imageKind: 'physical_product' | 'document_or_diagram' | 'unknown';
@@ -110,6 +134,7 @@ export interface VisionObservationSummary {
   decisionReason: string;
   fusionSummary?: VisionFusionSummary;
   viewEvidence?: VisionViewEvidence[];
+  classifierSummary?: VisionClassifierSummary;
 }
 
 export interface VisionFusionCandidateSupport {

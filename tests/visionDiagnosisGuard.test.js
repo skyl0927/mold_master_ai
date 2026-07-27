@@ -95,6 +95,70 @@ test('approved Graph auto-finalization preserves a weak Vision candidate', () =>
   assert.equal(guarded.countermeasures, '1. 구배 점검');
 });
 
+test('classifier disagreement prevents finalization even with approved Graph support', () => {
+  const reliableObservation = {
+    ...weakObservation,
+    decisionStatus: 'probable',
+    decisionReason: 'probable_multiview_consensus',
+    safetyGate: {
+      ...weakObservation.safetyGate,
+      status: 'reliable',
+      reasons: [],
+      candidateUsePolicy: 'candidate_primary_graph_cross_check',
+      autoGraphCandidateUseAllowed: true,
+      humanReviewRequired: false,
+      supportObservationCount: 2,
+      supportCategoryCount: 2
+    },
+    classifierSummary: {
+      contractVersion: 'vision-classifier/v1',
+      candidates: [],
+      topCandidate: {
+        rank: 1,
+        defectType: '웰드라인',
+        confidence: 0.88,
+        referenceCount: 5,
+        supportImageIds: []
+      },
+      minimumReferenceSupport: 3,
+      agreementWithVisionTop1: false,
+      status: 'disagreed',
+      decisionReason: 'vision_classifier_disagreement',
+      graphCandidateUseAllowed: false,
+      requiresHumanReview: true
+    }
+  };
+
+  const guarded = guardDefectAnalysisForVisionRisk({
+    defectType: '백화',
+    severity: 'Medium',
+    description: 'Graph 승인 경로로 백화를 확인함',
+    possibleCauses: '1. 취출 저항',
+    countermeasures: '1. 구배 점검',
+    rawOutput: 'raw',
+    visionSummary: reliableObservation,
+    retrievalSummary: {
+      modeUsed: 'graph_only',
+      citations: ['path-1'],
+      evidenceCount: 1,
+      graphGrounded: true,
+      llmSupplemented: false
+    }
+  }, reliableObservation, {
+    graphValidation: {
+      autoFinalizeAllowed: true,
+      requiresHumanReview: false,
+      graphGrounded: true,
+      topCandidateSupported: true
+    }
+  });
+
+  assert.equal(guarded.defectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guarded.possibleCauses, '');
+  assert.equal(guarded.countermeasures, '');
+  assert.equal(guarded.visionSummary.decisionReason, 'vision_classifier_disagreement');
+});
+
 test('blocked Vision observations stop graph retrieval and final diagnosis', () => {
   const guard = buildVisionDiagnosisGuard({
     ...weakObservation,

@@ -5,7 +5,8 @@ import {
     VisionObservationSummary,
     VisionFusionSummary,
     VisionViewEvidence,
-    VisionGraphGroundingSummary
+    VisionGraphGroundingSummary,
+    VisionClassifierSummary
 } from '../types';
 import { normalizeVisionObservation } from '../visionObservation';
 import { guardDefectAnalysisForVisionRisk } from '../visionDiagnosisGuard';
@@ -161,6 +162,7 @@ export interface CommonAgentVisionDiagnosis {
     metadata?: Record<string, any>;
     view_observations?: CommonAgentVisionViewObservation[];
     fusion_report?: CommonAgentVisionFusionReport;
+    classifier_report?: CommonAgentVisionClassifierReport;
     graph_grounding?: CommonAgentVisionGraphGroundingReport;
     created_at?: string;
 }
@@ -237,6 +239,29 @@ export interface CommonAgentVisionGraphGroundingReport {
     llm_supplement_training_eligible: false;
     decision_status: 'grounded' | 'needs_review' | 'unverified';
     decision_reason: string;
+}
+
+export interface CommonAgentVisionClassifierCandidate {
+    defect_type?: string;
+    confidence?: number;
+    score?: number;
+    reference_count?: number;
+    support_count?: number;
+    distance?: number;
+    support_image_ids?: string[];
+    reference_image_ids?: string[];
+}
+
+export interface CommonAgentVisionClassifierReport {
+    contract_version?: string;
+    embedding_model_version?: string;
+    embedding_provider?: string;
+    embedding_model_name?: string;
+    top1_defect_type?: string;
+    top1_confidence?: number;
+    top1_reference_count?: number;
+    top_candidates?: CommonAgentVisionClassifierCandidate[];
+    minimum_reference_support?: number;
 }
 
 export interface CommonAgentSessionViewUpload {
@@ -438,6 +463,94 @@ const getJson = async <T>(path: string): Promise<T> => {
 
 const normalizeLabel = (value?: string): string =>
     (value || '').toLocaleLowerCase().replace(/[\s()[\]{}_\-.,:;/'"]/g, '');
+
+const compactText = (value: unknown): string =>
+    String(value || '').replace(/\s+/g, ' ').trim();
+
+const finiteNumber = (value: unknown): number | undefined => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+const labelsAgree = (left?: string, right?: string): boolean => {
+    const normalizedLeft = normalizeLabel(left);
+    const normalizedRight = normalizeLabel(right);
+    if (!normalizedLeft || !normalizedRight) return false;
+    return normalizedLeft === normalizedRight
+        || normalizedLeft.includes(normalizedRight)
+        || normalizedRight.includes(normalizedLeft);
+};
+
+const normalizeVisionClassifierSummary = (
+    report: CommonAgentVisionClassifierReport | undefined,
+    visionTop1DefectType?: string
+): VisionClassifierSummary | undefined => {
+    if (!report || typeof report !== 'object') return undefined;
+    const rawCandidates = Array.isArray(report.top_candidates) ? report.top_candidates : [];
+    const candidates = rawCandidates
+        .map((candidate, index) => {
+            const defectType = compactText(candidate.defect_type);
+            if (!defectType) return null;
+            return {
+                rank: index + 1,
+                defectType,
+                confidence: finiteNumber(candidate.confidence ?? candidate.score) ?? 0,
+                referenceCount: finiteNumber(candidate.reference_count ?? candidate.support_count),
+                distance: finiteNumber(candidate.distance),
+                supportImageIds: Array.isArray(candidate.support_image_ids)
+                    ? candidate.support_image_ids.map(compactText).filter(Boolean)
+                    : Array.isArray(candidate.reference_image_ids)
+                        ? candidate.reference_image_ids.map(compactText).filter(Boolean)
+                        : []
+            };
+        })
+        .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
+    const explicitTopCandidate = compactText(report.top1_defect_type);
+    const topCandidate = candidates[0] || (explicitTopCandidate ? {
+        rank: 1,
+        defectType: explicitTopCandidate,
+        confidence: finiteNumber(report.top1_confidence) ?? 0,
+        referenceCount: finiteNumber(report.top1_reference_count),
+        supportImageIds: []
+    } : null);
+    const minimumReferenceSupport = finiteNumber(report.minimum_reference_support) ?? 3;
+    const supportCount = topCandidate?.referenceCount;
+    const insufficientReference = topCandidate
+        && supportCount !== undefined
+        && supportCount < minimumReferenceSupport;
+    const agreementWithVisionTop1 = topCandidate && visionTop1DefectType
+        ? labelsAgree(topCandidate.defectType, visionTop1DefectType)
+        : null;
+    const status: VisionClassifierSummary['status'] = !topCandidate
+        ? 'unavailable'
+        : insufficientReference
+            ? 'insufficient_reference'
+            : agreementWithVisionTop1 === true
+                ? 'agreed'
+                : 'disagreed';
+    const decisionReason = status === 'agreed'
+        ? 'vision_classifier_agreement'
+        : status === 'insufficient_reference'
+            ? 'vision_classifier_insufficient_reference'
+            : status === 'unavailable'
+                ? 'vision_classifier_unavailable'
+                : 'vision_classifier_disagreement';
+
+    return {
+        contractVersion: compactText(report.contract_version) || 'vision-classifier/v1',
+        embeddingModelVersion: compactText(report.embedding_model_version) || undefined,
+        embeddingProvider: compactText(report.embedding_provider) || undefined,
+        embeddingModelName: compactText(report.embedding_model_name) || undefined,
+        candidates,
+        topCandidate,
+        minimumReferenceSupport,
+        agreementWithVisionTop1,
+        status,
+        decisionReason,
+        graphCandidateUseAllowed: status === 'agreed',
+        requiresHumanReview: status !== 'agreed'
+    };
+};
 
 const sha256Hex = async (content: ArrayBuffer): Promise<string> => {
     const digest = await crypto.subtle.digest('SHA-256', content);
@@ -836,11 +949,21 @@ export class CommonAgentApiService {
             candidates: observation.candidates || observation.top_candidates || metadataCandidates
         }) as VisionObservationSummary;
         const isGroundedV2 = visionSummary.contractVersion === 'vision-observation/v2';
+        const classifierReport = response.classifier_report
+            || response.metadata?.classifier_report
+            || response.metadata?.vision_classifier
+            || response.metadata?.vision_reference_classifier;
+        const classifierSummary = normalizeVisionClassifierSummary(
+            classifierReport as CommonAgentVisionClassifierReport | undefined,
+            visionSummary.primaryCandidate?.defectType
+        );
+        const classifierBlocksFinalization = classifierSummary?.requiresHumanReview === true;
         const graphGrounding = response.graph_grounding;
-        const possibleCauses = graphGrounding?.graph_grounded
+        const graphGroundedForDraft = graphGrounding?.graph_grounded && !classifierBlocksFinalization;
+        const possibleCauses = graphGroundedForDraft
             ? graphGrounding.grounded_causes
             : isGroundedV2 ? [] : observation.possible_causes || [];
-        const recommendedChecks = graphGrounding?.graph_grounded
+        const recommendedChecks = graphGroundedForDraft
             ? graphGrounding.grounded_countermeasures
             : isGroundedV2 ? [] : observation.recommended_checks || [];
         const visualDescription = visionSummary.visibleFeatures.join('; ');
@@ -911,12 +1034,16 @@ export class CommonAgentApiService {
                 citationCount: graphGrounding.citation_count,
                 groundedCauses: graphGrounding.grounded_causes,
                 groundedCountermeasures: graphGrounding.grounded_countermeasures,
-                requiresHumanReview: graphGrounding.requires_human_review,
-                autoFinalizeAllowed: graphGrounding.auto_finalize_allowed,
+                requiresHumanReview: graphGrounding.requires_human_review || classifierBlocksFinalization,
+                autoFinalizeAllowed: graphGrounding.auto_finalize_allowed && !classifierBlocksFinalization,
                 llmSupplementAllowed: graphGrounding.llm_supplement_allowed,
                 llmSupplementTrainingEligible: graphGrounding.llm_supplement_training_eligible,
-                decisionStatus: graphGrounding.decision_status,
-                decisionReason: graphGrounding.decision_reason
+                decisionStatus: classifierBlocksFinalization
+                    ? 'needs_review'
+                    : graphGrounding.decision_status,
+                decisionReason: classifierBlocksFinalization
+                    ? classifierSummary?.decisionReason || 'vision_classifier_review_required'
+                    : graphGrounding.decision_reason
             }
             : undefined;
         const enrichedVisionSummary: VisionObservationSummary = {
@@ -928,7 +1055,8 @@ export class CommonAgentApiService {
                 ? graphValidation.decisionReason
                 : visionSummary.decisionReason,
             fusionSummary,
-            viewEvidence
+            viewEvidence,
+            classifierSummary
         };
         const graphCitations = graphValidation?.candidateGrounding.flatMap(item =>
             item.citations.map(citation => citation.pathId)

@@ -31,8 +31,30 @@ const graphAllowsFinalization = graphValidation => Boolean(
   && graphValidation.topCandidateSupported !== false
 );
 
+const classifierRequiresReview = visionSummary => {
+  const classifier = visionSummary?.classifierSummary || visionSummary?.classifier_summary;
+  if (!classifier || typeof classifier !== 'object') return false;
+  return classifier.requiresHumanReview === true
+    || classifier.requires_human_review === true
+    || classifier.graphCandidateUseAllowed === false
+    || classifier.graph_candidate_use_allowed === false
+    || [
+      'disagreed',
+      'insufficient_reference',
+      'unavailable'
+    ].includes(compact(classifier.status));
+};
+
+const classifierReviewReason = visionSummary => compact(
+  visionSummary?.classifierSummary?.decisionReason
+  || visionSummary?.classifierSummary?.decision_reason
+  || visionSummary?.classifier_summary?.decisionReason
+  || visionSummary?.classifier_summary?.decision_reason
+);
+
 const gateReasons = visionSummary => {
   const reasons = [
+    classifierReviewReason(visionSummary),
     compact(visionSummary?.decisionReason || visionSummary?.decision_reason),
     ...asArray(visionSummary?.validationIssues || visionSummary?.validation_issues).map(compact),
     ...asArray(visionSummary?.safetyGate?.reasons).map(compact),
@@ -57,7 +79,8 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
   const decisionStatus = compact(visionSummary?.decisionStatus || visionSummary?.decision_status);
   const safetyStatus = compact(safetyGate.status);
   const candidateUsePolicy = compact(safetyGate.candidateUsePolicy || safetyGate.candidate_use_policy);
-  const finalByGraph = graphAllowsFinalization(graphValidation);
+  const classifierBlocked = classifierRequiresReview(visionSummary);
+  const finalByGraph = graphAllowsFinalization(graphValidation) && !classifierBlocked;
 
   const blocked = isV2Observation(visionSummary) && (
     decisionStatus === 'unclassifiable'
@@ -69,6 +92,7 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
     || safetyStatus === 'needs_review'
     || safetyGate.autoGraphCandidateUseAllowed === false
     || candidateUsePolicy === 'graph_cross_check_only'
+    || classifierBlocked
   );
   const finalizationAllowed = !isV2Observation(visionSummary)
     ? true
@@ -80,6 +104,7 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
       ? `판정 보류 (${candidate} 후보 검토 필요)`
       : '판정 보류 (사람 검토 필요)';
   const reasons = gateReasons(visionSummary);
+  const classifierReason = classifierReviewReason(visionSummary);
   const graphReviewReason = graphValidation?.requiresHumanReview === true
     ? compact(graphValidation.decisionReason || graphValidation.decision_status)
     : '';
@@ -90,7 +115,10 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
     allowGraphRetrieval: !blocked,
     allowLlmSupplement: finalizationAllowed,
     guardedDefectType,
-    reviewReason: graphReviewReason || reasons.join(', ') || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
+    reviewReason: graphReviewReason
+      || classifierReason
+      || reasons.join(', ')
+      || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
     observationText: visibleObservationText(visionSummary),
     recommendedReviewAction: additionalViewAction(visionSummary)
   };

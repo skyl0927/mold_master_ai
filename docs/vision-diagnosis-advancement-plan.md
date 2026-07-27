@@ -27,6 +27,7 @@ Mold Master AI의 비전 진단을 단일 사진 분류 기능이 아니라 다�
 - 이미지 품질 게이트와 분석 가능 여부 판정
 - 구조화된 Top-3 비전 후보와 선택적 자동 확정
 - Vision provider 응답 JSON Schema와 런타임 계약 검증
+- VLM 후보와 승인 이미지 classifier 결과의 로컬 합의 게이트
 - 승인된 Vision 데이터셋 및 SHA-256 계보 검증
 - Graph 우선 검색과 LLM 보조 응답
 - HITL 승인, 보류, 반려 및 승인 데이터 승격
@@ -245,6 +246,10 @@ Common Agent worker 환경에서 DINOv2 `facebook/dinov2-base`와 SigLIP2
 vision:reference:gate`는 `current -> refresh -> current -> benchmark-current`
 순서로 외부 서버 실측 artifact를 생성한다. 학습 헤드는 승인 다중 시점
 데이터가 클래스별 최소 30세션에 도달한 뒤 실측 holdout 기준으로 승격한다.
+2026-07-27 Mold Master AI는 Common Agent 진단 응답의 `classifier_report`를
+정규화해 `visionSummary.classifierSummary`에 보존하고, VLM Top-1과
+classifier Top-1이 불일치하거나 참조 수가 부족하면 Graph grounding이 있어도
+자동 확정과 원인·대책 본문 출력을 차단한다.
 
 개발:
 
