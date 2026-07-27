@@ -172,6 +172,7 @@ const withAuthorizedMetadata = ({
   observation
 }) => ({
   ...payload,
+  decision: 'approve',
   defect_type: compact(target.approvedDefectType),
   labels: Array.from(new Set([
     compact(target.approvedDefectType),
@@ -341,10 +342,11 @@ const validateVisionReferenceBackfillAuthorization = ({
     backfillPlanDigest: expectedDigest,
     serviceWritesPerformed: false,
     commonAgentCompatibility: {
-      canSatisfyLearningReadyPrecheck: false,
-      missingCapabilities: ['image_dataset_observation_v2_write'],
+      canSatisfyLearningReadyPrecheckAfterApply: true,
+      writePlanIncludesRequiredV2Observation: true,
+      requiredCapabilities: ['image_dataset_observation_v2_write'],
       note:
-        'The write plan includes reviewPayload.observation, but the current Common Agent review/update contract must persist this full v2 observation for learning-ready export.'
+        'The write plan includes reviewPayload.observation and approve decisions; Common Agent must persist the full v2 observation for learning-ready export.'
     },
     targets: validatedTargets
   };

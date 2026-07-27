@@ -104,7 +104,8 @@ test('validation returns a dry-run write plan only after explicit human confirma
   assert.equal(result.targets.length, 1);
   assert.equal(result.serviceWritesPerformed, false);
   assert.equal(result.targets[0].imageId, 'legacy-whitening');
-  assert.equal(result.targets[0].reviewPayload.decision, 'edit');
+  assert.equal(result.targets[0].reviewPayload.decision, 'approve');
+  assert.equal(result.targets[0].reviewPayload.promote_to_graph, false);
   assert.equal(result.targets[0].reviewPayload.metadata.reference_backfill_human_authorized, true);
   assert.equal(result.targets[0].reviewPayload.metadata.capture_session_id, 'session-white-01');
   assert.equal(result.targets[0].reviewPayload.metadata.capture_view_tag, 'defect_closeup');
@@ -115,9 +116,10 @@ test('validation returns a dry-run write plan only after explicit human confirma
   assert.equal(result.targets[0].reviewPayload.observation.normality_status, 'defect_visible');
   assert.equal(result.targets[0].reviewPayload.observation.candidates[0].defect_type, 'whitening');
   assert.equal(result.targets[0].reviewPayload.metadata.reference_backfill_requires_observation_v2_write_support, true);
-  assert.equal(result.commonAgentCompatibility.canSatisfyLearningReadyPrecheck, false);
+  assert.equal(result.commonAgentCompatibility.writePlanIncludesRequiredV2Observation, true);
+  assert.equal(result.commonAgentCompatibility.canSatisfyLearningReadyPrecheckAfterApply, true);
   assert.ok(
-    result.commonAgentCompatibility.missingCapabilities.includes('image_dataset_observation_v2_write')
+    result.commonAgentCompatibility.requiredCapabilities.includes('image_dataset_observation_v2_write')
   );
 });
 
