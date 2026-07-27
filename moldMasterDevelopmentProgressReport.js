@@ -21,6 +21,9 @@ const blockerByCode = (readiness, code) =>
 const hasBlockerFrom = (readiness, source) =>
   asArray(readiness?.blockers).some(blocker => blocker?.source === source);
 
+const isVisionAccuracyPlan = artifact =>
+  isContract(artifact, 'vision-accuracy-improvement-plan/v1');
+
 const missingArtifactsFor = ({
   visionReadiness,
   visionWorklist,
@@ -93,6 +96,42 @@ const taskStage = ({
   feedbackKo: task ? actionFeedbackKo : doneFeedbackKo
 });
 
+const visionAccuracyStageFor = visionAccuracyPlan => {
+  if (!isVisionAccuracyPlan(visionAccuracyPlan)) return null;
+
+  const summary = visionAccuracyPlan.summary || {};
+  const firstTrack = asArray(visionAccuracyPlan.improvementTracks)[0] || null;
+  const ready = visionAccuracyPlan.status === 'ready_for_shadow_validation';
+  const top1 = numberFrom(summary.top1Accuracy);
+  const top3 = numberFrom(summary.top3Accuracy);
+  const captureReady = numberFrom(summary.captureProtocolReadyRate);
+
+  return stageCard({
+    id: 'vision_accuracy_improvement',
+    titleKo: 'Vision 정확도 개선 계획',
+    status: ready ? 'completed' : 'action_required',
+    softwareImplemented: true,
+    owner: compact(firstTrack?.owner) || 'vision_engineer',
+    blockerCodes: ready ? [] : asArray(summary.failedGateChecks),
+    commands: ready
+      ? ['npm run eval:vision:release']
+      : asArray(firstTrack?.commands),
+    metrics: {
+      top1Accuracy: top1,
+      top3Accuracy: top3,
+      captureProtocolReadyRate: captureReady,
+      referenceRefreshAllowedNow: summary.referenceRefreshAllowedNow === true,
+      firstTrackCode: compact(firstTrack?.code) || null,
+      coreMissingViews: asArray(summary.coreMissingViews),
+      undercoveredDefectClasses: asArray(summary.undercoveredDefectClasses),
+      zeroAccuracyDefectClasses: asArray(summary.zeroAccuracyDefectClasses)
+    },
+    feedbackKo: ready
+      ? 'Vision 정확도 개선 gate는 shadow validation 단계로 넘길 수 있습니다.'
+      : `Vision benchmark 기준 Top-1 ${top1}%, Top-3 ${top3}%, 촬영 프로토콜 준비율 ${captureReady}%입니다. ${firstTrack?.titleKo || '개선 계획'} 작업이 우선입니다.`
+  });
+};
+
 const webStageFor = webKnowledgeReadiness => {
   if (!isContract(webKnowledgeReadiness, 'web-knowledge-operational-readiness/v1')) {
     return stageCard({
@@ -148,7 +187,8 @@ const stageCardsFor = ({
   visionReadiness,
   visionWorklist,
   commonAgentHandoff,
-  webKnowledgeReadiness
+  webKnowledgeReadiness,
+  visionAccuracyPlan
 }) => {
   const labelConflictTask = taskByCode(visionWorklist, 'resolve_label_conflicts');
   const closeHitlTask = taskByCode(visionWorklist, 'close_hitl_reviews');
@@ -248,6 +288,7 @@ const stageCardsFor = ({
       actionFeedbackKo: 'Common Agent Vision reference store와 benchmark gate를 복구해야 Graph 기반 자동 후보 확정이 가능합니다.',
       doneFeedbackKo: 'Vision reference store gate는 통과 상태입니다.'
     }),
+    visionAccuracyStageFor(visionAccuracyPlan),
     webStageFor(webKnowledgeReadiness),
     taskStage({
       id: 'release_evidence',
@@ -257,7 +298,7 @@ const stageCardsFor = ({
       actionFeedbackKo: '운영 릴리스 보고서와 증거 정합성 artifact가 아직 필요합니다.',
       doneFeedbackKo: '운영 릴리스 증거 gate는 닫힌 상태입니다.'
     })
-  ];
+  ].filter(Boolean);
 };
 
 const progressFor = stageCards => {
@@ -436,7 +477,7 @@ const feedbackFor = ({
     ];
   }
   const first = nextActions[0];
-  return [
+  const feedback = [
     `개발 단계: ${currentPhase.titleKo}입니다.`,
     `현재 Vision blocker ${summary.visionBlockers}건, 운영 작업 ${summary.visionTasks}건, Web HITL 미승인 ${summary.webHitlApprovalsMissing}건이 남아 있습니다.`,
     first
@@ -444,6 +485,14 @@ const feedbackFor = ({
       : '다음 작업은 readiness artifact를 다시 확인해 결정하세요.',
     '자동 Graph 승격, Reference 학습, 모델 학습은 사람이 검증하기 전까지 금지됩니다.'
   ];
+  if (summary.visionAccuracyStatus) {
+    feedback.splice(
+      3,
+      0,
+      `Vision 정확도 병목: Top-1 ${summary.visionTop1Accuracy}%, Top-3 ${summary.visionTop3Accuracy}%, 촬영 프로토콜 ${summary.visionCaptureProtocolReadyRate}%이며 ${summary.visionAccuracyFirstTrackTitle || '개선 계획'} 작업이 필요합니다.`
+    );
+  }
+  return feedback;
 };
 
 const buildMoldMasterDevelopmentProgressReport = ({
@@ -452,6 +501,7 @@ const buildMoldMasterDevelopmentProgressReport = ({
   visionWorklist = null,
   commonAgentHandoff = null,
   webKnowledgeReadiness = null,
+  visionAccuracyPlan = null,
   sourceArtifacts = {}
 } = {}) => {
   const missingArtifacts = missingArtifactsFor({
@@ -471,7 +521,8 @@ const buildMoldMasterDevelopmentProgressReport = ({
     visionReadiness,
     visionWorklist,
     commonAgentHandoff,
-    webKnowledgeReadiness
+    webKnowledgeReadiness,
+    visionAccuracyPlan
   });
   const nextActions = nextActionsFor({
     status,
@@ -484,6 +535,12 @@ const buildMoldMasterDevelopmentProgressReport = ({
     webKnowledgeReadiness
   });
   const webSummary = webKnowledgeReadiness?.summary || {};
+  const accuracySummary = isVisionAccuracyPlan(visionAccuracyPlan)
+    ? visionAccuracyPlan.summary || {}
+    : null;
+  const firstAccuracyTrack = isVisionAccuracyPlan(visionAccuracyPlan)
+    ? asArray(visionAccuracyPlan.improvementTracks)[0] || null
+    : null;
   const summary = {
     missingArtifacts,
     visionStatus: compact(visionReadiness?.status) || null,
@@ -494,6 +551,17 @@ const buildMoldMasterDevelopmentProgressReport = ({
     webTargetCards: numberFrom(webSummary.targetCardCount),
     webHitlApprovalsMissing: numberFrom(webSummary.hitlApprovalsMissing),
     webCentralApprovalsMissing: numberFrom(webSummary.centralApprovalsMissing),
+    ...(accuracySummary ? {
+      visionAccuracyStatus: compact(visionAccuracyPlan.status) || null,
+      visionTop1Accuracy: numberFrom(accuracySummary.top1Accuracy),
+      visionTop3Accuracy: numberFrom(accuracySummary.top3Accuracy),
+      visionCaptureProtocolReadyRate: numberFrom(accuracySummary.captureProtocolReadyRate),
+      visionAccuracyFirstTrackCode: compact(firstAccuracyTrack?.code) || null,
+      visionAccuracyFirstTrackTitle: compact(firstAccuracyTrack?.titleKo) || null,
+      visionCoreMissingViews: asArray(accuracySummary.coreMissingViews),
+      visionUndercoveredDefectClasses: asArray(accuracySummary.undercoveredDefectClasses),
+      visionZeroAccuracyDefectClasses: asArray(accuracySummary.zeroAccuracyDefectClasses)
+    } : {}),
     handoffStatus: compact(commonAgentHandoff?.status) || null,
     topPriorityTaskCode: nextActions[0]?.code || null
   };
@@ -532,7 +600,8 @@ const buildMoldMasterDevelopmentProgressReport = ({
       visionReadiness: sourceArtifacts.visionReadiness || null,
       visionWorklist: sourceArtifacts.visionWorklist || null,
       commonAgentHandoff: sourceArtifacts.commonAgentHandoff || null,
-      webKnowledgeReadiness: sourceArtifacts.webKnowledgeReadiness || null
+      webKnowledgeReadiness: sourceArtifacts.webKnowledgeReadiness || null,
+      visionAccuracyPlan: sourceArtifacts.visionAccuracyPlan || null
     },
     recommendedAction: nextActions[0]
       ? nextActions[0].titleKo

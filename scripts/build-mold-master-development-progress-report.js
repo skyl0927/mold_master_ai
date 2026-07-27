@@ -67,6 +67,12 @@ const webKnowledgeReadinessPath = resolveOptionalPath(
   path.join(artifactRoot, 'web-knowledge-operational-readiness.json')
 );
 
+const visionAccuracyPlanPath = resolveOptionalPath(
+  valueAfter('--vision-accuracy-plan'),
+  process.env.VISION_ACCURACY_IMPROVEMENT_PLAN,
+  latestArtifact('vision-accuracy-improvement-plan-')
+);
+
 const outputPath = path.resolve(
   valueAfter('--output')
   || process.env.MOLD_MASTER_DEVELOPMENT_PROGRESS_REPORT_OUTPUT
@@ -79,11 +85,13 @@ const run = () => {
     visionWorklist: readOptionalJson(visionWorklistPath),
     commonAgentHandoff: readOptionalJson(commonAgentHandoffPath),
     webKnowledgeReadiness: readOptionalJson(webKnowledgeReadinessPath),
+    visionAccuracyPlan: readOptionalJson(visionAccuracyPlanPath),
     sourceArtifacts: {
       visionReadiness: visionReadinessPath,
       visionWorklist: visionWorklistPath,
       commonAgentHandoff: commonAgentHandoffPath,
-      webKnowledgeReadiness: webKnowledgeReadinessPath
+      webKnowledgeReadiness: webKnowledgeReadinessPath,
+      visionAccuracyPlan: visionAccuracyPlanPath
     }
   });
 
@@ -96,6 +104,10 @@ const run = () => {
     operationalProgressPercent: report.progress.operational.percent,
     topPriorityTaskCode: report.summary.topPriorityTaskCode,
     nextAction: report.nextActions[0]?.titleKo || null,
+    visionAccuracyStatus: report.summary.visionAccuracyStatus || null,
+    visionTop1Accuracy: report.summary.visionTop1Accuracy ?? null,
+    visionTop3Accuracy: report.summary.visionTop3Accuracy ?? null,
+    visionAccuracyFirstTrackCode: report.summary.visionAccuracyFirstTrackCode || null,
     serviceWritesPerformed: report.serviceWritesPerformed,
     progressFeedbackKo: report.progressFeedbackKo
   }, null, 2));
@@ -109,7 +121,8 @@ try {
       visionReadiness: visionReadinessPath,
       visionWorklist: visionWorklistPath,
       commonAgentHandoff: commonAgentHandoffPath,
-      webKnowledgeReadiness: webKnowledgeReadinessPath
+      webKnowledgeReadiness: webKnowledgeReadinessPath,
+      visionAccuracyPlan: visionAccuracyPlanPath
     }
   });
   report.status = 'missing_evidence';
