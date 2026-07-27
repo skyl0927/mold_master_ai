@@ -244,3 +244,22 @@ test('returns null when a bbox review packet cannot be tied to a valid observati
 
   assert.equal(packet, null);
 });
+
+test('keeps copied bbox review packets out of approved status even for approval-like actions', () => {
+  const packet = buildVisionBboxReviewPacket({
+    image: {
+      id: 'local-image-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white',
+    reviewAction: 'approved_bbox'
+  });
+
+  assert.equal(packet.reviewStatus, 'needs_review');
+  assert.equal(packet.annotationRequest.review_status, 'needs_review');
+  assert.equal(packet.graphPromotionAllowed, false);
+  assert.equal(packet.learningSyncAllowed, false);
+});

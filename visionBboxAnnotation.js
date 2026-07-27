@@ -117,6 +117,112 @@ const buildVisionBboxAnnotationPayloads = ({
   });
 };
 
+const reviewStatusForAction = reviewAction => {
+  const action = compact(reviewAction);
+  if (action === 'rejected_bbox' || action === 'reject_bbox') return 'rejected';
+  return 'needs_review';
+};
+
+const buildVisionBboxReviewPacket = ({
+  image,
+  observationId,
+  reviewAction = 'needs_review',
+  correctedBbox,
+  reviewerNote = ''
+} = {}) => {
+  const analysis = image?.analysis || {};
+  const visionSummary = analysis.visionSummary || {};
+  const observations = Array.isArray(visionSummary.visualObservations)
+    ? visionSummary.visualObservations
+    : [];
+  const targetObservationId = compact(observationId);
+  if (!targetObservationId) return null;
+
+  const observation = observations.find((item, index) => {
+    const localObservationId = compact(item?.observationId || item?.observation_id || `obs-${index + 1}`);
+    return localObservationId === targetObservationId;
+  });
+  if (!observation) return null;
+
+  const original = validNormalizedBbox(observation?.regionBbox || observation?.region_bbox);
+  if (!original) return null;
+  const corrected = correctedBbox ? validNormalizedBbox(correctedBbox) : null;
+  if (correctedBbox && !corrected) return null;
+
+  const primaryCandidate = visionSummary.primaryCandidate || {};
+  const primarySupportIds = new Set(
+    Array.isArray(primaryCandidate.supportingObservationIds)
+      ? primaryCandidate.supportingObservationIds
+      : []
+  );
+  const primaryDefectType = compact(primaryCandidate.defectType || analysis.defectType);
+  const category = compact(observation?.category) || 'other';
+  const isPrimarySupport = primarySupportIds.has(targetObservationId);
+  const label = isPrimarySupport && primaryDefectType
+    ? primaryDefectType
+    : `vision_${category}_roi`;
+  const reviewStatus = reviewStatusForAction(reviewAction);
+  const packetBbox = corrected?.bbox || original.bbox;
+  const graphPromotionAllowed = false;
+  const learningSyncAllowed = false;
+
+  const metadata = withoutEmptyValues({
+    local_image_id: image?.id,
+    common_agent_image_id: image?.commonAgentImageId,
+    local_vision_observation_id: targetObservationId,
+    vision_observation_category: category,
+    vision_observation_region: compact(observation?.region),
+    vision_observation_description: compact(observation?.description),
+    vision_observation_confidence: finiteNumber(observation?.confidence),
+    vision_bbox_confidence: original.confidence,
+    vision_bbox_review_confidence: corrected?.confidence,
+    vision_primary_support: isPrimarySupport,
+    vision_candidate_defect_type: primaryDefectType,
+    capture_session_id: image?.captureSessionId,
+    capture_view_tags: image?.captureViewTag ? [image.captureViewTag] : [],
+    vision_image_kind: image?.captureImageKind,
+    capture_source: image?.captureSource,
+    source: 'vision-bbox-hitl-review/v1',
+    parent_source: 'vision-observation/v2',
+    review_action: compact(reviewAction) || 'needs_review',
+    reviewer_note: compact(reviewerNote),
+    original_bbox: original.bbox,
+    corrected_bbox: corrected?.bbox,
+    graph_promotion_allowed: graphPromotionAllowed,
+    learning_sync_allowed: learningSyncAllowed,
+    requires_human_review: true
+  });
+
+  const annotationRequest = {
+    label,
+    annotation_type: 'bbox',
+    bbox: packetBbox,
+    review_status: reviewStatus,
+    source_app: 'mold-master-ai',
+    note: 'vision bbox HITL review packet',
+    metadata
+  };
+
+  return {
+    protocolVersion: 'vision-bbox-hitl-review/v1',
+    schema_version: 'vision-bbox-hitl-review/v1',
+    sourceApp: 'mold-master-ai',
+    reviewAction: compact(reviewAction) || 'needs_review',
+    reviewStatus,
+    localImageId: image?.id || '',
+    commonAgentImageId: image?.commonAgentImageId || '',
+    observationId: targetObservationId,
+    label,
+    originalBbox: original.bbox,
+    correctedBbox: corrected?.bbox,
+    annotationRequest,
+    graphPromotionAllowed,
+    learningSyncAllowed,
+    requiresHumanReview: true
+  };
+};
+
 module.exports = {
+  buildVisionBboxReviewPacket,
   buildVisionBboxAnnotationPayloads
 };

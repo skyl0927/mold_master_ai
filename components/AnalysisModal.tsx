@@ -10,6 +10,7 @@ import {
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
 import { buildVisionBboxOverlayReviewModel, overlayItemStyle } from '../visionBboxOverlay';
+import { buildVisionBboxReviewPacket } from '../visionBboxAnnotation';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -341,6 +342,30 @@ ${data.countermeasures}
                 behavior: 'smooth',
                 block: 'center'
             });
+        });
+    };
+
+    const handleCopyVisionBboxReviewPacket = (observationId: string) => {
+        if (!image) return;
+        const packet = buildVisionBboxReviewPacket({
+            image: {
+                ...image,
+                analysis: editableData || image.analysis
+            },
+            observationId,
+            reviewAction: 'needs_review',
+            reviewerNote: 'Mold Master AI bbox HITL review request'
+        });
+
+        if (!packet) {
+            setCopySuccess('bbox 검수 패킷 생성 실패');
+            setTimeout(() => setCopySuccess(''), 2000);
+            return;
+        }
+
+        navigator.clipboard.writeText(JSON.stringify(packet, null, 2)).then(() => {
+            setCopySuccess('bbox 검수 패킷 복사 완료!');
+            setTimeout(() => setCopySuccess(''), 2000);
         });
     };
 
@@ -806,6 +831,24 @@ ${data.countermeasures}
                                                                     </p>
                                                                 )}
                                                                 <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
+                                                                {overlayItem && (
+                                                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="inline-flex items-center gap-1 rounded border border-cyan-700/70 bg-cyan-950/60 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-900"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                handleCopyVisionBboxReviewPacket(observation.observationId);
+                                                                            }}
+                                                                        >
+                                                                            <ClipboardIcon className="h-3 w-3" />
+                                                                            bbox 검수 패킷 복사
+                                                                        </button>
+                                                                        <span className="text-[10px] text-gray-500">
+                                                                            Graph/학습 승격은 Common Agent 승인 전 차단
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
