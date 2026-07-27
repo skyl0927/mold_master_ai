@@ -141,6 +141,22 @@ test('enriches conflicts with approved fixture evidence for HITL review', () => 
           originalVisionDefectType: '흐름 자국',
           priorObservationSummary: '표면의 반복적인 유동 방향성 띠가 지배적입니다.'
         }
+      },
+      'approved-image-c': {
+        id: 'approved-image-c',
+        title: '플래시 approved image',
+        fileName: 'orphan.png',
+        contentHash: 'c'.repeat(64),
+        expected: {
+          defectType: '플래시',
+          defectClass: 'flash'
+        },
+        sourceReview: {
+          reviewStatus: 'approved',
+          priorObservationDefectType: '플래시',
+          originalVisionDefectType: '표면 결함',
+          priorObservationSummary: '파팅라인 주변 얇은 잉여 수지가 관찰됩니다.'
+        }
       }
     },
     approvedFixtureRoot: 'eval/vision-approved'
@@ -151,6 +167,7 @@ test('enriches conflicts with approved fixture evidence for HITL review', () => 
   assert.equal(firstConflict.caseEvidence.length, 2);
   assert.equal(firstConflict.caseEvidence[0].caseId, 'approved-image-a');
   assert.equal(firstConflict.caseEvidence[0].manifestStatus, 'active');
+  assert.equal(firstConflict.caseEvidence[0].manifestListed, true);
   assert.equal(firstConflict.caseEvidence[0].fixtureFile, 'image-a.json');
   assert.deepEqual(firstConflict.caseEvidence[0].manifestTags, ['approved-image', 'capture-needs_views']);
   assert.equal(firstConflict.caseEvidence[0].fixtureFound, true);
@@ -161,8 +178,12 @@ test('enriches conflicts with approved fixture evidence for HITL review', () => 
   assert.equal(firstConflict.caseEvidence[0].sourceReview.originalVisionDefectType, '제팅');
   assert.match(firstConflict.caseEvidence[0].sourceReview.priorObservationSummary, /뱀형 유동 흔적/);
   assert.match(firstConflict.caseEvidence[0].humanReviewFocusKo, /동일 이미지 hash/);
-  assert.equal(packet.summary.evidenceReadyCases, 2);
-  assert.equal(packet.summary.evidenceMissingCases, 1);
+  assert.equal(packet.conflicts[1].reviewEvidenceStatus, 'fixture_evidence_ready');
+  assert.equal(packet.conflicts[1].caseEvidence[0].manifestListed, false);
+  assert.equal(packet.conflicts[1].caseEvidence[0].fixtureFound, true);
+  assert.equal(packet.summary.evidenceReadyCases, 3);
+  assert.equal(packet.summary.evidenceMissingCases, 0);
+  assert.equal(packet.summary.manifestUnlistedCases, 1);
   assert.equal(packet.sources.approvedFixtureRoot, 'eval/vision-approved');
 });
 

@@ -31,6 +31,7 @@ const conflictPacket = {
         {
           caseId: 'approved-image-a',
           fixtureFound: true,
+          manifestListed: true,
           manifestStatus: 'active',
           fixtureFile: 'image-a.json',
           fileName: 'same.png',
@@ -95,6 +96,7 @@ test('builds a no-write decision template for approved label conflicts', () => {
   assert.equal(template.decisions[0].reviewerGuidance.includes('자동 승격'), true);
   assert.equal(template.decisions[0].evidence.caseEvidence.length, 1);
   assert.equal(template.decisions[0].evidence.caseEvidence[0].caseId, 'approved-image-a');
+  assert.equal(template.decisions[0].evidence.caseEvidence[0].manifestListed, true);
   assert.equal(template.decisions[0].evidence.caseEvidence[0].fixtureFile, 'image-a.json');
   assert.equal(template.decisions[0].evidence.caseEvidence[0].expectedDefectType, '백화');
   assert.match(template.decisions[0].evidence.caseEvidence[0].humanReviewFocusKo, /지배 결함/);
