@@ -133,6 +133,20 @@ Common Agent API를 직접 호출하지 않으며 `serviceWritesPerformed=false`
 사람 승인 전에는 Graph promotion, reference learning, model training이 모두
 금지된다.
 
+Common Agent 또는 사람이 판정 결과 파일을 반환하면 다음 명령으로 먼저 검증
+보고서를 만든다.
+
+```powershell
+npm run vision:hitl:verify-decisions -- --decisions <common-agent-hitl-decisions.json>
+```
+
+판정 파일이 아직 없으면 같은 명령은 `awaiting_human_review` 보고서를 만든다.
+검증 보고서는 `vision-pending-hitl-decision-verification-report/v1`이며 승인,
+보류, 반려, 재촬영을 각각 manual import plan으로 분리한다. 승인 판정도 원본
+이미지 확인, 최종 라벨 확인, reviewer id, 판정 시각, 검토 코멘트가 없으면
+거부된다. 이 단계 또한 자동 import가 아니며 `serviceWritesPerformed=false`,
+`autoApplyAllowed=false`를 유지한다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한
