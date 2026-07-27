@@ -452,6 +452,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       .join(' · ')}
                   </p>
                 )}
+                {diagnosisObservability.visionClassifierRecommendedActions.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 p-2 text-[9px] text-amber-100">
+                    <p className="font-bold text-amber-200">Classifier 권장 조치</p>
+                    {diagnosisObservability.visionClassifierRecommendedActions.slice(0, 2).map(action => (
+                      <p key={action.code} className="mt-1 break-words">
+                        {action.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {diagnosisObservability.failureReasons.length > 0 && (
                   <div className="mt-2 rounded border border-red-900/50 bg-red-950/20 p-2 text-[9px] text-red-200">
                     {diagnosisObservability.failureReasons.slice(0, 2).map(reason => (
