@@ -36,6 +36,7 @@ import {
   VisionOperationalReleaseHistoryStatus,
   VisionOperationalReleaseReport
 } from '../services/visionOperationalReleaseGate';
+import { buildVisionOperationalBlockerWorklist } from '../visionOperationalBlockerWorklist';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -77,6 +78,34 @@ const releaseEvidenceKindLabel = (kind: string): string => {
   if (kind === 'graph_snapshot') return 'Graph snapshot';
   if (kind === 'graph_release_evidence') return 'Graph evidence';
   return kind;
+};
+
+const VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY =
+  'mold-master-ai:vision-operational-readiness-audit:v1';
+
+const readOperationalReadinessAudit = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'vision-operational-readiness-audit/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalReadinessAudit = (audit: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY, JSON.stringify(audit));
+};
+
+const operationalWorklistStatusLabel = (status: string): string => {
+  if (status === 'ready') return '수동 활성화 준비 완료';
+  if (status === 'waiting_for_operator') return '운영 담당자 승인 대기';
+  if (status === 'action_required') return '차단 작업 필요';
+  if (status === 'missing_audit') return '최종 감사 보고서 필요';
+  return status;
 };
 
 const optionalNumber = (value: string): number | undefined => {
@@ -167,7 +196,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const operationalEvidenceAlignment = operationalRelease
     ? auditVisionOperationalEvidenceAlignment(operationalRelease)
     : null;
+  const [operationalReadinessAudit, setOperationalReadinessAudit] = useState(
+    () => readOperationalReadinessAudit()
+  );
+  const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
+    readinessAudit: operationalReadinessAudit
+  });
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
+  const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -302,6 +338,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalReleaseHistory,
       operationalReleaseHistorySummary,
       operationalReleaseTrend,
+      operationalReadinessAudit,
+      operationalBlockerWorklist,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -334,6 +372,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setReleaseImportStatus(
         error instanceof Error ? `보고서 등록 실패: ${error.message}` : '보고서 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalReadinessAuditImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const audit = JSON.parse(await file.text());
+      if (audit?.contractVersion !== 'vision-operational-readiness-audit/v1') {
+        throw new Error('invalid vision operational readiness audit');
+      }
+      saveOperationalReadinessAudit(audit);
+      setOperationalReadinessAudit(audit);
+      setOperationalAuditImportStatus('운영 readiness audit을 등록했습니다.');
+    } catch (error) {
+      setOperationalAuditImportStatus(
+        error instanceof Error ? `감사 보고서 등록 실패: ${error.message}` : '감사 보고서 등록 실패'
       );
     }
   };
@@ -643,6 +702,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalReleaseImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-amber-800 px-2 py-1 text-[9px] text-amber-100 hover:bg-amber-700">
+                    감사 보고서 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalReadinessAuditImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -657,6 +725,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {releaseImportStatus}
+                </p>
+              )}
+              {operationalAuditImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalAuditImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalAuditImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -688,6 +765,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                 )}
                 <p className="mt-1 break-words text-gray-500">
                   {operationalReleaseTrend.narrative}
+                </p>
+              </div>
+              <div
+                aria-label="Vision 운영 작업 목록"
+                className="mt-2 rounded border border-amber-900/60 bg-amber-950/20 p-2 text-[9px] text-gray-300"
+              >
+                <p className="font-semibold text-amber-200">
+                  운영 작업 목록 {operationalBlockerWorklist.summary.totalTasks}건 ·{' '}
+                  {operationalWorklistStatusLabel(operationalBlockerWorklist.status)}
+                </p>
+                <p className="mt-1 break-words text-gray-400">
+                  {operationalBlockerWorklist.recommendedAction}
+                </p>
+                {operationalBlockerWorklist.tasks.slice(0, 3).map((task: any) => (
+                  <p key={task.code} className="mt-1 break-words text-amber-100">
+                    P{task.priority} {task.titleKo} · {task.owner}
+                    {task.count !== undefined ? ` · ${task.count}건` : ''}
+                    {task.missing !== undefined ? ` · 부족 ${task.missing}건` : ''}
+                  </p>
+                ))}
+                <p className="mt-1 text-gray-500">
+                  Common Agent handoff: Graph/Model 활성화 금지 · HITL 필요
                 </p>
               </div>
               {operationalRelease ? (
