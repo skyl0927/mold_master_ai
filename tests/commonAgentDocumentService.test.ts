@@ -644,7 +644,9 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             llmSupplementTrainingEligible: false,
             contextProvided: true,
             roiCount: 1,
-            ocrProvided: false
+            ocrProvided: false,
+            visionDecisionStatus: 'probable' as const,
+            visionDecisionReason: 'probable_multiview_consensus'
         },
         {
             id: 'comparison-2',
@@ -674,7 +676,9 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             contextProvided: false,
             roiCount: 0,
             ocrProvided: true,
-            commonAgentError: 'connect ECONNREFUSED 127.0.0.1:8000'
+            commonAgentError: 'connect ECONNREFUSED 127.0.0.1:8000',
+            visionDecisionStatus: 'needs_review' as const,
+            visionDecisionReason: 'dual_model_disagreement'
         },
         {
             id: 'comparison-3',
@@ -704,7 +708,9 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             contextProvided: true,
             roiCount: 2,
             ocrProvided: true,
-            legacyError: 'legacy provider timeout'
+            legacyError: 'legacy provider timeout',
+            visionDecisionStatus: 'unclassifiable' as const,
+            visionDecisionReason: 'image_quality_rejected'
         }
     ];
 
@@ -722,6 +728,29 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.equal(observability.visionClassifierDisagreementRate, 33.3);
     assert.equal(observability.visionClassifierInsufficientReferenceRate, 33.3);
     assert.equal(observability.averageClassifierReferenceCount, 3.3);
+    assert.equal(observability.visionProbableRate, 33.3);
+    assert.equal(observability.visionNeedsReviewRate, 33.3);
+    assert.equal(observability.visionUnclassifiableRate, 33.3);
+    assert.deepEqual(observability.visionDecisionReasonTargets, [
+        {
+            status: 'needs_review',
+            reason: 'dual_model_disagreement',
+            count: 1,
+            sampleImageIds: ['image-2']
+        },
+        {
+            status: 'unclassifiable',
+            reason: 'image_quality_rejected',
+            count: 1,
+            sampleImageIds: ['image-3']
+        },
+        {
+            status: 'probable',
+            reason: 'probable_multiview_consensus',
+            count: 1,
+            sampleImageIds: ['image-1']
+        }
+    ]);
     assert.deepEqual(observability.visionClassifierDisagreementTargets, [
         {
             visionCandidate: '백화',
@@ -766,6 +795,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
         llmSupplemented: 3,
         graphValidation: 3,
         visionClassifier: 3,
+        visionDecision: 3,
         evidence: 3,
         contextProvided: 3,
         roiContext: 3,
@@ -1103,6 +1133,7 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(result.comparison.visionClassifierVisionCandidate, '백화');
         assert.equal(result.comparison.visionClassifierTopCandidate, '백화');
         assert.equal(result.comparison.visionClassifierReferenceCount, 5);
+        assert.equal(result.comparison.visionDecisionReason, 'insufficient_multiview_consensus');
         assert.deepEqual(result.comparison.commonAgentVersionSnapshot, {
             modelVersion: 'vision-model-2026.07',
             promptVersion: 'vision-prompt-v6',
