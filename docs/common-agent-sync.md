@@ -95,6 +95,8 @@ npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
 npm run operational:hitl:worktable-suggest
+npm run operational:hitl:review-session-plan
+npm run operational:hitl:review-session-packet
 npm run operational:hitl:worktable-import
 npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
@@ -178,6 +180,13 @@ worktable CSV에 옮겨 적어야 하며, 이 명령도 SQL, Graph, Reference, �
 manualConfirmationFields를 포함한다. 이 산출물도 추천 전용이며 원본 CSV의
 `newAction`을 자동 입력하지 않고 외부 서비스 쓰기를 수행하지 않는다.
 
+`operational:hitl:review-session-packet`은 위 review session plan을 사람이
+세션별로 열어볼 수 있는 CSV/Markdown 패킷으로 펼친다. manifest와 세션별 파일은
+`artifacts/operational-hitl-review-session-packet-*` 경로에 생성되며, 판정자는
+각 세션 CSV의 추천 action과 확인 필드를 검토한 뒤 원본 worktable CSV에 필요한
+값만 수동으로 옮겨 적는다. 이 단계도 자동 `newAction` 입력, 검증 실행, Common
+Agent import, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 않는다.
+
 `operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
 decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,
 `queueCode`, `decisionId`, `newAction`, reviewer, comment, decidedAt, 확인 boolean,
@@ -212,10 +221,10 @@ Graph RAG 답변 근거 검증, Vision approved 라벨 왕복 검증, 라벨 충
 비운 `blocked_import_package_not_ready` 상태로 저장한다.
 
 `operational:hitl:pipeline-status`는 최신 intake, editable workspace, worktable,
-worktable suggestion, review session plan, preflight, verification run,
+worktable suggestion, review session plan, review session packet, preflight, verification run,
 Common Agent import package, post-import validation artifact를 한 장의
 `operational-hitl-pipeline-status/v1`로 요약한다. 현재 병목 단계, 남은 사람 입력 수,
-추천 row/재촬영/승인 후보 분포, 검토 세션/고위험 row, 다음 실행 명령,
+추천 row/재촬영/승인 후보 분포, 검토 세션/패킷/고위험 row, 다음 실행 명령,
 Common Agent 수동 검토 가능 여부를 표시하지만, 이 명령도 외부 서비스 호출,
 SQL 쓰기, Graph 승격, Reference 학습, 모델 학습을 수행하지 않는다.
 

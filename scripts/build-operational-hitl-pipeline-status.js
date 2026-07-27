@@ -104,6 +104,12 @@ const reviewSessionPlanPath = resolveOptionalPath(
   latestArtifact('operational-hitl-review-session-plan-')
 );
 
+const reviewSessionPacketPath = resolveOptionalPath(
+  valueAfter('--review-session-packet'),
+  process.env.OPERATIONAL_HITL_REVIEW_SESSION_PACKET,
+  latestArtifact('operational-hitl-review-session-packet-')
+);
+
 const preflightPath = resolveOptionalPath(
   valueAfter('--preflight'),
   process.env.OPERATIONAL_HITL_EDITABLE_DECISION_PREFLIGHT_REPORT,
@@ -142,6 +148,7 @@ const run = () => {
     worktableExport: readOptionalJson(worktableExportPath),
     worktableSuggestion: readOptionalJson(worktableSuggestionPath),
     reviewSessionPlan: readOptionalJson(reviewSessionPlanPath),
+    reviewSessionPacket: readOptionalJson(reviewSessionPacketPath),
     worktableImport: readOptionalJson(worktableImportPath),
     preflightReport: readOptionalJson(preflightPath),
     verificationRun: readOptionalJson(verificationRunPath),
@@ -154,6 +161,7 @@ const run = () => {
       worktableCsv: worktableCsvPath,
       worktableSuggestion: worktableSuggestionPath,
       reviewSessionPlan: reviewSessionPlanPath,
+      reviewSessionPacket: reviewSessionPacketPath,
       worktableImport: worktableImportPath,
       preflightReport: preflightPath,
       verificationRun: verificationRunPath,
@@ -180,6 +188,8 @@ const run = () => {
     worktableSuggestionRows: report.summary.worktableSuggestionRows,
     worktableReviewSessionCount: report.summary.worktableReviewSessionCount,
     worktableReviewSessionHighRiskRows: report.summary.worktableReviewSessionHighRiskRows,
+    worktableReviewSessionPacketCount: report.summary.worktableReviewSessionPacketCount,
+    worktableReviewSessionPacketFiles: report.summary.worktableReviewSessionPacketFiles,
     worktableRecaptureSuggestions: report.summary.worktableRecaptureSuggestions,
     worktableApproveCandidateSuggestions: report.summary.worktableApproveCandidateSuggestions,
     worktableApproveCardSuggestions: report.summary.worktableApproveCardSuggestions,

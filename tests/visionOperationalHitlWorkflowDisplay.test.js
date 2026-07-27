@@ -294,6 +294,8 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
       worktableNeedsReviewSuggestions: 4,
       worktableReviewSessionCount: 4,
       worktableReviewSessionHighRiskRows: 9,
+      worktableReviewSessionPacketCount: 4,
+      worktableReviewSessionPacketFiles: 8,
       worktablePlannedUpdates: 0,
       preflightPendingDecisions: 59,
       commonAgentApprovedPayloads: 0
@@ -305,6 +307,8 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
         instructionKo: 'CSV에서 각 row의 newAction과 검토 필드를 사람이 확정하세요.',
         commands: [
           'npm run operational:hitl:worktable-suggest',
+          'npm run operational:hitl:review-session-plan',
+          'npm run operational:hitl:review-session-packet',
           'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
           'npm run operational:hitl:worktable-import'
         ]
@@ -317,13 +321,15 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
   assert.equal(display.severity, 'warning');
   assert.equal(
     display.summaryText,
-    '미입력 56건 · 작업표 59건 · 추천 59건 · 검토세션 4건 · 고위험 9건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
+    '미입력 56건 · 작업표 59건 · 추천 59건 · 검토세션 4건 · 고위험 9건 · 검토패킷 4건 · 패킷파일 8개 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
   );
   assert.equal(display.stageText, 'CSV HITL 판정 입력 대기');
   assert.equal(display.suggestionText, '추천 분포: 재촬영 5건 · Vision 후보 7건 · Web 후보 43건 · 검토필요 4건');
   assert.equal(display.nextCommand, 'npm run operational:hitl:worktable-suggest');
   assert.deepEqual(display.nextCommands, [
     'npm run operational:hitl:worktable-suggest',
+    'npm run operational:hitl:review-session-plan',
+    'npm run operational:hitl:review-session-packet',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
     'npm run operational:hitl:worktable-import'
   ]);
