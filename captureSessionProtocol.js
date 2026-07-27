@@ -33,6 +33,12 @@ const normalizeCaptureSource = value => VALID_CAPTURE_SOURCES.has(value)
   ? value
   : 'file';
 
+const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
+
+const stringList = value => (Array.isArray(value) ? value : [])
+  .map(compact)
+  .filter(Boolean);
+
 const createCaptureSessionId = (
   source = 'capture',
   now = Date.now(),
@@ -147,6 +153,12 @@ const assessCaptureImageForDiagnosis = (image, images) => {
 
 const buildCaptureMetadata = (image, images) => {
   const summary = summarizeCaptureSession(images, image?.captureSessionId);
+  const recaptureSource = image?.recaptureSource || {};
+  const hasRecaptureLineage = Boolean(
+    compact(recaptureSource.localImageId)
+    || compact(recaptureSource.commonAgentImageId)
+    || compact(recaptureSource.reviewDecisionId)
+  );
   return {
     capture_session_id: image?.captureSessionId,
     capture_view_tags: normalizeViewTags(image?.captureViewTag),
@@ -154,7 +166,16 @@ const buildCaptureMetadata = (image, images) => {
     capture_source: normalizeCaptureSource(image?.captureSource),
     capture_protocol_ready: summary.ready,
     capture_available_views: summary.availableViews,
-    capture_missing_views: summary.missingViews
+    capture_missing_views: summary.missingViews,
+    ...(hasRecaptureLineage ? {
+      recapture_lineage_protocol_version: 'vision-recapture-lineage/v1',
+      recapture_source_local_image_id: compact(recaptureSource.localImageId),
+      recapture_source_common_agent_image_id: compact(recaptureSource.commonAgentImageId),
+      recapture_review_decision_id: compact(recaptureSource.reviewDecisionId),
+      recapture_safety_gate_reasons: stringList(recaptureSource.safetyGateReasons),
+      recapture_required_additional_views: stringList(recaptureSource.requiredAdditionalViews),
+      recapture_bbox_grounding_profile_id: compact(recaptureSource.bboxGroundingProfileId)
+    } : {})
   };
 };
 

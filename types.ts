@@ -374,6 +374,14 @@ export interface CapturedImage {
   commonAgentLastSyncAt?: number;
   commonAgentAnnotationCount?: number;
   visionBboxAnnotationSummary?: VisionBboxAnnotationStatusSummary;
+  recaptureSource?: {
+    localImageId?: string;
+    commonAgentImageId?: string;
+    reviewDecisionId?: string;
+    safetyGateReasons?: string[];
+    requiredAdditionalViews?: string[];
+    bboxGroundingProfileId?: string;
+  };
   captureSessionId?: string;
   captureViewTag?: CaptureViewTag;
   captureImageKind?: CaptureImageKind;
