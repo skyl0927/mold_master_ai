@@ -31,6 +31,11 @@ const path = require('node:path');
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
 
+    await page.getByTitle('관리자 모드 전환').click();
+    await page.getByPlaceholder('비밀번호 입력').fill('admin1234');
+    await page.getByRole('button', { name: '로그인' }).click();
+    await page.getByText('관리자 모드 활성화').waitFor();
+
     await page.route('**/v1/vision/diagnose', async route => {
       await route.fulfill({
         status: 200,
@@ -110,6 +115,10 @@ const path = require('node:path');
     const screenshotPath = path.join(artifactsDir, 'electron-vision-recapture-policy.png');
     await page.screenshot({ path: screenshotPath, fullPage: true });
     const bodyText = await page.locator('body').innerText();
+    const approvedGraphButtonVisible = await page
+      .getByRole('button', { name: '승인·Graph 승격' })
+      .isVisible()
+      .catch(() => false);
     const result = {
       blockedPolicyRendered: bodyText.includes('Graph 사용 금지: 재촬영/HITL 전용'),
       recaptureReasonRendered: bodyText.includes('재촬영/검토 사유')
@@ -120,6 +129,8 @@ const path = require('node:path');
         && bodyText.includes('영역: 리브 기부'),
       causeActionBlockedRendered: bodyText.includes('원인/대책 생성 차단')
         && bodyText.includes('Vision 후보를 Graph에 사용할 수 없어 재촬영 또는 HITL 확정 전까지 원인/대책을 작성하지 않습니다.'),
+      graphPromotionBlockedActionRendered: bodyText.includes('Graph 승격 차단')
+        && !approvedGraphButtonVisible,
       unverifiedVisionContentSuppressed: !bodyText.includes('비전이 생성한 미검증 원인')
         && !bodyText.includes('비전이 생성한 미검증 대책'),
       screenshot: screenshotPath,
@@ -132,6 +143,7 @@ const path = require('node:path');
       || !result.recaptureReasonRendered
       || !result.evidenceAreaRendered
       || !result.causeActionBlockedRendered
+      || !result.graphPromotionBlockedActionRendered
       || !result.unverifiedVisionContentSuppressed
       || consoleErrors.length > 0
     ) {

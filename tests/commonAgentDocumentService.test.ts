@@ -24,7 +24,10 @@ import { buildMultimodalDiagnosisContext } from '../services/diagnosisContextSer
 import { buildProcessKnowledgeMigrationMarkdown } from '../services/processKnowledgeMigrationService';
 import { checkServerHealth } from '../services/serverHealthService';
 import { calculateVisionDatasetReadiness } from '../services/visionDatasetReadinessService';
-import { resolveVisionHitlDecision } from '../services/visionHitlDecisionProtocol';
+import {
+    canPromoteVisionAnalysisToGraph,
+    resolveVisionHitlDecision
+} from '../services/visionHitlDecisionProtocol';
 import {
     deleteManualDocument,
     listManualDocuments,
@@ -60,6 +63,51 @@ test('Vision HITL decisions keep Graph promotion and local learning fail-closed'
     assert.equal(recapture.knowledgeScope, 'review_event');
     assert.equal(pending.apiDecision, 'needs_review');
     assert.equal(pending.localStatus, 'pending');
+});
+
+test('blocked Vision analysis cannot be promoted to Graph even with approved HITL decision', () => {
+    const approved = resolveVisionHitlDecision('approved');
+    assert.equal(approved.promoteToGraph, true);
+
+    const guard = canPromoteVisionAnalysisToGraph({
+        defectType: '판정 보류 (사람 검토 필요)',
+        severity: '-',
+        description: '리브 주변에 유백색으로 보이는 흐린 영역',
+        possibleCauses: '',
+        countermeasures: '',
+        rawOutput: '',
+        visionSummary: {
+            contractVersion: 'vision-observation/v2',
+            imageKind: 'physical_product',
+            normalityStatus: 'defect_visible',
+            qualityStatus: 'reject',
+            visualObservations: [],
+            visibleFeatures: [],
+            candidates: [],
+            primaryCandidate: null,
+            requiredAdditionalViews: ['초점 보정 후 리브 기부 근접 촬영'],
+            qualityConcerns: ['motion blur hides the defect edge'],
+            abstentionReason: 'image_quality_rejected',
+            validationIssues: ['image_quality_rejected'],
+            groundingStatus: 'invalid',
+            decisionStatus: 'unclassifiable',
+            decisionReason: 'image_quality_rejected',
+            safetyGate: {
+                status: 'blocked',
+                score: 0,
+                reasons: ['image_quality_rejected'],
+                candidateUsePolicy: 'do_not_use_vision_candidate',
+                autoGraphCandidateUseAllowed: false,
+                humanReviewRequired: true,
+                supportObservationCount: 0,
+                supportCategoryCount: 0,
+                topCandidateMargin: null
+            }
+        }
+    });
+
+    assert.equal(guard.allowed, false);
+    assert.match(guard.message, /재촬영|HITL/);
 });
 
 test('specification analysis removes reasoning text and keeps only concise engineering statements', () => {
