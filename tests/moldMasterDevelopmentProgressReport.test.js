@@ -63,7 +63,10 @@ const actionRequiredWorklist = {
       commands: [
         'npm run vision:label-conflicts:packet',
         'npm run vision:label-conflicts:decision-template',
-        'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+        'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+        'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json>',
+        'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
+        'npm run migration:verify-post-hitl'
       ]
     }),
     task({
@@ -161,7 +164,10 @@ test('summarizes the current development phase and remaining operational blocker
   assert.deepEqual(report.nextActions[0].commands, [
     'npm run vision:label-conflicts:packet',
     'npm run vision:label-conflicts:decision-template',
-    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json>',
+    'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
+    'npm run migration:verify-post-hitl'
   ]);
 
   const labelConflictStage = report.stageCards.find(stage => stage.id === 'vision_label_conflict_hitl');

@@ -145,6 +145,26 @@ npm run vision:label-conflicts:verify-decisions -- --decisions <vision-label-con
 모델 학습에는 직접 쓰지 않고 `importPlan`만 만든다. 따라서 approved 라벨
 충돌은 사람이 확정하기 전까지 계속 운영 readiness blocker로 남는다.
 
+검증된 판정을 로컬 approved fixture에 반영하기 전에는 항상 dry-run으로 계획을
+확인한다.
+
+```powershell
+npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json>
+```
+
+문제가 없고 사람이 반영을 승인한 경우에만 `--apply`를 붙인다.
+
+```powershell
+npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply
+npm run migration:verify-post-hitl
+```
+
+`vision-approved-label-conflict-decision-apply-report/v1`은 선택 라벨 유지,
+superseded case의 `needs_review` 격리, rejected, 재촬영 요청을 local fixture와
+manifest에만 반영한다. 이 단계도 외부 서비스, Graph DB, Reference store, 모델
+학습에는 쓰지 않으며, 이후 `migration:verify-post-hitl`로 충돌 blocker가 닫혔는지
+다시 확인해야 한다.
+
 ## 미해결 HITL 후보 검토 큐
 
 라벨 충돌과 별개로, Vision source label과 모델 관찰이 서로 일치하지만 아직
