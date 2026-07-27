@@ -1133,6 +1133,23 @@ test('HITL image review writes corrected fields and promotes approved data to Gr
         recommendedChecks: ['밀핀 높이 확인'],
         severity: 'Medium',
         labels: ['밀핀 자국'],
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product',
+            normality_status: 'defect_visible',
+            summary: '밀핀 위치의 원형 압흔',
+            observations: [{
+                observation_id: 'obs-ejector-1',
+                category: 'geometry',
+                description: '밀핀 위치의 원형 압흔',
+                confidence: 0.86
+            }],
+            candidates: [{
+                defect_type: '밀핀 자국',
+                confidence: 0.84,
+                supporting_observation_ids: ['obs-ejector-1']
+            }]
+        },
         promoteToGraph: true,
         metadata: { content_sha256: 'hash-1' }
     });
@@ -1142,6 +1159,8 @@ test('HITL image review writes corrected fields and promotes approved data to Gr
     assert.equal(capturedBody.defect_type, '밀핀 자국');
     assert.deepEqual(capturedBody.possible_causes, ['밀핀 돌출']);
     assert.deepEqual(capturedBody.recommended_checks, ['밀핀 높이 확인']);
+    assert.equal(capturedBody.observation.contract_version, 'vision-observation/v2');
+    assert.equal(capturedBody.observation.observations[0].observation_id, 'obs-ejector-1');
     assert.equal(capturedBody.promote_to_graph, true);
     assert.equal(capturedBody.metadata.content_sha256, 'hash-1');
 });

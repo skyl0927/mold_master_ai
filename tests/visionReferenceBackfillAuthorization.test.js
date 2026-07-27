@@ -110,6 +110,15 @@ test('validation returns a dry-run write plan only after explicit human confirma
   assert.equal(result.targets[0].reviewPayload.metadata.capture_view_tag, 'defect_closeup');
   assert.equal(result.targets[0].reviewPayload.metadata.capture_protocol_ready, true);
   assert.equal(result.targets[0].reviewPayload.metadata.proposed_contract_version, 'vision-observation/v2');
+  assert.equal(result.targets[0].reviewPayload.observation.contract_version, 'vision-observation/v2');
+  assert.equal(result.targets[0].reviewPayload.observation.image_kind, 'physical_product');
+  assert.equal(result.targets[0].reviewPayload.observation.normality_status, 'defect_visible');
+  assert.equal(result.targets[0].reviewPayload.observation.candidates[0].defect_type, 'whitening');
+  assert.equal(result.targets[0].reviewPayload.metadata.reference_backfill_requires_observation_v2_write_support, true);
+  assert.equal(result.commonAgentCompatibility.canSatisfyLearningReadyPrecheck, false);
+  assert.ok(
+    result.commonAgentCompatibility.missingCapabilities.includes('image_dataset_observation_v2_write')
+  );
 });
 
 test('validation rejects stale plans, pending decisions, and missing confirmations', () => {

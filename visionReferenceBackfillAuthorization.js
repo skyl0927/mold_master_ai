@@ -168,7 +168,8 @@ const withAuthorizedMetadata = ({
   authorizedBy,
   authorizedAt,
   approvedCaptureSessionId,
-  approvedCaptureViewTag
+  approvedCaptureViewTag,
+  observation
 }) => ({
   ...payload,
   defect_type: compact(target.approvedDefectType),
@@ -188,14 +189,68 @@ const withAuthorizedMetadata = ({
     learning_candidate_eligible: true,
     proposed_contract_version: 'vision-observation/v2',
     proposed_image_kind: 'physical_product',
-    proposed_normality_status: 'defect_visible'
+    proposed_normality_status: 'defect_visible',
+    reference_backfill_requires_observation_v2_write_support: true
   },
+  observation,
   comment: [
     compact(payload.comment),
     `Human reference backfill authorization by ${authorizedBy}.`,
     compact(target.reviewComment)
   ].filter(Boolean).join(' ')
 });
+
+const buildAuthorizedV2Observation = ({
+  planItem,
+  target,
+  approvedDefectType
+}) => {
+  const visibleFeatures = asArray(planItem?.proposedReviewPayload?.visible_features)
+    .map(compact)
+    .filter(Boolean);
+  const observations = visibleFeatures.map((description, index) => ({
+    observation_id: `human-backfill-obs-${index + 1}`,
+    category: 'other',
+    description,
+    region: '',
+    confidence: 0.8,
+    source: 'image'
+  }));
+  const supportingIds = observations.map(item => item.observation_id);
+  return {
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    summary: compact(planItem?.proposedReviewPayload?.observation_summary)
+      || compact(target.reviewComment)
+      || `${approvedDefectType} confirmed by human reference backfill review`,
+    observations,
+    defect_type: approvedDefectType,
+    process_area: compact(planItem?.proposedReviewPayload?.process_area || 'injection-molding'),
+    severity: compact(planItem?.proposedReviewPayload?.severity),
+    visible_features: visibleFeatures,
+    possible_causes: asArray(planItem?.proposedReviewPayload?.possible_causes).map(compact).filter(Boolean),
+    recommended_checks: asArray(planItem?.proposedReviewPayload?.recommended_checks).map(compact).filter(Boolean),
+    labels: Array.from(new Set([
+      approvedDefectType,
+      ...asArray(planItem?.proposedReviewPayload?.labels).map(compact)
+    ].filter(Boolean))),
+    confidence: 0.8,
+    candidates: [{
+      defect_type: approvedDefectType,
+      confidence: 0.8,
+      supporting_features: visibleFeatures,
+      contradicting_features: [],
+      supporting_observation_ids: supportingIds,
+      contradicting_observation_ids: []
+    }],
+    required_additional_views: [],
+    quality_concerns: [],
+    abstention_reason: '',
+    decision_status: 'probable',
+    decision_reason: 'human_reference_backfill_authorized'
+  };
+};
 
 const validateVisionReferenceBackfillAuthorization = ({
   authorization,
@@ -269,7 +324,12 @@ const validateVisionReferenceBackfillAuthorization = ({
         authorizedBy,
         authorizedAt,
         approvedCaptureSessionId,
-        approvedCaptureViewTag
+        approvedCaptureViewTag,
+        observation: buildAuthorizedV2Observation({
+          planItem,
+          target,
+          approvedDefectType
+        })
       })
     };
   });
@@ -280,6 +340,12 @@ const validateVisionReferenceBackfillAuthorization = ({
     authorizedAt,
     backfillPlanDigest: expectedDigest,
     serviceWritesPerformed: false,
+    commonAgentCompatibility: {
+      canSatisfyLearningReadyPrecheck: false,
+      missingCapabilities: ['image_dataset_observation_v2_write'],
+      note:
+        'The write plan includes reviewPayload.observation, but the current Common Agent review/update contract must persist this full v2 observation for learning-ready export.'
+    },
     targets: validatedTargets
   };
 };

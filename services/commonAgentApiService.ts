@@ -109,6 +109,7 @@ export interface CommonAgentImageReviewRequest {
     possibleCauses?: string[];
     recommendedChecks?: string[];
     labels?: string[];
+    observation?: CommonAgentObservation;
     processArea?: string;
     severity?: string;
     question?: string;
@@ -593,6 +594,7 @@ export class CommonAgentApiService {
                 possible_causes: payload.possibleCauses || [],
                 recommended_checks: payload.recommendedChecks || [],
                 labels: payload.labels || [payload.defectType],
+                observation: payload.observation,
                 process_area: payload.processArea || 'injection-molding',
                 severity: payload.severity,
                 question: payload.question,

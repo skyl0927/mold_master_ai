@@ -34,6 +34,9 @@ npm run test:vision-reference-backfill-authorization
 npm run test:vision-reference-backfill-plan
 npm run test:migration-gate-status
 npm run vision:reference:backfill-prepare
+npm run test:contracts
+npx --no-install tsc --noEmit --pretty false
+npm run build
 ```
 
 Results:
@@ -43,6 +46,9 @@ test:vision-reference-backfill-authorization: pass 4
 test:vision-reference-backfill-plan: pass 3
 test:migration-gate-status: pass 10
 vision:reference:backfill-prepare: totalTargets 19, writesPerformed false
+test:contracts: pass 48
+typecheck: pass
+build: pass
 ```
 
 ## Guarantees
@@ -54,7 +60,8 @@ vision:reference:backfill-prepare: totalTargets 19, writesPerformed false
 | 3 | Validation emits only a dry-run write plan and records `serviceWritesPerformed: false` | `tests/visionReferenceBackfillAuthorization.test.js` | PASS |
 | 4 | Stale digests, forged image IDs, label mismatches, and unsupported view tags are rejected | `tests/visionReferenceBackfillAuthorization.test.js` | PASS |
 | 5 | Live artifact generation creates a pending authorization template from the current backfill plan | `npm run vision:reference:backfill-prepare` | PASS |
+| 6 | Mold forwards optional full `vision-observation/v2` payloads during Common Agent image review | `tests/commonAgentDocumentService.test.ts` | PASS |
 
 ## Known Gap
 
-This change intentionally does not write to Common Agent. A future live apply step must consume only a validated write plan and should remain explicit, audited, and reversible.
+This change intentionally does not write to Common Agent. A future live apply step must consume only a validated write plan and should remain explicit, audited, and reversible. Common Agent must persist the full `observation` field for reference export to pass `vision-observation/v2` learning-ready gates.
