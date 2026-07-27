@@ -210,3 +210,20 @@ test('runner includes the failing endpoint when the current store cannot be reac
   );
   assert.match(result.blockers[0].detail, /network down/);
 });
+
+test('runner classifies 404 reference endpoints as missing API support', async () => {
+  const result = await runVisionReferenceOperationalGate({
+    agentUrl: 'http://agent.test',
+    refresh: true,
+    generatedAt: '2026-07-27T01:00:00.000Z',
+    fetchJson: async url => {
+      throw new Error(`404 {"detail":"Not Found","url":"${url}"}`);
+    }
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.blockers[0].code, 'reference_api_missing');
+  assert.match(result.blockers[0].detail, /references\/current/);
+  assert.equal(result.blockers[1].code, 'reference_refresh_api_missing');
+  assert.match(result.recommendedAction, /upgrade|restart|Common Agent/i);
+});
