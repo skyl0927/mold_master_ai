@@ -159,6 +159,15 @@ export interface DiagnosisVisionDecisionReasonTarget {
     sampleImageIds: string[];
 }
 
+export interface DiagnosisVisionDecisionReviewQueueItem {
+    priority: number;
+    actionCode: DiagnosisObservabilityAction['code'];
+    status: VisionDecisionStatus;
+    reason: string;
+    count: number;
+    sampleImageIds: string[];
+}
+
 export interface DiagnosisObservability {
     total: number;
     commonAgentLatencyMs: DiagnosisLatencySummary;
@@ -180,6 +189,7 @@ export interface DiagnosisObservability {
     visionUnclassifiableRate: number;
     visionDecisionReasonTargets: DiagnosisVisionDecisionReasonTarget[];
     visionDecisionRecommendedActions: DiagnosisObservabilityAction[];
+    visionDecisionReviewQueue: DiagnosisVisionDecisionReviewQueueItem[];
     visionClassifierDisagreementTargets: DiagnosisVisionClassifierDisagreementTarget[];
     visionClassifierReferenceTargets: DiagnosisVisionClassifierReferenceTarget[];
     visionClassifierRecommendedActions: DiagnosisObservabilityAction[];
@@ -715,6 +725,77 @@ const findVisionDecisionTarget = (
     );
 };
 
+const reasonHasAnyMarker = (reason: string, markers: string[]): boolean => {
+    const normalizedReason = reason.toLocaleLowerCase();
+    return markers.some(marker => normalizedReason.includes(marker.toLocaleLowerCase()));
+};
+
+const classifyVisionDecisionReviewTarget = (
+    target: DiagnosisVisionDecisionReasonTarget
+): Pick<DiagnosisVisionDecisionReviewQueueItem, 'priority' | 'actionCode'> | null => {
+    if (target.status === 'probable') return null;
+    if (reasonHasAnyMarker(
+        target.reason,
+        ['image_quality', 'quality', 'blur', 'focus', 'exposure', 'lighting', 'resolution']
+    )) {
+        return {
+            priority: target.status === 'unclassifiable' ? 100 : 95,
+            actionCode: 'improve_vision_capture_quality'
+        };
+    }
+    if (reasonHasAnyMarker(
+        target.reason,
+        ['dual_model_disagreement', 'vision_classifier_disagreement', 'classifier_disagreement']
+    )) {
+        return {
+            priority: 90,
+            actionCode: 'review_vision_decision_disagreement'
+        };
+    }
+    if (reasonHasAnyMarker(
+        target.reason,
+        ['missing_view', 'missing_required_views', 'insufficient_multiview', 'single_candidate']
+    )) {
+        return {
+            priority: 80,
+            actionCode: 'complete_vision_multiview_protocol'
+        };
+    }
+    if (target.status === 'unclassifiable') {
+        return {
+            priority: 70,
+            actionCode: 'improve_vision_capture_quality'
+        };
+    }
+    return {
+        priority: 60,
+        actionCode: 'review_vision_decision_disagreement'
+    };
+};
+
+const buildVisionDecisionReviewQueue = (
+    reasonTargets: DiagnosisVisionDecisionReasonTarget[]
+): DiagnosisVisionDecisionReviewQueueItem[] => {
+    return reasonTargets
+        .map(target => {
+            const classification = classifyVisionDecisionReviewTarget(target);
+            if (!classification) return null;
+            return {
+                ...classification,
+                status: target.status,
+                reason: target.reason,
+                count: target.count,
+                sampleImageIds: target.sampleImageIds
+            };
+        })
+        .filter((item): item is DiagnosisVisionDecisionReviewQueueItem => item !== null)
+        .sort((left, right) =>
+            right.priority - left.priority
+            || right.count - left.count
+            || left.reason.localeCompare(right.reason, 'ko')
+        );
+};
+
 const buildVisionDecisionRecommendedActions = ({
     sampleCount,
     probableRate,
@@ -983,6 +1064,7 @@ export const calculateDiagnosisObservability = (
             unclassifiableRate: visionUnclassifiableRate,
             reasonTargets: visionDecisionReasonTargets
         }),
+        visionDecisionReviewQueue: buildVisionDecisionReviewQueue(visionDecisionReasonTargets),
         visionClassifierDisagreementTargets,
         visionClassifierReferenceTargets,
         visionClassifierRecommendedActions: buildVisionClassifierRecommendedActions({

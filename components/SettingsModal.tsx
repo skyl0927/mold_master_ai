@@ -503,6 +503,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     ))}
                   </div>
                 )}
+                {diagnosisObservability.visionDecisionReviewQueue.length > 0 && (
+                  <div className="mt-2 rounded border border-cyan-900/50 bg-cyan-950/20 p-2 text-[9px] text-cyan-100">
+                    <p className="font-bold text-cyan-200">Vision 우선 검토</p>
+                    {diagnosisObservability.visionDecisionReviewQueue.slice(0, 3).map(item => (
+                      <p key={`${item.priority}:${item.reason}`} className="mt-1 break-words">
+                        P{item.priority} {visionDecisionStatusLabel(item.status)} {item.count}건: {item.reason} · 샘플 {item.sampleImageIds.join(', ')}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {diagnosisObservability.visionClassifierRecommendedActions.length > 0 && (
                   <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 p-2 text-[9px] text-amber-100">
                     <p className="font-bold text-amber-200">Classifier 권장 조치</p>
