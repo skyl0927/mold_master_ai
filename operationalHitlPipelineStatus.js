@@ -96,6 +96,9 @@ const missingEvidenceStatus = ({ generatedAt, missingArtifactNames, sourceArtifa
     worktableReviewSessionProgressInvalidRows: 0,
     worktableReviewSessionProgressCompleteSessions: 0,
     worktableReviewSessionProgressBlockedSessions: 0,
+    worktableDryRunRoundtripSimulatedRows: 0,
+    worktableDryRunRoundtripPlannedUpdates: 0,
+    worktableDryRunRoundtripInvalidRows: 0,
     worktablePlannedUpdates: 0,
     preflightPendingDecisions: 0,
     verificationCommandsExecuted: 0,
@@ -126,6 +129,7 @@ const sourceMap = sourceArtifacts => ({
   worktableExport: sourceArtifacts.worktableExport || null,
   worktableCsv: sourceArtifacts.worktableCsv || null,
   worktableSuggestion: sourceArtifacts.worktableSuggestion || null,
+  dryRunRoundtrip: sourceArtifacts.dryRunRoundtrip || null,
   reviewSessionPlan: sourceArtifacts.reviewSessionPlan || null,
   reviewSessionPacket: sourceArtifacts.reviewSessionPacket || null,
   reviewSessionProgress: sourceArtifacts.reviewSessionProgress || null,
@@ -141,6 +145,7 @@ const stageTrailFor = ({
   workspaceManifest,
   worktableExport,
   worktableSuggestion,
+  dryRunRoundtrip,
   reviewSessionPlan,
   reviewSessionPacket,
   reviewSessionProgress,
@@ -169,6 +174,11 @@ const stageTrailFor = ({
     code: 'worktable_suggestion',
     titleKo: 'Worktable suggestion',
     status: compact(worktableSuggestion?.status) || 'not_started'
+  },
+  {
+    code: 'dry_run_roundtrip',
+    titleKo: 'Dry-run roundtrip',
+    status: compact(dryRunRoundtrip?.status) || 'not_started'
   },
   {
     code: 'review_session_plan',
@@ -218,6 +228,7 @@ const fillCsvAction = worktableCsv => action({
   instructionKo: 'CSV에서 각 row의 newAction, reviewer, decidedAt, reviewComment와 action별 확인 필드를 입력하세요.',
   commands: [
     'npm run operational:hitl:worktable-suggest',
+    'npm run operational:hitl:dry-run-roundtrip',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
     worktableCsv ? `edit ${worktableCsv}` : 'edit <operational-hitl-decision-worktable-export.csv>',
@@ -231,6 +242,7 @@ const pipelineDecision = ({
   intakeStatus,
   worktableExport,
   worktableSuggestion,
+  dryRunRoundtrip,
   worktableImport,
   preflightReport,
   verificationRun,
@@ -238,6 +250,30 @@ const pipelineDecision = ({
   postImportValidationPlan,
   sourceArtifacts
 }) => {
+  if (dryRunRoundtrip?.status === 'simulated_roundtrip_invalid') {
+    return {
+      status: 'action_required',
+      currentStage: stage({
+        code: 'fix_dry_run_roundtrip',
+        titleKo: '추천값 roundtrip 사전검증 오류 수정',
+        status: 'action_required',
+        feedbackKo: '추천값만으로 후속 worktable-import dry-run을 통과하지 못하는 필드가 있습니다.'
+      }),
+      nextActions: [
+        action({
+          code: 'fix_dry_run_roundtrip',
+          titleKo: '추천값 roundtrip 오류 수정',
+          instructionKo: 'dry-run roundtrip invalidRows를 확인해 추천 생성 규칙 또는 worktable 필드를 보완하세요.',
+          commands: [
+            'npm run operational:hitl:dry-run-roundtrip',
+            'npm run operational:hitl:worktable-suggest'
+          ],
+          owner: 'system_operator'
+        })
+      ]
+    };
+  }
+
   if (commonAgentImportPackage?.status === 'ready_for_common_agent_review') {
     return {
       status: 'ready_for_common_agent_manual_review',
@@ -433,6 +469,7 @@ const summaryFor = ({
   workspaceManifest,
   worktableExport,
   worktableSuggestion,
+  dryRunRoundtrip,
   reviewSessionPlan,
   reviewSessionPacket,
   reviewSessionProgress,
@@ -460,6 +497,9 @@ const summaryFor = ({
   worktableApproveCardSuggestions: numberFrom(worktableSuggestion?.summary?.approveCardSuggestions),
   worktableNeedsReviewSuggestions: numberFrom(worktableSuggestion?.summary?.needsReviewSuggestions),
   worktableNeedsChangesSuggestions: numberFrom(worktableSuggestion?.summary?.needsChangesSuggestions),
+  worktableDryRunRoundtripSimulatedRows: numberFrom(dryRunRoundtrip?.summary?.simulatedRows),
+  worktableDryRunRoundtripPlannedUpdates: numberFrom(dryRunRoundtrip?.summary?.importPlannedUpdates),
+  worktableDryRunRoundtripInvalidRows: numberFrom(dryRunRoundtrip?.summary?.invalidRows),
   worktableReviewSessionCount: numberFrom(reviewSessionPlan?.summary?.sessionCount),
   worktableReviewSessionHighRiskRows: numberFrom(reviewSessionPlan?.summary?.highRiskRows),
   worktableReviewSessionPacketCount: numberFrom(reviewSessionPacket?.summary?.sessionPacketCount),
@@ -502,6 +542,8 @@ const markdownFor = report => {
     `- 재촬영 추천: ${report.summary.worktableRecaptureSuggestions}`,
     `- Vision 승인 후보: ${report.summary.worktableApproveCandidateSuggestions}`,
     `- Web 카드 승인 후보: ${report.summary.worktableApproveCardSuggestions}`,
+    `- 추천값 roundtrip 계획 update: ${report.summary.worktableDryRunRoundtripPlannedUpdates}`,
+    `- 추천값 roundtrip 오류 row: ${report.summary.worktableDryRunRoundtripInvalidRows}`,
     `- 작업표 계획 update: ${report.summary.worktablePlannedUpdates}`,
     `- post-import validation case: ${report.summary.postImportValidationCases}`,
     '- 안전 정책: 자동 쓰기 금지, Graph/Reference/Model 승격 금지',
@@ -527,6 +569,7 @@ const buildOperationalHitlPipelineStatus = ({
   workspaceManifest = null,
   worktableExport = null,
   worktableSuggestion = null,
+  dryRunRoundtrip = null,
   reviewSessionPlan = null,
   reviewSessionPacket = null,
   reviewSessionProgress = null,
@@ -562,6 +605,7 @@ const buildOperationalHitlPipelineStatus = ({
     workspaceManifest,
     worktableExport,
     worktableSuggestion,
+    dryRunRoundtrip,
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
@@ -577,6 +621,7 @@ const buildOperationalHitlPipelineStatus = ({
     workspaceManifest,
     worktableExport,
     worktableSuggestion,
+    dryRunRoundtrip,
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
@@ -603,6 +648,7 @@ const buildOperationalHitlPipelineStatus = ({
       workspaceManifest,
       worktableExport,
       worktableSuggestion,
+      dryRunRoundtrip,
       reviewSessionPlan,
       reviewSessionPacket,
       reviewSessionProgress,

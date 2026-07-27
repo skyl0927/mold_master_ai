@@ -29,6 +29,10 @@ node --test tests\operationalHitlPipelineStatus.test.js
   stage trail, source map, Markdown에 표시한다.
 - review session progress artifact가 있으면 세션 완료/대기/오류 row 수를
   summary, stage trail, source map, Markdown에 표시한다.
+- dry-run roundtrip artifact가 있으면 추천값 기반 후속 import 계획/오류를
+  summary, stage trail, source map, Markdown에 표시한다.
+- dry-run roundtrip이 invalid이면 사람 CSV 입력 전에 추천 규칙 또는 작업표
+  필드 보완 단계로 우선 라우팅한다.
 
 ## GREEN
 
@@ -36,7 +40,7 @@ node --test tests\operationalHitlPipelineStatus.test.js
 node --test tests\operationalHitlPipelineStatus.test.js
 ```
 
-결과: 6개 테스트 통과.
+결과: 7개 테스트 통과.
 
 ## 운영 검증
 
@@ -59,6 +63,8 @@ Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
 - 검토 세션 고위험 row: 9
 - 검토 패킷: 4
 - 검토 패킷 파일: 8
+- 추천값 roundtrip 계획 update: 59
+- 추천값 roundtrip 오류 row: 0
 - 세션 완료 row: 0
 - 세션 대기 row: 59
 - 세션 오류 row: 0
@@ -73,7 +79,7 @@ Settings의 `비전 릴리스 게이트` 영역에 `Pipeline Status 등록` 버�
 최신 `artifacts/operational-hitl-pipeline-status-*.json`을 등록하면
 `Vision 운영 작업 목록` 아래에 `HITL Pipeline Status` 카드가 표시된다.
 
-카드는 현재 단계, 미입력/작업표/추천 분포, 검토 세션/고위험 row, 다음 명령,
-안전 배지를 표시한다.
+카드는 현재 단계, 미입력/작업표/추천 분포, 추천값 roundtrip 사전검증,
+검토 세션/고위험 row, 다음 명령, 안전 배지를 표시한다.
 이 UI는 외부 서비스 쓰기 없이 localStorage에 artifact를 저장하며, 사람이 HITL
 CSV 판정을 끝내기 전까지 Graph/Reference/Model 승격 금지를 명시한다.

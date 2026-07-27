@@ -126,6 +126,7 @@ const actionPackSeverityFor = status => {
 
 const pipelineStatusLabelFor = (status, stageCode) => {
   if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (stageCode === 'fix_dry_run_roundtrip') return '추천 사전검증 오류';
   if (stageCode === 'awaiting_human_csv_decisions') return 'CSV 판정 입력 대기';
   if (stageCode === 'review_worktable_import_plan') return '작업표 반영 승인 대기';
   if (status === 'ready_for_common_agent_manual_review') return 'Common Agent 전달 준비';
@@ -135,7 +136,8 @@ const pipelineStatusLabelFor = (status, stageCode) => {
   return compact(status);
 };
 
-const pipelineSeverityFor = status => {
+const pipelineSeverityFor = (status, stageCode) => {
+  if (stageCode === 'fix_dry_run_roundtrip') return 'danger';
   if (status === 'missing_evidence') return 'danger';
   if (
     status === 'ready_for_common_agent_manual_review'
@@ -295,6 +297,12 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
     numberValue(summary.worktableReviewSessionProgressInvalidRows) > 0
       ? `세션오류 ${numberValue(summary.worktableReviewSessionProgressInvalidRows)}건`
       : '',
+    numberValue(summary.worktableDryRunRoundtripPlannedUpdates) > 0
+      ? `사전검증 ${numberValue(summary.worktableDryRunRoundtripPlannedUpdates)}건`
+      : '',
+    numberValue(summary.worktableDryRunRoundtripInvalidRows) > 0
+      ? `사전오류 ${numberValue(summary.worktableDryRunRoundtripInvalidRows)}건`
+      : '',
     numberValue(summary.worktableRecaptureSuggestions) > 0
       ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
       : '',
@@ -316,7 +324,7 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
     title: 'HITL Pipeline Status',
     status,
     statusLabel: pipelineStatusLabelFor(status, stageCode),
-    severity: pipelineSeverityFor(status),
+    severity: pipelineSeverityFor(status, stageCode),
     stageText: compact(pipelineStatus.currentStage?.titleKo)
       || compact(pipelineStatus.currentStage?.code),
     summaryText: summaryParts.join(' · '),

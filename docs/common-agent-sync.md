@@ -97,8 +97,9 @@ npm run operational:hitl:worktable-export
 npm run operational:hitl:worktable-suggest
 npm run operational:hitl:review-session-plan
 npm run operational:hitl:review-session-packet
-npm run operational:hitl:worktable-import
 npm run operational:hitl:session-progress
+npm run operational:hitl:dry-run-roundtrip
+npm run operational:hitl:worktable-import
 npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
@@ -203,6 +204,14 @@ worktable-import dry-run 결과를 대조해 세션별 완료/대기/오류 row 
 이 명령을 실행하면, 어떤 세션 파일을 계속 봐야 하는지와 어떤 row의 필수 필드가
 부족한지 확인할 수 있다. 이 단계도 진행률 리포트만 생성하며 자동 적용, 검증 실행,
 Common Agent import, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 않는다.
+
+`operational:hitl:dry-run-roundtrip`은 worktable suggestion의 추천값만으로
+가상의 simulation-only CSV를 만들고, 기존 `worktable-import` 검증기를 dry-run으로
+통과시켜 후속 게이트가 막힐 필드를 미리 찾는다. 생성 CSV에는
+`SIMULATION_ONLY` reviewer와 `SIMULATION ONLY` 코멘트가 들어가며 실제 사람 판정을
+대체하거나 `--apply` 입력으로 사용할 수 없다. 이 단계는 추천 규칙과 import 계약의
+불일치를 찾는 예행연습이며, 자동 적용, 검증 실행, Common Agent import, SQL 쓰기,
+Graph/Reference/Model 승격을 수행하지 않는다.
 
 `operational:hitl:verify-run`은 `editable-preflight`가 `ready_for_verification`
 상태일 때만 세 큐의 `verify-decisions` 명령을 실행할 수 있게 하는 로컬 검증

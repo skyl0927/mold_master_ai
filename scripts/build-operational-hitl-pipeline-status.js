@@ -98,6 +98,12 @@ const worktableSuggestionPath = resolveOptionalPath(
   latestArtifact('operational-hitl-decision-worktable-suggestion-')
 );
 
+const dryRunRoundtripPath = resolveOptionalPath(
+  valueAfter('--dry-run-roundtrip'),
+  process.env.OPERATIONAL_HITL_DRY_RUN_ROUNDTRIP,
+  latestArtifact('operational-hitl-dry-run-roundtrip-')
+);
+
 const reviewSessionPlanPath = resolveOptionalPath(
   valueAfter('--review-session-plan'),
   process.env.OPERATIONAL_HITL_REVIEW_SESSION_PLAN,
@@ -153,6 +159,7 @@ const run = () => {
     workspaceManifest: readOptionalJson(workspaceManifestPath),
     worktableExport: readOptionalJson(worktableExportPath),
     worktableSuggestion: readOptionalJson(worktableSuggestionPath),
+    dryRunRoundtrip: readOptionalJson(dryRunRoundtripPath),
     reviewSessionPlan: readOptionalJson(reviewSessionPlanPath),
     reviewSessionPacket: readOptionalJson(reviewSessionPacketPath),
     reviewSessionProgress: readOptionalJson(reviewSessionProgressPath),
@@ -167,6 +174,7 @@ const run = () => {
       worktableExport: worktableExportPath,
       worktableCsv: worktableCsvPath,
       worktableSuggestion: worktableSuggestionPath,
+      dryRunRoundtrip: dryRunRoundtripPath,
       reviewSessionPlan: reviewSessionPlanPath,
       reviewSessionPacket: reviewSessionPacketPath,
       reviewSessionProgress: reviewSessionProgressPath,
@@ -198,6 +206,8 @@ const run = () => {
     worktableReviewSessionHighRiskRows: report.summary.worktableReviewSessionHighRiskRows,
     worktableReviewSessionPacketCount: report.summary.worktableReviewSessionPacketCount,
     worktableReviewSessionPacketFiles: report.summary.worktableReviewSessionPacketFiles,
+    worktableDryRunRoundtripPlannedUpdates: report.summary.worktableDryRunRoundtripPlannedUpdates,
+    worktableDryRunRoundtripInvalidRows: report.summary.worktableDryRunRoundtripInvalidRows,
     worktableReviewSessionProgressCompletedRows: report.summary.worktableReviewSessionProgressCompletedRows,
     worktableReviewSessionProgressPendingRows: report.summary.worktableReviewSessionProgressPendingRows,
     worktableReviewSessionProgressInvalidRows: report.summary.worktableReviewSessionProgressInvalidRows,
