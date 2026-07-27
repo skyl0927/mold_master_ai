@@ -65,6 +65,7 @@
     "test:vision-reference-backfill-verify": "node --test tests/visionReferenceBackfillPostApplyVerification.test.js",
     "test:vision-hitl-reevaluation": "node --test tests/visionHitlReevaluationPlan.test.js",
     "test:vision-hitl-reevaluation-post-check": "node --test tests/visionHitlReevaluationPostCheck.test.js",
+    "test:vision-operational-readiness": "node --test tests/visionOperationalReadinessAudit.test.js",
     "test:web-knowledge": "node --test tests/webCrawlerPolicy.test.js tests/webKnowledgeCard.test.js tests/webDefectCaseCollector.test.js tests/webKnowledgeCardReviewLedger.test.js tests/webKnowledgeReviewStore.test.js tests/webKnowledgeReviewNavigation.test.js tests/webKnowledgeKoreanTranslation.test.js tests/expandedDefectTaxonomy.test.js",
     "test:electron": "npm run build && node scripts/electron-smoke.js",
     "test:electron:capture-fresh-frame": "npm run build && node scripts/electron-capture-fresh-frame-smoke.js",
