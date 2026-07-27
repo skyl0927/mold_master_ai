@@ -58,6 +58,57 @@ const path = require('node:path');
         ],
         pendingActions: []
       }));
+      localStorage.setItem('mold-master-ai:operational-hitl-action-pack:v1', JSON.stringify({
+        contractVersion: 'operational-hitl-action-pack/v1',
+        generatedAt: '2026-07-27T12:15:32.274Z',
+        status: 'action_required',
+        serviceWritesPerformed: false,
+        policy: {
+          autoApplyAllowed: false,
+          allowGraphPromotion: false,
+          allowReferenceLearning: false,
+          allowModelTraining: false
+        },
+        summary: {
+          totalDecisionInputsMissing: 56,
+          firstQueueCode: 'vision_label_conflicts',
+          topPriorityTaskCode: 'resolve_label_conflicts',
+          labelConflictPending: 4,
+          visionHitlPending: 12,
+          webHitlMissing: 40,
+          actionStepCount: 3
+        },
+        actionSteps: [
+          {
+            queueCode: 'vision_label_conflicts',
+            titleKo: '승인 이미지 라벨 충돌 판정',
+            owner: 'quality_hitl',
+            pending: 4,
+            commands: [
+              'npm run vision:label-conflicts:decision-template',
+              'npm run vision:label-conflicts:review-guide',
+              'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+            ],
+            operatorInstructionKo: '품질/HITL 라벨 충돌 판정 파일을 작성하고 검증하세요.'
+          },
+          {
+            queueCode: 'vision_pending_hitl',
+            titleKo: 'Vision pending HITL 판정',
+            owner: 'quality_hitl',
+            pending: 12,
+            commands: ['npm run vision:hitl:decision-template'],
+            operatorInstructionKo: 'Common Agent/HITL 판정 파일을 작성하고 검증하세요.'
+          },
+          {
+            queueCode: 'web_knowledge_hitl',
+            titleKo: 'Web Knowledge HITL 승인',
+            owner: 'knowledge_owner',
+            pending: 40,
+            commands: ['npm run knowledge:web:hitl:decision-template'],
+            operatorInstructionKo: '웹 결함 Case 승인 판정 파일을 작성하고 검증/적용하세요.'
+          }
+        ]
+      }));
       localStorage.setItem('mold-master-ai:vision-operational-release:v1', JSON.stringify({
         schemaVersion: 'vision-operational-release/v1',
         generatedAt: '2026-07-24T02:00:00.000Z',
@@ -257,6 +308,10 @@ const path = require('node:path');
       hasReleaseTrendRates: bodyText.includes('\uCD94\uC138: \uADFC\uAC70\uC900\uBE44 100%'),
       hasOperationalWorklistPanel: bodyText.includes('\uC6B4\uC601 \uC791\uC5C5 \uBAA9\uB85D'),
       hasOperationalWorklistFirstTask: bodyText.includes('\uC2B9\uC778 \uC774\uBBF8\uC9C0 \uB77C\uBCA8 \uCDA9\uB3CC \uD574\uACB0'),
+      hasOperationalHitlActionPackPanel: bodyText.includes('HITL Action Pack'),
+      hasOperationalHitlActionPackSummary: bodyText.includes('\uBBF8\uC785\uB825 56\uAC74')
+        && bodyText.includes('Web 40\uAC74'),
+      hasOperationalHitlActionPackNextCommand: bodyText.includes('vision:label-conflicts:decision-template'),
       releaseDecision: captured.report.operationalRelease?.decision,
       releaseEvidenceAlignmentPassed: captured.report.operationalEvidenceAlignment?.passed,
       releaseEvidenceGraphMatched:
@@ -284,6 +339,11 @@ const path = require('node:path');
       operationalWorklistFirstTask: captured.report.operationalBlockerWorklist?.tasks?.[0]?.code,
       operationalWorklistGraphPromotion:
         captured.report.operationalBlockerWorklist?.commonAgentHandoff?.policy?.allowGraphPromotion,
+      operationalHitlActionPackStatus: captured.report.operationalHitlActionPack?.status,
+      operationalHitlActionPackFirstQueue:
+        captured.report.operationalHitlActionPack?.summary?.firstQueueCode,
+      operationalHitlActionPackMissing:
+        captured.report.operationalHitlActionPack?.summary?.totalDecisionInputsMissing,
       operationalReadinessAuditStatus: captured.report.operationalReadinessAudit?.status,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
@@ -330,6 +390,9 @@ const path = require('node:path');
       || !result.hasReleaseTrendRates
       || !result.hasOperationalWorklistPanel
       || !result.hasOperationalWorklistFirstTask
+      || !result.hasOperationalHitlActionPackPanel
+      || !result.hasOperationalHitlActionPackSummary
+      || !result.hasOperationalHitlActionPackNextCommand
       || result.releaseDecision !== 'rollback_required'
       || result.releaseEvidenceAlignmentPassed !== true
       || result.releaseEvidenceGraphMatched !== true
@@ -352,6 +415,9 @@ const path = require('node:path');
       || result.operationalWorklistTotalTasks !== 5
       || result.operationalWorklistFirstTask !== 'resolve_label_conflicts'
       || result.operationalWorklistGraphPromotion !== false
+      || result.operationalHitlActionPackStatus !== 'action_required'
+      || result.operationalHitlActionPackFirstQueue !== 'vision_label_conflicts'
+      || result.operationalHitlActionPackMissing !== 56
       || result.operationalReadinessAuditStatus !== 'action_required'
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50

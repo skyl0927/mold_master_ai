@@ -3,7 +3,8 @@ const test = require('node:test');
 
 const {
   summarizeVisionOperationalHitlWorkflowDisplay,
-  summarizeVisionOperationalLabelConflictWorkflowDisplay
+  summarizeVisionOperationalLabelConflictWorkflowDisplay,
+  summarizeOperationalHitlActionPackDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -203,4 +204,69 @@ test('highlights applied label conflict workflow as requiring post-HITL verifica
 test('returns null when no label conflict workflow is available to display', () => {
   assert.equal(summarizeVisionOperationalLabelConflictWorkflowDisplay({ tasks: [] }), null);
   assert.equal(summarizeVisionOperationalLabelConflictWorkflowDisplay(null), null);
+});
+
+test('summarizes operational HITL action pack for Settings UI display', () => {
+  const display = summarizeOperationalHitlActionPackDisplay({
+    contractVersion: 'operational-hitl-action-pack/v1',
+    status: 'action_required',
+    summary: {
+      totalDecisionInputsMissing: 56,
+      firstQueueCode: 'vision_label_conflicts',
+      labelConflictPending: 4,
+      visionHitlPending: 12,
+      webHitlMissing: 40,
+      actionStepCount: 3
+    },
+    actionSteps: [
+      {
+        queueCode: 'vision_label_conflicts',
+        titleKo: '승인 이미지 라벨 충돌 판정',
+        owner: 'quality_hitl',
+        pending: 4,
+        commands: [
+          'npm run vision:label-conflicts:decision-template',
+          'npm run vision:label-conflicts:review-guide',
+          'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+        ],
+        operatorInstructionKo: '품질/HITL 라벨 충돌 판정 파일을 작성하고 검증하세요.'
+      },
+      {
+        queueCode: 'vision_pending_hitl',
+        titleKo: 'Vision pending HITL 판정',
+        owner: 'quality_hitl',
+        pending: 12,
+        commands: ['npm run vision:hitl:decision-template'],
+        operatorInstructionKo: 'Common Agent/HITL 판정 파일을 작성하고 검증하세요.'
+      }
+    ]
+  });
+
+  assert.equal(display.title, 'HITL Action Pack');
+  assert.equal(display.statusLabel, '판정 입력 필요');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.summaryText, '미입력 56건 · 라벨충돌 4건 · Vision 12건 · Web 40건');
+  assert.equal(display.firstQueueCode, 'vision_label_conflicts');
+  assert.equal(display.firstActionTitle, '승인 이미지 라벨 충돌 판정');
+  assert.match(display.nextActionKo, /라벨 충돌 판정/);
+  assert.deepEqual(display.nextCommands, [
+    'npm run vision:label-conflicts:decision-template',
+    'npm run vision:label-conflicts:review-guide',
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+  ]);
+  assert.deepEqual(display.actionStepPreviews, [
+    '승인 이미지 라벨 충돌 판정 · quality_hitl · 4건',
+    'Vision pending HITL 판정 · quality_hitl · 12건'
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Artifact-only',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Reference 학습 금지'
+  ]);
+});
+
+test('returns null when no operational HITL action pack is available to display', () => {
+  assert.equal(summarizeOperationalHitlActionPackDisplay(null), null);
+  assert.equal(summarizeOperationalHitlActionPackDisplay({ contractVersion: 'unknown/v1' }), null);
 });
