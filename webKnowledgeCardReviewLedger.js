@@ -117,6 +117,17 @@ const normalizeRecord = value => {
   };
 };
 
+const validateApprovedRecord = record => {
+  if (!record.defectName) return 'approved_defect_name_missing';
+  if (!record.problem) return 'approved_problem_missing';
+  if (!record.phenomenon) return 'approved_phenomenon_missing';
+  if (record.causeCandidates.length === 0) return 'approved_cause_candidates_missing';
+  if (record.causeLabels.length === 0) return 'approved_cause_labels_missing';
+  if (record.checkItems.length === 0) return 'approved_check_items_missing';
+  if (record.actions.length === 0) return 'approved_actions_missing';
+  return null;
+};
+
 const readRecords = filePath => {
   if (!fs.existsSync(filePath)) return [];
   try {
@@ -247,19 +258,150 @@ const createWebKnowledgeCardReviewLedger = ({
       });
       if (!record) throw new Error('The review decision is invalid.');
       if (decision === 'approved') {
-        if (!record.defectName) throw new Error('A reviewed defect name is required.');
-        if (!record.problem) throw new Error('A reviewed problem description is required.');
-        if (!record.phenomenon) throw new Error('A reviewed phenomenon is required.');
-        if (record.causeCandidates.length === 0) {
+        const approvedError = validateApprovedRecord(record);
+        if (approvedError === 'approved_defect_name_missing') throw new Error('A reviewed defect name is required.');
+        if (approvedError === 'approved_problem_missing') throw new Error('A reviewed problem description is required.');
+        if (approvedError === 'approved_phenomenon_missing') throw new Error('A reviewed phenomenon is required.');
+        if (approvedError === 'approved_cause_candidates_missing') {
           throw new Error('At least one reviewed cause candidate is required.');
         }
-        if (record.causeLabels.length === 0) throw new Error('At least one cause label is required.');
-        if (record.checkItems.length === 0) throw new Error('At least one check item is required.');
-        if (record.actions.length === 0) throw new Error('At least one action is required.');
+        if (approvedError === 'approved_cause_labels_missing') throw new Error('At least one cause label is required.');
+        if (approvedError === 'approved_check_items_missing') throw new Error('At least one check item is required.');
+        if (approvedError === 'approved_actions_missing') throw new Error('At least one action is required.');
       }
       recordsByCaseId.set(caseId, record);
       persist();
       return { ...record, isCurrent: true };
+    },
+
+    importVerifiedUpdates(cards, updates, options = {}) {
+      const apply = options.apply === true;
+      const cardsByCaseId = new Map(
+        (cards || []).map(card => [compactWhitespace(card?.caseId), card])
+      );
+      const plannedRecords = [];
+      const invalidTargets = [];
+
+      for (const update of updates || []) {
+        const caseId = compactWhitespace(update?.caseId);
+        const suppliedHash = compactWhitespace(update?.sourceContentSha256).toLowerCase();
+        const targetCard = cardsByCaseId.get(caseId);
+        if (!targetCard) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision: compactWhitespace(update?.decision),
+            code: 'unknown_card',
+            message: '검증된 판정 대상이 현재 Web Case collection에 없습니다.'
+          });
+          continue;
+        }
+
+        const expectedHash = cardContentSha256(targetCard);
+        if (suppliedHash !== expectedHash) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            expectedSourceContentSha256: expectedHash,
+            decision: compactWhitespace(update?.decision),
+            code: 'source_content_hash_mismatch',
+            message: '검증된 판정 source hash가 현재 카드 hash와 일치하지 않습니다.'
+          });
+          continue;
+        }
+        if (update?.confirmed !== true) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision: compactWhitespace(update?.decision),
+            code: 'confirmation_missing',
+            message: '검증된 판정에도 명시적 confirmed=true가 필요합니다.'
+          });
+          continue;
+        }
+
+        const decision = compactWhitespace(update?.decision);
+        if (!ALLOWED_DECISIONS.has(decision)) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision,
+            code: 'unsupported_decision',
+            message: '지원하지 않는 Web Case HITL ledger decision입니다.'
+          });
+          continue;
+        }
+
+        const reviewedAt = compactWhitespace(
+          update?.decidedAt || update?.reviewedAt || options.importedAt || now().toISOString()
+        );
+        if (!Number.isFinite(Date.parse(reviewedAt))) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision,
+            code: 'invalid_decided_at',
+            message: '검증된 판정 시각이 유효하지 않습니다.'
+          });
+          continue;
+        }
+
+        const record = normalizeRecord({
+          ...update,
+          caseId,
+          sourceContentSha256: expectedHash,
+          reviewedAt
+        });
+        if (!record) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision,
+            code: 'invalid_ledger_record',
+            message: '검증된 판정을 로컬 HITL ledger record로 정규화할 수 없습니다.'
+          });
+          continue;
+        }
+
+        const approvedError = decision === 'approved' ? validateApprovedRecord(record) : null;
+        if (approvedError) {
+          invalidTargets.push({
+            caseId,
+            sourceContentSha256: suppliedHash,
+            decision,
+            code: approvedError,
+            message: '승인 판정에 필요한 검토 필드가 부족합니다.'
+          });
+          continue;
+        }
+
+        plannedRecords.push(record);
+      }
+
+      if (invalidTargets.length > 0) {
+        return {
+          applyRequested: apply,
+          writesPerformed: false,
+          plannedUpdates: [],
+          appliedUpdates: 0,
+          invalidTargets
+        };
+      }
+
+      if (apply) {
+        for (const record of plannedRecords) {
+          recordsByCaseId.set(record.caseId, record);
+        }
+        if (plannedRecords.length > 0) persist();
+      }
+
+      return {
+        applyRequested: apply,
+        writesPerformed: apply && plannedRecords.length > 0,
+        plannedUpdates: plannedRecords.map(record => ({ ...record })),
+        appliedUpdates: apply ? plannedRecords.length : 0,
+        invalidTargets: []
+      };
     },
 
     clear(cardOrCaseId) {

@@ -61,6 +61,32 @@ npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-common-agent-
 판정을 `localLedgerUpdates`로 정규화하지만 로컬 원장, Common Agent, Graph에는
 직접 쓰지 않는다. 실제 반영은 별도 수동 import 절차에서만 가능하다.
 
+검증 보고서가 `ready_for_local_hitl_import`가 된 뒤에도 기본 동작은 dry-run이다.
+먼저 다음 명령으로 현재 collection hash와 판정 대상이 일치하는지 확인한다.
+
+```powershell
+npm run knowledge:web:hitl:apply -- --verification-report <web-knowledge-hitl-decision-verification-report.json>
+```
+
+생성되는 `web-knowledge-hitl-decision-apply-report/v1`은 계획된 승인, 수정 필요,
+반려 건수와 hash 불일치 여부를 표시한다. 이 단계는
+`serviceWritesPerformed=false`, `localLedgerWritesPerformed=false` 상태를
+유지하며 Common Agent, SQL, Graph, 모델 학습에는 쓰지 않는다.
+
+dry-run 결과가 `dry_run_ready`이고 사람이 다시 확인한 경우에만 다음처럼
+명시적 `--apply`를 붙여 로컬 HITL 원장에 반영한다.
+
+```powershell
+npm run knowledge:web:hitl:apply -- --verification-report <web-knowledge-hitl-decision-verification-report.json> --apply
+```
+
+이 명령도 중앙 서비스에는 쓰지 않는다. 로컬 원장 반영 후에는
+`npm run knowledge:web:readiness`를 다시 실행해 로컬 승인 수가 반영됐는지
+확인하고, Common Agent 후보 적재와 Graph 활성화는 별도 수동 승인 단계에서만
+진행한다. verification report가 `awaiting_human_review`, `partial_human_review`,
+`invalid_decisions` 상태이거나 현재 카드 hash와 다르면 apply 단계는 fail-closed
+상태로 종료된다.
+
 ## Vision HITL 후보 연결
 
 라이선스 이미지 카드에서 결함군 최소 표본을 먼저 채우고, 남는 이미지는
@@ -104,6 +130,8 @@ npm run knowledge:web:validate-common-agent
 npm run knowledge:web:readiness
 npm run knowledge:web:hitl:decision-template
 npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-common-agent-web-knowledge-hitl-decisions.json>
+npm run knowledge:web:hitl:apply -- --verification-report <web-knowledge-hitl-decision-verification-report.json>
+npm run knowledge:web:hitl:apply -- --verification-report <web-knowledge-hitl-decision-verification-report.json> --apply
 npm run test:electron:web-knowledge-hitl
 ```
 
@@ -120,6 +148,7 @@ Common Agent 비저장 검증, 로컬 HITL 승인, 중앙 승인 상태를 하�
 - 운영 readiness: `artifacts/web-knowledge-operational-readiness-*.json`
 - Batch HITL 템플릿: `artifacts/common-agent-web-knowledge-hitl-decisions-template-*.json`
 - Batch HITL 검증: `artifacts/web-knowledge-hitl-decision-verification-report-*.json`
+- Batch HITL 로컬 적용 dry-run/apply: `artifacts/web-knowledge-hitl-decision-apply-report-*.json`
 - Electron 왕복 화면: `artifacts/electron-web-knowledge-hitl.png`
 - 운영 HITL 원장: Electron `userData/web-knowledge-review-decisions.json`
 - 운영 중앙 적재 원장: Electron `userData/web-knowledge-central-ingestions.json`

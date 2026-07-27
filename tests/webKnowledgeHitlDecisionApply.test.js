@@ -172,7 +172,7 @@ test('explicit apply writes verified decisions to the local HITL ledger only', (
 });
 
 test('fails closed when the verification report is not ready for local import', () => {
-  const cards = [card(1)];
+  const cards = [card(1), card(2), card(3)];
   const { ledger } = createLedger();
   const report = applyWebKnowledgeHitlDecisionVerificationReport({
     verificationReport: readyReport(cards, {
