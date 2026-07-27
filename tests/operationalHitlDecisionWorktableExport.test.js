@@ -223,3 +223,72 @@ test('marks rows from unreadable editable files as blocked without throwing', ()
   assert.match(exportPacket.csv, /missing_editable_file/);
   assert.match(exportPacket.recommendedAction, /workspace/);
 });
+
+test('exports Web Knowledge required review fields without dropping source suggestions', () => {
+  const editablePath = 'C:\\repo\\workspace\\03-web-knowledge-hitl.decisions.json';
+  const exportPacket = buildOperationalHitlDecisionWorktableExport({
+    workspaceManifest: {
+      contractVersion: 'operational-hitl-editable-decision-workspace/v1',
+      summary: {
+        totalDecisionInputsMissing: 1,
+        workspaceFileCount: 1
+      },
+      editableFiles: [
+        {
+          queueCode: 'web_knowledge_hitl',
+          titleKo: 'Web Knowledge HITL 승인',
+          owner: 'knowledge_owner',
+          editablePath,
+          allowedActions: ['approve_card', 'mark_needs_changes', 'reject_card'],
+          requiredFields: [
+            'action',
+            'reviewerId',
+            'decidedAt',
+            'reviewComment',
+            'confirmed',
+            'reviewedDefectName',
+            'reviewedProblem',
+            'reviewedPhenomenon',
+            'causeCandidates',
+            'causeLabels',
+            'checkItems',
+            'actions'
+          ],
+          decisionIdentifierField: 'caseId',
+          verifyCommand: 'npm run knowledge:web:hitl:verify-decisions -- --decisions "C:\\repo\\workspace\\03-web-knowledge-hitl.decisions.json"'
+        }
+      ]
+    },
+    readFileText: filePath => filePath === editablePath
+      ? JSON.stringify({
+        contractVersion: 'common-agent-web-knowledge-hitl-decisions-template/v1',
+        decisions: [
+          {
+            caseId: 'web-basf-04-weld-line',
+            action: 'pending',
+            reviewedDefectName: '웰드라인',
+            reviewedProblem: '사출 성형품에서 웰드라인 결함이 발생한다.',
+            reviewedPhenomenon: '두 수지 유동 선단이 합류한 위치에 선형 자국이 보인다.',
+            causeCandidates: ['두 개 이상의 용융 수지 선단이 낮은 온도로 합류한다.'],
+            suggestedCauseLabels: ['유동 선단', '금형 온도'],
+            suggestedCheckItems: ['보압 절환점 확인', '벤트 청소 상태 확인'],
+            suggestedActions: ['수지 온도 상승', '게이트 위치 검토']
+          }
+        ]
+      })
+      : null
+  });
+
+  assert.equal(exportPacket.status, 'ready_for_human_edit');
+  assert.ok(exportPacket.columns.includes('reviewedDefectName'));
+  assert.ok(exportPacket.columns.includes('reviewedProblem'));
+  assert.ok(exportPacket.columns.includes('reviewedPhenomenon'));
+  assert.equal(exportPacket.rows[0].reviewedDefectName, '웰드라인');
+  assert.equal(exportPacket.rows[0].reviewedProblem, '사출 성형품에서 웰드라인 결함이 발생한다.');
+  assert.equal(exportPacket.rows[0].reviewedPhenomenon, '두 수지 유동 선단이 합류한 위치에 선형 자국이 보인다.');
+  assert.equal(exportPacket.rows[0].causeLabels, '유동 선단 | 금형 온도');
+  assert.equal(exportPacket.rows[0].checkItems, '보압 절환점 확인 | 벤트 청소 상태 확인');
+  assert.equal(exportPacket.rows[0].actions, '수지 온도 상승 | 게이트 위치 검토');
+  assert.match(exportPacket.csv, /reviewedDefectName,reviewedProblem,reviewedPhenomenon/);
+  assert.match(exportPacket.csv, /두 수지 유동 선단이 합류한 위치/);
+});
