@@ -54,7 +54,108 @@ const decisionOptionsFor = (candidateLabels, affectedCaseIds) => [
   }
 ];
 
-const normalizeConflict = (conflict, index) => {
+const caseMapFromManifest = approvedManifest => new Map(
+  asArray(approvedManifest?.cases)
+    .map(caseEntry => [compact(caseEntry?.id), caseEntry])
+    .filter(([caseId]) => caseId)
+);
+
+const fixtureForCaseId = (fixturesByCaseId, caseId) => {
+  if (fixturesByCaseId instanceof Map) return fixturesByCaseId.get(caseId) || null;
+  if (Array.isArray(fixturesByCaseId)) {
+    return fixturesByCaseId.find(fixture => compact(fixture?.id) === caseId) || null;
+  }
+  return fixturesByCaseId?.[caseId] || null;
+};
+
+const normalizeCaptureProtocol = captureProtocol => ({
+  imageKind: compact(captureProtocol?.imageKind || 'unknown') || 'unknown',
+  availableViews: unique(captureProtocol?.availableViews || []),
+  roiConfirmed: Boolean(captureProtocol?.roiConfirmed),
+  metadataSource: compact(captureProtocol?.metadataSource)
+});
+
+const normalizeSourceReview = sourceReview => ({
+  reviewStatus: compact(sourceReview?.reviewStatus),
+  reviewedAt: compact(sourceReview?.reviewedAt),
+  sourceSystem: compact(sourceReview?.sourceSystem),
+  priorObservationDefectType: compact(sourceReview?.priorObservationDefectType),
+  originalVisionDefectType: compact(sourceReview?.originalVisionDefectType),
+  priorObservationSummary: compact(sourceReview?.priorObservationSummary)
+});
+
+const humanReviewFocusFor = ({ conflictType, candidateLabels, caseId, fixtureFound }) => {
+  const labels = candidateLabels.join(', ') || '후보 라벨';
+  if (!fixtureFound) {
+    return `${caseId}의 approved fixture 원본을 먼저 복구한 뒤 라벨 충돌을 판정하세요.`;
+  }
+  if (conflictType === 'same_hash_multi_label') {
+    return `동일 이미지 hash에서 ${labels} 중 실제 지배 결함이 무엇인지 원본 이미지와 prior/original 비전 관찰을 함께 확인하세요.`;
+  }
+  if (conflictType === 'single_record_multi_label') {
+    return `단일 승인 record에서 ${labels}가 충돌합니다. 승인 라벨과 기존 비전 관찰 중 Graph 학습에 남길 정답 라벨을 확인하세요.`;
+  }
+  return `${caseId}의 원본 이미지, 승인 라벨, 기존 비전 관찰을 비교해 Graph/Reference 학습에 남길 라벨을 확인하세요.`;
+};
+
+const caseEvidenceFor = ({
+  caseId,
+  conflictType,
+  candidateLabels,
+  manifestCase,
+  fixture
+}) => {
+  const fixtureFound = Boolean(fixture);
+  return {
+    caseId,
+    fixtureFound,
+    manifestStatus: compact(manifestCase?.status),
+    manifestTags: unique(manifestCase?.tags || []),
+    fixtureFile: compact(manifestCase?.file),
+    title: compact(fixture?.title),
+    commonAgentImageId: compact(fixture?.commonAgentImageId),
+    fileName: compact(fixture?.fileName),
+    mimeType: compact(fixture?.mimeType),
+    contentHash: compact(fixture?.contentHash).toLowerCase(),
+    expectedDefectType: compact(fixture?.expected?.defectType),
+    expectedDefectClass: compact(fixture?.expected?.defectClass),
+    captureProtocol: normalizeCaptureProtocol(fixture?.captureProtocol),
+    sourceReview: normalizeSourceReview(fixture?.sourceReview),
+    humanReviewFocusKo: humanReviewFocusFor({
+      conflictType,
+      candidateLabels,
+      caseId,
+      fixtureFound
+    })
+  };
+};
+
+const reviewEvidenceStatusFor = caseEvidence => {
+  if (caseEvidence.length === 0) return 'fixture_evidence_missing';
+  const foundCount = caseEvidence.filter(evidence => evidence.fixtureFound).length;
+  if (foundCount === caseEvidence.length) return 'fixture_evidence_ready';
+  if (foundCount > 0) return 'fixture_evidence_partial';
+  return 'fixture_evidence_missing';
+};
+
+const summarizeEvidence = conflicts => {
+  const allEvidence = conflicts.flatMap(conflict => asArray(conflict.caseEvidence));
+  return {
+    evidenceReadyCases: allEvidence.filter(evidence => evidence.fixtureFound).length,
+    evidenceMissingCases: allEvidence.filter(evidence => !evidence.fixtureFound).length,
+    evidenceReadyConflicts: conflicts.filter(
+      conflict => conflict.reviewEvidenceStatus === 'fixture_evidence_ready'
+    ).length,
+    evidencePartialConflicts: conflicts.filter(
+      conflict => conflict.reviewEvidenceStatus === 'fixture_evidence_partial'
+    ).length,
+    evidenceMissingConflicts: conflicts.filter(
+      conflict => conflict.reviewEvidenceStatus === 'fixture_evidence_missing'
+    ).length
+  };
+};
+
+const normalizeConflict = (conflict, index, context = {}) => {
   const candidateLabels = unique(conflict?.labels || conflict?.candidateLabels || []);
   const affectedCaseIds = unique(conflict?.caseIds || conflict?.affectedCaseIds || []);
   const contentHash = compact(conflict?.contentHash || conflict?.content_hash);
@@ -66,9 +167,19 @@ const normalizeConflict = (conflict, index) => {
     requiresHumanDecision: true,
     autoResolveAllowed: false
   };
+  const conflictType = conflictTypeFor(normalized);
+  const caseEvidence = affectedCaseIds.map(caseId => caseEvidenceFor({
+    caseId,
+    conflictType,
+    candidateLabels,
+    manifestCase: context.manifestCasesById?.get(caseId),
+    fixture: fixtureForCaseId(context.fixturesByCaseId, caseId)
+  }));
   return {
     ...normalized,
-    conflictType: conflictTypeFor(normalized),
+    conflictType,
+    reviewEvidenceStatus: reviewEvidenceStatusFor(caseEvidence),
+    caseEvidence,
     decisionOptions: decisionOptionsFor(candidateLabels, affectedCaseIds)
   };
 };
@@ -77,13 +188,21 @@ const buildVisionApprovedLabelConflictReviewPacket = ({
   generatedAt = new Date().toISOString(),
   readinessAudit = null,
   postHitlVerificationReport = null,
+  approvedManifest = null,
+  fixturesByCaseId = {},
+  approvedFixtureRoot = '',
   sourceArtifacts = {}
 } = {}) => {
   const readinessConflicts = conflictsFromReadinessAudit(readinessAudit);
   const postHitlConflicts = conflictsFromPostHitlReport(postHitlVerificationReport);
+  const context = {
+    manifestCasesById: caseMapFromManifest(approvedManifest),
+    fixturesByCaseId
+  };
   const conflicts = (readinessConflicts.length > 0 ? readinessConflicts : postHitlConflicts)
-    .map(normalizeConflict);
+    .map((conflict, index) => normalizeConflict(conflict, index, context));
   const status = conflicts.length > 0 ? 'action_required' : 'clear';
+  const evidenceSummary = summarizeEvidence(conflicts);
 
   return {
     schemaVersion: 1,
@@ -102,6 +221,10 @@ const buildVisionApprovedLabelConflictReviewPacket = ({
       allowReferenceLearning: false,
       allowModelTraining: false
     },
+    summary: {
+      conflicts: conflicts.length,
+      ...evidenceSummary
+    },
     conflicts,
     commonAgentReviewRequest: {
       reviewType: 'approved_label_conflict_resolution',
@@ -115,7 +238,9 @@ const buildVisionApprovedLabelConflictReviewPacket = ({
     },
     sources: {
       readinessAudit: sourceArtifacts.readinessAudit || null,
-      postHitlVerificationReport: sourceArtifacts.postHitlVerificationReport || null
+      postHitlVerificationReport: sourceArtifacts.postHitlVerificationReport || null,
+      approvedFixtureRoot: sourceArtifacts.approvedFixtureRoot || approvedFixtureRoot || null,
+      approvedManifest: sourceArtifacts.approvedManifest || null
     },
     recommendedAction: status === 'action_required'
       ? '라벨 충돌 그룹별로 정답 라벨 유지, needs_review 전환, rejected 전환, 재촬영 요청 중 하나를 사람이 결정하세요.'

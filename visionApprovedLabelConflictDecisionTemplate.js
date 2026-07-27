@@ -57,6 +57,36 @@ const conflictsByType = conflicts => conflicts.reduce((counts, conflict) => {
   };
 }, {});
 
+const normalizeCaseEvidence = evidence => ({
+  caseId: compact(evidence?.caseId),
+  fixtureFound: Boolean(evidence?.fixtureFound),
+  manifestStatus: compact(evidence?.manifestStatus),
+  manifestTags: unique(evidence?.manifestTags || []),
+  fixtureFile: compact(evidence?.fixtureFile),
+  title: compact(evidence?.title),
+  commonAgentImageId: compact(evidence?.commonAgentImageId),
+  fileName: compact(evidence?.fileName),
+  mimeType: compact(evidence?.mimeType),
+  contentHash: compact(evidence?.contentHash).toLowerCase(),
+  expectedDefectType: compact(evidence?.expectedDefectType),
+  expectedDefectClass: compact(evidence?.expectedDefectClass),
+  captureProtocol: {
+    imageKind: compact(evidence?.captureProtocol?.imageKind || 'unknown') || 'unknown',
+    availableViews: unique(evidence?.captureProtocol?.availableViews || []),
+    roiConfirmed: Boolean(evidence?.captureProtocol?.roiConfirmed),
+    metadataSource: compact(evidence?.captureProtocol?.metadataSource)
+  },
+  sourceReview: {
+    reviewStatus: compact(evidence?.sourceReview?.reviewStatus),
+    reviewedAt: compact(evidence?.sourceReview?.reviewedAt),
+    sourceSystem: compact(evidence?.sourceReview?.sourceSystem),
+    priorObservationDefectType: compact(evidence?.sourceReview?.priorObservationDefectType),
+    originalVisionDefectType: compact(evidence?.sourceReview?.originalVisionDefectType),
+    priorObservationSummary: compact(evidence?.sourceReview?.priorObservationSummary)
+  },
+  humanReviewFocusKo: compact(evidence?.humanReviewFocusKo)
+});
+
 const decisionTemplateFor = conflict => ({
   conflictId: compact(conflict?.conflictId),
   contentHash: compact(conflict?.contentHash).toLowerCase(),
@@ -77,9 +107,12 @@ const decisionTemplateFor = conflict => ({
       action: compact(option?.action),
       label: compact(option?.label),
       result: compact(option?.result)
-    })).filter(option => option.action)
+    })).filter(option => option.action),
+    caseEvidence: asArray(conflict?.caseEvidence)
+      .map(normalizeCaseEvidence)
+      .filter(evidence => evidence.caseId)
   },
-  reviewerGuidance: '원본 이미지/동일 hash 그룹을 사람이 확인한 뒤 정답 라벨 유지, needs_review, rejected, 재촬영 중 하나를 선택하세요. 이 템플릿은 자동 승격, Graph 쓰기, Reference 학습을 수행하지 않습니다.'
+  reviewerGuidance: '원본 이미지/동일 hash 그룹과 fixture 근거를 사람이 확인한 뒤 정답 라벨 유지, needs_review, rejected, 재촬영 중 하나를 선택하세요. 이 템플릿은 자동 승격, Graph 쓰기, Reference 학습을 수행하지 않습니다.'
 });
 
 const recommendedActionFor = status => ({
