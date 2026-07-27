@@ -85,6 +85,11 @@ const path = require('node:path');
         evidenceCount: 4,
         graphGrounded: true,
         llmSupplemented: false,
+        visionClassifierStatus: 'agreed',
+        visionClassifierAgreementWithVisionTop1: true,
+        visionClassifierTopCandidate: '백화',
+        visionClassifierReferenceCount: 5,
+        visionClassifierMinimumReferenceSupport: 3,
         contextProvided: true,
         roiCount: 1,
         ocrProvided: false
@@ -105,6 +110,11 @@ const path = require('node:path');
         evidenceCount: 0,
         graphGrounded: false,
         llmSupplemented: true,
+        visionClassifierStatus: 'disagreed',
+        visionClassifierAgreementWithVisionTop1: false,
+        visionClassifierTopCandidate: '웰드라인',
+        visionClassifierReferenceCount: 3,
+        visionClassifierMinimumReferenceSupport: 3,
         contextProvided: false,
         roiCount: 0,
         ocrProvided: true,
@@ -148,10 +158,14 @@ const path = require('node:path');
       reportClassifiableRate: captured.report.readiness.classifiableRate,
       hasObservabilityPanel: bodyText.includes('진단 운영 관측성'),
       hasLatencyMetric: bodyText.includes('Agent P50/P95'),
+      hasClassifierMetric: bodyText.includes('Classifier 합의'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       releaseDecision: captured.report.operationalRelease?.decision,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
+      reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
+      reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
+      reportClassifierAverageReferenceCount: captured.report.observability.averageClassifierReferenceCount,
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
       reportRetrievalModes: captured.report.observability.retrievalModes,
@@ -165,10 +179,14 @@ const path = require('node:path');
       !result.hasClassifiableMetric
       || !result.hasObservabilityPanel
       || !result.hasLatencyMetric
+      || !result.hasClassifierMetric
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
       || result.releaseDecision !== 'rollback_required'
       || result.reportGraphGroundedRate !== 50
+      || result.reportClassifierAgreementRate !== 50
+      || result.reportClassifierDisagreementRate !== 50
+      || result.reportClassifierAverageReferenceCount !== 4
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
       || result.reportRetrievalModes.graph_only !== 1
