@@ -101,6 +101,12 @@ const hitlWorkflowCommands = [
   'npm run migration:verify-post-hitl'
 ];
 
+const labelConflictWorkflowCommands = [
+  'npm run vision:label-conflicts:packet',
+  'npm run vision:label-conflicts:decision-template',
+  'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+];
+
 const hitlReviewDescription = workflow =>
   workflow?.nextActionKo
     ? `고신뢰 Vision/HITL 후보를 승인, 수정, 반려, 재촬영 중 하나로 닫아야 합니다. 현재 단계: ${workflow.nextActionKo}`
@@ -117,6 +123,7 @@ const actionTasksFor = (blockers, readinessAudit = {}) => {
       titleKo: '승인 이미지 라벨 충돌 해결',
       descriptionKo: '동일 이미지 또는 동일 해시의 불량 라벨이 충돌합니다. HITL에서 정답 라벨을 확정하기 전에는 reference learning과 Graph 승격을 막습니다.',
       sourceBlockers: [conflict],
+      commands: labelConflictWorkflowCommands,
       count: Number(conflict.count) || asArray(conflict.conflicts).length,
       sampleRefs: conflictSampleRefs(conflict.conflicts)
     }));

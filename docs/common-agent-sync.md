@@ -112,6 +112,31 @@ case id, content hash, 후보 라벨, 허용된 결정 옵션을 포함한다. �
 정정은 없다. 이 패킷도 `serviceWritesPerformed=false`이고 Graph promotion,
 reference learning, model training을 모두 금지한다.
 
+충돌 그룹별 사람 판정 파일은 다음 템플릿으로 시작한다.
+
+```powershell
+npm run vision:label-conflicts:decision-template
+```
+
+생성되는 `vision-approved-label-conflict-decisions/v1` 템플릿은 각 충돌을
+`action=pending`으로 두고, 후보 라벨, 영향 case id, content hash, 허용 action을
+보존한다. 정답 라벨을 유지하려면 `keep_label`, `selectedLabel`,
+`imageSetConfirmed=true`, `labelConfirmed=true`, 판정 시각, 검토 코멘트를
+채워야 한다. 근거 부족은 `mark_needs_review`, 부적합은
+`reject_conflicting_cases`, 입력 품질 부족은 `request_recapture`로 분리한다.
+
+작성된 판정 파일은 다음 명령으로 검증한다.
+
+```powershell
+npm run vision:label-conflicts:verify-decisions -- --decisions <vision-label-conflict-decisions.json>
+```
+
+검증 보고서는 `vision-approved-label-conflict-decision-verification-report/v1`이며
+충돌 그룹, hash, case id, 후보 라벨, reviewer id, 판정 시각, 코멘트를 모두
+검증한다. 결과가 `ready_for_manual_import`여도 Graph DB, Reference store,
+모델 학습에는 직접 쓰지 않고 `importPlan`만 만든다. 따라서 approved 라벨
+충돌은 사람이 확정하기 전까지 계속 운영 readiness blocker로 남는다.
+
 ## 미해결 HITL 후보 검토 큐
 
 라벨 충돌과 별개로, Vision source label과 모델 관찰이 서로 일치하지만 아직

@@ -80,6 +80,11 @@ test('blocker worklist turns readiness blockers into prioritized human tasks', (
   assert.equal(conflicts.count, 4);
   assert.deepEqual(conflicts.sampleRefs, ['approved-image-a', 'approved-image-b']);
   assert.match(conflicts.titleKo, /라벨 충돌/);
+  assert.deepEqual(conflicts.commands, [
+    'npm run vision:label-conflicts:packet',
+    'npm run vision:label-conflicts:decision-template',
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+  ]);
 
   const sampleTask = worklist.tasks.find(task => task.code === 'collect_approved_samples');
   assert.equal(sampleTask.current, 12);
