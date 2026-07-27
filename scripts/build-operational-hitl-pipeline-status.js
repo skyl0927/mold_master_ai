@@ -1,0 +1,187 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const {
+  buildOperationalHitlPipelineStatus
+} = require('../operationalHitlPipelineStatus');
+
+const root = path.resolve(__dirname, '..');
+const artifactRoot = path.join(root, 'artifacts');
+const args = process.argv.slice(2);
+
+const valueAfter = flag => {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
+};
+
+const timestamp = () => new Date().toISOString().replace(/[:.]/g, '-');
+
+const latestArtifact = prefix => {
+  if (!fs.existsSync(artifactRoot)) return null;
+  return fs.readdirSync(artifactRoot)
+    .filter(name => name.startsWith(prefix) && name.endsWith('.json'))
+    .map(name => path.join(artifactRoot, name))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs)
+    .at(0) || null;
+};
+
+const latestCsv = prefix => {
+  if (!fs.existsSync(artifactRoot)) return null;
+  return fs.readdirSync(artifactRoot)
+    .filter(name => name.startsWith(prefix) && name.endsWith('.csv'))
+    .map(name => path.join(artifactRoot, name))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs)
+    .at(0) || null;
+};
+
+const latestWorkspaceManifest = () => {
+  if (!fs.existsSync(artifactRoot)) return null;
+  return fs.readdirSync(artifactRoot, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('operational-hitl-editable-decision-workspace-'))
+    .map(entry => path.join(artifactRoot, entry.name, 'manifest.json'))
+    .filter(filePath => fs.existsSync(filePath))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs)
+    .at(0) || null;
+};
+
+const resolveOptionalPath = (...candidates) => {
+  const candidate = candidates.find(Boolean);
+  return candidate ? path.resolve(candidate) : null;
+};
+
+const readOptionalJson = filePath => {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+};
+
+const writeText = (filePath, payload) => {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, payload, 'utf8');
+};
+
+const writeJson = (filePath, payload) => {
+  writeText(filePath, `${JSON.stringify(payload, null, 2)}\n`);
+};
+
+const intakeStatusPath = resolveOptionalPath(
+  valueAfter('--intake-status'),
+  process.env.OPERATIONAL_HITL_DECISION_INTAKE_STATUS,
+  latestArtifact('operational-hitl-decision-intake-status-')
+);
+
+const workspaceManifestPath = resolveOptionalPath(
+  valueAfter('--workspace-manifest'),
+  process.env.OPERATIONAL_HITL_EDITABLE_DECISION_WORKSPACE_MANIFEST,
+  latestWorkspaceManifest()
+);
+
+const worktableExportPath = resolveOptionalPath(
+  valueAfter('--worktable-export'),
+  process.env.OPERATIONAL_HITL_DECISION_WORKTABLE_EXPORT,
+  latestArtifact('operational-hitl-decision-worktable-export-')
+);
+
+const worktableCsvPath = resolveOptionalPath(
+  valueAfter('--worktable-csv'),
+  process.env.OPERATIONAL_HITL_DECISION_WORKTABLE_CSV,
+  latestCsv('operational-hitl-decision-worktable-export-')
+);
+
+const worktableImportPath = resolveOptionalPath(
+  valueAfter('--worktable-import'),
+  process.env.OPERATIONAL_HITL_DECISION_WORKTABLE_IMPORT,
+  latestArtifact('operational-hitl-decision-worktable-import-')
+);
+
+const preflightPath = resolveOptionalPath(
+  valueAfter('--preflight'),
+  process.env.OPERATIONAL_HITL_EDITABLE_DECISION_PREFLIGHT_REPORT,
+  latestArtifact('operational-hitl-editable-decision-preflight-')
+);
+
+const verificationRunPath = resolveOptionalPath(
+  valueAfter('--verification-run'),
+  process.env.OPERATIONAL_HITL_VERIFICATION_RUN,
+  latestArtifact('operational-hitl-verification-run-')
+);
+
+const commonAgentImportPath = resolveOptionalPath(
+  valueAfter('--common-agent-import-package'),
+  process.env.OPERATIONAL_HITL_COMMON_AGENT_IMPORT_PACKAGE,
+  latestArtifact('operational-hitl-common-agent-import-package-')
+);
+
+const postImportValidationPath = resolveOptionalPath(
+  valueAfter('--post-import-validation-plan'),
+  process.env.OPERATIONAL_HITL_POST_IMPORT_VALIDATION_PLAN,
+  latestArtifact('operational-hitl-post-import-validation-plan-')
+);
+
+const baseOutput = valueAfter('--output-base')
+  || process.env.OPERATIONAL_HITL_PIPELINE_STATUS_OUTPUT_BASE
+  || path.join(artifactRoot, `operational-hitl-pipeline-status-${timestamp()}`);
+
+const jsonOutputPath = path.resolve(`${baseOutput}.json`);
+const markdownOutputPath = path.resolve(`${baseOutput}.md`);
+
+const run = () => {
+  const report = buildOperationalHitlPipelineStatus({
+    intakeStatus: readOptionalJson(intakeStatusPath),
+    workspaceManifest: readOptionalJson(workspaceManifestPath),
+    worktableExport: readOptionalJson(worktableExportPath),
+    worktableImport: readOptionalJson(worktableImportPath),
+    preflightReport: readOptionalJson(preflightPath),
+    verificationRun: readOptionalJson(verificationRunPath),
+    commonAgentImportPackage: readOptionalJson(commonAgentImportPath),
+    postImportValidationPlan: readOptionalJson(postImportValidationPath),
+    sourceArtifacts: {
+      intakeStatus: intakeStatusPath,
+      workspaceManifest: workspaceManifestPath,
+      worktableExport: worktableExportPath,
+      worktableCsv: worktableCsvPath,
+      worktableImport: worktableImportPath,
+      preflightReport: preflightPath,
+      verificationRun: verificationRunPath,
+      commonAgentImportPackage: commonAgentImportPath,
+      postImportValidationPlan: postImportValidationPath
+    }
+  });
+
+  if (report.markdown) writeText(markdownOutputPath, report.markdown);
+  writeJson(jsonOutputPath, {
+    ...report,
+    markdown: undefined,
+    markdownPath: report.markdown ? markdownOutputPath : null
+  });
+
+  console.log(JSON.stringify({
+    outputPath: jsonOutputPath,
+    markdownPath: report.markdown ? markdownOutputPath : null,
+    status: report.status,
+    currentStage: report.currentStage.code,
+    serviceWritesPerformed: report.serviceWritesPerformed,
+    totalDecisionInputsMissing: report.summary.totalDecisionInputsMissing,
+    worktableRows: report.summary.worktableRows,
+    worktablePlannedUpdates: report.summary.worktablePlannedUpdates,
+    preflightPendingDecisions: report.summary.preflightPendingDecisions,
+    verificationCommandsExecuted: report.summary.verificationCommandsExecuted,
+    commonAgentApprovedPayloads: report.summary.commonAgentApprovedPayloads,
+    postImportValidationCases: report.summary.postImportValidationCases,
+    recommendedAction: report.recommendedAction
+  }, null, 2));
+};
+
+try {
+  run();
+} catch (error) {
+  const report = buildOperationalHitlPipelineStatus({
+    sourceArtifacts: {
+      intakeStatus: intakeStatusPath,
+      workspaceManifest: workspaceManifestPath,
+      worktableExport: worktableExportPath
+    }
+  });
+  report.summary.error = error instanceof Error ? error.message : String(error);
+  writeJson(jsonOutputPath, report);
+  console.error(error);
+  process.exitCode = 1;
+}

@@ -98,6 +98,7 @@ npm run operational:hitl:worktable-import
 npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
+npm run operational:hitl:pipeline-status
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -193,6 +194,13 @@ Graph RAG 답변 근거 검증, Vision approved 라벨 왕복 검증, 라벨 충
 분리하며, 각 case는 기대 키워드, Common Agent 요청 템플릿, acceptance criteria,
 출처 artifact를 포함한다. 현재 import package가 아직 blocked이면 test case를
 비운 `blocked_import_package_not_ready` 상태로 저장한다.
+
+`operational:hitl:pipeline-status`는 최신 intake, editable workspace, worktable,
+preflight, verification run, Common Agent import package, post-import validation
+artifact를 한 장의 `operational-hitl-pipeline-status/v1`로 요약한다. 현재 병목
+단계, 남은 사람 입력 수, 다음 실행 명령, Common Agent 수동 검토 가능 여부를
+표시하지만, 이 명령도 외부 서비스 호출, SQL 쓰기, Graph 승격, Reference 학습,
+모델 학습을 수행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
