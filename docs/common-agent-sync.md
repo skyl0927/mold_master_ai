@@ -87,6 +87,7 @@ npm run vision:operational:handoff
 npm run operational:progress
 npm run operational:hitl:intake-status
 npm run operational:hitl:action-pack
+npm run operational:hitl:prepare-plan
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -108,6 +109,12 @@ Vision pending HITL, Web Knowledge HITL로 나눠 집계한다.
 처리할 action step, 담당 owner, pending 수량, 다음 명령, operator instruction을
 한 번에 제공하지만, 여전히 artifact-only이며 외부 서비스 쓰기와 Graph/Reference/
 모델 학습을 모두 금지한다.
+
+`operational:hitl:prepare-plan`은 action pack의 명령을 다시 분리해
+`decision-template`과 `review-guide`처럼 사람이 작성하기 전에 안전하게 생성할
+수 있는 준비 명령만 `preparationCommands`로 모은다. `verify-decisions`,
+`apply`, `approve`, `authorization-bridge`류 명령은 사람이 판정 파일을 채운
+뒤에만 실행할 수 있도록 `humanGatedCommands`로 격리한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
