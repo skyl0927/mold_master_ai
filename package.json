@@ -74,6 +74,7 @@
     "test:vision-hitl-reevaluation-post-check": "node --test tests/visionHitlReevaluationPostCheck.test.js",
     "test:vision-operational-readiness": "node --test tests/visionOperationalReadinessAudit.test.js",
     "test:vision-operational-worklist": "node --test tests/visionOperationalBlockerWorklist.test.js tests/visionOperationalCommonAgentHandoff.test.js",
+    "test:vision-operational-hitl-display": "node --test tests/visionOperationalHitlWorkflowDisplay.test.js",
     "test:vision-label-conflicts": "node --test tests/visionApprovedLabelConflictReviewPacket.test.js",
     "test:vision-hitl-pending-packet": "node --test tests/visionPendingHitlReviewQueuePacket.test.js",
     "test:vision-hitl-decision-template": "node --test tests/visionPendingHitlDecisionTemplate.test.js",
