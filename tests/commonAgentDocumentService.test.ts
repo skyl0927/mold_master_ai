@@ -342,6 +342,7 @@ test('Graph-missing LLM supplement never populates specification cause or action
 
     const analysis = CommonAgentApiService.toDefectAnalysis(response);
 
+    assert.equal(analysis.defectType, '판정 보류 (미분류 표면 결함 후보 검토 필요)');
     assert.equal(analysis.possibleCauses, '');
     assert.equal(analysis.countermeasures, '');
     assert.equal(analysis.visionSummary?.decisionStatus, 'needs_review');
