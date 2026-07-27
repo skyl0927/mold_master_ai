@@ -74,6 +74,29 @@ Invoke-RestMethod "http://localhost:8000/v1/datasets/images/export-yolo?review_s
 
 문서 승인 시 Document뿐 아니라 Block, Cluster, Entity, Relationship도 함께 `approved`가 되어야 한다. Graph-only 질의는 검색 전에 `review_status=approved`를 적용해 candidate 근거가 top-k를 소진하지 않도록 한다.
 
+## 운영 handoff 패킷
+
+Vision 운영 readiness audit과 blocker worklist는 Common Agent 또는
+Antigravity가 이어 받을 수 있도록 artifact-only handoff JSON으로 묶을 수
+있다.
+
+```powershell
+npm run vision:operational:readiness
+npm run vision:operational:worklist
+npm run vision:operational:handoff
+```
+
+생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
+작업, 담당 owner, Common Agent 액션 코드, 원본 artifact 경로, 안전 정책을
+포함한다. 이 명령은 Common Agent API를 호출하지 않으며 SQL, Graph, 모델
+설정을 변경하지 않는다.
+
+현재 차단 작업이 남아 있으면 `status=blocked`,
+`manualImportAllowed=false`, `allowGraphPromotion=false`,
+`allowModelActivation=false`로 저장된다. 모든 작업이 닫히고 운영자 수동
+승인까지 완료된 후에도 자동 쓰기는 금지되며, Common Agent 쪽에서는 이
+패킷을 승인된 학습 데이터가 아니라 검토 artifact로 취급해야 한다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한

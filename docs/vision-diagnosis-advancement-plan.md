@@ -510,8 +510,13 @@ artifact 하나로 묶었다. 현재 PC의 실제 artifact 기준 실행 결과�
 충돌 해결(`resolve_label_conflicts`)이다. 2026-07-27에는 Settings의 비전
 릴리스 게이트와 전환 리포트 JSON에도 같은 운영 작업 목록, readiness audit,
 Common Agent handoff 안전 정책을 노출해 CLI artifact를 열지 않아도 현재
-차단 상태를 확인할 수 있게 했다. 실제 승인 현장 데이터의 운영 합격 판정은
-계속 보류한다.
+차단 상태를 확인할 수 있게 했다. 이어서
+`vision-operational-common-agent-handoff-packet/v1`과
+`npm run vision:operational:handoff`를 추가해 blocker worklist를 Common
+Agent/Antigravity가 이어 받을 수 있는 artifact-only 패킷으로 묶었다. 이
+패킷은 현재 `blocked`, `manualImportAllowed=false`, `serviceWritesPerformed=false`
+이며 Graph/Model 자동 승격을 명시적으로 금지한다. 실제 승인 현장 데이터의
+운영 합격 판정은 계속 보류한다.
 
 개발:
 
@@ -590,14 +595,15 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
    후 `enforce`로 승격
 4. 2026-07-27 운영 릴리스 보고서의 결정 카드, 담당자 확인 기록,
    evidenceBundle, release history ledger, evidence alignment gate, release
-   trend summary, final readiness audit, blocker worklist 연결을 구현했고,
+   trend summary, final readiness audit, blocker worklist, Common Agent
+   handoff packet 연결을 구현했고,
    `vision:release:evidence:merge`로 중앙 증거 패킷을 release config에
    병합할 수 있게 했다. 남은 작업은 실제 Common Agent export와 Graph
    snapshot URI가 포함된 운영 benchmark artifact를 승인 현장 데이터로
    생성하고, `npm run vision:operational:readiness`가
    `approved_for_manual_activation`에 도달하는지 반복 검증하며, 중간 차단
-   원인은 Settings와 `npm run vision:operational:worklist`에서 함께 확인하는
-   단계다.
+   원인은 Settings, `npm run vision:operational:worklist`,
+   `npm run vision:operational:handoff`에서 함께 확인하는 단계다.
 5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
    반대 근거, 추가 촬영 요구를 함께 저장
 
