@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   VISION_OBSERVATION_JSON_SCHEMA,
+  buildGeminiVisionObservationResponseSchema,
   buildOpenAiVisionObservationResponseFormat
 } = require('../visionStructuredOutputSchema');
 
@@ -53,4 +54,29 @@ test('Vision observation schema constrains observations and Top-3 candidates', (
   ]);
   assert.equal(candidateSchema.additionalProperties, false);
   assert.deepEqual(candidateSchema.properties.supporting_observation_ids.items.type, 'string');
+});
+
+test('Gemini Vision observation schema mirrors the v2 observer contract', () => {
+  const schema = buildGeminiVisionObservationResponseSchema();
+
+  assert.equal(schema.type, 'OBJECT');
+  assert.deepEqual(schema.required, VISION_OBSERVATION_JSON_SCHEMA.required);
+  assert.deepEqual(schema.propertyOrdering, VISION_OBSERVATION_JSON_SCHEMA.required);
+  assert.deepEqual(schema.properties.contract_version.enum, ['vision-observation/v2']);
+  assert.deepEqual(schema.properties.image_kind.enum, [
+    'physical_product',
+    'document_or_diagram',
+    'unknown'
+  ]);
+  assert.equal(schema.properties.observations.type, 'ARRAY');
+  assert.equal(schema.properties.observations.maxItems, '16');
+  assert.equal(schema.properties.observations.items.properties.confidence.type, 'NUMBER');
+  assert.equal(schema.properties.candidates.type, 'ARRAY');
+  assert.equal(schema.properties.candidates.maxItems, '3');
+  assert.deepEqual(schema.properties.candidates.items.required, [
+    'defect_type',
+    'confidence',
+    'supporting_observation_ids',
+    'contradicting_observation_ids'
+  ]);
 });
