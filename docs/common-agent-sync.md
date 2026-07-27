@@ -91,6 +91,7 @@ npm run operational:hitl:prepare-plan
 npm run operational:hitl:prepare-run
 npm run operational:hitl:decision-review-packet
 npm run operational:hitl:reviewer-worksheet
+npm run operational:hitl:editable-workspace
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -136,6 +137,13 @@ Markdown 워크시트로 변환한다. 큐별 우선순위, 결정 ID 미리보�
 허용 action, 검증 명령, 공통 체크리스트를 포함해 실제 HITL 판정자가 JSON
 템플릿을 채우기 전에 빠르게 확인할 수 있다. 이 워크시트도 자동 승인, 적용,
 Graph/Reference/Model 승격을 수행하지 않는다.
+
+`operational:hitl:editable-workspace`는 decision template 원본을 수정하지 않도록
+별도 workspace 폴더에 `*.decisions.json` 작업 복사본 3개와 `README.md`,
+`manifest.json`을 생성한다. 사람이 수정해야 할 파일은 이 workspace 안의 복사본
+뿐이며, manifest에는 원본 경로, 복사본 경로, 검증 명령, source hash가 함께
+기록된다. 원본 template 파일이 하나라도 없으면 아무 파일도 쓰지 않고
+`missing_source_templates`로 중단한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
