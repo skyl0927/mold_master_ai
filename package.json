@@ -19,6 +19,7 @@
     "eval:vision:release": "node scripts/build-vision-operational-release-report.js",
     "vision:release:evidence:merge": "node scripts/merge-vision-operational-evidence-packet.js",
     "vision:operational:readiness": "node scripts/build-vision-operational-readiness-audit.js",
+    "vision:operational:worklist": "node scripts/build-vision-operational-blocker-worklist.js",
     "vision:candidates:sync-card": "node scripts/sync-knowledge-card-vision-candidates.js",
     "vision:candidates:sync-web": "node scripts/sync-web-case-vision-candidates.js",
     "vision:review-packet": "node scripts/build-vision-human-review-packet.js",
