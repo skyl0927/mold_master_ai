@@ -109,6 +109,7 @@ const caseEvidenceFor = ({
   return {
     caseId,
     fixtureFound,
+    manifestListed: Boolean(manifestCase),
     manifestStatus: compact(manifestCase?.status),
     manifestTags: unique(manifestCase?.tags || []),
     fixtureFile: compact(manifestCase?.file),
@@ -143,6 +144,7 @@ const summarizeEvidence = conflicts => {
   return {
     evidenceReadyCases: allEvidence.filter(evidence => evidence.fixtureFound).length,
     evidenceMissingCases: allEvidence.filter(evidence => !evidence.fixtureFound).length,
+    manifestUnlistedCases: allEvidence.filter(evidence => evidence.fixtureFound && !evidence.manifestListed).length,
     evidenceReadyConflicts: conflicts.filter(
       conflict => conflict.reviewEvidenceStatus === 'fixture_evidence_ready'
     ).length,

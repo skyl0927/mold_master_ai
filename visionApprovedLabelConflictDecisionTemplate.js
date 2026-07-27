@@ -60,6 +60,7 @@ const conflictsByType = conflicts => conflicts.reduce((counts, conflict) => {
 const normalizeCaseEvidence = evidence => ({
   caseId: compact(evidence?.caseId),
   fixtureFound: Boolean(evidence?.fixtureFound),
+  manifestListed: Boolean(evidence?.manifestListed),
   manifestStatus: compact(evidence?.manifestStatus),
   manifestTags: unique(evidence?.manifestTags || []),
   fixtureFile: compact(evidence?.fixtureFile),

@@ -63,6 +63,15 @@ const readApprovedFixtureBundle = fixtureRoot => {
     }
   }
 
+  for (const fileName of fs.readdirSync(fixtureRoot)) {
+    if (!fileName.endsWith('.json') || fileName === 'manifest.json') continue;
+    const fixture = readOptionalJson(path.join(fixtureRoot, fileName));
+    const caseId = fixture?.id;
+    if (caseId && !fixturesByCaseId[caseId]) {
+      fixturesByCaseId[caseId] = fixture;
+    }
+  }
+
   return {
     approvedManifest,
     fixturesByCaseId,
