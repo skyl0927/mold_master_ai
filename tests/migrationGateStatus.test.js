@@ -292,3 +292,98 @@ test('capture protocol failure recommends collecting the missing views', () => {
     );
     assert.match(status.recommendedAction, /필수 촬영 시점/);
 });
+
+test('passing Vision reference operational gate is required before fallback retirement', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'passed',
+            readyForGraphRetrieval: true,
+            referenceStore: {
+                referenceCount: 42,
+                modelVersion: 'dinov2:facebook/dinov2-base',
+                productionReady: true
+            },
+            benchmark: {
+                evaluatedCount: 42,
+                top1Accuracy: 0.91,
+                top3Accuracy: 0.97,
+                failedGateChecks: []
+            },
+            blockers: []
+        }
+    });
+
+    assert.equal(status.visionReference.readyForGraphRetrieval, true);
+    assert.equal(status.visionReference.referenceCount, 42);
+    assert.equal(status.gate.canDisableLegacyFallback, true);
+    assert.deepEqual(status.blockers, []);
+});
+
+test('blocked Vision reference operational gate prevents fallback retirement', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'blocked',
+            readyForGraphRetrieval: false,
+            referenceStore: {
+                referenceCount: 0,
+                modelVersion: null,
+                productionReady: null
+            },
+            benchmark: {
+                evaluatedCount: 0,
+                failedGateChecks: []
+            },
+            blockers: [{
+                code: 'reference_store_invalid',
+                detail: 'GET http://agent.test/v1/vision/classifier/references/current: fetch failed'
+            }]
+        }
+    });
+
+    assert.equal(status.visionReference.readyForGraphRetrieval, false);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.deepEqual(status.blockers, [{
+        code: 'vision_reference_gate_failed',
+        details: [{
+            code: 'reference_store_invalid',
+            detail: 'GET http://agent.test/v1/vision/classifier/references/current: fetch failed'
+        }]
+    }]);
+    assert.match(status.recommendedAction, /Reference Store/);
+});
