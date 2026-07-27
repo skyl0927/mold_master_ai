@@ -39,6 +39,23 @@ const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
 
+const buildRecaptureSourceFromReview = ({
+  image,
+  analysis,
+  reviewDecisionId
+} = {}) => {
+  const visionSummary = analysis?.visionSummary || image?.analysis?.visionSummary || {};
+  const safetyGate = visionSummary?.safetyGate || {};
+  return {
+    localImageId: compact(image?.id),
+    commonAgentImageId: compact(image?.commonAgentImageId),
+    reviewDecisionId: compact(reviewDecisionId),
+    safetyGateReasons: stringList(safetyGate?.reasons),
+    requiredAdditionalViews: stringList(visionSummary?.requiredAdditionalViews),
+    bboxGroundingProfileId: compact(safetyGate?.bboxGroundingProfileId)
+  };
+};
+
 const createCaptureSessionId = (
   source = 'capture',
   now = Date.now(),
@@ -245,6 +262,7 @@ module.exports = {
   VALID_IMAGE_KINDS,
   assessCaptureImageForDiagnosis,
   buildCaptureMetadata,
+  buildRecaptureSourceFromReview,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
   selectDiagnosisTargetIds,

@@ -61,7 +61,9 @@ npm run build
 - `tsc --noEmit`: PASS
 - `npm run build`: PASS
 
-## 남은 과제
+## 후속 완료
 
-UI에서 recapture 대기 항목을 선택해 fresh capture session을 시작하고,
-새 사진의 `recaptureSource`를 자동 주입하는 작업이 다음 연결 단계다.
+2026-07-27 `vision-recapture-lineage-source-handoff.tdd.md`에서 HITL
+`recapture` 결정 후 다음 신규 화면 캡처, 카메라 촬영, 모바일 업로드, 파일
+업로드, 드래그 앤드 드롭 이미지에 `recaptureSource`를 자동 주입하는 연결
+단계를 완료했다.
