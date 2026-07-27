@@ -496,7 +496,10 @@ URI, 후보 `graphVersion`과 일치하는 Graph snapshot URI가 확인되지 �
 담당자 운영 확인을 저장하지 않는다. 이어서 Common Agent/Antigravity가
 내보낸 중앙 증거를 `vision-operational-evidence-packet/v1`로 받아 release
 config에 병합하는 CLI를 추가해, 실제 운영 benchmark 생성 전 URI 수기 입력
-오류를 줄였다. 실제 승인 현장 데이터의 운영 합격 판정은 계속 보류한다.
+오류를 줄였다. 누적 history는 `vision-operational-release-trend/v1`로
+반복 차단 원인, 근거 준비율, 운영 확인율, 다음 조치까지 요약해 Settings와
+전환 리포트 JSON에 함께 노출한다. 실제 승인 현장 데이터의 운영 합격 판정은
+계속 보류한다.
 
 개발:
 
@@ -574,12 +577,12 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행
    후 `enforce`로 승격
 4. 2026-07-27 운영 릴리스 보고서의 결정 카드, 담당자 확인 기록,
-   evidenceBundle, release history ledger, evidence alignment gate 연결을
-   구현했고, `vision:release:evidence:merge`로 중앙 증거 패킷을 release
-   config에 병합할 수 있게 했다. 남은 작업은 실제 Common Agent export와
-   Graph snapshot URI가 포함된 운영 benchmark artifact를 승인 현장 데이터로
-   생성하고, 누적 history에서 승격, 보류, 롤백의 최종 운영 판정을 반복
-   검증하는 단계다.
+   evidenceBundle, release history ledger, evidence alignment gate, release
+   trend summary 연결을 구현했고, `vision:release:evidence:merge`로 중앙
+   증거 패킷을 release config에 병합할 수 있게 했다. 남은 작업은 실제
+   Common Agent export와 Graph snapshot URI가 포함된 운영 benchmark
+   artifact를 승인 현장 데이터로 생성하고, 누적 history에서 승격, 보류,
+   롤백의 최종 운영 판정을 반복 검증하는 단계다.
 5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
    반대 근거, 추가 촬영 요구를 함께 저장
 

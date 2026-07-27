@@ -212,6 +212,8 @@ const path = require('node:path');
       hasReleaseEvidenceAlignment: bodyText.includes('\uC6B4\uC601 \uADFC\uAC70 \uC815\uD569\uC131 \uD655\uC778 \uC644\uB8CC'),
       hasOperatorDecision: bodyText.includes('\uC6B4\uC601 \uC870\uCE58 \uD655\uC778 \uC644\uB8CC'),
       hasReleaseHistoryPanel: bodyText.includes('\uB9B4\uB9AC\uC2A4 \uC774\uB825'),
+      hasReleaseTrendAction: bodyText.includes('\uB2E4\uC74C \uC870\uCE58'),
+      hasReleaseTrendRates: bodyText.includes('\uCD94\uC138: \uADFC\uAC70\uC900\uBE44 100%'),
       releaseDecision: captured.report.operationalRelease?.decision,
       releaseEvidenceAlignmentPassed: captured.report.operationalEvidenceAlignment?.passed,
       releaseEvidenceGraphMatched:
@@ -230,6 +232,10 @@ const path = require('node:path');
       releaseHistoryConfirmed: captured.report.operationalReleaseHistorySummary?.operatorConfirmedReports,
       releaseHistoryLatestStatus: captured.report.operationalReleaseHistorySummary?.latestStatus,
       releaseHistoryLatestAction: captured.report.operationalReleaseHistorySummary?.latestAction,
+      releaseTrendAction: captured.report.operationalReleaseTrend?.latestActionCode,
+      releaseTrendHistoryWindow: captured.report.operationalReleaseTrend?.historyWindowSize,
+      releaseTrendEvidenceReadyRate: captured.report.operationalReleaseTrend?.evidenceReadyRate,
+      releaseTrendOperatorConfirmationRate: captured.report.operationalReleaseTrend?.operatorConfirmationRate,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
@@ -271,6 +277,8 @@ const path = require('node:path');
       || !result.hasReleaseEvidenceAlignment
       || !result.hasOperatorDecision
       || !result.hasReleaseHistoryPanel
+      || !result.hasReleaseTrendAction
+      || !result.hasReleaseTrendRates
       || result.releaseDecision !== 'rollback_required'
       || result.releaseEvidenceAlignmentPassed !== true
       || result.releaseEvidenceGraphMatched !== true
@@ -285,6 +293,10 @@ const path = require('node:path');
       || result.releaseHistoryConfirmed !== 1
       || result.releaseHistoryLatestStatus !== 'confirmed'
       || result.releaseHistoryLatestAction !== 'restore_baseline_snapshot'
+      || result.releaseTrendAction !== 'maintain_confirmed_release'
+      || result.releaseTrendHistoryWindow !== 1
+      || result.releaseTrendEvidenceReadyRate !== 100
+      || result.releaseTrendOperatorConfirmationRate !== 100
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50

@@ -266,6 +266,30 @@ export interface VisionOperationalReleaseHistorySummary {
     latestCandidateVersion?: VisionVersionSnapshot;
 }
 
+export type VisionOperationalReleaseTrendAction =
+    | 'collect_operational_evidence'
+    | 'improve_candidate_metrics'
+    | 'confirm_operator_decision'
+    | 'maintain_confirmed_release'
+    | 'collect_first_release_report';
+
+export interface VisionOperationalReleaseBlockingReasonTrend {
+    name: string;
+    count: number;
+    latest: boolean;
+}
+
+export interface VisionOperationalReleaseTrendSummary {
+    contractVersion: 'vision-operational-release-trend/v1';
+    historyWindowSize: number;
+    evidenceReadyRate: number;
+    operatorConfirmationRate: number;
+    latestActionCode: VisionOperationalReleaseTrendAction;
+    latestActionLabel: string;
+    topBlockingReasons: VisionOperationalReleaseBlockingReasonTrend[];
+    narrative: string;
+}
+
 export interface VisionOperationalReleaseInput {
     baselineVersion: VisionVersionSnapshot;
     candidateVersion: VisionVersionSnapshot;
@@ -1232,6 +1256,116 @@ export const summarizeVisionOperationalReleaseHistory = (
         latestDecision: latest?.decision,
         latestAction: latest?.action,
         latestCandidateVersion: latest ? { ...latest.candidateVersion } : undefined
+    };
+};
+
+const trendActionLabel = (action: VisionOperationalReleaseTrendAction): string => {
+    if (action === 'collect_operational_evidence') return '운영 근거 패킷 보강';
+    if (action === 'improve_candidate_metrics') return '후보 Vision 성능 개선';
+    if (action === 'confirm_operator_decision') return '담당자 운영 확인 필요';
+    if (action === 'maintain_confirmed_release') return '확인된 운영 판단 유지';
+    return '첫 운영 평가 보고서 등록';
+};
+
+const blockingReasonPriority = (reason: string): number => {
+    const priorities: Record<string, number> = {
+        minimumSamples: 100,
+        newProductHumanVerification: 95,
+        splitIsolation: 90,
+        top1Accuracy: 85,
+        classReproduction: 80,
+        top3Accuracy: 75,
+        selectiveAccuracy: 70,
+        selectiveCoverage: 65,
+        unsafeFalsePositive: 60,
+        calibration: 55,
+        latency: 50
+    };
+    return priorities[reason] ?? 0;
+};
+
+const decideTrendAction = (
+    latest: VisionOperationalReleaseHistoryEntry | undefined
+): VisionOperationalReleaseTrendAction => {
+    if (!latest) return 'collect_first_release_report';
+    if (!latest.evidenceComplete) return 'collect_operational_evidence';
+    if (latest.operatorConfirmed) return 'maintain_confirmed_release';
+    if (latest.report.decision === 'promote_candidate') return 'confirm_operator_decision';
+    return 'improve_candidate_metrics';
+};
+
+const trendNarrative = (
+    latest: VisionOperationalReleaseHistoryEntry | undefined,
+    action: VisionOperationalReleaseTrendAction,
+    topBlockingReasons: VisionOperationalReleaseBlockingReasonTrend[]
+): string => {
+    if (!latest) {
+        return '운영 평가 보고서가 아직 없습니다. baseline/candidate shadow benchmark를 먼저 등록하세요.';
+    }
+    const topReason = topBlockingReasons[0]?.name;
+    if (action === 'collect_operational_evidence') {
+        return `운영 지표와 별개로 중앙 증거가 부족합니다. ${
+            latest.report.evidenceBundle.missingEvidence.join(', ') || 'evidenceBundle'
+        } 항목을 보강하세요.`;
+    }
+    if (action === 'confirm_operator_decision') {
+        return '운영 근거와 지표가 준비됐습니다. 담당자 확인을 저장하면 release history가 확정됩니다.';
+    }
+    if (action === 'maintain_confirmed_release') {
+        return '최신 운영 판단이 담당자 확인까지 완료됐습니다. 다음 후보는 같은 절차로 shadow 비교하세요.';
+    }
+    return `운영 근거는 준비됐지만 후보 지표가 부족합니다. ${
+        topReason ? `${topReason} 차단 원인을 우선 개선하세요.` : '차단 원인을 보강하세요.'
+    }`;
+};
+
+export const summarizeVisionOperationalReleaseTrend = (
+    history: VisionOperationalReleaseHistory | null | undefined
+): VisionOperationalReleaseTrendSummary => {
+    const entries = sortVisionOperationalReleaseHistoryEntries(
+        history?.schemaVersion === 'vision-operational-release-history/v1'
+            ? history.entries
+            : []
+    );
+    const latest = entries[0];
+    const reasonCounts = new Map<string, { count: number; latest: boolean }>();
+    for (const entry of entries) {
+        for (const reason of entry.report.blockingReasons) {
+            const current = reasonCounts.get(reason) || { count: 0, latest: false };
+            reasonCounts.set(reason, {
+                count: current.count + 1,
+                latest: current.latest || entry.id === latest?.id
+            });
+        }
+    }
+    const topBlockingReasons = [...reasonCounts.entries()]
+        .map(([name, value]) => ({
+            name,
+            count: value.count,
+            latest: value.latest
+        }))
+        .sort((left, right) =>
+            blockingReasonPriority(right.name) - blockingReasonPriority(left.name)
+            || right.count - left.count
+            || Number(right.latest) - Number(left.latest)
+            || left.name.localeCompare(right.name)
+        )
+        .slice(0, 5);
+    const latestActionCode = decideTrendAction(latest);
+
+    return {
+        contractVersion: 'vision-operational-release-trend/v1',
+        historyWindowSize: entries.length,
+        evidenceReadyRate: entries.length > 0
+            ? round((entries.filter(entry => entry.evidenceComplete).length / entries.length) * 100, 1)
+            : 0,
+        operatorConfirmationRate: entries.length > 0
+            ? round((entries.filter(entry => entry.operatorConfirmed).length / entries.length) * 100, 1)
+            : 0,
+        latestActionCode,
+        latestActionLabel: trendActionLabel(latestActionCode),
+        topBlockingReasons,
+        narrative: trendNarrative(latest, latestActionCode, topBlockingReasons)
     };
 };
 

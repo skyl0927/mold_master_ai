@@ -685,7 +685,7 @@ test('release trend summarizes repeated blockers and next operational action', (
     assert.equal(trend.latestActionLabel, '후보 Vision 성능 개선');
     assert.deepEqual(
         trend.topBlockingReasons.slice(0, 3).map(reason => reason.name),
-        ['minimumSamples', 'top1Accuracy', 'classReproduction']
+        ['minimumSamples', 'newProductHumanVerification', 'top1Accuracy']
     );
     assert.ok(trend.narrative.includes('운영 근거는 준비됐지만'));
 });

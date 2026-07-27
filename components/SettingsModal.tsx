@@ -31,6 +31,7 @@ import {
   readVisionOperationalReleaseReport,
   saveVisionOperationalReleaseReport,
   summarizeVisionOperationalReleaseHistory,
+  summarizeVisionOperationalReleaseTrend,
   VisionOperationalDecisionAction,
   VisionOperationalReleaseHistoryStatus,
   VisionOperationalReleaseReport
@@ -161,6 +162,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   );
   const operationalReleaseHistorySummary =
     summarizeVisionOperationalReleaseHistory(operationalReleaseHistory);
+  const operationalReleaseTrend =
+    summarizeVisionOperationalReleaseTrend(operationalReleaseHistory);
   const operationalEvidenceAlignment = operationalRelease
     ? auditVisionOperationalEvidenceAlignment(operationalRelease)
     : null;
@@ -298,6 +301,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalEvidenceAlignment,
       operationalReleaseHistory,
       operationalReleaseHistorySummary,
+      operationalReleaseTrend,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -666,6 +670,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   {operationalReleaseHistory.entries[0]
                     ? ` · ${operationalReleaseHistory.entries[0].report.decisionCard.title}`
                     : ''}
+                </p>
+                <p className="mt-1 text-sky-100">
+                  다음 조치: {operationalReleaseTrend.latestActionLabel}
+                </p>
+                <p className="mt-1 text-gray-400">
+                  추세: 근거준비 {operationalReleaseTrend.evidenceReadyRate}% · 운영확인{' '}
+                  {operationalReleaseTrend.operatorConfirmationRate}%
+                </p>
+                {operationalReleaseTrend.topBlockingReasons.length > 0 && (
+                  <p className="mt-1 break-words text-amber-200">
+                    반복 차단: {operationalReleaseTrend.topBlockingReasons
+                      .slice(0, 2)
+                      .map(reason => `${reason.name} ${reason.count}회`)
+                      .join(' · ')}
+                  </p>
+                )}
+                <p className="mt-1 break-words text-gray-500">
+                  {operationalReleaseTrend.narrative}
                 </p>
               </div>
               {operationalRelease ? (
