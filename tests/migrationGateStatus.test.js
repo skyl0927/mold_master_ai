@@ -388,6 +388,71 @@ test('blocked Vision reference operational gate prevents fallback retirement', (
     assert.match(status.recommendedAction, /Reference Store/);
 });
 
+test('Vision reference backfill plan explains why reference learning is blocked', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 19,
+            items: Array.from({ length: 19 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 19 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 19,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: false
+            }
+        },
+        visionReferenceReport: {
+            status: 'blocked',
+            readyForGraphRetrieval: false,
+            referenceStore: {
+                referenceCount: 0
+            },
+            benchmark: {
+                evaluatedCount: 0,
+                failedGateChecks: []
+            },
+            blockers: [{ code: 'reference_store_missing' }]
+        },
+        visionReferenceBackfillPlan: {
+            status: 'action_required',
+            summary: {
+                total: 19,
+                eligibleReferenceCandidates: 0,
+                needsHitlBackfill: 19,
+                blocked: 0,
+                reasonCounts: {
+                    legacy_vision_contract: 19,
+                    missing_capture_session: 19,
+                    missing_capture_view_tag: 19,
+                    capture_protocol_not_ready: 19
+                }
+            },
+            recommendedAction: 'Review the HITL backfill targets before reference refresh.'
+        }
+    });
+
+    assert.equal(status.visionReferenceBackfill.needsHitlBackfill, 19);
+    assert.equal(status.visionReferenceBackfill.reasonCounts.legacy_vision_contract, 19);
+    assert.match(status.recommendedAction, /HITL backfill/i);
+    assert.deepEqual(status.blockers, [
+        {
+            code: 'vision_reference_gate_failed',
+            details: [{ code: 'reference_store_missing' }]
+        },
+        {
+            code: 'vision_reference_backfill_required',
+            count: 19
+        }
+    ]);
+});
+
 test('Vision reference API missing action is surfaced by migration gate', () => {
     const status = buildMigrationGateStatus({
         agentHealth: { online: true },

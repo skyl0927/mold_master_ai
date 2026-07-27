@@ -54,7 +54,8 @@ const buildBlockers = ({
     conflictGroups,
     benchmarkSummary,
     hitl,
-    visionReference
+    visionReference,
+    visionReferenceBackfill
 }) => {
     const blockers = [];
     if (!agent.online) blockers.push({ code: 'common_agent_offline', detail: agent.error || agent.url });
@@ -78,6 +79,12 @@ const buildBlockers = ({
         blockers.push({
             code: 'vision_reference_gate_failed',
             details: visionReference.blockers
+        });
+    }
+    if (visionReferenceBackfill.needsHitlBackfill > 0) {
+        blockers.push({
+            code: 'vision_reference_backfill_required',
+            count: visionReferenceBackfill.needsHitlBackfill
         });
     }
     return blockers;
@@ -123,6 +130,21 @@ const summarizeVisionReferenceGate = report => {
     };
 };
 
+const summarizeVisionReferenceBackfill = report => {
+    const summary = report?.summary || {};
+    return {
+        required: Boolean(report),
+        status: String(report?.status || 'not_run'),
+        total: Number(summary.total) || 0,
+        eligibleReferenceCandidates: Number(summary.eligibleReferenceCandidates) || 0,
+        needsHitlBackfill: Number(summary.needsHitlBackfill) || 0,
+        blocked: Number(summary.blocked) || 0,
+        reasonCounts: summary.reasonCounts || {},
+        recommendedAction: String(report?.recommendedAction || ''),
+        artifactGeneratedAt: report?.generatedAt || null
+    };
+};
+
 const buildMigrationGateStatus = ({
     generatedAt = new Date().toISOString(),
     agentHealth = {},
@@ -131,7 +153,8 @@ const buildMigrationGateStatus = ({
     approvedManifest = {},
     reviewManifest = {},
     benchmarkReport = {},
-    visionReferenceReport = null
+    visionReferenceReport = null,
+    visionReferenceBackfillPlan = null
 }) => {
     const agent = healthState(agentHealth);
     const qa = healthState(qaHealth);
@@ -191,6 +214,7 @@ const buildMigrationGateStatus = ({
     };
     const failedChecks = asArray(benchmarkSummary.failedGateChecks);
     const visionReference = summarizeVisionReferenceGate(visionReferenceReport);
+    const visionReferenceBackfill = summarizeVisionReferenceBackfill(visionReferenceBackfillPlan);
     const canDisableLegacyFallback = benchmarkSummary.readyToDisableLegacyFallback === true
         && agent.online
         && qa.online
@@ -205,7 +229,8 @@ const buildMigrationGateStatus = ({
         conflictGroups,
         benchmarkSummary,
         hitl,
-        visionReference
+        visionReference,
+        visionReferenceBackfill
     });
 
     return {
@@ -240,6 +265,7 @@ const buildMigrationGateStatus = ({
                 Number(benchmarkSummary.captureProtocolReadyRate) || 0
         },
         visionReference,
+        visionReferenceBackfill,
         gate: {
             minimumSamples,
             additionalCleanApprovalsRequired: Math.max(0, minimumSamples - cleanRunnable),
@@ -251,7 +277,9 @@ const buildMigrationGateStatus = ({
         recommendedAction: canDisableLegacyFallback
             ? '안전 게이트가 충족되었습니다. 직접 LLM fallback 제거 변경을 별도 릴리스로 검증하세요.'
             : visionReference.required && !visionReference.readyForGraphRetrieval
-                ? visionReference.recommendedAction
+                ? visionReferenceBackfill.needsHitlBackfill > 0
+                    ? visionReferenceBackfill.recommendedAction
+                    : visionReference.recommendedAction
                     || 'Common Agent Vision Reference Store를 갱신하고 reference benchmark gate를 먼저 통과시키세요.'
                 : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`

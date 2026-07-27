@@ -55,6 +55,10 @@ const probeHealth = async (baseUrl, pathName) => {
         artifactRoot,
         'vision-reference-operational-gate.json'
     );
+    const visionReferenceBackfillPath = path.join(
+        artifactRoot,
+        'vision-reference-backfill-plan.json'
+    );
 
     const [agentHealth, qaHealth, dataset] = await Promise.all([
         probeHealth(agentUrl, '/healthz'),
@@ -84,7 +88,10 @@ const probeHealth = async (baseUrl, pathName) => {
                 referenceStore: { referenceCount: 0 },
                 benchmark: { evaluatedCount: 0, failedGateChecks: [] },
                 blockers: [{ code: 'vision_reference_gate_missing' }]
-            }
+            },
+        visionReferenceBackfillPlan: fs.existsSync(visionReferenceBackfillPath)
+            ? readJson(visionReferenceBackfillPath)
+            : null
     });
     const report = {
         ...status,
@@ -94,6 +101,9 @@ const probeHealth = async (baseUrl, pathName) => {
             benchmarkReport: fs.existsSync(benchmarkPath) ? benchmarkPath : null,
             visionReferenceGate: fs.existsSync(visionReferenceGatePath)
                 ? visionReferenceGatePath
+                : null,
+            visionReferenceBackfill: fs.existsSync(visionReferenceBackfillPath)
+                ? visionReferenceBackfillPath
                 : null
         }
     };
@@ -106,6 +116,7 @@ const probeHealth = async (baseUrl, pathName) => {
         approved: report.approved,
         hitl: report.hitl,
         visionReference: report.visionReference,
+        visionReferenceBackfill: report.visionReferenceBackfill,
         gate: report.gate,
         recommendedAction: report.recommendedAction,
         writesPerformed: report.writesPerformed
