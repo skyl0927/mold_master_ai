@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     DBStats,
     LocalVisionCandidate,
@@ -26,6 +26,7 @@ import {
     resolveLocalCandidateApproval
 } from '../localVisionApproval';
 import { buildVisionReviewQueue } from '../visionReviewQueue';
+import { buildVisionReferenceBackfillPlan } from '../visionReferenceBackfillPlan';
 import WebKnowledgeReviewPanel from './WebKnowledgeReviewPanel';
 
 interface DatabaseViewProps {
@@ -112,7 +113,35 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_qualityEligibility: '사진 품질 적합률 부족',
     benchmark_visionContract: 'Top-3 구조화 응답 미지원',
     benchmark_captureProtocol: '결함별 필수 촬영 시점 부족',
-    vision_reference_gate_failed: 'Vision Reference Store 미통과'
+    vision_reference_gate_failed: 'Vision Reference Store 미통과',
+    vision_reference_backfill_required: 'Vision Reference HITL 보완 필요'
+};
+
+const visionBackfillReasonLabel: Record<string, string> = {
+    legacy_vision_contract: '구형 Vision 관찰 계약',
+    missing_capture_session: '촬영 세션 없음',
+    missing_capture_view_tag: '촬영 뷰 태그 없음',
+    capture_protocol_not_ready: '촬영 프로토콜 미준비',
+    missing_required_views: '필수 다중뷰 부족',
+    vision_safety_gate_requires_review: 'Vision 안전 게이트 검토 필요',
+    label_conflict: '라벨 충돌',
+    non_physical_image: '비제조 이미지',
+    defect_not_visible: '결함 가시성 미확인',
+    recapture_required: '재촬영 필요',
+    missing_defect_type: '결함명 없음',
+    missing_vision_observation: 'Vision 관찰 없음'
+};
+
+const backfillStatusBadge = (status?: string) => {
+    if (status === 'ready') return 'bg-emerald-900/70 text-emerald-100 border-emerald-700';
+    if (status === 'empty') return 'bg-gray-900 text-gray-300 border-gray-700';
+    return 'bg-amber-900/70 text-amber-100 border-amber-700';
+};
+
+const backfillStatusLabel = (status?: string) => {
+    if (status === 'ready') return 'READY';
+    if (status === 'empty') return 'NO DATA';
+    return 'ACTION REQUIRED';
 };
 
 const formatReferenceAccuracy = (value?: number | null) => {
@@ -289,6 +318,14 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     const [localDecisionReasons, setLocalDecisionReasons] = useState<Record<string, string>>({});
     const [isScanningLocalCandidates, setIsScanningLocalCandidates] = useState(false);
     const [busyLocalCandidateId, setBusyLocalCandidateId] = useState<string | null>(null);
+    const visionReferenceBackfillPlan = useMemo(
+        () => buildVisionReferenceBackfillPlan({ items: visionItems }),
+        [visionItems]
+    );
+    const canRefreshVisionReferences =
+        visionReferenceBackfillPlan.summary.eligibleReferenceCandidates > 0
+        && visionReferenceBackfillPlan.summary.needsHitlBackfill === 0
+        && visionReferenceBackfillPlan.summary.blocked === 0;
 
     const fetchLegacyFeedback = async () => {
         const data = await window.electronAPI.getUserFeedback();
@@ -370,6 +407,15 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     };
 
     const refreshVisionReferences = async () => {
+        if (!canRefreshVisionReferences) {
+            setVisionStatus(
+                'Reference Store 갱신 전 HITL backfill을 먼저 완료하세요. '
+                + `후보 ${visionReferenceBackfillPlan.summary.eligibleReferenceCandidates}건 · `
+                + `보완 ${visionReferenceBackfillPlan.summary.needsHitlBackfill}건 · `
+                + `차단 ${visionReferenceBackfillPlan.summary.blocked}건`
+            );
+            return;
+        }
         setIsRefreshingReferences(true);
         setVisionStatus('Common Agent 승인 이미지로 Reference Store를 갱신 중입니다...');
         try {
@@ -1099,13 +1145,102 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                         </button>
                                         <button
                                             onClick={() => void refreshVisionReferences()}
-                                            disabled={isRefreshingReferences || isLoadingReferenceStatus}
+                                            disabled={
+                                                isRefreshingReferences
+                                                || isLoadingReferenceStatus
+                                                || !canRefreshVisionReferences
+                                            }
+                                            title={!canRefreshVisionReferences
+                                                ? 'HITL backfill 보완이 끝난 뒤 Reference Store를 갱신할 수 있습니다.'
+                                                : undefined}
                                             className="rounded bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {isRefreshingReferences ? '갱신 중...' : 'Reference Store 갱신'}
                                         </button>
                                     </div>
                                 </div>
+                            </section>
+
+                            <section
+                                data-testid="vision-reference-backfill-summary"
+                                className="rounded-lg border border-amber-900/70 bg-amber-950/15 p-4"
+                            >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="font-bold text-amber-100">Vision Reference Backfill Gate</p>
+                                            <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${backfillStatusBadge(visionReferenceBackfillPlan.status)}`}>
+                                                {backfillStatusLabel(visionReferenceBackfillPlan.status)}
+                                            </span>
+                                            <span className="rounded border border-gray-700 bg-gray-950/60 px-2 py-0.5 text-[10px] font-bold text-gray-300">
+                                                DB 쓰기 없음
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-300">
+                                            학습 후보 {visionReferenceBackfillPlan.summary.eligibleReferenceCandidates}건
+                                            {' · '}HITL 보완 {visionReferenceBackfillPlan.summary.needsHitlBackfill}건
+                                            {' · '}차단 {visionReferenceBackfillPlan.summary.blocked}건
+                                            {' · '}전체 {visionReferenceBackfillPlan.summary.total}건
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-gray-400">
+                                            Reference Store 갱신 전, 승인 이미지는 v2 Vision 관찰 계약과 필수 다중뷰
+                                            ({visionReferenceBackfillPlan.summary.requiredCaptureViewTags.join(', ')})를 충족해야 합니다.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setVisionStatus(visionReferenceBackfillPlan.recommendedAction)}
+                                        className="rounded bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600"
+                                    >
+                                        권장 조치 보기
+                                    </button>
+                                </div>
+                                {Object.keys(visionReferenceBackfillPlan.summary.reasonCounts).length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                        {Object.entries(visionReferenceBackfillPlan.summary.reasonCounts)
+                                            .sort((left, right) => Number(right[1]) - Number(left[1]))
+                                            .slice(0, 8)
+                                            .map(([reason, count]) => (
+                                                <span
+                                                    key={reason}
+                                                    className="rounded border border-amber-800/80 bg-gray-950/60 px-2 py-1 text-[10px] text-amber-100"
+                                                    title={reason}
+                                                >
+                                                    {visionBackfillReasonLabel[reason] || reason}{' '}
+                                                    <strong>{Number(count)}</strong>
+                                                </span>
+                                            ))}
+                                    </div>
+                                )}
+                                {visionReferenceBackfillPlan.items.some(item => item.status !== 'eligible_reference_candidate') && (
+                                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                                        {visionReferenceBackfillPlan.items
+                                            .filter(item => item.status !== 'eligible_reference_candidate')
+                                            .slice(0, 3)
+                                            .map(item => (
+                                                <div
+                                                    key={item.imageId}
+                                                    className="rounded border border-gray-700 bg-gray-950/50 p-2 text-[10px] text-gray-300"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <strong className="truncate text-gray-100">{item.defectType || item.imageId}</strong>
+                                                        <span className={item.status === 'blocked'
+                                                            ? 'rounded bg-red-900 px-1.5 py-0.5 text-red-100'
+                                                            : 'rounded bg-amber-900 px-1.5 py-0.5 text-amber-100'}>
+                                                            {item.status === 'blocked' ? '차단' : 'HITL 보완'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-1 truncate font-mono text-gray-500">{item.imageId}</p>
+                                                    <p className="mt-1 line-clamp-2 text-amber-100">
+                                                        {item.reasons
+                                                            .slice(0, 4)
+                                                            .map(reason => visionBackfillReasonLabel[reason] || reason)
+                                                            .join(' · ')}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
                             </section>
 
                             {visionReadiness && (
