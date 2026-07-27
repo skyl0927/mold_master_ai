@@ -362,6 +362,9 @@ HITL metadata를 재평가 plan으로 변환한다. `corrected` 항목은
 `eval/vision-hitl-recheck/manifest.json`의 shadow benchmark 후보가 되고,
 `recapture` 항목은 새 이미지가 들어오기 전까지 benchmark와 reference learning
 대상에서 제외된다.
+또한 통합 migration gate와 DatabaseView benchmark 결과 패널에
+`Vision HITL Re-evaluation` 요약을 추가해 recheck 후보, 재촬영 대기, HITL
+보류, metadata 차단 건수가 0이 아닐 때 운영 승격을 막도록 했다.
 
 개발:
 
@@ -379,6 +382,8 @@ HITL metadata를 재평가 plan으로 변환한다. `corrected` 항목은
   실행
 - 재촬영 큐는 새 이미지가 들어오기 전까지 benchmark와 reference store
   refresh 대상에서 제외
+- 통합 migration gate에서 HITL recheck/recapture/pending/blocker 상태를
+  직접 표시하고, 남은 항목이 있으면 운영 승격을 차단
 - 재촬영 요청은 우선순위 100으로 검토 큐 최상단에 배치
 - 반복 모델 교정, 희소 클래스, Vision-Graph 충돌을 코호트 우선순위에 반영
 - 승인 데이터도 fine-tuning 자동 실행 없이 `candidate_only` 상태로 격리
