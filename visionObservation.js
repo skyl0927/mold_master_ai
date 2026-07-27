@@ -1,3 +1,7 @@
+const {
+  VISION_OBSERVATION_JSON_SCHEMA
+} = require('./visionStructuredOutputSchema');
+
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
 const normalizedKey = value => compact(value)
@@ -54,6 +58,95 @@ const VALID_NORMALITY_STATUSES = new Set([
   'no_defect_visible',
   'uncertain'
 ]);
+
+const validateAgainstSchema = (schema, value, path = '') => {
+  const errors = [];
+  const location = path || 'root';
+  if (!schema) return errors;
+
+  const valueType = Array.isArray(value) ? 'array' : typeof value;
+  if (schema.type && valueType !== schema.type) {
+    errors.push(`invalid_type:${location}`);
+    return errors;
+  }
+
+  if (schema.enum && !schema.enum.includes(value)) {
+    errors.push(`invalid_enum:${location}`);
+  }
+
+  if (schema.type === 'string' && schema.minLength !== undefined && compact(value).length < schema.minLength) {
+    errors.push(`min_length:${location}`);
+  }
+
+  if (schema.type === 'number') {
+    if (schema.minimum !== undefined && value < schema.minimum) errors.push(`minimum:${location}`);
+    if (schema.maximum !== undefined && value > schema.maximum) errors.push(`maximum:${location}`);
+  }
+
+  if (schema.type === 'array') {
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      errors.push(`max_items:${location}`);
+    }
+    value.forEach((item, index) => {
+      errors.push(...validateAgainstSchema(schema.items, item, `${location}[${index}]`));
+    });
+  }
+
+  if (schema.type === 'object') {
+    const keys = Object.keys(value || {});
+    for (const requiredKey of schema.required || []) {
+      if (!Object.prototype.hasOwnProperty.call(value, requiredKey)) {
+        errors.push(`missing_required:${path ? `${path}.` : ''}${requiredKey}`);
+      }
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of keys) {
+        if (!Object.prototype.hasOwnProperty.call(schema.properties || {}, key)) {
+          errors.push(`additional_property:${path ? `${path}.` : ''}${key}`);
+        }
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties || {})) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        errors.push(...validateAgainstSchema(childSchema, value[key], path ? `${path}.${key}` : key));
+      }
+    }
+  }
+
+  return errors;
+};
+
+const validateVisionObservationProviderPayload = payload => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return ['provider_contract_json_parse_failed'];
+  }
+  return validateAgainstSchema(VISION_OBSERVATION_JSON_SCHEMA, payload)
+    .filter(error => error !== 'invalid_type:root');
+};
+
+const safeEnumValue = (value, allowed, fallback) => {
+  const text = compact(value);
+  return allowed.has(text) ? text : fallback;
+};
+
+const providerContractBlockedPayload = (payload, errors) => ({
+  contract_version: 'vision-observation/v2',
+  image_kind: safeEnumValue(payload?.image_kind, VALID_IMAGE_KINDS, 'unknown'),
+  normality_status: safeEnumValue(payload?.normality_status, VALID_NORMALITY_STATUSES, 'uncertain'),
+  observations: Array.isArray(payload?.observations) ? payload.observations : [],
+  candidates: Array.isArray(payload?.candidates) ? payload.candidates : [],
+  required_additional_views: Array.isArray(payload?.required_additional_views)
+    ? payload.required_additional_views
+    : ['사람 검토 또는 재촬영'],
+  quality_concerns: [
+    ...(Array.isArray(payload?.quality_concerns) ? payload.quality_concerns : []),
+    'provider_contract_invalid'
+  ],
+  abstention_reason: compact(payload?.abstention_reason) || 'provider_contract_invalid',
+  provider_contract_valid: false,
+  provider_contract_invalid: true,
+  provider_contract_errors: errors
+});
 
 const normalizeQualityStatus = (value, qualityConcerns = []) => {
   const normalized = normalizedKey(value);
@@ -287,6 +380,7 @@ const buildSafetyGate = ({
   const supportCategoryCount = supportingCategories.size;
 
   const blockedReason = [
+    validationIssues.includes('provider_contract_invalid') ? 'provider_contract_invalid' : '',
     imageKind === 'document_or_diagram' ? 'non_physical_image' : '',
     qualityStatus === 'reject' ? 'image_quality_rejected' : '',
     normalityStatus === 'no_defect_visible' ? 'no_visible_defect' : '',
@@ -382,6 +476,10 @@ const normalizeVisionObservation = input => {
     input?.qualityStatus || input?.quality_status,
     qualityConcerns
   );
+  const providerContractErrors = stringList(
+    input?.providerContractErrors || input?.provider_contract_errors
+  );
+  const providerContractValid = input?.providerContractValid ?? input?.provider_contract_valid;
   const visualObservations = normalizeVisualObservations(input, isV2);
   const observationById = new Map(
     visualObservations.map(observation => [observation.observationId, observation])
@@ -392,6 +490,9 @@ const normalizeVisionObservation = input => {
   }
   if (qualityStatus === 'reject') {
     validationIssues.push('image_quality_rejected');
+  }
+  if (input?.provider_contract_invalid === true || providerContractErrors.length > 0) {
+    validationIssues.push('provider_contract_invalid', ...providerContractErrors);
   }
 
   let rawCandidates = Array.isArray(input?.candidates)
@@ -440,6 +541,7 @@ const normalizeVisionObservation = input => {
     imageKind === 'document_or_diagram'
     || qualityStatus === 'reject'
     || normalityStatus === 'no_defect_visible'
+    || validationIssues.includes('provider_contract_invalid')
   ) {
     candidates = [];
   }
@@ -495,6 +597,10 @@ const normalizeVisionObservation = input => {
     qualityConcerns,
     abstentionReason,
     validationIssues,
+    providerContractValid: providerContractValid === undefined
+      ? providerContractErrors.length === 0
+      : providerContractValid !== false,
+    providerContractErrors,
     groundingStatus,
     safetyGate,
     ...decision
@@ -539,6 +645,19 @@ const parseVisionObservationText = text => normalizeVisionObservation(
   || parseLegacyObservation(text)
   || {}
 );
+
+const parseProviderVisionObservationText = text => {
+  const payload = extractJsonPayload(text);
+  const errors = validateVisionObservationProviderPayload(payload);
+  if (errors.length > 0) {
+    return normalizeVisionObservation(providerContractBlockedPayload(payload, errors));
+  }
+  return normalizeVisionObservation({
+    ...payload,
+    provider_contract_valid: true,
+    provider_contract_errors: []
+  });
+};
 
 const buildVisionRetrievalQuery = (observation, fieldContext = '') => {
   const normalized = normalizeVisionObservation(observation || {});
@@ -587,5 +706,6 @@ const buildVisionRetrievalQuery = (observation, fieldContext = '') => {
 module.exports = {
   buildVisionRetrievalQuery,
   normalizeVisionObservation,
+  parseProviderVisionObservationText,
   parseVisionObservationText
 };

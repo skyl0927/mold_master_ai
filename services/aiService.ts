@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import type { ResponseFormatJSONSchema } from 'openai/resources/shared';
 import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
-import { buildVisionRetrievalQuery, parseVisionObservationText } from '../visionObservation';
+import { buildVisionRetrievalQuery, parseProviderVisionObservationText } from '../visionObservation';
 import {
     buildGeminiVisionObservationResponseSchema,
     buildOpenAiVisionObservationResponseFormat
@@ -184,7 +184,7 @@ Perform a blind visual observation of this image. Do not use field context and d
         rawObservation = response.choices[0].message.content || '';
     }
 
-    const visionSummary = parseVisionObservationText(rawObservation) as VisionObservationSummary;
+    const visionSummary = parseProviderVisionObservationText(rawObservation) as VisionObservationSummary;
     const defectHint = visionSummary.primaryCandidate?.defectType || '판정 불가';
     const visualDescription = [
         ...visionSummary.visibleFeatures,

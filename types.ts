@@ -102,6 +102,8 @@ export interface VisionObservationSummary {
   qualityConcerns: string[];
   abstentionReason: string;
   validationIssues: string[];
+  providerContractValid?: boolean;
+  providerContractErrors?: string[];
   groundingStatus: 'grounded' | 'legacy' | 'invalid';
   safetyGate?: VisionSafetyGateSummary;
   decisionStatus: VisionDecisionStatus;
