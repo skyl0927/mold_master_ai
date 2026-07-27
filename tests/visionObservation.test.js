@@ -107,6 +107,69 @@ test('marks a separated high-confidence candidate with independent visual eviden
   assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, true);
 });
 
+test('downgrades a high-confidence candidate when supporting bbox evidence is weak', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [
+      {
+        observation_id: 'obs-white-region',
+        category: 'color',
+        description: 'milky white discoloration near a rib',
+        region: 'rib base',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          confidence: 0.42
+        },
+        confidence: 0.94
+      },
+      {
+        observation_id: 'obs-location',
+        category: 'location',
+        description: 'suspect area is near the rib base',
+        region: 'rib base',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.12,
+          y: 0.14,
+          width: 0.28,
+          height: 0.2,
+          confidence: 0.84
+        },
+        confidence: 0.88
+      }
+    ],
+    candidates: [
+      {
+        defect_type: 'whitening',
+        confidence: 0.86,
+        supporting_observation_ids: ['obs-white-region', 'obs-location'],
+        contradicting_observation_ids: []
+      },
+      {
+        defect_type: 'sink mark',
+        confidence: 0.18,
+        supporting_observation_ids: ['obs-location'],
+        contradicting_observation_ids: ['obs-white-region']
+      }
+    ]
+  });
+
+  assert.equal(observation.decisionStatus, 'needs_review');
+  assert.equal(observation.decisionReason, 'vision_safety_gate_requires_review');
+  assert.equal(observation.safetyGate.status, 'needs_review');
+  assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, false);
+  assert.equal(observation.safetyGate.supportPixelGroundingCount, 2);
+  assert.equal(observation.safetyGate.weakPixelGroundingCount, 1);
+  assert.ok(observation.safetyGate.reasons.includes('low_region_bbox_confidence'));
+  assert.ok(observation.safetyGate.reasons.includes('overbroad_region_bbox'));
+});
+
 test('downgrades a high-confidence candidate when only one visual observation supports it', () => {
   const observation = normalizeVisionObservation({
     contract_version: 'vision-observation/v2',
