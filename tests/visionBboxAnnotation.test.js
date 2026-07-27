@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  buildVisionBboxCorrectionDraft,
   buildVisionBboxReviewPacket,
   buildVisionBboxAnnotationPayloads
 } = require('../visionBboxAnnotation');
@@ -262,4 +263,58 @@ test('keeps copied bbox review packets out of approved status even for approval-
   assert.equal(packet.annotationRequest.review_status, 'needs_review');
   assert.equal(packet.graphPromotionAllowed, false);
   assert.equal(packet.learningSyncAllowed, false);
+});
+
+test('builds a valid correction draft from editable normalized bbox fields', () => {
+  const draft = buildVisionBboxCorrectionDraft({
+    image: {
+      id: 'local-image-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white',
+    draftValues: {
+      x: '0.100',
+      y: '0.200',
+      width: '0.350',
+      height: '0.200'
+    }
+  });
+
+  assert.equal(draft.isValid, true);
+  assert.equal(draft.hasChanges, true);
+  assert.deepEqual(draft.correctedBbox, {
+    coordinateSystem: 'normalized_xywh',
+    x: 0.1,
+    y: 0.2,
+    width: 0.35,
+    height: 0.2,
+    confidence: 1
+  });
+  assert.deepEqual(draft.errors, []);
+});
+
+test('rejects correction drafts that overflow the normalized image boundary', () => {
+  const draft = buildVisionBboxCorrectionDraft({
+    image: {
+      id: 'local-image-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white',
+    draftValues: {
+      x: '0.900',
+      y: '0.200',
+      width: '0.350',
+      height: '0.200'
+    }
+  });
+
+  assert.equal(draft.isValid, false);
+  assert.equal(draft.correctedBbox, null);
+  assert.ok(draft.errors.includes('x_plus_width_exceeds_1'));
 });
