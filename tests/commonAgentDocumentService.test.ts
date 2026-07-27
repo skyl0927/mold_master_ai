@@ -11,6 +11,7 @@ import { compactSpecificationAnalysis } from '../services/reportContentFormatter
 import {
     calculateDiagnosisObservability,
     calculateTransitionReadiness,
+    buildDiagnosisVisionReviewPacket,
     CommonAgentGateway,
     assertVisionReferenceBenchmarkReady,
     defectTypesAgree,
@@ -784,6 +785,58 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             sampleImageIds: ['image-2']
         }
     ]);
+    const reviewPacket = buildDiagnosisVisionReviewPacket(
+        records,
+        observability,
+        '2026-07-24T00:03:00.000Z'
+    );
+    assert.equal(reviewPacket.schemaVersion, 'diagnosis-vision-review-packet/v1');
+    assert.equal(reviewPacket.generatedAt, '2026-07-24T00:03:00.000Z');
+    assert.deepEqual(reviewPacket.policy, {
+        persistence: 'none',
+        graphPromotion: 'disabled_until_hitl_approval',
+        commonAgentReviewRequired: true
+    });
+    assert.deepEqual(
+        reviewPacket.items.map(item => ({
+            priority: item.priority,
+            actionCode: item.actionCode,
+            imageId: item.imageId,
+            comparisonId: item.comparisonId,
+            status: item.status,
+            reason: item.reason,
+            selectedSource: item.selectedSource,
+            defectCandidate: item.defectCandidate,
+            classifierCandidate: item.classifierCandidate,
+            recommendedHumanAction: item.recommendedHumanAction
+        })),
+        [
+            {
+                priority: 100,
+                actionCode: 'improve_vision_capture_quality',
+                imageId: 'image-3',
+                comparisonId: 'comparison-3',
+                status: 'unclassifiable',
+                reason: 'image_quality_rejected',
+                selectedSource: 'common_agent',
+                defectCandidate: '싱크',
+                classifierCandidate: '싱크',
+                recommendedHumanAction: '재촬영 기준을 강화하고 조명, 초점, ROI 해상도를 먼저 보정하세요.'
+            },
+            {
+                priority: 90,
+                actionCode: 'review_vision_decision_disagreement',
+                imageId: 'image-2',
+                comparisonId: 'comparison-2',
+                status: 'needs_review',
+                reason: 'dual_model_disagreement',
+                selectedSource: 'legacy',
+                defectCandidate: '백화',
+                classifierCandidate: '웰드라인',
+                recommendedHumanAction: 'VLM/Classifier 후보, ROI 위치, 라벨 alias를 함께 검토하세요.'
+            }
+        ]
+    );
     assert.deepEqual(observability.visionClassifierDisagreementTargets, [
         {
             visionCandidate: '백화',

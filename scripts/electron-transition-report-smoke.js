@@ -186,6 +186,9 @@ const path = require('node:path');
       reportVisionDecisionReasonTargets: captured.report.observability.visionDecisionReasonTargets,
       reportVisionDecisionActions: captured.report.observability.visionDecisionRecommendedActions.map(action => action.code),
       reportVisionReviewQueue: captured.report.observability.visionDecisionReviewQueue,
+      reportVisionReviewPacketSchema: captured.report.diagnosisVisionReviewPacket?.schemaVersion,
+      reportVisionReviewPacketFirstImage: captured.report.diagnosisVisionReviewPacket?.items?.[0]?.imageId,
+      reportVisionReviewPacketPolicy: captured.report.diagnosisVisionReviewPacket?.policy,
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
       reportRetrievalModes: captured.report.observability.retrievalModes,
@@ -222,6 +225,9 @@ const path = require('node:path');
       || result.reportVisionDecisionReasonTargets?.[0]?.reason !== 'dual_model_disagreement'
       || !result.reportVisionDecisionActions.includes('review_vision_decision_disagreement')
       || result.reportVisionReviewQueue?.[0]?.sampleImageIds?.[0] !== 'image-2'
+      || result.reportVisionReviewPacketSchema !== 'diagnosis-vision-review-packet/v1'
+      || result.reportVisionReviewPacketFirstImage !== 'image-2'
+      || result.reportVisionReviewPacketPolicy?.commonAgentReviewRequired !== true
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
       || result.reportRetrievalModes.graph_only !== 1
