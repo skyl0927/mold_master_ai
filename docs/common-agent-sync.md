@@ -175,7 +175,8 @@ worktable CSV에 옮겨 적어야 하며, 이 명령도 SQL, Graph, Reference, �
 `operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
 decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,
 `queueCode`, `decisionId`, `newAction`, reviewer, comment, decidedAt, 확인 boolean,
-라벨/원인/대책 입력 필드를 검증해 계획만 만든다. 하나라도 알 수 없는 decision
+라벨/원인/대책 입력 필드를 검증해 계획만 만든다. 선택한 action의
+`requiredFieldsByAction` 기준 필수값이 부족하거나, 하나라도 알 수 없는 decision
 또는 허용되지 않은 action이 있으면 `invalid_worktable`로 중단하고 어떤 파일도
 쓰지 않는다. 사람이 dry-run 결과를 확인한 뒤에만 `--apply`를 붙여 로컬
 workspace의 editable JSON을 수정한다.

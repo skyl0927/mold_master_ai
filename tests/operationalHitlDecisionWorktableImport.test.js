@@ -38,6 +38,24 @@ const editableFiles = () => new Map([
           conflictId: 'conflict-001',
           candidateLabels: ['백화', '웰드라인'],
           action: 'pending',
+          requiredFieldsByAction: {
+            keep_label: [
+              'action',
+              'selectedLabel',
+              'imageSetConfirmed',
+              'labelConfirmed',
+              'reviewer.id',
+              'decidedAt',
+              'reviewComment'
+            ],
+            request_recapture: [
+              'action',
+              'requestedViews',
+              'reviewer.id',
+              'decidedAt',
+              'reviewComment'
+            ]
+          },
           selectedLabel: '',
           imageSetConfirmed: false,
           labelConfirmed: false,
@@ -59,6 +77,24 @@ const editableFiles = () => new Map([
           defectType: '싱크',
           defectClass: 'sink',
           action: 'pending',
+          requiredFieldsByAction: {
+            approve_candidate: [
+              'action',
+              'approvedDefectType',
+              'manufacturingImageConfirmed',
+              'labelConfirmed',
+              'reviewer.id',
+              'decidedAt',
+              'reviewComment'
+            ],
+            request_recapture: [
+              'action',
+              'requestedViews',
+              'reviewer.id',
+              'decidedAt',
+              'reviewComment'
+            ]
+          },
           approvedDefectType: '싱크',
           manufacturingImageConfirmed: false,
           labelConfirmed: false,
@@ -189,6 +225,7 @@ test('fails closed when action-specific required fields are missing before apply
   assert.equal(report.localEditableWritesPerformed, false);
   assert.equal(report.summary.plannedUpdates, 0);
   assert.equal(report.summary.invalidRows, 1);
+  assert.equal(report.summary.missingRequiredFieldRows, 1);
   assert.equal(report.invalidRows[0].code, 'missing_required_fields');
   assert.equal(report.invalidRows[0].decisionId, 'pending-hitl-001');
   assert.deepEqual(report.invalidRows[0].missingFields, [

@@ -7,6 +7,9 @@ const unique = values => [...new Set(asArray(values).map(compact).filter(Boolean
 const isContract = (artifact, contractVersion) =>
   artifact?.contractVersion === contractVersion;
 
+const valueAt = (object, fieldPath) =>
+  compact(fieldPath).split('.').reduce((current, key) => current?.[key], object);
+
 const policy = () => ({
   requiresHumanReview: true,
   explicitApplyRequired: true,
@@ -39,6 +42,7 @@ const missingEvidenceReport = (generatedAt, sourceArtifacts, missingArtifactName
     appliedUpdates: 0,
     filesToUpdate: 0,
     invalidRows: 0,
+    missingRequiredFieldRows: 0,
     unchangedRows: 0
   },
   plannedUpdates: [],
@@ -232,6 +236,69 @@ const hasUpdates = updates => Object.keys(updates).length > 0;
 const requiredHeaderMissing = headers =>
   ['queueCode', 'decisionId'].filter(header => !headers.includes(header));
 
+const requiredFieldsForAction = ({ action, target }) => {
+  const fieldsByAction = target.decision?.requiredFieldsByAction || {};
+  return unique(asArray(fieldsByAction[action]).length > 0
+    ? fieldsByAction[action]
+    : target.fileRecord.editableFile.requiredFields);
+};
+
+const valueForRequiredField = ({ field, updates, target }) => {
+  const decision = target.decision || {};
+  const packet = target.fileRecord.packet || {};
+  if (field === 'action') return updates.action || decision.action;
+  if (field === 'reviewer.id') {
+    return updates.reviewerId
+      || decision.reviewer?.id
+      || decision.reviewerId
+      || decision.reviewedBy
+      || packet.reviewer?.id
+      || packet.reviewerId;
+  }
+  if (field === 'reviewerId') {
+    return updates.reviewerId
+      || decision.reviewerId
+      || decision.reviewedBy
+      || packet.reviewer?.id
+      || packet.reviewerId;
+  }
+  if (field === 'decidedAt') {
+    return updates.decidedAt
+      || decision.decidedAt
+      || packet.reviewedAt
+      || packet.reviewer?.reviewedAt;
+  }
+  if (field === 'reviewedAt') {
+    return updates.reviewedAt
+      || updates.decidedAt
+      || decision.reviewedAt
+      || decision.decidedAt
+      || packet.reviewedAt
+      || packet.reviewer?.reviewedAt;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, field)) return updates[field];
+  if (field === 'reviewComment') return updates.reviewComment || decision.reviewComment || decision.reason;
+  return valueAt(decision, field);
+};
+
+const isMissingRequiredValue = (field, value) => {
+  if (field === 'action') return !compact(value) || compact(value) === 'pending';
+  if (field === 'reviewComment') return compact(value).length < 8;
+  if (/At$/.test(field)) return !Number.isFinite(Date.parse(String(value || '')));
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'boolean') return value !== true;
+  return !compact(value);
+};
+
+const missingRequiredFieldsFor = ({ action, updates, target }) =>
+  requiredFieldsForAction({ action, target }).filter(field =>
+    isMissingRequiredValue(field, valueForRequiredField({
+      field,
+      updates,
+      target
+    }))
+  );
+
 const buildWorkspaceIndex = ({ workspaceManifest, readFileText }) => {
   const invalidRows = [];
   const files = new Map();
@@ -302,6 +369,21 @@ const buildPlans = ({ rows, workspaceIndex }) => {
       return;
     }
 
+    const missingRequiredFields = action && action !== 'pending'
+      ? missingRequiredFieldsFor({
+        action,
+        updates,
+        target
+      })
+      : [];
+    if (missingRequiredFields.length > 0) {
+      invalidRows.push({
+        ...invalidRow(row, 'missing_required_fields', '선택한 action에 필요한 필수 검토 필드가 CSV/기존 decision 값에 부족합니다.'),
+        missingFields: missingRequiredFields
+      });
+      return;
+    }
+
     plannedUpdates.push({
       rowNumber: row.__rowNumber,
       queueCode,
@@ -309,6 +391,10 @@ const buildPlans = ({ rows, workspaceIndex }) => {
       editablePath: compact(target.fileRecord.editableFile.editablePath),
       action: updates.action || compact(target.decision.action),
       fieldUpdates: updates,
+      requiredFieldsChecked: requiredFieldsForAction({
+        action: updates.action || compact(target.decision.action),
+        target
+      }),
       verifyCommand: compact(target.fileRecord.editableFile.verifyCommand)
     });
   });
@@ -368,12 +454,13 @@ const summaryFor = ({
   appliedUpdates: writtenFiles.length > 0 ? plannedUpdates.length : 0,
   filesToUpdate: new Set(plannedUpdates.map(update => update.editablePath)).size,
   invalidRows: invalidRows.length,
+  missingRequiredFieldRows: invalidRows.filter(row => row.code === 'missing_required_fields').length,
   unchangedRows
 });
 
 const recommendedActionFor = (status, report) => ({
   missing_evidence: 'workspace manifest와 수정된 worktable CSV를 준비한 뒤 다시 실행하세요.',
-  invalid_worktable: 'CSV의 queueCode, decisionId, action 값을 수정한 뒤 dry-run을 다시 실행하세요. invalidRows를 먼저 확인하세요.',
+  invalid_worktable: 'CSV의 queueCode, decisionId, action, 필수 검토 필드를 수정한 뒤 dry-run을 다시 실행하세요. invalidRows를 먼저 확인하세요.',
   no_actionable_rows: 'CSV에 newAction 또는 검토 필드를 입력한 뒤 다시 실행하세요.',
   dry_run_ready: 'dry-run 계획이 유효합니다. 사람이 변경 내용을 확인한 뒤 같은 명령에 --apply를 붙이면 editable decision JSON에만 반영됩니다.',
   applied: '로컬 editable decision JSON에 CSV 입력을 반영했습니다. 이제 npm run operational:hitl:editable-preflight를 실행하세요.'

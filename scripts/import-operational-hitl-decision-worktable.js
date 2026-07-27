@@ -102,6 +102,7 @@ const run = () => {
     plannedUpdates: report.summary.plannedUpdates,
     appliedUpdates: report.summary.appliedUpdates,
     invalidRows: report.summary.invalidRows,
+    missingRequiredFieldRows: report.summary.missingRequiredFieldRows,
     filesToUpdate: report.summary.filesToUpdate,
     recommendedAction: report.recommendedAction
   }, null, 2));
