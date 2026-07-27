@@ -3,7 +3,10 @@ import OpenAI from "openai";
 import type { ResponseFormatJSONSchema } from 'openai/resources/shared';
 import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
 import { buildVisionRetrievalQuery, parseVisionObservationText } from '../visionObservation';
-import { buildOpenAiVisionObservationResponseFormat } from '../visionStructuredOutputSchema';
+import {
+    buildGeminiVisionObservationResponseSchema,
+    buildOpenAiVisionObservationResponseFormat
+} from '../visionStructuredOutputSchema';
 import {
     buildVisionDiagnosisGuard,
     buildVisionGuardAbstentionAnalysis,
@@ -156,7 +159,10 @@ Perform a blind visual observation of this image. Do not use field context and d
                     { text: visionPrompt }
                 ]
             },
-            config: { responseMimeType: 'application/json' }
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: buildGeminiVisionObservationResponseSchema()
+            }
         });
         rawObservation = response.text || '';
     } else if (provider === 'openai' && client instanceof OpenAI) {

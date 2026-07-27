@@ -137,7 +137,44 @@ const buildOpenAiVisionObservationResponseFormat = () => ({
   }
 });
 
+const toGeminiType = type => ({
+  object: 'OBJECT',
+  array: 'ARRAY',
+  string: 'STRING',
+  number: 'NUMBER',
+  integer: 'INTEGER',
+  boolean: 'BOOLEAN'
+})[type] || String(type || '').toUpperCase();
+
+const toGeminiSchema = schema => {
+  const result = {
+    type: toGeminiType(schema.type)
+  };
+  if (schema.enum) result.enum = [...schema.enum];
+  if (schema.required) result.required = [...schema.required];
+  if (schema.minimum !== undefined) result.minimum = schema.minimum;
+  if (schema.maximum !== undefined) result.maximum = schema.maximum;
+  if (schema.minLength !== undefined) result.minLength = String(schema.minLength);
+  if (schema.maxItems !== undefined) result.maxItems = String(schema.maxItems);
+  if (schema.items) result.items = toGeminiSchema(schema.items);
+  if (schema.properties) {
+    result.properties = Object.fromEntries(
+      Object.entries(schema.properties).map(([key, value]) => [key, toGeminiSchema(value)])
+    );
+  }
+  if (schema.type === 'object') {
+    result.propertyOrdering = schema.required
+      ? [...schema.required]
+      : Object.keys(schema.properties || {});
+  }
+  return result;
+};
+
+const buildGeminiVisionObservationResponseSchema = () =>
+  toGeminiSchema(VISION_OBSERVATION_JSON_SCHEMA);
+
 module.exports = {
   VISION_OBSERVATION_JSON_SCHEMA,
+  buildGeminiVisionObservationResponseSchema,
   buildOpenAiVisionObservationResponseFormat
 };
