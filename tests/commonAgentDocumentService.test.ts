@@ -637,6 +637,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             graphCitationCount: 2,
             visionClassifierStatus: 'agreed' as const,
             visionClassifierAgreementWithVisionTop1: true,
+            visionClassifierVisionCandidate: '백화',
             visionClassifierTopCandidate: '백화',
             visionClassifierReferenceCount: 5,
             visionClassifierMinimumReferenceSupport: 3,
@@ -665,6 +666,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             graphCitationCount: 1,
             visionClassifierStatus: 'disagreed' as const,
             visionClassifierAgreementWithVisionTop1: false,
+            visionClassifierVisionCandidate: '백화',
             visionClassifierTopCandidate: '웰드라인',
             visionClassifierReferenceCount: 4,
             visionClassifierMinimumReferenceSupport: 3,
@@ -694,6 +696,7 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             graphCitationCount: 1,
             visionClassifierStatus: 'insufficient_reference' as const,
             visionClassifierAgreementWithVisionTop1: false,
+            visionClassifierVisionCandidate: '싱크',
             visionClassifierTopCandidate: '싱크',
             visionClassifierReferenceCount: 1,
             visionClassifierMinimumReferenceSupport: 3,
@@ -719,6 +722,23 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.equal(observability.visionClassifierDisagreementRate, 33.3);
     assert.equal(observability.visionClassifierInsufficientReferenceRate, 33.3);
     assert.equal(observability.averageClassifierReferenceCount, 3.3);
+    assert.deepEqual(observability.visionClassifierDisagreementTargets, [
+        {
+            visionCandidate: '백화',
+            classifierCandidate: '웰드라인',
+            count: 1,
+            sampleImageIds: ['image-2']
+        }
+    ]);
+    assert.deepEqual(observability.visionClassifierReferenceTargets, [
+        {
+            defectType: '싱크',
+            count: 1,
+            averageReferenceCount: 1,
+            minimumReferenceSupport: 3,
+            sampleImageIds: ['image-3']
+        }
+    ]);
     assert.deepEqual(
         observability.visionClassifierRecommendedActions.map(action => action.code),
         [
@@ -728,11 +748,11 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     );
     assert.match(
         observability.visionClassifierRecommendedActions[0].message,
-        /촬영 프로토콜.*라벨 taxonomy/
+        /백화.*웰드라인.*촬영 프로토콜.*라벨 taxonomy/
     );
     assert.match(
         observability.visionClassifierRecommendedActions[1].message,
-        /승인 이미지.*추가/
+        /싱크.*1.*3.*승인 이미지.*추가/
     );
     assert.equal(observability.ungroundedLlmTrainingLeakCount, 0);
     assert.equal(observability.averageEvidenceCount, 2);
@@ -1080,6 +1100,7 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(result.comparison.visionDisagreementScore, 0.12);
         assert.equal(result.comparison.visionClassifierStatus, 'agreed');
         assert.equal(result.comparison.visionClassifierAgreementWithVisionTop1, true);
+        assert.equal(result.comparison.visionClassifierVisionCandidate, '백화');
         assert.equal(result.comparison.visionClassifierTopCandidate, '백화');
         assert.equal(result.comparison.visionClassifierReferenceCount, 5);
         assert.deepEqual(result.comparison.commonAgentVersionSnapshot, {
