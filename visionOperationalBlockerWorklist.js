@@ -195,6 +195,7 @@ const actionTasksFor = (blockers, readinessAudit = {}) => {
       sourceBlockers: referenceBlockers,
       commands: [
         'npm run vision:reference:backfill-plan',
+        'npm run vision:reference:repair-guide',
         'npm run vision:reference:gate'
       ],
       dependsOn: [
