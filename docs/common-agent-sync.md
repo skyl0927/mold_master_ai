@@ -94,6 +94,7 @@ npm run operational:hitl:reviewer-worksheet
 npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
+npm run operational:hitl:common-agent-import-package
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -157,6 +158,15 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 쉬운 CSV와 Markdown 작업표로 펼친다. 각 row는 queue, decision id, 현재 action,
 허용 action, 필수 필드, 검토 포커스, 수정 파일, 검증 명령을 포함한다. 이 산출물은
 입력 보조용이며 decision JSON을 수정하거나 검증 명령을 실행하지 않는다.
+
+`operational:hitl:common-agent-import-package`는 라벨 충돌, Vision pending HITL,
+Web Knowledge HITL의 최신 decision verification report를 하나로 묶어
+`operational-hitl-common-agent-import-package/v1`을 만든다. 세 리포트가 모두
+`ready_for_manual_import`, `ready_for_local_hitl_import`, 또는 `clear` 상태일
+때만 `manualImportAllowed=true`가 되며, 그 전에는 승인 payload를 모두 비운
+`blocked_pending_hitl_verification` 상태로 멈춘다. 이 패키지는 Common Agent가
+수동 import 검토에 사용할 후보 artifact이며, 외부 API 호출, SQL 쓰기, Graph 승격,
+Reference 학습, 모델 학습을 직접 수행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
