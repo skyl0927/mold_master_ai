@@ -379,6 +379,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     </strong>
                   </span>
                   <span>
+                    Classifier 합의{' '}
+                    <strong className="text-white">
+                      {diagnosisObservability.metricSamples.visionClassifier > 0
+                        ? `${diagnosisObservability.visionClassifierAgreementRate}% (${diagnosisObservability.metricSamples.visionClassifier})`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
+                    Classifier 불일치{' '}
+                    <strong className={diagnosisObservability.visionClassifierDisagreementRate > 0 ? 'text-amber-300' : 'text-white'}>
+                      {diagnosisObservability.metricSamples.visionClassifier > 0
+                        ? `${diagnosisObservability.visionClassifierDisagreementRate}%`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
+                    참조 부족{' '}
+                    <strong className={diagnosisObservability.visionClassifierInsufficientReferenceRate > 0 ? 'text-amber-300' : 'text-white'}>
+                      {diagnosisObservability.metricSamples.visionClassifier > 0
+                        ? `${diagnosisObservability.visionClassifierInsufficientReferenceRate}%`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
+                    평균 참조{' '}
+                    <strong className="text-white">
+                      {diagnosisObservability.metricSamples.visionClassifier > 0
+                        ? `${diagnosisObservability.averageClassifierReferenceCount}장`
+                        : '-'}
+                    </strong>
+                  </span>
+                  <span>
                     현장 컨텍스트{' '}
                     <strong className="text-white">
                       {diagnosisObservability.metricSamples.contextProvided > 0

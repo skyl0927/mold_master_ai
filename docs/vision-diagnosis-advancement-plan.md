@@ -251,7 +251,9 @@ vision:reference:gate`는 `current -> refresh -> current -> benchmark-current`
 classifier Top-1이 불일치하거나 참조 수가 부족하면 Graph grounding이 있어도
 자동 확정과 원인·대책 본문 출력을 차단한다. 또한 comparison record와
 observability 집계에 classifier 합의율, 불일치율, 참조 부족률, 평균 참조
-수를 저장해 데이터 수집과 HITL 검토 우선순위를 추적한다.
+수를 저장해 데이터 수집과 HITL 검토 우선순위를 추적한다. 설정 모달의 진단
+운영 관측성 패널과 전환 리포트 JSON에서도 같은 지표를 표시해 운영자가
+전환/데이터 보강 결정을 바로 확인할 수 있게 했다.
 
 개발:
 
