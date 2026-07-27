@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  buildVisionBboxOverlayIndex,
   buildVisionBboxOverlayItems
 } = require('../visionBboxOverlay');
 
@@ -118,4 +119,53 @@ test('drops missing, empty, or unsupported bbox entries from the overlay list', 
   });
 
   assert.deepEqual(overlays, []);
+});
+
+test('indexes overlay numbers by observation id for reviewer cross-checking', () => {
+  const overlayIndex = buildVisionBboxOverlayIndex({
+    primaryCandidate: {
+      defectType: '웰드라인',
+      supportingObservationIds: ['obs-primary']
+    },
+    visualObservations: [
+      {
+        observationId: 'obs-secondary',
+        category: 'surface',
+        description: '비지원 후보 관찰',
+        confidence: 0.94,
+        regionBbox: {
+          coordinateSystem: 'normalized_xywh',
+          x: 0.1,
+          y: 0.1,
+          width: 0.2,
+          height: 0.2,
+          confidence: 0.94
+        }
+      },
+      {
+        observationId: 'obs-primary',
+        category: 'line',
+        description: '주요 결함 근거 관찰',
+        confidence: 0.72,
+        regionBbox: {
+          coordinateSystem: 'normalized_xywh',
+          x: 0.5,
+          y: 0.5,
+          width: 0.2,
+          height: 0.2,
+          confidence: 0.72
+        }
+      }
+    ]
+  });
+
+  assert.equal(overlayIndex.items.length, 2);
+  assert.equal(overlayIndex.items[0].observationId, 'obs-primary');
+  assert.equal(overlayIndex.items[0].displayIndex, 1);
+  assert.equal(overlayIndex.items[0].tone, 'primary');
+  assert.equal(overlayIndex.items[1].observationId, 'obs-secondary');
+  assert.equal(overlayIndex.items[1].displayIndex, 2);
+  assert.equal(overlayIndex.items[1].tone, 'secondary');
+  assert.equal(overlayIndex.byObservationId['obs-primary'].displayIndex, 1);
+  assert.equal(overlayIndex.byObservationId['obs-secondary'].displayIndex, 2);
 });
