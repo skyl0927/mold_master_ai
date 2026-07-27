@@ -46,6 +46,10 @@ export interface CaptureMetadata {
   recapture_guidance_message?: string;
   recapture_guidance_reason_codes?: string[];
   recapture_guidance_instructions?: string[];
+  recapture_actual_view_tags?: CaptureViewTag[];
+  recapture_guidance_fulfilled?: boolean;
+  recapture_guidance_fulfillment_status?: 'fulfilled' | 'view_mismatch' | 'missing_view_tag';
+  recapture_missing_recommended_view_tag?: CaptureViewTag;
 }
 
 export type RecaptureSource = NonNullable<CapturedImage['recaptureSource']>;

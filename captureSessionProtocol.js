@@ -219,6 +219,7 @@ const assessCaptureImageForDiagnosis = (image, images) => {
 
 const buildCaptureMetadata = (image, images) => {
   const summary = summarizeCaptureSession(images, image?.captureSessionId);
+  const captureViewTags = normalizeViewTags(image?.captureViewTag);
   const recaptureSource = image?.recaptureSource || {};
   const hasRecaptureLineage = Boolean(
     compact(recaptureSource.localImageId)
@@ -228,9 +229,17 @@ const buildCaptureMetadata = (image, images) => {
   const recaptureGuidance = hasRecaptureLineage
     ? buildRecaptureCaptureGuidance(recaptureSource)
     : null;
+  const recaptureGuidanceFulfilled = recaptureGuidance
+    ? captureViewTags.includes(recaptureGuidance.recommendedViewTag)
+    : false;
+  const recaptureGuidanceFulfillmentStatus = recaptureGuidanceFulfilled
+    ? 'fulfilled'
+    : captureViewTags.length === 0
+      ? 'missing_view_tag'
+      : 'view_mismatch';
   return {
     capture_session_id: image?.captureSessionId,
-    capture_view_tags: normalizeViewTags(image?.captureViewTag),
+    capture_view_tags: captureViewTags,
     vision_image_kind: normalizeImageKind(image?.captureImageKind),
     capture_source: normalizeCaptureSource(image?.captureSource),
     capture_protocol_ready: summary.ready,
@@ -248,7 +257,13 @@ const buildCaptureMetadata = (image, images) => {
       recapture_recommended_view_tag: recaptureGuidance.recommendedViewTag,
       recapture_guidance_message: recaptureGuidance.message,
       recapture_guidance_reason_codes: recaptureGuidance.reasonCodes,
-      recapture_guidance_instructions: recaptureGuidance.instructions
+      recapture_guidance_instructions: recaptureGuidance.instructions,
+      recapture_actual_view_tags: captureViewTags,
+      recapture_guidance_fulfilled: recaptureGuidanceFulfilled,
+      recapture_guidance_fulfillment_status: recaptureGuidanceFulfillmentStatus,
+      ...(!recaptureGuidanceFulfilled ? {
+        recapture_missing_recommended_view_tag: recaptureGuidance.recommendedViewTag
+      } : {})
     } : {})
   };
 };
