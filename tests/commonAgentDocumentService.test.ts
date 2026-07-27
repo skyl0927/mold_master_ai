@@ -267,6 +267,116 @@ test('Vision Graph grounding maps only approved causes actions and path citation
     );
 });
 
+test('Vision classifier disagreement blocks Graph finalization even when Graph grounding exists', () => {
+    const response = {
+        image_id: 'image-classifier-conflict',
+        file_name: 'whitening.png',
+        mime_type: 'image/png',
+        source_system: 'test',
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product' as const,
+            normality_status: 'defect_visible' as const,
+            observations: [{
+                observation_id: 'obs-1',
+                category: 'color' as const,
+                description: '리브 주변 유백색 변색',
+                region: '리브 기부',
+                confidence: 0.91
+            }, {
+                observation_id: 'obs-2',
+                category: 'surface' as const,
+                description: '표면이 국부적으로 뿌옇게 보임',
+                region: '리브 측면',
+                confidence: 0.87
+            }],
+            candidates: [{
+                defect_type: '백화',
+                confidence: 0.82,
+                supporting_observation_ids: ['obs-1', 'obs-2']
+            }, {
+                defect_type: '웰드라인',
+                confidence: 0.64,
+                supporting_observation_ids: ['obs-2']
+            }],
+            decision_status: 'probable' as const,
+            decision_reason: 'probable_multiview_consensus'
+        },
+        classifier_report: {
+            contract_version: 'vision-classifier/v1' as const,
+            embedding_model_version: 'dinov2:facebook/dinov2-base',
+            top_candidates: [{
+                defect_type: '웰드라인',
+                confidence: 0.88,
+                reference_count: 5,
+                distance: 0.18,
+                support_image_ids: ['ref-weld-1', 'ref-weld-2', 'ref-weld-3']
+            }, {
+                defect_type: '백화',
+                confidence: 0.61,
+                reference_count: 4,
+                distance: 0.31,
+                support_image_ids: ['ref-white-1', 'ref-white-2']
+            }],
+            minimum_reference_support: 3
+        },
+        graph_grounding: {
+            contract_version: 'vision-graph-grounding/v1' as const,
+            candidate_grounding: [{
+                defect_type: '백화',
+                vision_rank: 1,
+                vision_confidence: 0.82,
+                status: 'supported' as const,
+                direct_match_score: 1,
+                multihop_score: 0.85,
+                context_match_score: 0.75,
+                graph_support_score: 0.91,
+                approved_path_count: 1,
+                causes: ['과도한 이형 저항'],
+                countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+                citations: [{
+                    path_id: 'path-whitening-release',
+                    document_id: 'doc-approved-1',
+                    path_text: '백화 -> 과도한 이형 저항 -> 리브 구배 점검',
+                    hop_count: 2,
+                    score: 0.93,
+                    review_status: 'approved',
+                    evidence_ids: ['ev-defect', 'ev-cause', 'ev-action']
+                }],
+                rejected_path_reasons: []
+            }],
+            graph_grounded: true,
+            top_candidate_supported: true,
+            vision_graph_conflict: false,
+            approved_path_count: 1,
+            citation_count: 1,
+            grounded_causes: ['과도한 이형 저항'],
+            grounded_countermeasures: ['리브 구배 및 표면 거칠기 점검'],
+            requires_human_review: false,
+            auto_finalize_allowed: true,
+            llm_supplement_allowed: false,
+            llm_supplement_training_eligible: false as const,
+            decision_status: 'grounded' as const,
+            decision_reason: 'vision_top1_approved_graph_path_supported'
+        },
+        metadata: {
+            llm_supplement_used: false
+        }
+    } as any;
+
+    const analysis = CommonAgentApiService.toDefectAnalysis(response);
+
+    assert.equal(analysis.defectType, '판정 보류 (백화 후보 검토 필요)');
+    assert.equal(analysis.possibleCauses, '');
+    assert.equal(analysis.countermeasures, '');
+    assert.equal(analysis.visionSummary?.decisionStatus, 'needs_review');
+    assert.equal(analysis.visionSummary?.decisionReason, 'vision_classifier_disagreement');
+    assert.equal(analysis.visionSummary?.classifierSummary?.agreementWithVisionTop1, false);
+    assert.equal(analysis.visionSummary?.classifierSummary?.topCandidate?.defectType, '웰드라인');
+    assert.equal(analysis.retrievalSummary?.graphValidation?.autoFinalizeAllowed, false);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.requiresHumanReview, true);
+});
+
 test('Graph-missing LLM supplement never populates specification cause or action fields', () => {
     const response = {
         image_id: 'image-unverified',
