@@ -94,6 +94,11 @@ test('blocker worklist turns readiness blockers into prioritized human tasks', (
   assert.equal(sampleTask.current, 12);
   assert.equal(sampleTask.required, 20);
   assert.equal(sampleTask.missing, 8);
+  assert.deepEqual(sampleTask.commands, [
+    'npm run vision:accuracy:improvement-plan',
+    'npm run vision:review-packet',
+    'npm run vision:reference:backfill-plan'
+  ]);
 
   const referenceTask = worklist.tasks.find(task => task.code === 'repair_reference_store');
   assert.deepEqual(referenceTask.commands, [

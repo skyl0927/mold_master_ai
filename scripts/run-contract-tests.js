@@ -20,6 +20,7 @@ const result = spawnSync(process.execPath, [
     path.join(root, 'tests', 'moldMasterDevelopmentProgressReport.test.js'),
     path.join(root, 'tests', 'visionOperationalEvidencePacket.test.js'),
     path.join(root, 'tests', 'visionOperationalReadinessAudit.test.js'),
+    path.join(root, 'tests', 'visionAccuracyImprovementPlan.test.js'),
     path.join(root, 'tests', 'visionOperationalBlockerWorklist.test.js'),
     path.join(root, 'tests', 'visionOperationalCommonAgentHandoff.test.js'),
     path.join(root, 'tests', 'visionOperationalHitlWorkflowDisplay.test.js'),

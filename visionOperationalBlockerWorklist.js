@@ -167,6 +167,11 @@ const actionTasksFor = (blockers, readinessAudit = {}) => {
       titleKo: '승인 다중 시점 샘플 추가 확보',
       descriptionKo: '핵심 결함군별 승인 샘플 수가 부족합니다. 촬영 프로토콜을 만족하는 현장 이미지를 확보하고 HITL 승인까지 완료해야 합니다.',
       sourceBlockers: [sampleCount],
+      commands: [
+        'npm run vision:accuracy:improvement-plan',
+        'npm run vision:review-packet',
+        'npm run vision:reference:backfill-plan'
+      ],
       current: Number(sampleCount.current) || 0,
       required: Number(sampleCount.required) || 0,
       missing: Number(sampleCount.missing) || 0,
