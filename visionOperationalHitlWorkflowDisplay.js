@@ -111,6 +111,62 @@ const labelConflictSeverityFor = (status, invalidDecisions, invalidTargets) => {
   return 'warning';
 };
 
+const actionPackStatusLabelFor = status => {
+  if (status === 'clear') return 'HITL 입력 완료';
+  if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (status === 'action_required') return '판정 입력 필요';
+  return compact(status);
+};
+
+const actionPackSeverityFor = status => {
+  if (status === 'clear') return 'success';
+  if (status === 'missing_evidence') return 'danger';
+  return 'warning';
+};
+
+const summarizeOperationalHitlActionPackDisplay = actionPack => {
+  if (actionPack?.contractVersion !== 'operational-hitl-action-pack/v1') return null;
+
+  const summary = actionPack.summary || {};
+  const steps = Array.isArray(actionPack.actionSteps)
+    ? actionPack.actionSteps
+    : [];
+  const firstStep = steps.find(step => step?.queueCode === summary.firstQueueCode)
+    || steps[0]
+    || null;
+  const parts = [
+    `미입력 ${numberValue(summary.totalDecisionInputsMissing)}건`,
+    `라벨충돌 ${numberValue(summary.labelConflictPending)}건`,
+    `Vision ${numberValue(summary.visionHitlPending)}건`,
+    `Web ${numberValue(summary.webHitlMissing)}건`
+  ];
+
+  return {
+    title: 'HITL Action Pack',
+    status: compact(actionPack.status),
+    statusLabel: actionPackStatusLabelFor(compact(actionPack.status)),
+    severity: actionPackSeverityFor(compact(actionPack.status)),
+    summaryText: parts.join(' · '),
+    firstQueueCode: compact(summary.firstQueueCode) || null,
+    firstActionTitle: compact(firstStep?.titleKo) || null,
+    nextActionKo: compact(firstStep?.operatorInstructionKo)
+      || compact(actionPack.recommendedAction),
+    nextCommand: compact(firstStep?.commands?.[0]),
+    nextCommands: Array.isArray(firstStep?.commands)
+      ? firstStep.commands.map(compact).filter(Boolean)
+      : [],
+    actionStepPreviews: steps.slice(0, 3).map(step =>
+      `${compact(step?.titleKo) || compact(step?.queueCode)} · ${compact(step?.owner) || 'owner 미정'} · ${numberValue(step?.pending)}건`
+    ),
+    safetyBadges: [
+      'Artifact-only',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Reference 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -156,5 +212,6 @@ const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
 
 module.exports = {
   summarizeVisionOperationalHitlWorkflowDisplay,
-  summarizeVisionOperationalLabelConflictWorkflowDisplay
+  summarizeVisionOperationalLabelConflictWorkflowDisplay,
+  summarizeOperationalHitlActionPackDisplay
 };

@@ -39,7 +39,8 @@ import {
 import { buildVisionOperationalBlockerWorklist } from '../visionOperationalBlockerWorklist';
 import {
   summarizeVisionOperationalHitlWorkflowDisplay,
-  summarizeVisionOperationalLabelConflictWorkflowDisplay
+  summarizeVisionOperationalLabelConflictWorkflowDisplay,
+  summarizeOperationalHitlActionPackDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -86,6 +87,8 @@ const releaseEvidenceKindLabel = (kind: string): string => {
 
 const VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY =
   'mold-master-ai:vision-operational-readiness-audit:v1';
+const OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY =
+  'mold-master-ai:operational-hitl-action-pack:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -102,6 +105,23 @@ const readOperationalReadinessAudit = (): any | null => {
 const saveOperationalReadinessAudit = (audit: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY, JSON.stringify(audit));
+};
+
+const readOperationalHitlActionPack = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-hitl-action-pack/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalHitlActionPack = (actionPack: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY, JSON.stringify(actionPack));
 };
 
 const operationalWorklistStatusLabel = (status: string): string => {
@@ -203,6 +223,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalReadinessAudit, setOperationalReadinessAudit] = useState(
     () => readOperationalReadinessAudit()
   );
+  const [operationalHitlActionPack, setOperationalHitlActionPack] = useState(
+    () => readOperationalHitlActionPack()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -210,8 +233,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeVisionOperationalHitlWorkflowDisplay(operationalBlockerWorklist);
   const operationalLabelConflictWorkflowDisplay =
     summarizeVisionOperationalLabelConflictWorkflowDisplay(operationalBlockerWorklist);
+  const operationalHitlActionPackDisplay =
+    summarizeOperationalHitlActionPackDisplay(operationalHitlActionPack);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
+  const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -348,6 +374,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalReleaseTrend,
       operationalReadinessAudit,
       operationalBlockerWorklist,
+      operationalHitlActionPack,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -401,6 +428,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalAuditImportStatus(
         error instanceof Error ? `감사 보고서 등록 실패: ${error.message}` : '감사 보고서 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalHitlActionPackImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const actionPack = JSON.parse(await file.text());
+      if (actionPack?.contractVersion !== 'operational-hitl-action-pack/v1') {
+        throw new Error('invalid operational HITL action pack');
+      }
+      saveOperationalHitlActionPack(actionPack);
+      setOperationalHitlActionPack(actionPack);
+      setOperationalHitlActionPackImportStatus('HITL action pack을 등록했습니다.');
+    } catch (error) {
+      setOperationalHitlActionPackImportStatus(
+        error instanceof Error ? `Action pack 등록 실패: ${error.message}` : 'Action pack 등록 실패'
       );
     }
   };
@@ -719,6 +767,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalReadinessAuditImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-cyan-800 px-2 py-1 text-[9px] text-cyan-100 hover:bg-cyan-700">
+                    HITL Pack 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalHitlActionPackImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -742,6 +799,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalAuditImportStatus}
+                </p>
+              )}
+              {operationalHitlActionPackImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalHitlActionPackImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalHitlActionPackImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -793,6 +859,62 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     {task.missing !== undefined ? ` · 부족 ${task.missing}건` : ''}
                   </p>
                 ))}
+                {operationalHitlActionPackDisplay && (
+                  <div
+                    aria-label="HITL Action Pack"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlActionPackDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlActionPackDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-cyan-800/70 bg-cyan-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-cyan-100">
+                          {operationalHitlActionPackDisplay.title}
+                        </p>
+                        <p className="mt-1 text-cyan-200">
+                          {operationalHitlActionPackDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlActionPackDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlActionPackDisplay.summaryText}
+                    </p>
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlActionPackDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlActionPackDisplay.nextCommand && (
+                      <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-cyan-100">
+                        {operationalHitlActionPackDisplay.nextCommand}
+                      </p>
+                    )}
+                    {operationalHitlActionPackDisplay.actionStepPreviews.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {operationalHitlActionPackDisplay.actionStepPreviews.map(step => (
+                          <p key={step} className="break-words text-[8px] text-cyan-50">
+                            {step}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlActionPackDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {operationalLabelConflictWorkflowDisplay && (
                   <div
                     aria-label="Label Conflict Workflow"
