@@ -8,6 +8,7 @@ const {
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,
   summarizeCaptureSession
 } = require('../captureSessionProtocol');
@@ -280,6 +281,58 @@ test('recapture metadata flags a fresh image captured with the wrong view tag', 
   assert.equal(metadata.recapture_guidance_fulfilled, false);
   assert.equal(metadata.recapture_guidance_fulfillment_status, 'view_mismatch');
   assert.equal(metadata.recapture_missing_recommended_view_tag, 'defect_closeup');
+});
+
+test('capture learning eligibility blocks approved recaptures with guidance view mismatch', () => {
+  const recaptured = image({
+    id: 'image-recapture-wrong-view',
+    captureViewTag: 'full_part_context',
+    recaptureSource: {
+      localImageId: 'image-original',
+      commonAgentImageId: 'agent-image-original',
+      reviewDecisionId: 'review-recapture-1',
+      safetyGateReasons: ['overbroad_region_bbox'],
+      requiredAdditionalViews: [
+        'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+      ],
+      bboxGroundingProfileId: 'defect_closeup_precision'
+    }
+  });
+  const metadata = buildCaptureMetadata(recaptured, [
+    image({ id: 'image-original', commonAgentImageId: 'agent-image-original' }),
+    recaptured
+  ]);
+
+  assert.deepEqual(resolveCaptureLearningEligibility('approved', metadata), {
+    eligible: false,
+    reason: 'recapture_guidance_view_mismatch'
+  });
+});
+
+test('capture learning eligibility allows approved recaptures after recommended view fulfillment', () => {
+  const recaptured = image({
+    id: 'image-recapture-fulfilled',
+    captureViewTag: 'defect_closeup',
+    recaptureSource: {
+      localImageId: 'image-original',
+      commonAgentImageId: 'agent-image-original',
+      reviewDecisionId: 'review-recapture-1',
+      safetyGateReasons: ['overbroad_region_bbox'],
+      requiredAdditionalViews: [
+        'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+      ],
+      bboxGroundingProfileId: 'defect_closeup_precision'
+    }
+  });
+  const metadata = buildCaptureMetadata(recaptured, [
+    image({ id: 'image-original', commonAgentImageId: 'agent-image-original' }),
+    recaptured
+  ]);
+
+  assert.deepEqual(resolveCaptureLearningEligibility('approved', metadata), {
+    eligible: true,
+    reason: 'approved_capture_ready'
+  });
 });
 
 test('session diagnosis collects every physical view with the selected image first', () => {
