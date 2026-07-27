@@ -53,6 +53,7 @@ import {
     summarizeCaptureSession
 } from './captureSessionProtocol';
 import { buildVisionBboxAnnotationPayloads } from './visionBboxAnnotation';
+import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatus';
 
 interface EditingState {
     id?: string;
@@ -741,11 +742,18 @@ const App: React.FC = () => {
                 existingAnnotations
             );
             let createdCount = 0;
+            const createdAnnotations = [];
 
             for (const payload of payloads) {
-                await CommonAgentApiService.createAnnotation(commonAgentImageId, payload);
+                const createdAnnotation = await CommonAgentApiService.createAnnotation(commonAgentImageId, payload);
+                createdAnnotations.push(createdAnnotation);
                 createdCount++;
             }
+            const allAnnotations = [...existingAnnotations, ...createdAnnotations];
+            const visionBboxAnnotationSummary = summarizeVisionBboxAnnotationStatus({
+                visionSummary: analysis.visionSummary,
+                annotations: allAnnotations
+            });
 
             setCapturedImages(prev => prev.map(img => img.id === imageId ? {
                 ...img,
@@ -753,7 +761,8 @@ const App: React.FC = () => {
                 commonAgentImageId,
                 commonAgentStatus: 'synced',
                 commonAgentLastSyncAt: Date.now(),
-                commonAgentAnnotationCount: existingAnnotations.length + createdCount,
+                commonAgentAnnotationCount: allAnnotations.length,
+                visionBboxAnnotationSummary,
                 analysisError: undefined
             } : img));
             setCopyNotification(`Common Agent 동기화 완료: ${commonAgentImageId}, ROI ${createdCount}개 전송`);

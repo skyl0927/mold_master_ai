@@ -147,6 +147,15 @@ const formatVisionGateStatus = (status: VisionSafetyGateSummary['status']) => {
     return '사람 검토 필요';
 };
 
+const formatVisionBboxAnnotationStatus = (status: string) => {
+    if (status === 'approved') return 'bbox 승인 완료';
+    if (status === 'pending_review') return 'bbox 검토 대기';
+    if (status === 'partially_synced') return 'bbox 일부 동기화';
+    if (status === 'rejected') return 'bbox 반려 포함';
+    if (status === 'not_synced') return 'bbox 미동기화';
+    return 'bbox 없음';
+};
+
 const buildVisionReviewReasonText = (summary: VisionObservationSummary) => {
     const safetyReasons = (summary.safetyGate?.reasons || [])
         .map(reason => VISION_GATE_REASON_LABELS[reason] || reason);
@@ -345,7 +354,7 @@ ${data.countermeasures}
                 {/* Content */}
                 <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
                     {/* Image Section */}
-                    <div className="md:w-2/5 bg-black flex items-center justify-center p-4 border-r border-gray-700">
+                    <div className="relative md:w-2/5 bg-black flex items-center justify-center p-4 border-r border-gray-700">
                         <div className="relative inline-block max-w-full max-h-[60vh]">
                             <img src={image.dataUrl} alt="Defect" className="block max-w-full max-h-[60vh] object-contain rounded border border-gray-700" />
                             {bboxOverlays.length > 0 ? (
@@ -373,6 +382,21 @@ ${data.countermeasures}
                                 </div>
                             ) : null}
                         </div>
+                        {image.visionBboxAnnotationSummary && image.visionBboxAnnotationSummary.totalVisionBboxes > 0 ? (
+                            <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-gray-700 bg-gray-950/80 px-3 py-2 text-[10px] text-gray-200 shadow-lg backdrop-blur">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-semibold text-cyan-200">
+                                        {formatVisionBboxAnnotationStatus(image.visionBboxAnnotationSummary.status)}
+                                    </span>
+                                    <span>동기화 {image.visionBboxAnnotationSummary.synced}/{image.visionBboxAnnotationSummary.totalVisionBboxes}</span>
+                                    <span>승인 {image.visionBboxAnnotationSummary.approved}</span>
+                                    <span>대기 {image.visionBboxAnnotationSummary.candidate + image.visionBboxAnnotationSummary.needsReview}</span>
+                                    {image.visionBboxAnnotationSummary.rejected > 0 ? (
+                                        <span className="text-red-200">반려 {image.visionBboxAnnotationSummary.rejected}</span>
+                                    ) : null}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
 
                     {/* Report Section */}

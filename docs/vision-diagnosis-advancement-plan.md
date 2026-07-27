@@ -185,7 +185,9 @@ Common Agent/과거 데이터는 bbox가 없어도 읽을 수 있게 호환성�
 분석 모달 이미지 위에는 bbox overlay를 추가해 작업자가 AI가 본 관찰 위치를
 즉시 검수할 수 있게 했다. Common Agent 동기화 시에는 Vision observation
 bbox를 `candidate` annotation payload로 함께 전송해, 사람 승인 전 위치 근거를
-중앙 데이터셋의 HITL 검토 후보로 남기도록 했다.
+중앙 데이터셋의 HITL 검토 후보로 남기도록 했다. 동기화 후에는 Common Agent
+annotation 응답을 Vision observation id별로 요약해 candidate/approved/rejected/
+missing 상태를 분석 모달에 표시하고, bbox 검수 완료와 Graph 승격을 분리한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

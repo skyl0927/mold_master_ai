@@ -208,6 +208,26 @@ export interface VisionViewEvidence {
   decisionStatus?: VisionDecisionStatus;
 }
 
+export interface VisionBboxAnnotationStatusSummary {
+  contractVersion: 'vision-bbox-annotation-status/v1';
+  status: 'none' | 'not_synced' | 'partially_synced' | 'pending_review' | 'approved' | 'rejected';
+  totalVisionBboxes: number;
+  synced: number;
+  missing: number;
+  candidate: number;
+  approved: number;
+  rejected: number;
+  needsReview: number;
+  reviewComplete: boolean;
+  learningReadyCandidate: boolean;
+  graphPromotionAllowed: false;
+  pendingObservationIds: string[];
+  approvedObservationIds: string[];
+  rejectedObservationIds: string[];
+  needsReviewObservationIds: string[];
+  missingObservationIds: string[];
+}
+
 export interface VisionGraphPathCitation {
   pathId: string;
   documentId: string;
@@ -343,6 +363,7 @@ export interface CapturedImage {
   commonAgentStatus?: 'idle' | 'syncing' | 'synced' | 'error';
   commonAgentLastSyncAt?: number;
   commonAgentAnnotationCount?: number;
+  visionBboxAnnotationSummary?: VisionBboxAnnotationStatusSummary;
   captureSessionId?: string;
   captureViewTag?: CaptureViewTag;
   captureImageKind?: CaptureImageKind;
