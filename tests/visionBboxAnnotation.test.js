@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  buildVisionBboxReviewPacket,
   buildVisionBboxAnnotationPayloads
 } = require('../visionBboxAnnotation');
 
@@ -174,4 +175,72 @@ test('drops unsupported or empty Vision bboxes from annotation payloads', () => 
   });
 
   assert.deepEqual(payloads, []);
+});
+
+test('builds a fail-closed HITL review packet for a corrected Vision bbox', () => {
+  const packet = buildVisionBboxReviewPacket({
+    image: {
+      id: 'local-image-1',
+      commonAgentImageId: 'image-common-1',
+      captureSessionId: 'capture-session-1',
+      captureViewTag: 'defect_closeup',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white',
+    reviewAction: 'corrected_bbox',
+    reviewerNote: 'bbox를 리브 백화 영역 전체로 보정',
+    correctedBbox: {
+      coordinateSystem: 'normalized_xywh',
+      x: 0.1,
+      y: 0.2,
+      width: 0.35,
+      height: 0.2,
+      confidence: 1
+    }
+  });
+
+  assert.equal(packet.protocolVersion, 'vision-bbox-hitl-review/v1');
+  assert.equal(packet.reviewAction, 'corrected_bbox');
+  assert.equal(packet.reviewStatus, 'needs_review');
+  assert.equal(packet.graphPromotionAllowed, false);
+  assert.equal(packet.learningSyncAllowed, false);
+  assert.equal(packet.annotationRequest.review_status, 'needs_review');
+  assert.deepEqual(packet.annotationRequest.bbox, {
+    coordinate_system: 'normalized_xywh',
+    x: 0.1,
+    y: 0.2,
+    width: 0.35,
+    height: 0.2
+  });
+  assert.deepEqual(packet.annotationRequest.metadata.original_bbox, {
+    coordinate_system: 'normalized_xywh',
+    x: 0.12,
+    y: 0.22,
+    width: 0.31,
+    height: 0.18
+  });
+  assert.equal(packet.annotationRequest.metadata.local_vision_observation_id, 'obs-white');
+  assert.equal(packet.annotationRequest.metadata.review_action, 'corrected_bbox');
+  assert.equal(packet.annotationRequest.metadata.graph_promotion_allowed, false);
+  assert.equal(packet.annotationRequest.metadata.learning_sync_allowed, false);
+  assert.equal(packet.annotationRequest.metadata.reviewer_note, 'bbox를 리브 백화 영역 전체로 보정');
+});
+
+test('returns null when a bbox review packet cannot be tied to a valid observation bbox', () => {
+  const packet = buildVisionBboxReviewPacket({
+    image: {
+      id: 'local-image-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-missing',
+    reviewAction: 'needs_review'
+  });
+
+  assert.equal(packet, null);
 });
