@@ -159,6 +159,31 @@ const worktableSuggestionSeverityFor = status => {
   return 'warning';
 };
 
+const reviewSessionPlanStatusLabelFor = status => {
+  if (status === 'ready_for_human_review') return '세션별 사람 검토 준비';
+  if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (status === 'clear') return '검토 세션 없음';
+  return compact(status);
+};
+
+const reviewSessionPlanSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (status === 'clear') return 'success';
+  return 'warning';
+};
+
+const copyableTextFor = fields => {
+  const parts = (Array.isArray(fields) ? fields : [])
+    .map(field => `${compact(field?.worktableColumn)}=${compact(field?.value)}`)
+    .filter(part => !part.startsWith('=') && !part.endsWith('='));
+  return parts.length > 0 ? `복사 후보: ${parts.join(' · ')}` : '';
+};
+
+const manualTextFor = fields => {
+  const parts = (Array.isArray(fields) ? fields : []).map(compact).filter(Boolean);
+  return parts.length > 0 ? `사람 확인: ${parts.join(' · ')}` : '';
+};
+
 const summarizeOperationalHitlActionPackDisplay = actionPack => {
   if (actionPack?.contractVersion !== 'operational-hitl-action-pack/v1') return null;
 
@@ -354,6 +379,69 @@ const summarizeOperationalHitlWorktableSuggestionDisplay = suggestion => {
   };
 };
 
+const summarizeOperationalHitlReviewSessionPlanDisplay = sessionPlan => {
+  if (sessionPlan?.contractVersion !== 'operational-hitl-review-session-plan/v1') {
+    return null;
+  }
+
+  const summary = sessionPlan.summary || {};
+  const status = compact(sessionPlan.status);
+  const summaryParts = [
+    `전체 ${numberValue(summary.totalRows)}건`,
+    `세션 ${numberValue(summary.sessionCount)}건`,
+    numberValue(summary.highRiskRows) > 0 ? `고위험 ${numberValue(summary.highRiskRows)}건` : '',
+    numberValue(summary.recaptureRows) > 0 ? `재촬영 ${numberValue(summary.recaptureRows)}건` : '',
+    numberValue(summary.approveCandidateRows) > 0
+      ? `Vision 후보 ${numberValue(summary.approveCandidateRows)}건`
+      : '',
+    numberValue(summary.approveCardRows) > 0
+      ? `Web 후보 ${numberValue(summary.approveCardRows)}건`
+      : '',
+    numberValue(summary.needsReviewRows) > 0
+      ? `needs_review ${numberValue(summary.needsReviewRows)}건`
+      : '',
+    numberValue(summary.needsChangesRows) > 0
+      ? `needs_changes ${numberValue(summary.needsChangesRows)}건`
+      : ''
+  ].filter(Boolean);
+
+  return {
+    title: 'HITL Review Session Plan',
+    status,
+    statusLabel: reviewSessionPlanStatusLabelFor(status),
+    severity: reviewSessionPlanSeverityFor(status),
+    summaryText: summaryParts.join(' · '),
+    nextActionKo: compact(sessionPlan.recommendedAction)
+      || '세션별 검토 순서에 따라 사람이 추천값을 확인하세요.',
+    sessionPreviews: (Array.isArray(sessionPlan.sessions) ? sessionPlan.sessions : [])
+      .slice(0, 4)
+      .map(session => ({
+        code: compact(session?.code),
+        titleKo: compact(session?.titleKo),
+        priority: numberValue(session?.priority),
+        rowCount: numberValue(session?.rowCount),
+        highRiskRows: numberValue(session?.highRiskRows),
+        guidanceKo: compact(session?.guidanceKo),
+        firstRows: (Array.isArray(session?.rows) ? session.rows : []).slice(0, 2).map(row => ({
+          queueCode: compact(row?.queueCode),
+          decisionId: compact(row?.decisionId),
+          displayLabel: compact(row?.displayLabel),
+          action: compact(row?.recommendedNewAction),
+          risk: compact(row?.recommendationRisk),
+          copyableText: copyableTextFor(row?.copyableFields),
+          manualText: manualTextFor(row?.manualConfirmationFields)
+        }))
+      })),
+    safetyBadges: [
+      'Session-plan only',
+      'newAction 자동 입력 금지',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Model 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -402,5 +490,6 @@ module.exports = {
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
   summarizeOperationalHitlActionPackDisplay,
   summarizeOperationalHitlPipelineStatusDisplay,
-  summarizeOperationalHitlWorktableSuggestionDisplay
+  summarizeOperationalHitlWorktableSuggestionDisplay,
+  summarizeOperationalHitlReviewSessionPlanDisplay
 };

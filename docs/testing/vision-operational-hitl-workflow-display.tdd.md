@@ -11,6 +11,8 @@ template 수, 미판정 수, 오류 수, 다음 명령, 안전 정책을 확인�
 Settings에 등록해 현재 개발 완료 단계, HITL 미입력 수, 추천 분포, 다음 명령을
 한 카드에서 확인할 수 있어야 한다. `operational-hitl-decision-worktable-suggestion/v1`
 도 Settings에서 등록해 사람이 승인할 후보와 위험 행을 빠르게 검토할 수 있어야 한다.
+`operational-hitl-review-session-plan/v1`는 세션별 검토 순서와 복사 후보/사람 확인
+필드를 Settings에서 확인할 수 있어야 한다.
 
 ## RED
 
@@ -60,12 +62,17 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
   Web 후보 43건, 검토필요 4건, 위험도 분포와 상위 row preview를 보여준다.
 - Suggestion 카드는 `Suggestion-only`, `newAction 자동 입력 금지`, `자동 적용 금지`,
   `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
+- `operational-hitl-review-session-plan/v1`는 `HITL Review Session Plan` 카드로
+  표시하고 전체 59건, 세션 4건, 고위험 9건, 세션별 row preview, copyableFields,
+  manualConfirmationFields를 보여준다.
+- Review Session 카드는 `Session-plan only`, `newAction 자동 입력 금지`,
+  `자동 적용 금지`, `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
 
 ## 확인 결과
 
 ```text
 npm run test:vision-operational-hitl-display
-PASS 14
+PASS 16
 ```
 
 Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가 표시되고,
@@ -81,3 +88,8 @@ Status` 카드가 표시된다. 현재 실제 상태는 소프트웨어 scaffold
 `artifacts/operational-hitl-decision-worktable-suggestion-*.json`을 등록하면
 `HITL Worktable Suggestions` 카드가 표시된다. 이 카드는 추천 후보를 보여주지만
 자동으로 승인하거나 CSV `newAction`을 채우지 않는다.
+
+`Session Plan 등록` 버튼으로 최신
+`artifacts/operational-hitl-review-session-plan-*.json`을 등록하면 `HITL Review
+Session Plan` 카드가 표시된다. 이 카드는 세션별 우선 검토 순서와 사람이 확인할
+필드를 보여주지만, 역시 자동 승인이나 CSV 수정을 수행하지 않는다.

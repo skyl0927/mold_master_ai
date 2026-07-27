@@ -6,7 +6,8 @@ const {
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
   summarizeOperationalHitlActionPackDisplay,
   summarizeOperationalHitlPipelineStatusDisplay,
-  summarizeOperationalHitlWorktableSuggestionDisplay
+  summarizeOperationalHitlWorktableSuggestionDisplay,
+  summarizeOperationalHitlReviewSessionPlanDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -459,4 +460,131 @@ test('summarizes operational HITL worktable suggestions for Settings UI display'
 test('returns null when no operational HITL worktable suggestions are available to display', () => {
   assert.equal(summarizeOperationalHitlWorktableSuggestionDisplay(null), null);
   assert.equal(summarizeOperationalHitlWorktableSuggestionDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes operational HITL review session plan for Settings UI display', () => {
+  const display = summarizeOperationalHitlReviewSessionPlanDisplay({
+    contractVersion: 'operational-hitl-review-session-plan/v1',
+    status: 'ready_for_human_review',
+    summary: {
+      totalRows: 59,
+      sessionCount: 4,
+      highRiskRows: 9,
+      recaptureRows: 5,
+      approveCandidateRows: 7,
+      approveCardRows: 43,
+      needsReviewRows: 4,
+      needsChangesRows: 0
+    },
+    sessions: [
+      {
+        code: 'label_conflict_session',
+        titleKo: '승인 이미지 라벨 충돌 선검토',
+        priority: 1,
+        rowCount: 4,
+        highRiskRows: 4,
+        guidanceKo: '동일 hash 원본 이미지와 후보 라벨 중 실제 지배 결함을 먼저 확인하세요.',
+        rows: [
+          {
+            queueCode: 'vision_label_conflicts',
+            decisionId: 'conflict-001',
+            displayLabel: '제팅 | 플로우마크',
+            recommendedNewAction: 'mark_needs_review',
+            recommendationRisk: 'high',
+            recommendationReasonKo: '라벨 충돌 항목은 원본 동일 hash와 지배 결함 확인 전까지 needs_review 격리가 안전합니다.',
+            copyableFields: [
+              { worktableColumn: 'newAction', value: 'mark_needs_review' },
+              { worktableColumn: 'reviewComment', value: '라벨 충돌이 있어 원본 확인 전까지 학습 후보에서 격리합니다.' }
+            ],
+            manualConfirmationFields: ['selectedLabel', 'imageSetConfirmed', 'labelConfirmed']
+          }
+        ]
+      },
+      {
+        code: 'recapture_session',
+        titleKo: '재촬영 요청 검토',
+        priority: 2,
+        rowCount: 5,
+        highRiskRows: 5,
+        guidanceKo: '실제 제조 이미지 여부와 필요한 재촬영 view를 확정하세요.',
+        rows: [
+          {
+            queueCode: 'vision_pending_hitl',
+            decisionId: 'pending-hitl-001',
+            displayLabel: '교육용 도식',
+            recommendedNewAction: 'request_recapture',
+            recommendationRisk: 'high',
+            recommendationReasonKo: '비전 설명에 도식/비제조 이미지 위험이 있어 학습 승인보다 재촬영 요청으로 검토하는 것이 안전합니다.',
+            copyableFields: [
+              { worktableColumn: 'newAction', value: 'request_recapture' },
+              { worktableColumn: 'requestedViews', value: '제품 전체 정면 | 결함부 근접' }
+            ],
+            manualConfirmationFields: ['reviewer.id', 'decidedAt']
+          }
+        ]
+      }
+    ],
+    recommendedAction: '세션별 검토 순서에 따라 사람이 추천값을 확인하고 원본 worktable CSV에 필요한 값만 옮겨 적으세요.'
+  });
+
+  assert.equal(display.title, 'HITL Review Session Plan');
+  assert.equal(display.statusLabel, '세션별 사람 검토 준비');
+  assert.equal(display.severity, 'warning');
+  assert.equal(
+    display.summaryText,
+    '전체 59건 · 세션 4건 · 고위험 9건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건 · needs_review 4건'
+  );
+  assert.match(display.nextActionKo, /세션별/);
+  assert.deepEqual(display.sessionPreviews, [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 선검토',
+      priority: 1,
+      rowCount: 4,
+      highRiskRows: 4,
+      guidanceKo: '동일 hash 원본 이미지와 후보 라벨 중 실제 지배 결함을 먼저 확인하세요.',
+      firstRows: [
+        {
+          queueCode: 'vision_label_conflicts',
+          decisionId: 'conflict-001',
+          displayLabel: '제팅 | 플로우마크',
+          action: 'mark_needs_review',
+          risk: 'high',
+          copyableText: '복사 후보: newAction=mark_needs_review · reviewComment=라벨 충돌이 있어 원본 확인 전까지 학습 후보에서 격리합니다.',
+          manualText: '사람 확인: selectedLabel · imageSetConfirmed · labelConfirmed'
+        }
+      ]
+    },
+    {
+      code: 'recapture_session',
+      titleKo: '재촬영 요청 검토',
+      priority: 2,
+      rowCount: 5,
+      highRiskRows: 5,
+      guidanceKo: '실제 제조 이미지 여부와 필요한 재촬영 view를 확정하세요.',
+      firstRows: [
+        {
+          queueCode: 'vision_pending_hitl',
+          decisionId: 'pending-hitl-001',
+          displayLabel: '교육용 도식',
+          action: 'request_recapture',
+          risk: 'high',
+          copyableText: '복사 후보: newAction=request_recapture · requestedViews=제품 전체 정면 | 결함부 근접',
+          manualText: '사람 확인: reviewer.id · decidedAt'
+        }
+      ]
+    }
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Session-plan only',
+    'newAction 자동 입력 금지',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Model 학습 금지'
+  ]);
+});
+
+test('returns null when no operational HITL review session plan is available to display', () => {
+  assert.equal(summarizeOperationalHitlReviewSessionPlanDisplay(null), null);
+  assert.equal(summarizeOperationalHitlReviewSessionPlanDisplay({ contractVersion: 'unknown/v1' }), null);
 });

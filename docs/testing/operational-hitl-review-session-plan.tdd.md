@@ -49,3 +49,14 @@ npm run operational:hitl:review-session-plan
 
 `operational:hitl:pipeline-status`도 최신 review session plan을 읽어 `검토 세션`
 및 `고위험 row`를 summary와 Markdown에 표시한다.
+
+## Settings UI 연동
+
+Settings의 `비전 릴리스 게이트` 영역에 `Session Plan 등록` 버튼을 추가했다.
+최신 `artifacts/operational-hitl-review-session-plan-*.json`을 등록하면
+`Vision 운영 작업 목록` 아래에 `HITL Review Session Plan` 카드가 표시된다.
+
+카드는 전체 row, 세션 수, 고위험 row, 재촬영/Vision/Web 후보 수를 요약하고,
+최대 4개 세션과 세션별 상위 2개 row의 copyableFields/manualConfirmationFields를
+보여준다. 이 UI도 원본 CSV를 수정하지 않고 localStorage에 표시용 artifact만
+저장한다.
