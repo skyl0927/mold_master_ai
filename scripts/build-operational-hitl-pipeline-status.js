@@ -110,6 +110,12 @@ const reviewSessionPacketPath = resolveOptionalPath(
   latestArtifact('operational-hitl-review-session-packet-')
 );
 
+const reviewSessionProgressPath = resolveOptionalPath(
+  valueAfter('--review-session-progress'),
+  process.env.OPERATIONAL_HITL_REVIEW_SESSION_PROGRESS,
+  latestArtifact('operational-hitl-review-session-progress-')
+);
+
 const preflightPath = resolveOptionalPath(
   valueAfter('--preflight'),
   process.env.OPERATIONAL_HITL_EDITABLE_DECISION_PREFLIGHT_REPORT,
@@ -149,6 +155,7 @@ const run = () => {
     worktableSuggestion: readOptionalJson(worktableSuggestionPath),
     reviewSessionPlan: readOptionalJson(reviewSessionPlanPath),
     reviewSessionPacket: readOptionalJson(reviewSessionPacketPath),
+    reviewSessionProgress: readOptionalJson(reviewSessionProgressPath),
     worktableImport: readOptionalJson(worktableImportPath),
     preflightReport: readOptionalJson(preflightPath),
     verificationRun: readOptionalJson(verificationRunPath),
@@ -162,6 +169,7 @@ const run = () => {
       worktableSuggestion: worktableSuggestionPath,
       reviewSessionPlan: reviewSessionPlanPath,
       reviewSessionPacket: reviewSessionPacketPath,
+      reviewSessionProgress: reviewSessionProgressPath,
       worktableImport: worktableImportPath,
       preflightReport: preflightPath,
       verificationRun: verificationRunPath,
@@ -190,6 +198,9 @@ const run = () => {
     worktableReviewSessionHighRiskRows: report.summary.worktableReviewSessionHighRiskRows,
     worktableReviewSessionPacketCount: report.summary.worktableReviewSessionPacketCount,
     worktableReviewSessionPacketFiles: report.summary.worktableReviewSessionPacketFiles,
+    worktableReviewSessionProgressCompletedRows: report.summary.worktableReviewSessionProgressCompletedRows,
+    worktableReviewSessionProgressPendingRows: report.summary.worktableReviewSessionProgressPendingRows,
+    worktableReviewSessionProgressInvalidRows: report.summary.worktableReviewSessionProgressInvalidRows,
     worktableRecaptureSuggestions: report.summary.worktableRecaptureSuggestions,
     worktableApproveCandidateSuggestions: report.summary.worktableApproveCandidateSuggestions,
     worktableApproveCardSuggestions: report.summary.worktableApproveCardSuggestions,

@@ -286,6 +286,15 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
     numberValue(summary.worktableReviewSessionPacketFiles) > 0
       ? `패킷파일 ${numberValue(summary.worktableReviewSessionPacketFiles)}개`
       : '',
+    numberValue(summary.worktableReviewSessionProgressCompletedRows) > 0
+      ? `세션완료 ${numberValue(summary.worktableReviewSessionProgressCompletedRows)}건`
+      : '',
+    numberValue(summary.worktableReviewSessionProgressPendingRows) > 0
+      ? `세션대기 ${numberValue(summary.worktableReviewSessionProgressPendingRows)}건`
+      : '',
+    numberValue(summary.worktableReviewSessionProgressInvalidRows) > 0
+      ? `세션오류 ${numberValue(summary.worktableReviewSessionProgressInvalidRows)}건`
+      : '',
     numberValue(summary.worktableRecaptureSuggestions) > 0
       ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
       : '',

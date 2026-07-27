@@ -101,6 +101,22 @@ const reviewSessionPacket = () => ({
   }
 });
 
+const reviewSessionProgress = () => ({
+  contractVersion: 'operational-hitl-review-session-progress/v1',
+  status: 'awaiting_human_csv_decisions',
+  serviceWritesPerformed: false,
+  summary: {
+    totalRows: 59,
+    completedRows: 0,
+    pendingRows: 59,
+    invalidRows: 0,
+    sessionCount: 4,
+    completeSessionCount: 0,
+    blockedSessionCount: 0,
+    packetFiles: 8
+  }
+});
+
 const preflight = status => ({
   contractVersion: 'operational-hitl-editable-decision-preflight/v1',
   status,
@@ -187,7 +203,8 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
-    'npm run operational:hitl:worktable-import'
+    'npm run operational:hitl:worktable-import',
+    'npm run operational:hitl:session-progress'
   ]);
   assert.equal(status.policy.allowGraphPromotion, false);
   assert.equal(status.serviceWritesPerformed, false);
@@ -202,12 +219,14 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
     worktableSuggestion: worktableSuggestion(),
     reviewSessionPlan: reviewSessionPlan(),
     reviewSessionPacket: reviewSessionPacket(),
+    reviewSessionProgress: reviewSessionProgress(),
     worktableImport: worktableImport('no_actionable_rows'),
     preflightReport: preflight('needs_human_input'),
     sourceArtifacts: {
       worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
       reviewSessionPlan: 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json',
-      reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json'
+      reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
+      reviewSessionProgress: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json'
     }
   });
 
@@ -222,9 +241,14 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.equal(status.summary.worktableReviewSessionPacketCount, 4);
   assert.equal(status.summary.worktableReviewSessionPacketHighRiskRows, 9);
   assert.equal(status.summary.worktableReviewSessionPacketFiles, 8);
+  assert.equal(status.summary.worktableReviewSessionProgressCompletedRows, 0);
+  assert.equal(status.summary.worktableReviewSessionProgressPendingRows, 59);
+  assert.equal(status.summary.worktableReviewSessionProgressInvalidRows, 0);
+  assert.equal(status.summary.worktableReviewSessionProgressCompleteSessions, 0);
   assert.equal(status.sources.worktableSuggestion, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json');
   assert.equal(status.sources.reviewSessionPlan, 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json');
   assert.equal(status.sources.reviewSessionPacket, 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json');
+  assert.equal(status.sources.reviewSessionProgress, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json');
   assert.deepEqual(
     status.stageTrail.find(item => item.code === 'worktable_suggestion'),
     {
@@ -249,9 +273,19 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
       status: 'ready_for_human_review'
     }
   );
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'review_session_progress'),
+    {
+      code: 'review_session_progress',
+      titleKo: 'Review session progress',
+      status: 'awaiting_human_csv_decisions'
+    }
+  );
   assert.match(status.markdown, /추천 row: 59/);
   assert.match(status.markdown, /검토 세션: 4/);
   assert.match(status.markdown, /검토 패킷: 4/);
+  assert.match(status.markdown, /세션 완료 row: 0/);
+  assert.match(status.markdown, /세션 대기 row: 59/);
   assert.match(status.markdown, /재촬영 추천: 5/);
 });
 

@@ -27,6 +27,8 @@ node --test tests\operationalHitlPipelineStatus.test.js
   stage trail, source map, Markdown에 표시한다.
 - review session packet artifact가 있으면 세션 패킷 수와 파일 수를 summary,
   stage trail, source map, Markdown에 표시한다.
+- review session progress artifact가 있으면 세션 완료/대기/오류 row 수를
+  summary, stage trail, source map, Markdown에 표시한다.
 
 ## GREEN
 
@@ -57,6 +59,9 @@ Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
 - 검토 세션 고위험 row: 9
 - 검토 패킷: 4
 - 검토 패킷 파일: 8
+- 세션 완료 row: 0
+- 세션 대기 row: 59
+- 세션 오류 row: 0
 - 재촬영 추천: 5
 - Vision 승인 후보: 7
 - Web 카드 승인 후보: 43
