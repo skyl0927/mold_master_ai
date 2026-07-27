@@ -45,6 +45,21 @@ export interface Shape {
 }
 
 export type VisionDecisionStatus = 'probable' | 'needs_review' | 'unclassifiable';
+
+export interface VisionSafetyGateSummary {
+  status: 'reliable' | 'needs_review' | 'blocked';
+  score: number;
+  reasons: string[];
+  candidateUsePolicy:
+    | 'candidate_primary_graph_cross_check'
+    | 'graph_cross_check_only'
+    | 'do_not_use_vision_candidate';
+  autoGraphCandidateUseAllowed: boolean;
+  humanReviewRequired: boolean;
+  supportObservationCount: number;
+  supportCategoryCount: number;
+  topCandidateMargin: number | null;
+}
 export type VisionObservationCategory =
   | 'color'
   | 'boundary'
@@ -88,6 +103,7 @@ export interface VisionObservationSummary {
   abstentionReason: string;
   validationIssues: string[];
   groundingStatus: 'grounded' | 'legacy' | 'invalid';
+  safetyGate?: VisionSafetyGateSummary;
   decisionStatus: VisionDecisionStatus;
   decisionReason: string;
   fusionSummary?: VisionFusionSummary;

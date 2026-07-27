@@ -480,6 +480,35 @@ ${data.countermeasures}
                                                     {editableData.visionSummary.normalityStatus}
                                                 </span>
                                             </div>
+                                            {editableData.visionSummary.safetyGate && (
+                                                <div className={`mt-3 rounded-lg border p-3 ${
+                                                    editableData.visionSummary.safetyGate.status === 'reliable'
+                                                        ? 'border-emerald-700/60 bg-emerald-950/20'
+                                                        : editableData.visionSummary.safetyGate.status === 'blocked'
+                                                            ? 'border-red-700/60 bg-red-950/25'
+                                                            : 'border-amber-700/60 bg-amber-950/20'
+                                                }`}>
+                                                    <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                                        <span className="font-semibold uppercase tracking-wider text-cyan-200">
+                                                            Vision Safety Gate
+                                                        </span>
+                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
+                                                            {editableData.visionSummary.safetyGate.status}
+                                                        </span>
+                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
+                                                            {editableData.visionSummary.safetyGate.score}점
+                                                        </span>
+                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
+                                                            {editableData.visionSummary.safetyGate.candidateUsePolicy}
+                                                        </span>
+                                                    </div>
+                                                    {editableData.visionSummary.safetyGate.reasons.length > 0 && (
+                                                        <p className="mt-2 text-xs text-amber-100">
+                                                            안전 게이트 사유: {editableData.visionSummary.safetyGate.reasons.join(', ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                             {editableData.visionSummary.fusionSummary && (
                                                 <div className="mt-3 rounded-lg border border-sky-700/60 bg-sky-950/40 p-3">
                                                     <div className="flex flex-wrap items-center gap-2 text-[10px]">

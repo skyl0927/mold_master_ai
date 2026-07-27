@@ -17,6 +17,7 @@ const { isClassifiableDefectLabel } = require('./shared/defect-taxonomy');
 const { scanLocalVisionCandidates } = require('./localVisionCandidate');
 const { buildMigrationGateStatus } = require('./migrationGateStatus');
 const { retryAsync } = require('./retryAsync');
+const { withRuntimeEndpointDefaults } = require('./apiConfigDefaults');
 const {
     createVisionReviewDecisionLedger
 } = require('./visionReviewDecisionLedger');
@@ -678,7 +679,7 @@ ipcMain.handle('DEBUG_CAPTURE_POINTER', (event, payload) => {
     }
 });
 
-ipcMain.handle('GET_API_CONFIG', () => apiConfig);
+ipcMain.handle('GET_API_CONFIG', () => withRuntimeEndpointDefaults(apiConfig));
 ipcMain.handle('SET_API_CONFIG', (event, config) => {
     apiConfig = config;
     saveApiConfig(config);

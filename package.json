@@ -113,6 +113,7 @@
     "files": [
       "build/",
       "main.js",
+      "apiConfigDefaults.js",
       "localVisionCandidate.js",
       "migrationGateStatus.js",
       "shared/defect-taxonomy.js",

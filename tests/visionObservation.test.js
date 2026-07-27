@@ -65,34 +65,80 @@ test('parses and ranks a structured Top-3 Vision observation', () => {
   );
 });
 
-test('marks a separated high-confidence candidate as probable, not confirmed', () => {
+test('marks a separated high-confidence candidate with independent visual evidence as probable, not confirmed', () => {
   const observation = normalizeVisionObservation({
     contract_version: 'vision-observation/v2',
     image_kind: 'physical_product',
     normality_status: 'defect_visible',
-    observations: [{
-      observation_id: 'obs-flash-1',
-      category: 'geometry',
-      description: '\uD30C\uD305\uB77C\uC778 \uBC16\uC73C\uB85C \uC5C7\uC740 \uB3CC\uCD9C',
-      region: '\uD30C\uD305\uB77C\uC778',
-      confidence: 0.92
-    }],
+    observations: [
+      {
+        observation_id: 'obs-flash-1',
+        category: 'geometry',
+        description: '\uD30C\uD305\uB77C\uC778 \uBC16\uC73C\uB85C \uC5C7\uC740 \uB3CC\uCD9C',
+        region: '\uD30C\uD305\uB77C\uC778',
+        confidence: 0.92
+      },
+      {
+        observation_id: 'obs-boundary-1',
+        category: 'boundary',
+        description: '\uAE08\uD615 \uACBD\uACC4 \uC678\uCE21\uC73C\uB85C \uC5F0\uC18D\uB418\uB294 \uC587\uC740 \uC120\uD615 \uD615\uC0C1',
+        region: '\uD30C\uD305\uB77C\uC778',
+        confidence: 0.88
+      }
+    ],
     candidates: [
       {
         defect_type: '\uD50C\uB798\uC2DC',
         confidence: 0.84,
-        supporting_observation_ids: ['obs-flash-1']
+        supporting_observation_ids: ['obs-flash-1', 'obs-boundary-1']
       },
       {
         defect_type: '\uC2A4\uD06C\uB798\uCE58',
         confidence: 0.21,
-        supporting_observation_ids: ['obs-flash-1']
+        supporting_observation_ids: ['obs-boundary-1']
       }
     ]
   });
 
   assert.equal(observation.decisionStatus, 'probable');
   assert.equal(observation.primaryCandidate.defectType, '\uD50C\uB798\uC2DC');
+  assert.equal(observation.safetyGate.status, 'reliable');
+  assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, true);
+});
+
+test('downgrades a high-confidence candidate when only one visual observation supports it', () => {
+  const observation = normalizeVisionObservation({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [{
+      observation_id: 'obs-white-1',
+      category: 'color',
+      description: '\uB9AC\uBE0C \uAE30\uBD80\uC5D0 \uC720\uBC31\uC0C9 \uBCC0\uC0C9',
+      region: '\uB9AC\uBE0C \uC8FC\uBCC0',
+      confidence: 0.94
+    }],
+    candidates: [
+      {
+        defect_type: '\uBC31\uD654',
+        confidence: 0.91,
+        supporting_observation_ids: ['obs-white-1']
+      },
+      {
+        defect_type: '\uBC00\uD540 \uC790\uAD6D',
+        confidence: 0.16,
+        supporting_observation_ids: ['obs-white-1']
+      }
+    ]
+  });
+
+  assert.equal(observation.candidates.length, 2);
+  assert.equal(observation.primaryCandidate.defectType, '\uBC31\uD654');
+  assert.equal(observation.decisionStatus, 'needs_review');
+  assert.equal(observation.decisionReason, 'vision_safety_gate_requires_review');
+  assert.equal(observation.safetyGate.status, 'needs_review');
+  assert.equal(observation.safetyGate.autoGraphCandidateUseAllowed, false);
+  assert.ok(observation.safetyGate.reasons.includes('insufficient_independent_visual_evidence'));
 });
 
 test('falls back safely from the legacy Defect and Desc format', () => {
@@ -348,4 +394,35 @@ test('Graph retrieval query does not include candidates from rejected quality im
   assert.match(query, /Quality status: reject/);
   assert.match(query, /Candidate defects: unclassifiable/);
   assert.doesNotMatch(query, /\uC6F0\uB4DC\uB77C\uC778/);
+});
+
+test('Graph retrieval query carries the Vision safety gate for weakly grounded candidates', () => {
+  const query = buildVisionRetrievalQuery({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [{
+      observation_id: 'obs-white-1',
+      category: 'color',
+      description: '\uB9AC\uBE0C \uC8FC\uBCC0 \uBC31\uD654',
+      region: '\uB9AC\uBE0C',
+      confidence: 0.9
+    }],
+    candidates: [
+      {
+        defect_type: '\uBC31\uD654',
+        confidence: 0.92,
+        supporting_observation_ids: ['obs-white-1']
+      },
+      {
+        defect_type: '\uC2F1\uD06C\uB9C8\uD06C',
+        confidence: 0.18,
+        supporting_observation_ids: ['obs-white-1']
+      }
+    ]
+  }, '\uCDE8\uCD9C \uC2DC \uB531 \uC18C\uB9AC');
+
+  assert.match(query, /Vision safety gate: needs_review/);
+  assert.match(query, /candidate_use_policy: graph_cross_check_only/);
+  assert.match(query, /insufficient_independent_visual_evidence/);
 });

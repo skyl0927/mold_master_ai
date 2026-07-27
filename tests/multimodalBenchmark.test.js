@@ -194,17 +194,23 @@ test('vision scoring treats a separated high-confidence candidate as an accepted
           description: '리브 기부의 유백색 응력 변색',
           region: '리브 기부',
           confidence: 0.92
+        }, {
+          observation_id: 'obs-location-1',
+          category: 'location',
+          description: '변색이 리브 기부와 취출 저항 가능 위치에 국부적으로 집중됨',
+          region: '리브 기부',
+          confidence: 0.88
         }],
         candidates: [
           {
             defect_type: '백화',
             confidence: 0.86,
-            supporting_observation_ids: ['obs-color-1']
+            supporting_observation_ids: ['obs-color-1', 'obs-location-1']
           },
           {
             defect_type: '싱크마크',
             confidence: 0.12,
-            supporting_observation_ids: ['obs-color-1']
+            supporting_observation_ids: ['obs-location-1']
           }
         ]
       },
@@ -219,6 +225,49 @@ test('vision scoring treats a separated high-confidence candidate as an accepted
   assert.equal(result.top1Accurate, true);
   assert.equal(result.decisionStatus, 'probable');
   assert.equal(result.acceptedPrediction, true);
+  assert.equal(result.unsafeAcceptedError, false);
+});
+
+test('vision scoring does not accept a high-confidence prediction with single-observation support', () => {
+  const result = evaluateVisionResult(validCase, {
+    httpOk: true,
+    latencyMs: 700,
+    response: {
+      observation: {
+        contract_version: 'vision-observation/v2',
+        image_kind: 'physical_product',
+        normality_status: 'defect_visible',
+        observations: [{
+          observation_id: 'obs-color-1',
+          category: 'color',
+          description: '리브 기부의 유백색 응력 변색',
+          region: '리브 기부',
+          confidence: 0.92
+        }],
+        candidates: [
+          {
+            defect_type: '백화',
+            confidence: 0.91,
+            supporting_observation_ids: ['obs-color-1']
+          },
+          {
+            defect_type: '싱크마크',
+            confidence: 0.11,
+            supporting_observation_ids: ['obs-color-1']
+          }
+        ]
+      },
+      answer: '구배를 확인하세요.',
+      evidence: [{
+        review_status: 'approved',
+        source_type: 'knowledge_path'
+      }]
+    }
+  });
+
+  assert.equal(result.top1Accurate, true);
+  assert.equal(result.decisionStatus, 'needs_review');
+  assert.equal(result.acceptedPrediction, false);
   assert.equal(result.unsafeAcceptedError, false);
 });
 

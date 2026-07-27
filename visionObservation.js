@@ -11,6 +11,8 @@ const confidenceValue = value => {
   return Math.min(1, Math.max(0, normalized));
 };
 
+const clampScore = value => Math.min(100, Math.max(0, Math.round(value)));
+
 const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
@@ -260,6 +262,109 @@ const decisionFor = (
   };
 };
 
+const buildSafetyGate = ({
+  isV2,
+  imageKind,
+  normalityStatus,
+  qualityStatus,
+  validationIssues,
+  candidates,
+  observationById
+}) => {
+  const reasons = [];
+  const top = candidates[0] || null;
+  const second = candidates[1] || null;
+  const topCandidateMargin = top && second
+    ? Math.round((top.confidence - second.confidence) * 1000) / 1000
+    : null;
+  const supportingObservationIds = top?.supportingObservationIds || [];
+  const supportingCategories = new Set(
+    supportingObservationIds
+      .map(id => observationById.get(id)?.category)
+      .filter(Boolean)
+  );
+  const supportObservationCount = supportingObservationIds.length || (top?.supportingFeatures || []).length;
+  const supportCategoryCount = supportingCategories.size;
+
+  const blockedReason = [
+    imageKind === 'document_or_diagram' ? 'non_physical_image' : '',
+    qualityStatus === 'reject' ? 'image_quality_rejected' : '',
+    normalityStatus === 'no_defect_visible' ? 'no_visible_defect' : '',
+    candidates.length === 0 ? 'no_classifiable_candidate' : '',
+    validationIssues.includes('missing_visual_observations') ? 'missing_visual_observations' : '',
+    validationIssues.includes('candidate_without_observation_evidence')
+      ? 'candidate_without_observation_evidence'
+      : ''
+  ].find(Boolean);
+
+  if (blockedReason) {
+    return {
+      status: 'blocked',
+      score: 0,
+      reasons: [blockedReason],
+      candidateUsePolicy: 'do_not_use_vision_candidate',
+      autoGraphCandidateUseAllowed: false,
+      humanReviewRequired: true,
+      supportObservationCount,
+      supportCategoryCount,
+      topCandidateMargin
+    };
+  }
+
+  if (!isV2) reasons.push('legacy_observation_contract');
+  if (qualityStatus === 'warn') reasons.push('image_quality_warning');
+  if (normalityStatus !== 'defect_visible') reasons.push('visual_abnormality_not_confirmed');
+  if (candidates.length < 2) reasons.push('single_candidate_requires_review');
+  if (top && top.confidence < 0.7) reasons.push('top_candidate_confidence_below_safety_floor');
+  if (top && second && topCandidateMargin < 0.2) reasons.push('top_candidate_margin_too_small');
+  if (top && supportObservationCount < 2) {
+    reasons.push('insufficient_independent_visual_evidence');
+  }
+  if (top && isV2 && supportCategoryCount < 2) {
+    reasons.push('single_visual_evidence_category');
+  }
+  if (
+    top
+    && (
+      (top.contradictingObservationIds || []).length > 0
+      || (top.contradictingFeatures || []).length > 0
+    )
+  ) {
+    reasons.push('top_candidate_has_contradicting_evidence');
+  }
+
+  const penaltyByReason = {
+    legacy_observation_contract: 35,
+    image_quality_warning: 12,
+    visual_abnormality_not_confirmed: 20,
+    single_candidate_requires_review: 15,
+    top_candidate_confidence_below_safety_floor: 20,
+    top_candidate_margin_too_small: 18,
+    insufficient_independent_visual_evidence: 24,
+    single_visual_evidence_category: 14,
+    top_candidate_has_contradicting_evidence: 24
+  };
+  const score = clampScore(100 - reasons.reduce(
+    (sum, reason) => sum + (penaltyByReason[reason] || 10),
+    0
+  ));
+  const status = reasons.length > 0 ? 'needs_review' : 'reliable';
+
+  return {
+    status,
+    score,
+    reasons,
+    candidateUsePolicy: status === 'reliable'
+      ? 'candidate_primary_graph_cross_check'
+      : 'graph_cross_check_only',
+    autoGraphCandidateUseAllowed: status === 'reliable',
+    humanReviewRequired: status !== 'reliable',
+    supportObservationCount,
+    supportCategoryCount,
+    topCandidateMargin
+  };
+};
+
 const normalizeVisionObservation = input => {
   const contractVersion = compact(input?.contractVersion || input?.contract_version)
     || 'vision-observation/v1';
@@ -339,13 +444,30 @@ const normalizeVisionObservation = input => {
     candidates = [];
   }
 
-  const decision = decisionFor(candidates, {
+  const baseDecision = decisionFor(candidates, {
     isV2,
     imageKind,
     normalityStatus,
     qualityStatus,
     validationIssues
   });
+  const safetyGate = buildSafetyGate({
+    isV2,
+    imageKind,
+    normalityStatus,
+    qualityStatus,
+    validationIssues,
+    candidates,
+    observationById
+  });
+  const decision = safetyGate.status === 'blocked'
+    ? baseDecision
+    : baseDecision.decisionStatus === 'probable' && safetyGate.status !== 'reliable'
+      ? {
+          decisionStatus: 'needs_review',
+          decisionReason: 'vision_safety_gate_requires_review'
+        }
+      : baseDecision;
   const groundingStatus = isV2
     ? validationIssues.length > 0 ? 'invalid' : 'grounded'
     : 'legacy';
@@ -374,6 +496,7 @@ const normalizeVisionObservation = input => {
     abstentionReason,
     validationIssues,
     groundingStatus,
+    safetyGate,
     ...decision
   };
 };
@@ -443,6 +566,12 @@ const buildVisionRetrievalQuery = (observation, fieldContext = '') => {
     `Quality status: ${normalized.qualityStatus}`,
     normalized.qualityConcerns.length > 0
       ? `Quality concerns: ${normalized.qualityConcerns.join(', ')}`
+      : '',
+    normalized.safetyGate
+      ? `Vision safety gate: ${normalized.safetyGate.status} | score: ${normalized.safetyGate.score} | candidate_use_policy: ${normalized.safetyGate.candidateUsePolicy}`
+      : '',
+    normalized.safetyGate?.reasons?.length > 0
+      ? `Vision safety reasons: ${normalized.safetyGate.reasons.join(', ')}`
       : '',
     observationLines.length > 0
       ? `Pixel-grounded observations:\n${observationLines.join('\n')}`
