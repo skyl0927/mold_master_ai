@@ -9,6 +9,7 @@ import {
     resolveVisionHitlDecision,
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
+import { buildVisionBboxOverlayItems, overlayItemStyle } from '../visionBboxOverlay';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -319,6 +320,8 @@ ${data.countermeasures}
 
     if (!image) return null;
 
+    const bboxOverlays = buildVisionBboxOverlayItems(editableData?.visionSummary);
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className={`bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border ${isAdmin ? 'border-yellow-500' : 'border-gray-700'}`} onClick={(e) => e.stopPropagation()}>
@@ -343,7 +346,33 @@ ${data.countermeasures}
                 <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
                     {/* Image Section */}
                     <div className="md:w-2/5 bg-black flex items-center justify-center p-4 border-r border-gray-700">
-                        <img src={image.dataUrl} alt="Defect" className="max-w-full max-h-[60vh] object-contain rounded border border-gray-700" />
+                        <div className="relative inline-block max-w-full max-h-[60vh]">
+                            <img src={image.dataUrl} alt="Defect" className="block max-w-full max-h-[60vh] object-contain rounded border border-gray-700" />
+                            {bboxOverlays.length > 0 ? (
+                                <div className="pointer-events-none absolute inset-0 rounded border border-transparent">
+                                    {bboxOverlays.map((item, index) => (
+                                        <div
+                                            key={`${item.observationId}-${index}`}
+                                            className={`absolute rounded-sm border-2 shadow-[0_0_0_1px_rgba(0,0,0,0.75)] ${
+                                                item.isPrimarySupport
+                                                    ? 'border-cyan-300 bg-cyan-400/10'
+                                                    : 'border-amber-300 bg-amber-400/10'
+                                            }`}
+                                            style={overlayItemStyle(item)}
+                                            title={`${item.label} ${item.region || item.description}`}
+                                        >
+                                            <span className={`absolute -left-0.5 -top-5 rounded px-1.5 py-0.5 text-[10px] font-bold shadow ${
+                                                item.isPrimarySupport
+                                                    ? 'bg-cyan-500 text-gray-950'
+                                                    : 'bg-amber-400 text-gray-950'
+                                            }`}>
+                                                {index + 1}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
 
                     {/* Report Section */}
