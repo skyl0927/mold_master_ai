@@ -3,7 +3,8 @@ const test = require('node:test');
 
 const {
   buildVisionBboxOverlayIndex,
-  buildVisionBboxOverlayItems
+  buildVisionBboxOverlayItems,
+  buildVisionBboxOverlayReviewModel
 } = require('../visionBboxOverlay');
 
 test('converts normalized observation bbox to percent overlay geometry', () => {
@@ -168,4 +169,58 @@ test('indexes overlay numbers by observation id for reviewer cross-checking', ()
   assert.equal(overlayIndex.items[1].tone, 'secondary');
   assert.equal(overlayIndex.byObservationId['obs-primary'].displayIndex, 1);
   assert.equal(overlayIndex.byObservationId['obs-secondary'].displayIndex, 2);
+});
+
+test('marks active overlay evidence and dims the remaining review items', () => {
+  const visionSummary = {
+    primaryCandidate: {
+      defectType: '웰드라인',
+      supportingObservationIds: ['obs-primary']
+    },
+    visualObservations: [
+      {
+        observationId: 'obs-primary',
+        category: 'line',
+        description: '주요 결함 근거 관찰',
+        confidence: 0.8,
+        regionBbox: {
+          coordinateSystem: 'normalized_xywh',
+          x: 0.1,
+          y: 0.1,
+          width: 0.3,
+          height: 0.2,
+          confidence: 0.8
+        }
+      },
+      {
+        observationId: 'obs-secondary',
+        category: 'surface',
+        description: '보조 관찰',
+        confidence: 0.7,
+        regionBbox: {
+          coordinateSystem: 'normalized_xywh',
+          x: 0.5,
+          y: 0.5,
+          width: 0.2,
+          height: 0.2,
+          confidence: 0.7
+        }
+      }
+    ]
+  };
+
+  const reviewModel = buildVisionBboxOverlayReviewModel(visionSummary, 'obs-secondary');
+
+  assert.equal(reviewModel.hasActiveFocus, true);
+  assert.equal(reviewModel.activeObservationId, 'obs-secondary');
+  assert.equal(reviewModel.byObservationId['obs-secondary'].isActive, true);
+  assert.equal(reviewModel.byObservationId['obs-secondary'].isDimmed, false);
+  assert.equal(reviewModel.byObservationId['obs-primary'].isActive, false);
+  assert.equal(reviewModel.byObservationId['obs-primary'].isDimmed, true);
+
+  const missingFocusModel = buildVisionBboxOverlayReviewModel(visionSummary, 'obs-missing');
+  assert.equal(missingFocusModel.hasActiveFocus, false);
+  assert.equal(missingFocusModel.activeObservationId, '');
+  assert.equal(missingFocusModel.byObservationId['obs-primary'].isDimmed, false);
+  assert.equal(missingFocusModel.byObservationId['obs-secondary'].isDimmed, false);
 });
