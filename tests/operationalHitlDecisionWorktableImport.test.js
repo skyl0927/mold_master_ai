@@ -171,6 +171,22 @@ test('fails closed when the CSV contains unsupported actions or unknown decision
   assert.equal(writes.length, 0);
 });
 
+test('ignores exported read-only rows until newAction or explicit action is entered', () => {
+  const report = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: [
+      'queueCode,decisionId,currentAction,rowStatus,reviewedProblem,reviewComment',
+      'vision_pending_hitl,pending-hitl-001,pending,pending,이미 존재하는 설명,'
+    ].join('\n'),
+    readFileText: filePath => editableFiles().get(filePath)
+  });
+
+  assert.equal(report.status, 'no_actionable_rows');
+  assert.equal(report.summary.plannedUpdates, 0);
+  assert.equal(report.summary.unchangedRows, 1);
+  assert.deepEqual(report.plannedUpdates, []);
+});
+
 test('fails closed when workspace or CSV evidence is missing', () => {
   const report = buildOperationalHitlDecisionWorktableImport({
     workspaceManifest: null,

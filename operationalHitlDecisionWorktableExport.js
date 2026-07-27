@@ -19,10 +19,26 @@ const COLUMNS = [
   'owner',
   'currentAction',
   'rowStatus',
+  'newAction',
   'displayLabel',
   'allowedActions',
   'requiredFields',
   'reviewFocusKo',
+  'reviewerId',
+  'reviewerName',
+  'decidedAt',
+  'reviewComment',
+  'selectedLabel',
+  'approvedDefectType',
+  'imageSetConfirmed',
+  'labelConfirmed',
+  'manufacturingImageConfirmed',
+  'confirmed',
+  'requestedViews',
+  'causeCandidates',
+  'causeLabels',
+  'checkItems',
+  'actions',
   'editablePath',
   'verificationCommand'
 ];
@@ -120,6 +136,19 @@ const reviewFocusFor = decision => compact(
   || decision?.reviewedProblem
 );
 
+const reviewerIdFor = decision => compact(
+  decision?.reviewerId
+  || decision?.reviewedBy
+  || decision?.reviewer?.id
+);
+
+const reviewerNameFor = decision => compact(
+  decision?.reviewerName
+  || decision?.reviewer?.name
+);
+
+const csvListFor = values => unique(values).join(' | ');
+
 const fieldsByActionFor = decision =>
   Object.values(decision?.requiredFieldsByAction || {}).flatMap(asArray);
 
@@ -139,11 +168,27 @@ const blockedRowFor = ({ editableFile, rowStatus, error }) => ({
   titleKo: compact(editableFile.titleKo),
   owner: compact(editableFile.owner),
   currentAction: '',
+  newAction: '',
   rowStatus,
   displayLabel: '',
   allowedActions: unique(editableFile.allowedActions).join(' | '),
   requiredFields: unique(editableFile.requiredFields).join(' | '),
   reviewFocusKo: compact(error),
+  reviewerId: '',
+  reviewerName: '',
+  decidedAt: '',
+  reviewComment: '',
+  selectedLabel: '',
+  approvedDefectType: '',
+  imageSetConfirmed: '',
+  labelConfirmed: '',
+  manufacturingImageConfirmed: '',
+  confirmed: '',
+  requestedViews: '',
+  causeCandidates: '',
+  causeLabels: '',
+  checkItems: '',
+  actions: '',
   editablePath: compact(editableFile.editablePath),
   verificationCommand: compact(editableFile.verifyCommand)
 });
@@ -173,11 +218,27 @@ const rowsForEditableFile = ({ editableFile, fileText }) => {
     titleKo: compact(editableFile.titleKo),
     owner: compact(editableFile.owner),
     currentAction: currentActionFor(decision),
+    newAction: '',
     rowStatus: rowStatusFor(decision),
     displayLabel: displayLabelFor(decision),
     allowedActions: allowedActionsFor(decision, editableFile).join(' | '),
     requiredFields: requiredFieldsFor(decision, editableFile).join(' | '),
     reviewFocusKo: reviewFocusFor(decision),
+    reviewerId: reviewerIdFor(decision),
+    reviewerName: reviewerNameFor(decision),
+    decidedAt: compact(decision?.decidedAt || decision?.reviewedAt),
+    reviewComment: compact(decision?.reviewComment || decision?.reason),
+    selectedLabel: compact(decision?.selectedLabel),
+    approvedDefectType: compact(decision?.approvedDefectType),
+    imageSetConfirmed: decision?.imageSetConfirmed === true ? 'true' : '',
+    labelConfirmed: decision?.labelConfirmed === true ? 'true' : '',
+    manufacturingImageConfirmed: decision?.manufacturingImageConfirmed === true ? 'true' : '',
+    confirmed: decision?.confirmed === true ? 'true' : '',
+    requestedViews: csvListFor(decision?.requestedViews || decision?.requiredViews),
+    causeCandidates: csvListFor(decision?.causeCandidates),
+    causeLabels: csvListFor(decision?.causeLabels),
+    checkItems: csvListFor(decision?.checkItems),
+    actions: csvListFor(decision?.actions),
     editablePath: compact(editableFile.editablePath),
     verificationCommand: compact(editableFile.verifyCommand)
   }));

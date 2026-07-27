@@ -94,6 +94,7 @@ npm run operational:hitl:reviewer-worksheet
 npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
 npm run operational:hitl:worktable-export
+npm run operational:hitl:worktable-import
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
 ```
@@ -159,6 +160,14 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 쉬운 CSV와 Markdown 작업표로 펼친다. 각 row는 queue, decision id, 현재 action,
 허용 action, 필수 필드, 검토 포커스, 수정 파일, 검증 명령을 포함한다. 이 산출물은
 입력 보조용이며 decision JSON을 수정하거나 검증 명령을 실행하지 않는다.
+
+`operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
+decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,
+`queueCode`, `decisionId`, `newAction`, reviewer, comment, decidedAt, 확인 boolean,
+라벨/원인/대책 입력 필드를 검증해 계획만 만든다. 하나라도 알 수 없는 decision
+또는 허용되지 않은 action이 있으면 `invalid_worktable`로 중단하고 어떤 파일도
+쓰지 않는다. 사람이 dry-run 결과를 확인한 뒤에만 `--apply`를 붙여 로컬
+workspace의 editable JSON을 수정한다.
 
 `operational:hitl:common-agent-import-package`는 라벨 충돌, Vision pending HITL,
 Web Knowledge HITL의 최신 decision verification report를 하나로 묶어
