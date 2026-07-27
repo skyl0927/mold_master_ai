@@ -52,6 +52,7 @@ import {
     selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
+import { buildVisionBboxAnnotationPayloads } from './visionBboxAnnotation';
 
 interface EditingState {
     id?: string;
@@ -127,15 +128,24 @@ const shapeToNormalizedBbox = (shape: Shape, imageWidth: number, imageHeight: nu
     };
 };
 
-const buildCommonAgentAnnotationPayloads = async (image: CapturedImage): Promise<CommonAgentAnnotationRequest[]> => {
+const buildCommonAgentAnnotationPayloads = async (
+    image: CapturedImage,
+    existingAnnotations: Array<{ metadata?: Record<string, any> }> = []
+): Promise<CommonAgentAnnotationRequest[]> => {
     const shapes = image.shapes || [];
-    if (shapes.length === 0) return [];
-
-    const { width, height } = await getDataUrlImageSize(image.dataUrl);
+    const { width, height } = shapes.length > 0
+        ? await getDataUrlImageSize(image.dataUrl)
+        : { width: 0, height: 0 };
     const defaultLabel = image.analysis?.defectType || 'field_roi';
+    const existingShapeIds = new Set(
+        existingAnnotations
+            .map(annotation => annotation.metadata?.local_shape_id)
+            .filter(Boolean)
+    );
 
-    return shapes
+    const shapePayloads = shapes
         .map(shape => {
+            if (existingShapeIds.has(shape.id)) return null;
             const bbox = shapeToNormalizedBbox(shape, width, height);
             if (!bbox) return null;
 
@@ -163,6 +173,12 @@ const buildCommonAgentAnnotationPayloads = async (image: CapturedImage): Promise
             return payload;
         })
         .filter((item): item is CommonAgentAnnotationRequest => item !== null);
+    const visionPayloads = buildVisionBboxAnnotationPayloads({
+        image,
+        existingAnnotations
+    }) as CommonAgentAnnotationRequest[];
+
+    return [...shapePayloads, ...visionPayloads];
 };
 
 const isElectron = () => {
@@ -720,17 +736,13 @@ const App: React.FC = () => {
             }
 
             const existingAnnotations = await CommonAgentApiService.listAnnotations(commonAgentImageId).catch(() => []);
-            const existingShapeIds = new Set(
+            const payloads = await buildCommonAgentAnnotationPayloads(
+                { ...image, analysis, commonAgentImageId },
                 existingAnnotations
-                    .map(annotation => annotation.metadata?.local_shape_id)
-                    .filter(Boolean)
             );
-            const payloads = await buildCommonAgentAnnotationPayloads({ ...image, analysis });
             let createdCount = 0;
 
             for (const payload of payloads) {
-                const localShapeId = payload.metadata?.local_shape_id;
-                if (localShapeId && existingShapeIds.has(localShapeId)) continue;
                 await CommonAgentApiService.createAnnotation(commonAgentImageId, payload);
                 createdCount++;
             }
