@@ -1,4 +1,4 @@
-import type { LearningScope } from '../types';
+import type { DefectAnalysis, LearningScope, VisionObservationSummary } from '../types';
 
 export type VisionHitlDecision =
     | 'approved'
@@ -62,3 +62,33 @@ const RESOLUTIONS: Record<VisionHitlDecision, VisionHitlDecisionResolution> = {
 export const resolveVisionHitlDecision = (
     decision: VisionHitlDecision
 ): VisionHitlDecisionResolution => ({ ...RESOLUTIONS[decision] });
+
+export interface VisionGraphPromotionGuard {
+    allowed: boolean;
+    message: string;
+}
+
+export const isVisionGraphPromotionBlocked = (summary?: VisionObservationSummary): boolean =>
+    Boolean(
+        summary?.safetyGate
+        && (
+            summary.safetyGate.status === 'blocked'
+            || summary.safetyGate.candidateUsePolicy === 'do_not_use_vision_candidate'
+            || summary.decisionStatus === 'unclassifiable'
+        )
+    );
+
+export const canPromoteVisionAnalysisToGraph = (
+    analysis?: Partial<DefectAnalysis>
+): VisionGraphPromotionGuard => {
+    if (!isVisionGraphPromotionBlocked(analysis?.visionSummary)) {
+        return {
+            allowed: true,
+            message: 'Graph 승격 가능'
+        };
+    }
+    return {
+        allowed: false,
+        message: 'Vision 후보가 품질 반려 또는 판정 보류 상태입니다. 재촬영 또는 HITL 교정 확정 전에는 Graph 승격할 수 없습니다.'
+    };
+};

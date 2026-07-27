@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { CapturedImage, DefectAnalysis, VisionObservationSummary, VisionSafetyGateSummary } from '../types';
 import { CloseIcon, ClipboardIcon, SparklesIcon, SaveIcon, LockIcon } from './Icons';
 import {
+    canPromoteVisionAnalysisToGraph,
+    isVisionGraphPromotionBlocked,
     resolveVisionHitlDecision,
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
@@ -162,15 +164,6 @@ const buildVisionReviewReasonText = (summary: VisionObservationSummary) => {
     return uniqueReasons.length > 0 ? uniqueReasons.slice(0, 5).join(', ') : '없음';
 };
 
-const isVisionCauseActionBlocked = (summary?: VisionObservationSummary) =>
-    Boolean(
-        summary?.safetyGate
-        && (
-            summary.safetyGate.status === 'blocked'
-            || summary.safetyGate.candidateUsePolicy === 'do_not_use_vision_candidate'
-        )
-    );
-
 // Interface for Custom Defect Data
 interface CustomDefectData {
     defectType: string;
@@ -249,6 +242,11 @@ ${data.countermeasures}
     const handleTrain = async (status: VisionHitlDecision) => {
         if (editableData) {
             const decision = resolveVisionHitlDecision(status);
+            const promotionGuard = canPromoteVisionAnalysisToGraph(editableData);
+            if (status === 'approved' && !promotionGuard.allowed) {
+                setTrainStatus(promotionGuard.message);
+                return;
+            }
             setTrainStatus(status === 'approved' ? '저장 중...' : '제출 중...');
             try {
                 await onTrainAI(editableData, status);
@@ -836,7 +834,7 @@ ${data.countermeasures}
                                             </div>
                                         </div>
                                     )}
-                                    {isVisionCauseActionBlocked(editableData.visionSummary) && (
+                                    {isVisionGraphPromotionBlocked(editableData.visionSummary) && (
                                         <div className="rounded-lg border border-red-800/70 bg-red-950/25 p-4">
                                             <h4 className="text-sm font-semibold text-red-200 mb-2 uppercase tracking-wider">
                                                 원인/대책 생성 차단
@@ -903,11 +901,24 @@ ${data.countermeasures}
                             </span>
                         </div>
                         <div className="flex flex-wrap justify-end gap-2">
-                            {isAdmin && (
-                                <button onClick={() => handleTrain('approved')} className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
-                                    <SaveIcon className="w-4 h-4"/> 승인·Graph 승격
-                                </button>
-                            )}
+                            {isAdmin && (() => {
+                                const promotionGuard = canPromoteVisionAnalysisToGraph(editableData);
+                                return (
+                                    <button
+                                        onClick={() => handleTrain('approved')}
+                                        disabled={!promotionGuard.allowed}
+                                        title={promotionGuard.message}
+                                        className={`flex items-center gap-2 font-bold py-2 px-4 rounded-md transition-colors shadow-lg ${
+                                            promotionGuard.allowed
+                                                ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                                                : 'cursor-not-allowed bg-gray-700 text-gray-400 border border-red-800/60'
+                                        }`}
+                                    >
+                                        <SaveIcon className="w-4 h-4"/>
+                                        {promotionGuard.allowed ? '승인·Graph 승격' : 'Graph 승격 차단'}
+                                    </button>
+                                );
+                            })()}
                             <button onClick={() => handleTrain('corrected')} className="flex items-center gap-2 bg-sky-700 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
                                 <SaveIcon className="w-4 h-4"/> 교정 저장
                             </button>

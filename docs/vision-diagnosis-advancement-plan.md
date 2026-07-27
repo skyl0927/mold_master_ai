@@ -229,6 +229,9 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
 작업자가 즉시 확인할 수 있게 했다. 품질 우려로 Vision 후보를 Graph에
 사용할 수 없는 negative-flow에서는 `원인/대책 생성 차단` 안내를 표시하고,
 미검증 Vision 원인/대책 문장을 계속 숨기는 Electron 스모크를 추가했다.
+관리자 모드에서도 품질 반려·판정 보류 Vision 결과는 `승인·Graph 승격`
+버튼을 `Graph 승격 차단`으로 대체하고, App 저장 경로에서도 동일 guard로
+승격 요청을 fail-closed 처리한다.
 
 개발:
 
@@ -241,6 +244,8 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
   사유를 직접 표시
 - Vision 후보 사용 금지 상태에서는 원인/대책 생성 차단 안내를 표시하고
   승인 전 미검증 대책 삽입을 금지
+- 관리자 승인 UI와 실제 Common Agent review 제출 경로 모두에서 blocked
+  Vision 결과의 Graph 승격을 차단
 - 동일 세션의 최대 8개 이미지를 단일 요청으로 전송하고 개별 서버 ID 보존
 - 시점별 관찰 ID를 전역 고유 ID로 변환해 교차 시점 근거 충돌 방지
 - Graph에는 개별 시점의 원인 추측이 아닌 융합 관찰과 후보만 전달

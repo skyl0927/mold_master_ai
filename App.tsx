@@ -27,6 +27,7 @@ import ReportWizard from './components/ReportWizard';
 import { generatePptxReport, generateXlsxReport, ReportItem } from './services/reportService';
 import { CommonAgentGateway } from './services/commonAgentGateway';
 import {
+    canPromoteVisionAnalysisToGraph,
     resolveVisionHitlDecision,
     VisionHitlDecision
 } from './services/visionHitlDecisionProtocol';
@@ -783,6 +784,10 @@ const App: React.FC = () => {
     const handleTrainAI = async (correctedData: DefectAnalysis, status: VisionHitlDecision) => {
         try {
             const decision = resolveVisionHitlDecision(status);
+            const graphPromotionGuard = canPromoteVisionAnalysisToGraph(correctedData);
+            if (decision.promoteToGraph && !graphPromotionGuard.allowed) {
+                throw new Error(graphPromotionGuard.message);
+            }
             if (modalImageId) {
                 const image = capturedImages.find(img => img.id === modalImageId);
                 if (image) {
