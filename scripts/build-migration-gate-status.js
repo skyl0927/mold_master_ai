@@ -51,6 +51,10 @@ const probeHealth = async (baseUrl, pathName) => {
     const packetRoot = latestReviewPacket();
     const approvedManifestPath = path.join(root, 'eval', 'vision-approved', 'manifest.json');
     const benchmarkPath = path.join(artifactRoot, 'multimodal-vision-benchmark-report.json');
+    const visionReferenceGatePath = path.join(
+        artifactRoot,
+        'vision-reference-operational-gate.json'
+    );
 
     const [agentHealth, qaHealth, dataset] = await Promise.all([
         probeHealth(agentUrl, '/healthz'),
@@ -71,14 +75,26 @@ const probeHealth = async (baseUrl, pathName) => {
         reviewManifest: packetRoot
             ? readJson(path.join(packetRoot, 'vision-candidates.json'))
             : {},
-        benchmarkReport: fs.existsSync(benchmarkPath) ? readJson(benchmarkPath) : {}
+        benchmarkReport: fs.existsSync(benchmarkPath) ? readJson(benchmarkPath) : {},
+        visionReferenceReport: fs.existsSync(visionReferenceGatePath)
+            ? readJson(visionReferenceGatePath)
+            : {
+                status: 'blocked',
+                readyForGraphRetrieval: false,
+                referenceStore: { referenceCount: 0 },
+                benchmark: { evaluatedCount: 0, failedGateChecks: [] },
+                blockers: [{ code: 'vision_reference_gate_missing' }]
+            }
     });
     const report = {
         ...status,
         sources: {
             approvedManifest: approvedManifestPath,
             reviewPacket: packetRoot || null,
-            benchmarkReport: fs.existsSync(benchmarkPath) ? benchmarkPath : null
+            benchmarkReport: fs.existsSync(benchmarkPath) ? benchmarkPath : null,
+            visionReferenceGate: fs.existsSync(visionReferenceGatePath)
+                ? visionReferenceGatePath
+                : null
         }
     };
     fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
@@ -89,6 +105,7 @@ const probeHealth = async (baseUrl, pathName) => {
         dataset: report.dataset,
         approved: report.approved,
         hitl: report.hitl,
+        visionReference: report.visionReference,
         gate: report.gate,
         recommendedAction: report.recommendedAction,
         writesPerformed: report.writesPerformed

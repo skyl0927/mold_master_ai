@@ -1,6 +1,7 @@
 # Common Agent Learning-Ready Vision Export TDD Evidence
 
 Date: 2026-07-25
+Updated: 2026-07-27
 
 ## Source Plan
 
@@ -30,12 +31,14 @@ evidence is repeatable after the external server comes online.
 | Mold can inspect and refresh the current Vision reference store | `npm run test:contracts` failed with missing `getCurrentVisionReferenceStatus` and `refreshVisionReferences` | `npm run test:contracts` passed with 45 tests | Mold calls `GET /v1/vision/classifier/references/current` and `POST /v1/vision/classifier/references/refresh`, preserving model lineage and reference counts |
 | Dataset manager shows the reference store alongside approval quality data | Not applicable | `npm run test:electron:dataset-manager` passed with `referenceStatusVisible=true`, `failedRequests=[]`, and `consoleErrors=[]` | The Common Agent Vision tab displays the current store model/version/count and keeps the existing conflict-blocked approval flow intact |
 | Operational Vision reference gate creates repeatable server evidence | `npm run test:vision-reference-gate` failed with missing `visionReferenceOperationalGate` module | `npm run test:vision-reference-gate` passed with 6 tests | The runner performs `current -> refresh -> current -> benchmark-current`, blocks missing/prototype/failed benchmark states, and writes an artifact without claiming readiness on connection failure |
+| Migration gate requires the Vision reference gate before fallback retirement | `npm run test:migration-gate-status` failed with `Cannot read properties of undefined (reading 'readyForGraphRetrieval')` | `npm run test:migration-gate-status` passed with 8 tests | The migration status now reads `artifacts/vision-reference-operational-gate.json`; missing or blocked reference evidence prevents `canDisableLegacyFallback` and surfaces a Reference Store action |
 
 ## Validation Commands
 
 ```powershell
 npm run test:contracts
 npm run test:vision-reference-gate
+npm run test:migration-gate-status
 npm run build
 npm run test:electron:dataset-manager
 ```
@@ -58,3 +61,5 @@ this PC. The artifact records
 The service and UI boundaries are ready. Real production accuracy still depends
 on a live Common Agent server with enough approved multi-view manufacturing
 images to refresh the DINOv2/SigLIP2 reference store and pass the benchmark gate.
+The migration gate intentionally keeps legacy fallback enabled when the
+reference gate artifact is missing or blocked.

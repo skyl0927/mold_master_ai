@@ -53,7 +53,8 @@ const buildBlockers = ({
     datasetError,
     conflictGroups,
     benchmarkSummary,
-    hitl
+    hitl,
+    visionReference
 }) => {
     const blockers = [];
     if (!agent.online) blockers.push({ code: 'common_agent_offline', detail: agent.error || agent.url });
@@ -73,7 +74,51 @@ const buildBlockers = ({
             count: hitl.unresolvedHighConfidence
         });
     }
+    if (visionReference.required && !visionReference.readyForGraphRetrieval) {
+        blockers.push({
+            code: 'vision_reference_gate_failed',
+            details: visionReference.blockers
+        });
+    }
     return blockers;
+};
+
+const summarizeVisionReferenceGate = report => {
+    if (!report) {
+        return {
+            required: false,
+            readyForGraphRetrieval: true,
+            referenceCount: 0,
+            modelVersion: '',
+            productionReady: null,
+            evaluatedCount: 0,
+            top1Accuracy: 0,
+            top3Accuracy: 0,
+            failedGateChecks: [],
+            blockers: []
+        };
+    }
+    const referenceStore = report.referenceStore || {};
+    const benchmark = report.benchmark || {};
+    return {
+        required: true,
+        status: String(report.status || 'unknown'),
+        readyForGraphRetrieval: report.readyForGraphRetrieval === true,
+        referenceCount: Number(referenceStore.referenceCount) || 0,
+        modelVersion: String(referenceStore.modelVersion || ''),
+        provider: referenceStore.provider || null,
+        modelName: referenceStore.modelName || null,
+        dimensions: referenceStore.dimensions || null,
+        device: referenceStore.device || null,
+        runtime: referenceStore.runtime || null,
+        productionReady: referenceStore.productionReady ?? null,
+        evaluatedCount: Number(benchmark.evaluatedCount) || 0,
+        top1Accuracy: Number(benchmark.top1Accuracy) || 0,
+        top3Accuracy: Number(benchmark.top3Accuracy) || 0,
+        failedGateChecks: asArray(benchmark.failedGateChecks),
+        blockers: asArray(report.blockers),
+        artifactGeneratedAt: report.generatedAt || null
+    };
 };
 
 const buildMigrationGateStatus = ({
@@ -83,7 +128,8 @@ const buildMigrationGateStatus = ({
     dataset = {},
     approvedManifest = {},
     reviewManifest = {},
-    benchmarkReport = {}
+    benchmarkReport = {},
+    visionReferenceReport = null
 }) => {
     const agent = healthState(agentHealth);
     const qa = healthState(qaHealth);
@@ -142,19 +188,22 @@ const buildMigrationGateStatus = ({
         autoApprovalAllowed: false
     };
     const failedChecks = asArray(benchmarkSummary.failedGateChecks);
+    const visionReference = summarizeVisionReferenceGate(visionReferenceReport);
     const canDisableLegacyFallback = benchmarkSummary.readyToDisableLegacyFallback === true
         && agent.online
         && qa.online
         && !dataset.error
         && conflictGroups === 0
-        && hitl.unresolvedHighConfidence === 0;
+        && hitl.unresolvedHighConfidence === 0
+        && visionReference.readyForGraphRetrieval === true;
     const blockers = buildBlockers({
         agent,
         qa,
         datasetError: dataset.error,
         conflictGroups,
         benchmarkSummary,
-        hitl
+        hitl,
+        visionReference
     });
 
     return {
@@ -188,6 +237,7 @@ const buildMigrationGateStatus = ({
             captureProtocolReadyRate:
                 Number(benchmarkSummary.captureProtocolReadyRate) || 0
         },
+        visionReference,
         gate: {
             minimumSamples,
             additionalCleanApprovalsRequired: Math.max(0, minimumSamples - cleanRunnable),
@@ -198,7 +248,9 @@ const buildMigrationGateStatus = ({
         blockers,
         recommendedAction: canDisableLegacyFallback
             ? '안전 게이트가 충족되었습니다. 직접 LLM fallback 제거 변경을 별도 릴리스로 검증하세요.'
-            : hitl.unresolvedHighConfidence > 0
+            : visionReference.required && !visionReference.readyForGraphRetrieval
+                ? 'Common Agent Vision Reference Store를 갱신하고 reference benchmark gate를 먼저 통과시키세요.'
+                : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
                 : failedChecks.includes('captureProtocol')
                     ? '결함별 필수 촬영 시점과 실제 성형품 여부를 보완한 뒤 Vision 벤치마크를 다시 실행하세요.'

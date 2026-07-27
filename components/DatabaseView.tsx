@@ -111,8 +111,89 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_calibration: '신뢰도 보정 불량',
     benchmark_qualityEligibility: '사진 품질 적합률 부족',
     benchmark_visionContract: 'Top-3 구조화 응답 미지원',
-    benchmark_captureProtocol: '결함별 필수 촬영 시점 부족'
+    benchmark_captureProtocol: '결함별 필수 촬영 시점 부족',
+    vision_reference_gate_failed: 'Vision Reference Store 미통과'
 };
+
+const formatReferenceAccuracy = (value?: number | null) => {
+    const normalized = Number(value) || 0;
+    const percent = normalized <= 1 ? normalized * 100 : normalized;
+    return `${Math.round(percent * 10) / 10}%`;
+};
+
+const formatReferenceModel = (provider?: string | null, modelName?: string | null) =>
+    [provider, modelName].filter(Boolean).join(' / ') || 'n/a';
+
+const VisionReferenceGateSummary = ({
+    visionReference
+}: {
+    visionReference: NonNullable<VisionBenchmarkRunResult['gateStatus']['visionReference']>;
+}) => (
+    <div className="mt-3 rounded border border-slate-700/80 bg-slate-950/50 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-slate-100">
+                Vision Reference Store
+            </p>
+            <span className={visionReference.readyForGraphRetrieval
+                ? 'rounded bg-emerald-900/70 px-2 py-1 text-[9px] font-bold text-emerald-200'
+                : 'rounded bg-red-950/70 px-2 py-1 text-[9px] font-bold text-red-200'}>
+                {visionReference.readyForGraphRetrieval ? 'GRAPH RETRIEVAL READY' : 'REFERENCE GATE BLOCKED'}
+            </span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-300 md:grid-cols-3 xl:grid-cols-6">
+            <span>
+                Reference{' '}
+                <strong className="text-white">
+                    {visionReference.referenceCount}
+                </strong>
+            </span>
+            <span>
+                평가 표본{' '}
+                <strong className="text-white">
+                    {visionReference.evaluatedCount}
+                </strong>
+            </span>
+            <span>
+                Top-1{' '}
+                <strong className={visionReference.top1Accuracy >= 0.8
+                    ? 'text-emerald-300'
+                    : 'text-amber-200'}>
+                    {formatReferenceAccuracy(visionReference.top1Accuracy)}
+                </strong>
+            </span>
+            <span>
+                Top-3{' '}
+                <strong className={visionReference.top3Accuracy >= 0.9
+                    ? 'text-emerald-300'
+                    : 'text-amber-200'}>
+                    {formatReferenceAccuracy(visionReference.top3Accuracy)}
+                </strong>
+            </span>
+            <span>
+                모델{' '}
+                <strong className="text-cyan-200">
+                    {visionReference.modelVersion || 'n/a'}
+                </strong>
+            </span>
+            <span>
+                런타임{' '}
+                <strong className="text-gray-100">
+                    {visionReference.runtime || visionReference.device || 'n/a'}
+                </strong>
+            </span>
+        </div>
+        <p className="mt-2 break-all text-[10px] text-gray-400">
+            {formatReferenceModel(visionReference.provider, visionReference.modelName)}
+            {visionReference.dimensions ? ` · ${visionReference.dimensions}d` : ''}
+            {visionReference.productionReady === false ? ' · prototype 차단' : ''}
+        </p>
+        {visionReference.failedGateChecks.length > 0 ? (
+            <p className="mt-2 text-[10px] text-amber-300">
+                Reference 미통과 조건: {visionReference.failedGateChecks.join(' · ')}
+            </p>
+        ) : null}
+    </div>
+);
 
 const captureViewLabel: Record<string, string> = {
     full_part_context: '제품 전체 위치',
@@ -1755,6 +1836,11 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                     </strong>
                                                 </span>
                                             </div>
+                                            {benchmarkResult.gateStatus.visionReference?.required ? (
+                                                <VisionReferenceGateSummary
+                                                    visionReference={benchmarkResult.gateStatus.visionReference}
+                                                />
+                                            ) : null}
                                             {benchmarkResult.gateStatus.blockers.length > 0 && (
                                                 <div className="mt-2 flex flex-wrap gap-1">
                                                     {benchmarkResult.gateStatus.blockers.map((blocker, index) => (

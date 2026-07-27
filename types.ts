@@ -336,6 +336,7 @@ export interface DBStats {
 }
 
 export interface MigrationGateStatus {
+  schemaVersion?: number;
   generatedAt: string;
   services: {
     commonAgent: { online: boolean; url: string; error?: string };
@@ -374,7 +375,35 @@ export interface MigrationGateStatus {
     }>;
     canDisableLegacyFallback: boolean;
   };
-  blockers: Array<{ code: string; count?: number; detail?: unknown }>;
+  benchmark?: {
+    sampleCount: number;
+    passRate: number;
+    httpSuccessRate: number;
+    classifiableRate: number;
+    defectAccuracy: number;
+    graphGroundedRate: number;
+    captureProtocolReadyRate: number;
+  };
+  visionReference?: {
+    required: boolean;
+    status?: string;
+    readyForGraphRetrieval: boolean;
+    referenceCount: number;
+    modelVersion: string;
+    provider?: string | null;
+    modelName?: string | null;
+    dimensions?: number | null;
+    device?: string | null;
+    runtime?: string | null;
+    productionReady?: boolean | null;
+    evaluatedCount: number;
+    top1Accuracy: number;
+    top3Accuracy: number;
+    failedGateChecks: string[];
+    blockers: Array<{ code: string; detail?: unknown }>;
+    artifactGeneratedAt?: string | null;
+  };
+  blockers: Array<{ code: string; count?: number; detail?: unknown; details?: unknown }>;
   recommendedAction: string;
   writesPerformed: false;
 }
