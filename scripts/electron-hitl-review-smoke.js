@@ -112,6 +112,11 @@ const path = require('node:path');
       correctedDefectType: reviewPayload?.defect_type,
       approved: reviewPayload?.decision === 'approve',
       promotesToGraph: reviewPayload?.promote_to_graph === true,
+      reviewProtocolAttached: reviewPayload?.metadata?.vision_review_protocol_version === 'vision-hitl-review/v1',
+      reviewNextAction: reviewPayload?.metadata?.vision_review_next_action,
+      reviewQueue: reviewPayload?.metadata?.vision_review_re_evaluation_queue,
+      graphPromotionAllowed: reviewPayload?.metadata?.vision_graph_promotion_allowed,
+      learningCandidateEligible: reviewPayload?.metadata?.vision_learning_candidate_eligible,
       hasContentHash: /^[a-f0-9]{64}$/.test(reviewPayload?.metadata?.content_sha256 || ''),
       screenshot: screenshotPath,
       isolatedProfile: profilePath,
@@ -124,6 +129,11 @@ const path = require('node:path');
       || result.correctedDefectType !== '밀핀 자국'
       || !result.approved
       || !result.promotesToGraph
+      || !result.reviewProtocolAttached
+      || result.reviewNextAction !== 'promote_to_graph'
+      || result.reviewQueue !== 'none'
+      || result.graphPromotionAllowed !== true
+      || result.learningCandidateEligible !== true
       || !result.hasContentHash
       || consoleErrors.length > 0
     ) {

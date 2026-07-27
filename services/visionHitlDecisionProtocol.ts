@@ -68,6 +68,49 @@ export interface VisionGraphPromotionGuard {
     message: string;
 }
 
+export type VisionHitlReviewNextAction =
+    | 'promote_to_graph'
+    | 'queue_re_evaluation'
+    | 'request_recapture'
+    | 'exclude_from_learning'
+    | 'await_human_review';
+
+export type VisionHitlReviewQueue =
+    | 'none'
+    | 'vision_candidate_recheck'
+    | 'vision_recapture_required'
+    | 'vision_rejected_archive'
+    | 'vision_human_review_pending';
+
+export interface VisionHitlReviewMetadata {
+    vision_review_protocol_version: 'vision-hitl-review/v1';
+    vision_review_decision: VisionHitlDecision;
+    vision_review_api_decision: VisionHitlDecisionResolution['apiDecision'];
+    vision_review_next_action: VisionHitlReviewNextAction;
+    vision_review_re_evaluation_queue: VisionHitlReviewQueue;
+    vision_review_requires_re_evaluation: boolean;
+    vision_review_re_evaluation_reason: string;
+    vision_graph_promotion_allowed: boolean;
+    vision_graph_promotion_blocked: boolean;
+    vision_graph_promotion_block_reason: string;
+    vision_learning_candidate_eligible: boolean;
+    vision_local_learning_verified: boolean;
+    vision_knowledge_scope: LearningScope;
+    vision_safety_gate_status: string;
+    vision_candidate_use_policy: string;
+    vision_decision_status: string;
+    vision_decision_reason: string;
+    vision_quality_status: string;
+    vision_quality_concerns: string[];
+    vision_required_additional_views: string[];
+}
+
+const compact = (value: unknown): string => String(value || '').replace(/\s+/g, ' ').trim();
+
+const stringList = (value: unknown): string[] => (Array.isArray(value) ? value : [])
+    .map(compact)
+    .filter(Boolean);
+
 export const isVisionGraphPromotionBlocked = (summary?: VisionObservationSummary): boolean =>
     Boolean(
         summary?.safetyGate
@@ -77,6 +120,57 @@ export const isVisionGraphPromotionBlocked = (summary?: VisionObservationSummary
             || summary.decisionStatus === 'unclassifiable'
         )
     );
+
+const getVisionReviewRouting = (
+    decision: VisionHitlDecision,
+    graphPromotionAllowed: boolean
+): {
+    nextAction: VisionHitlReviewNextAction;
+    queue: VisionHitlReviewQueue;
+    requiresReEvaluation: boolean;
+    reason: string;
+} => {
+    if (decision === 'approved' && graphPromotionAllowed) {
+        return {
+            nextAction: 'promote_to_graph',
+            queue: 'none',
+            requiresReEvaluation: false,
+            reason: 'human_approved_graph_promotion'
+        };
+    }
+    if (decision === 'corrected') {
+        return {
+            nextAction: 'queue_re_evaluation',
+            queue: 'vision_candidate_recheck',
+            requiresReEvaluation: true,
+            reason: 'human_correction_pending_re_evaluation'
+        };
+    }
+    if (decision === 'recapture') {
+        return {
+            nextAction: 'request_recapture',
+            queue: 'vision_recapture_required',
+            requiresReEvaluation: true,
+            reason: 'human_recapture_requested'
+        };
+    }
+    if (decision === 'rejected') {
+        return {
+            nextAction: 'exclude_from_learning',
+            queue: 'vision_rejected_archive',
+            requiresReEvaluation: false,
+            reason: 'human_rejected'
+        };
+    }
+    return {
+        nextAction: 'await_human_review',
+        queue: 'vision_human_review_pending',
+        requiresReEvaluation: true,
+        reason: graphPromotionAllowed
+            ? 'human_review_requested'
+            : 'vision_graph_promotion_blocked_pending_review'
+    };
+};
 
 export const canPromoteVisionAnalysisToGraph = (
     analysis?: Partial<DefectAnalysis>
@@ -90,5 +184,39 @@ export const canPromoteVisionAnalysisToGraph = (
     return {
         allowed: false,
         message: 'Vision 후보가 품질 반려 또는 판정 보류 상태입니다. 재촬영 또는 HITL 교정 확정 전에는 Graph 승격할 수 없습니다.'
+    };
+};
+
+export const buildVisionHitlReviewMetadata = (
+    analysis: Partial<DefectAnalysis> | undefined,
+    decision: VisionHitlDecision
+): VisionHitlReviewMetadata => {
+    const resolution = resolveVisionHitlDecision(decision);
+    const promotionGuard = canPromoteVisionAnalysisToGraph(analysis);
+    const routing = getVisionReviewRouting(decision, promotionGuard.allowed);
+    const summary = analysis?.visionSummary;
+    const safetyGate = summary?.safetyGate;
+
+    return {
+        vision_review_protocol_version: 'vision-hitl-review/v1',
+        vision_review_decision: decision,
+        vision_review_api_decision: resolution.apiDecision,
+        vision_review_next_action: routing.nextAction,
+        vision_review_re_evaluation_queue: routing.queue,
+        vision_review_requires_re_evaluation: routing.requiresReEvaluation,
+        vision_review_re_evaluation_reason: routing.reason,
+        vision_graph_promotion_allowed: promotionGuard.allowed,
+        vision_graph_promotion_blocked: !promotionGuard.allowed,
+        vision_graph_promotion_block_reason: promotionGuard.allowed ? '' : promotionGuard.message,
+        vision_learning_candidate_eligible: resolution.promoteToGraph && promotionGuard.allowed,
+        vision_local_learning_verified: resolution.localLearningVerified && promotionGuard.allowed,
+        vision_knowledge_scope: resolution.knowledgeScope,
+        vision_safety_gate_status: compact(safetyGate?.status),
+        vision_candidate_use_policy: compact(safetyGate?.candidateUsePolicy),
+        vision_decision_status: compact(summary?.decisionStatus),
+        vision_decision_reason: compact(summary?.decisionReason),
+        vision_quality_status: compact(summary?.qualityStatus),
+        vision_quality_concerns: stringList(summary?.qualityConcerns),
+        vision_required_additional_views: stringList(summary?.requiredAdditionalViews)
     };
 };

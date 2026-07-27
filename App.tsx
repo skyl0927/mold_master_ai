@@ -27,6 +27,7 @@ import ReportWizard from './components/ReportWizard';
 import { generatePptxReport, generateXlsxReport, ReportItem } from './services/reportService';
 import { CommonAgentGateway } from './services/commonAgentGateway';
 import {
+    buildVisionHitlReviewMetadata,
     canPromoteVisionAnalysisToGraph,
     resolveVisionHitlDecision,
     VisionHitlDecision
@@ -876,6 +877,7 @@ const App: React.FC = () => {
                                 learning_candidate_eligible: status === 'approved',
                                 fine_tuning_auto_start_allowed: false,
                                 orchestration: correctedData.orchestrationSummary,
+                                ...buildVisionHitlReviewMetadata(correctedData, status),
                                 ...captureMetadata
                             }
                         });
