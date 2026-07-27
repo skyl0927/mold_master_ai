@@ -8,6 +8,7 @@ import {
     evaluateVisionOperationalRelease,
     parseVisionOperationalReleaseReport,
     summarizeVisionOperationalReleaseHistory,
+    summarizeVisionOperationalReleaseTrend,
     upsertVisionOperationalReleaseHistory,
     VisionOperationalEvidenceBundle,
     VisionShadowSample,
@@ -642,4 +643,49 @@ test('release history summary distinguishes missing evidence, awaiting approval,
     assert.equal(summary.promoteCandidates, 2);
     assert.equal(summary.shadowHolds, 0);
     assert.equal(summary.rollbackRequired, 0);
+});
+
+test('release trend summarizes repeated blockers and next operational action', () => {
+    const incompleteEvidenceReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(8, 3, 4),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T07:00:00.000Z'
+    });
+    const evidenceReadyButWeakReport = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion: {
+            ...candidateVersion,
+            promptVersion: 'vision-prompt-v7'
+        },
+        samples: makeShadowSamples(30, 8, 2),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        generatedAt: '2026-07-27T08:00:00.000Z',
+        evidenceBundle: completeEvidenceBundle
+    });
+    const history = upsertVisionOperationalReleaseHistory(
+        upsertVisionOperationalReleaseHistory(
+            undefined,
+            incompleteEvidenceReport,
+            '2026-07-27T07:30:00.000Z'
+        ),
+        evidenceReadyButWeakReport,
+        '2026-07-27T08:30:00.000Z'
+    );
+    const trend = summarizeVisionOperationalReleaseTrend(history);
+
+    assert.equal(trend.contractVersion, 'vision-operational-release-trend/v1');
+    assert.equal(trend.historyWindowSize, 2);
+    assert.equal(trend.evidenceReadyRate, 50);
+    assert.equal(trend.operatorConfirmationRate, 0);
+    assert.equal(trend.latestActionCode, 'improve_candidate_metrics');
+    assert.equal(trend.latestActionLabel, '후보 Vision 성능 개선');
+    assert.deepEqual(
+        trend.topBlockingReasons.slice(0, 3).map(reason => reason.name),
+        ['minimumSamples', 'top1Accuracy', 'classReproduction']
+    );
+    assert.ok(trend.narrative.includes('운영 근거는 준비됐지만'));
 });
