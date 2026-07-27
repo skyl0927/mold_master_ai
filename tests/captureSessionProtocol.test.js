@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
   assessCaptureImageForDiagnosis,
+  buildRecaptureSourceFromReview,
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
@@ -164,6 +165,40 @@ test('capture metadata preserves fresh recapture lineage for Common Agent', () =
     'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
   ]);
   assert.equal(metadata.recapture_bbox_grounding_profile_id, 'defect_closeup_precision');
+});
+
+test('HITL recapture review builds next-capture lineage from vision safety evidence', () => {
+  const source = buildRecaptureSourceFromReview({
+    image: image({
+      id: 'image-original',
+      commonAgentImageId: 'agent-image-original'
+    }),
+    analysis: {
+      visionSummary: {
+        requiredAdditionalViews: [
+          'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+          'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+        ],
+        safetyGate: {
+          reasons: ['low_region_bbox_confidence', 'overbroad_region_bbox'],
+          bboxGroundingProfileId: 'defect_closeup_precision'
+        }
+      }
+    },
+    reviewDecisionId: 'review-recapture-1'
+  });
+
+  assert.deepEqual(source, {
+    localImageId: 'image-original',
+    commonAgentImageId: 'agent-image-original',
+    reviewDecisionId: 'review-recapture-1',
+    safetyGateReasons: ['low_region_bbox_confidence', 'overbroad_region_bbox'],
+    requiredAdditionalViews: [
+      'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+      'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+    ],
+    bboxGroundingProfileId: 'defect_closeup_precision'
+  });
 });
 
 test('session diagnosis collects every physical view with the selected image first', () => {
