@@ -93,6 +93,7 @@ npm run operational:hitl:decision-review-packet
 npm run operational:hitl:reviewer-worksheet
 npm run operational:hitl:editable-workspace
 npm run operational:hitl:editable-preflight
+npm run operational:hitl:worktable-export
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -151,6 +152,11 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 누락을 먼저 점검한다. 이 단계는 `verify-decisions`를 실행하지 않고
 `verificationCommandsReady`만 계산하므로, 사람이 입력을 마친 뒤 검증 명령을
 실행하기 전의 안전 점검으로 사용한다.
+
+`operational:hitl:worktable-export`는 editable decision workspace를 사람이 훑기
+쉬운 CSV와 Markdown 작업표로 펼친다. 각 row는 queue, decision id, 현재 action,
+허용 action, 필수 필드, 검토 포커스, 수정 파일, 검증 명령을 포함한다. 이 산출물은
+입력 보조용이며 decision JSON을 수정하거나 검증 명령을 실행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
