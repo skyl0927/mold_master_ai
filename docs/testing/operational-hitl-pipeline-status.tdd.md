@@ -21,6 +21,8 @@ node --test tests\operationalHitlPipelineStatus.test.js
 - preflight 통과 상태는 `verify-run -- --execute`로만 이동한다.
 - import package 준비 상태는 Common Agent 수동 검토 단계로 표시한다.
 - 핵심 artifact가 없으면 `missing_evidence`로 fail-closed 처리한다.
+- worktable suggestion artifact가 있으면 추천 row와 추천 분포를 summary,
+  stage trail, source map, Markdown에 표시한다.
 
 ## GREEN
 
@@ -28,7 +30,7 @@ node --test tests\operationalHitlPipelineStatus.test.js
 node --test tests\operationalHitlPipelineStatus.test.js
 ```
 
-결과: 5개 테스트 통과.
+결과: 6개 테스트 통과.
 
 ## 운영 검증
 
@@ -39,3 +41,14 @@ npm run operational:hitl:pipeline-status
 이 명령은 JSON/Markdown 상태 리포트만 `artifacts`에 생성한다. 현재 HITL 판정이
 비어 있으면 `fill_worktable_csv`를 첫 번째 next action으로 반환하고, 자동
 Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
+
+현재 artifact 기준 CLI 결과:
+
+- 상태: `action_required`
+- 현재 단계: `awaiting_human_csv_decisions`
+- 작업표 row: 59
+- 추천 row: 59
+- 재촬영 추천: 5
+- Vision 승인 후보: 7
+- Web 카드 승인 후보: 43
+- planned update: 0

@@ -92,6 +92,12 @@ const worktableImportPath = resolveOptionalPath(
   latestArtifact('operational-hitl-decision-worktable-import-')
 );
 
+const worktableSuggestionPath = resolveOptionalPath(
+  valueAfter('--worktable-suggestion'),
+  process.env.OPERATIONAL_HITL_DECISION_WORKTABLE_SUGGESTION,
+  latestArtifact('operational-hitl-decision-worktable-suggestion-')
+);
+
 const preflightPath = resolveOptionalPath(
   valueAfter('--preflight'),
   process.env.OPERATIONAL_HITL_EDITABLE_DECISION_PREFLIGHT_REPORT,
@@ -128,6 +134,7 @@ const run = () => {
     intakeStatus: readOptionalJson(intakeStatusPath),
     workspaceManifest: readOptionalJson(workspaceManifestPath),
     worktableExport: readOptionalJson(worktableExportPath),
+    worktableSuggestion: readOptionalJson(worktableSuggestionPath),
     worktableImport: readOptionalJson(worktableImportPath),
     preflightReport: readOptionalJson(preflightPath),
     verificationRun: readOptionalJson(verificationRunPath),
@@ -138,6 +145,7 @@ const run = () => {
       workspaceManifest: workspaceManifestPath,
       worktableExport: worktableExportPath,
       worktableCsv: worktableCsvPath,
+      worktableSuggestion: worktableSuggestionPath,
       worktableImport: worktableImportPath,
       preflightReport: preflightPath,
       verificationRun: verificationRunPath,
@@ -161,6 +169,10 @@ const run = () => {
     serviceWritesPerformed: report.serviceWritesPerformed,
     totalDecisionInputsMissing: report.summary.totalDecisionInputsMissing,
     worktableRows: report.summary.worktableRows,
+    worktableSuggestionRows: report.summary.worktableSuggestionRows,
+    worktableRecaptureSuggestions: report.summary.worktableRecaptureSuggestions,
+    worktableApproveCandidateSuggestions: report.summary.worktableApproveCandidateSuggestions,
+    worktableApproveCardSuggestions: report.summary.worktableApproveCardSuggestions,
     worktablePlannedUpdates: report.summary.worktablePlannedUpdates,
     preflightPendingDecisions: report.summary.preflightPendingDecisions,
     verificationCommandsExecuted: report.summary.verificationCommandsExecuted,
