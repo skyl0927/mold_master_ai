@@ -101,6 +101,32 @@ const buildVisionBboxOverlayIndex = (visionSummary, options) => {
   };
 };
 
+const buildVisionBboxOverlayReviewModel = (visionSummary, activeObservationId = '', options) => {
+  const overlayIndex = buildVisionBboxOverlayIndex(visionSummary, options);
+  const normalizedActiveObservationId = activeObservationId
+    && overlayIndex.byObservationId[String(activeObservationId)]
+    ? String(activeObservationId)
+    : '';
+  const hasActiveFocus = normalizedActiveObservationId.length > 0;
+
+  const items = overlayIndex.items.map(item => ({
+    ...item,
+    isActive: item.observationId === normalizedActiveObservationId,
+    isDimmed: hasActiveFocus && item.observationId !== normalizedActiveObservationId
+  }));
+  const byObservationId = items.reduce((accumulator, item) => {
+    accumulator[item.observationId] = item;
+    return accumulator;
+  }, Object.create(null));
+
+  return {
+    items,
+    byObservationId,
+    activeObservationId: normalizedActiveObservationId,
+    hasActiveFocus
+  };
+};
+
 const overlayItemStyle = item => ({
   left: `${item.geometry.leftPct}%`,
   top: `${item.geometry.topPct}%`,
@@ -111,5 +137,6 @@ const overlayItemStyle = item => ({
 module.exports = {
   buildVisionBboxOverlayIndex,
   buildVisionBboxOverlayItems,
+  buildVisionBboxOverlayReviewModel,
   overlayItemStyle
 };

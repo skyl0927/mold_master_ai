@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CapturedImage, DefectAnalysis, VisionObservationSummary, VisionSafetyGateSummary } from '../types';
 import { CloseIcon, ClipboardIcon, SparklesIcon, SaveIcon, LockIcon } from './Icons';
 import {
@@ -9,7 +9,7 @@ import {
     resolveVisionHitlDecision,
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
-import { buildVisionBboxOverlayIndex, overlayItemStyle } from '../visionBboxOverlay';
+import { buildVisionBboxOverlayReviewModel, overlayItemStyle } from '../visionBboxOverlay';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -187,6 +187,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose
     const [isEditing, setIsEditing] = useState(false);
     const [editableData, setEditableData] = useState<DefectAnalysis | null>(null);
     const [trainStatus, setTrainStatus] = useState('');
+    const [activeVisionObservationId, setActiveVisionObservationId] = useState('');
+    const observationCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     // Updated: Store full defect info for custom types
     const [customDefectTypes, setCustomDefectTypes] = useState<CustomDefectData[]>([]);
@@ -197,6 +199,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose
             setEditableData({ ...image.analysis });
         }
     }, [image?.analysis]);
+
+    useEffect(() => {
+        setActiveVisionObservationId('');
+        observationCardRefs.current = {};
+    }, [image?.id]);
 
     // Load user feedback from DB to populate dropdown on mount
     useEffect(() => {
@@ -327,10 +334,23 @@ ${data.countermeasures}
         }
     };
 
+    const handleFocusVisionObservation = (observationId: string) => {
+        setActiveVisionObservationId(observationId);
+        window.requestAnimationFrame(() => {
+            observationCardRefs.current[observationId]?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        });
+    };
+
     if (!image) return null;
 
-    const bboxOverlayIndex = buildVisionBboxOverlayIndex(editableData?.visionSummary);
-    const bboxOverlays = bboxOverlayIndex.items;
+    const bboxReviewModel = buildVisionBboxOverlayReviewModel(
+        editableData?.visionSummary,
+        activeVisionObservationId
+    );
+    const bboxOverlays = bboxReviewModel.items;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -361,15 +381,27 @@ ${data.countermeasures}
                             {bboxOverlays.length > 0 ? (
                                 <div className="pointer-events-none absolute inset-0 rounded border border-transparent">
                                     {bboxOverlays.map((item) => (
-                                        <div
+                                        <button
+                                            type="button"
                                             key={`${item.observationId}-${item.displayIndex}`}
-                                            className={`absolute rounded-sm border-2 shadow-[0_0_0_1px_rgba(0,0,0,0.75)] ${
+                                            className={`pointer-events-auto absolute appearance-none rounded-sm border-2 p-0 text-left shadow-[0_0_0_1px_rgba(0,0,0,0.75)] transition duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/90 ${
                                                 item.isPrimarySupport
                                                     ? 'border-cyan-300 bg-cyan-400/10'
                                                     : 'border-amber-300 bg-amber-400/10'
+                                            } ${
+                                                item.isActive
+                                                    ? 'scale-[1.03] ring-2 ring-white/90'
+                                                    : item.isDimmed
+                                                        ? 'opacity-45'
+                                                        : 'opacity-100 hover:scale-[1.02]'
                                             }`}
                                             style={overlayItemStyle(item)}
                                             title={`#${item.displayIndex} ${item.label} ${item.region || item.description}`}
+                                            aria-label={`Vision bbox #${item.displayIndex} 관찰 ${item.observationId} 선택`}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleFocusVisionObservation(item.observationId);
+                                            }}
                                         >
                                             <span className={`absolute -left-0.5 -top-5 rounded px-1.5 py-0.5 text-[10px] font-bold shadow ${
                                                 item.isPrimarySupport
@@ -378,7 +410,7 @@ ${data.countermeasures}
                                             }`}>
                                                 {item.displayIndex}
                                             </span>
-                                        </div>
+                                        </button>
                                     ))}
                                 </div>
                             ) : null}
@@ -727,7 +759,7 @@ ${data.countermeasures}
                                                         AI가 본 근거 영역
                                                     </p>
                                                     {editableData.visionSummary.visualObservations.map(observation => {
-                                                        const overlayItem = bboxOverlayIndex.byObservationId[observation.observationId];
+                                                        const overlayItem = bboxReviewModel.byObservationId[observation.observationId];
                                                         const overlayToneClass = overlayItem?.tone === 'primary'
                                                             ? 'border-cyan-500/70 bg-cyan-950/25'
                                                             : overlayItem
@@ -736,11 +768,26 @@ ${data.countermeasures}
                                                         const overlayBadgeClass = overlayItem?.tone === 'primary'
                                                             ? 'bg-cyan-500 text-gray-950'
                                                             : 'bg-amber-400 text-gray-950';
+                                                        const overlayFocusClass = overlayItem?.isActive
+                                                            ? 'ring-2 ring-white/80 shadow-lg shadow-cyan-950/50'
+                                                            : overlayItem?.isDimmed
+                                                                ? 'opacity-65'
+                                                                : '';
 
                                                         return (
                                                             <div
                                                                 key={observation.observationId}
-                                                                className={`rounded-lg border px-3 py-2 ${overlayToneClass}`}
+                                                                ref={element => {
+                                                                    observationCardRefs.current[observation.observationId] = element;
+                                                                }}
+                                                                className={`rounded-lg border px-3 py-2 transition duration-150 ${overlayToneClass} ${overlayFocusClass} ${
+                                                                    overlayItem ? 'cursor-pointer hover:ring-1 hover:ring-white/50' : ''
+                                                                }`}
+                                                                onClick={() => {
+                                                                    if (overlayItem) {
+                                                                        handleFocusVisionObservation(overlayItem.observationId);
+                                                                    }
+                                                                }}
                                                             >
                                                                 <div className="flex flex-wrap items-center gap-2 text-[10px]">
                                                                     {overlayItem && (
