@@ -577,6 +577,69 @@ test('post-apply backfill verification blocks reference refresh when applied row
     assert.match(status.recommendedAction, /Do not refresh/);
 });
 
+test('Vision HITL recheck post-check keeps migration blocked until human approval and failures are resolved', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'passed',
+            readyForGraphRetrieval: true,
+            referenceStore: { referenceCount: 20 },
+            benchmark: { evaluatedCount: 20, failedGateChecks: [] },
+            blockers: []
+        },
+        visionHitlReevaluationPostCheck: {
+            status: 'action_required',
+            summary: {
+                totalRecheckCandidates: 4,
+                evaluatedBenchmarkResults: 4,
+                readyForHumanApproval: 1,
+                needsHitlReview: 1,
+                needsRecapture: 1,
+                unsafeAcceptedErrors: 1,
+                missingBenchmarkResults: 1
+            },
+            blockers: [
+                { code: 'hitl_recheck_review_required', count: 1 },
+                { code: 'hitl_recheck_recapture_required', count: 1 },
+                { code: 'hitl_recheck_unsafe_error', count: 1 },
+                { code: 'hitl_recheck_missing_benchmark_result', count: 1 }
+            ],
+            recommendedAction:
+                'Return failed HITL recheck cases to human review and update labels or capture protocol before reference learning.'
+        }
+    });
+
+    assert.equal(status.visionHitlReevaluationPostCheck.readyForHumanApproval, 1);
+    assert.equal(status.visionHitlReevaluationPostCheck.needsHitlReview, 1);
+    assert.equal(status.visionHitlReevaluationPostCheck.needsRecapture, 1);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.deepEqual(status.blockers, [
+        { code: 'vision_hitl_recheck_human_approval_required', count: 1 },
+        { code: 'vision_hitl_recheck_review_required', count: 1 },
+        { code: 'vision_hitl_recheck_recapture_required', count: 1 },
+        { code: 'vision_hitl_recheck_unsafe_error', count: 1 },
+        { code: 'vision_hitl_recheck_missing_benchmark_result', count: 1 }
+    ]);
+    assert.match(status.recommendedAction, /failed HITL recheck cases/);
+});
+
 test('ready post-apply backfill verification keeps fallback retirement eligible', () => {
     const status = buildMigrationGateStatus({
         agentHealth: { online: true },
