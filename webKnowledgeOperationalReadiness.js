@@ -215,7 +215,7 @@ const statusFor = ({ gates, blockers }) => {
 const actionFor = status => ({
   action_required: '웹 지식 수집 품질 audit과 Common Agent 비저장 검증 결과를 먼저 수정하세요.',
   awaiting_common_agent_validation: 'npm run knowledge:web:validate-common-agent로 Common Agent 비저장 템플릿 검증을 실행하세요.',
-  awaiting_hitl_review: '앱의 DATABASE TREE > Web Case HITL에서 40건 이상을 사람이 검토 승인하거나, npm run knowledge:web:hitl:decision-template로 batch 판정 파일을 생성하세요.',
+  awaiting_hitl_review: '앱의 DATABASE TREE > Web Case HITL에서 40건 이상을 사람이 검토 승인하거나, npm run knowledge:web:hitl:decision-template 후 npm run knowledge:web:hitl:review-guide로 batch 판정 근거를 확인하세요.',
   awaiting_common_agent_approval: '승인된 Web Case를 Common Agent 후보로 적재하고 중앙 승인 + Graph 활성화를 완료하세요.',
   ready_for_graph_roundtrip: '승인된 Web Case에서 Graph 왕복 검증을 실행해 graph_approved_only 근거 경로를 확인하세요.'
 }[status] || '웹 지식 운영 준비 상태를 확인하세요.');

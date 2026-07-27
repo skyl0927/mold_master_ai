@@ -127,6 +127,7 @@ const webStageFor = webKnowledgeReadiness => {
     commands: ready ? [] : [
       'npm run knowledge:web:readiness',
       'npm run knowledge:web:hitl:decision-template',
+      'npm run knowledge:web:hitl:review-guide',
       'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-web-knowledge-hitl-decisions.json>',
       'npm run knowledge:web:hitl:apply -- --decisions <verified-web-knowledge-hitl-decisions.json> --apply'
     ],
