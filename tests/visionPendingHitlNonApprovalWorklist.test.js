@@ -109,6 +109,14 @@ test('builds an artifact-only worklist for non-approval Vision HITL decisions', 
     worklist.items.map(item => item.action),
     ['mark_needs_review', 'reject_candidate', 'request_recapture']
   );
+  assert.deepEqual(
+    worklist.items.map(item => item.workItemId),
+    [
+      'vision-non-approval-001',
+      'vision-non-approval-002',
+      'vision-non-approval-003'
+    ]
+  );
   assert.ok(worklist.items.every(item => item.graphPromotionAllowed === false));
   assert.ok(worklist.items.every(item => item.referenceLearningAllowed === false));
   assert.ok(worklist.items.every(item => item.modelTrainingAllowed === false));

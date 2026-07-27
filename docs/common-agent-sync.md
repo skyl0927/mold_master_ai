@@ -172,6 +172,20 @@ npm run vision:hitl:authorization-bridge -- --decision-verification <vision-pend
 브리지 단계도 `serviceWritesPerformed=false`이며 Common Agent, Graph DB,
 reference learning, model training을 직접 변경하지 않는다.
 
+보류, 반려, 재촬영 판정을 운영자가 별도 처리할 수 있도록 다음 no-write
+worklist를 생성할 수 있다.
+
+```powershell
+npm run vision:hitl:non-approval-worklist -- --decision-verification <vision-pending-hitl-decision-verification-report.json>
+```
+
+생성되는 `vision-pending-hitl-non-approval-worklist/v1`은
+`mark_needs_review`, `reject_candidate`, `request_recapture`만 포함하며 승인
+후보는 의도적으로 제외한다. 각 항목은 담당 owner, 다음 조치, 요청 촬영 시점,
+content hash, reviewer comment를 보존한다. 이 worklist도 artifact-only이며
+`serviceWritesPerformed=false`, `allowGraphPromotion=false`,
+`allowReferenceLearning=false`, `allowModelTraining=false`를 유지한다.
+
 실제 승인 반영은 생성된 authorization 파일을 운영자가 확인한 뒤에만 별도
 실행한다.
 

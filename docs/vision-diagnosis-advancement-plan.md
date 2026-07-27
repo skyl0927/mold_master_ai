@@ -33,6 +33,8 @@ Mold Master AI의 비전 진단을 단일 사진 분류 기능이 아니라 다�
 - HITL 승인, 보류, 반려 및 승인 데이터 승격
 - Common Agent HITL 판정 검증 보고서에서 승인 후보만 live approval
   authorization으로 변환하는 no-write 브리지
+- Common Agent HITL 판정 검증 보고서에서 보류, 반려, 재촬영 판정만 별도
+  no-write 운영 worklist로 분리
 - 결함별 필수 촬영 시점 정의와 준비도 평가
 - 비영속 Vision/Graph 벤치마크
 
@@ -245,6 +247,11 @@ HITL 승인 metadata의 학습 적격성도 `resolveCaptureLearningEligibility()
 `vision:hitl:approve` authorization 파일로 변환하는 브리지를 추가했다.
 이 브리지는 approval만 분리하고 needs-review/reject/recapture는 별도 운영
 조치로 보존하며, Common Agent/Graph DB/model training에 직접 쓰지 않는다.
+이후 `vision-pending-hitl-non-approval-worklist/v1`과
+`npm run vision:hitl:non-approval-worklist`를 추가해 보류, 반려, 재촬영
+판정을 담당 owner, 다음 조치, 요청 촬영 시점, content hash와 함께 별도
+artifact-only 작업 목록으로 분리했다. 승인 후보는 이 worklist에 포함하지
+않으며 Graph 승격, reference learning, model training은 계속 금지된다.
 따라서 현재 단계는 “데이터 확보 및 사람 판정 대기”에서 “판정 완료 시 안전하게
 승인 실행으로 이어질 수 있는 운영 연결부 준비 완료”로 한 단계 이동했다.
 같은 날 Web Knowledge 쪽에는 `web-knowledge-operational-readiness/v1` 게이트를
