@@ -223,7 +223,10 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
 수 있게 했다. 전환 리포트 JSON에는 `diagnosis-vision-review-packet/v1`
 경량 패킷을 추가해 imageId, comparisonId, action code, defect/classifier
 후보, 촬영 컨텍스트를 Common Agent/HITL에 전달할 수 있게 했으며, 이 패킷은
-쓰기와 Graph 승격을 금지하고 사람 검토를 필수로 요구한다.
+쓰기와 Graph 승격을 금지하고 사람 검토를 필수로 요구한다. 진단 결과 모달에는
+`Vision 판정 사용 정책`, Graph 후보 사용 가능 여부, AI가 본 근거 영역,
+재촬영/검토 사유를 함께 표시해 비전 오판이 후속 원인/대책으로 번지는지
+작업자가 즉시 확인할 수 있게 했다.
 
 개발:
 
@@ -232,6 +235,8 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
 - 시점 간 불일치와 반대 근거를 점수화
 - 신뢰도 보정은 클래스별 temperature/isotonic calibration 비교
 - 자동 확정, 추가 촬영, 사람 검토의 세 가지 출구 제공
+- 결과 화면에서 Vision 후보의 Graph 사용 정책, 근거 영역, 재촬영/검토
+  사유를 직접 표시
 - 동일 세션의 최대 8개 이미지를 단일 요청으로 전송하고 개별 서버 ID 보존
 - 시점별 관찰 ID를 전역 고유 ID로 변환해 교차 시점 근거 충돌 방지
 - Graph에는 개별 시점의 원인 추측이 아닌 융합 관찰과 후보만 전달

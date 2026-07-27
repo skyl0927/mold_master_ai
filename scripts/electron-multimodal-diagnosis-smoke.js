@@ -259,6 +259,13 @@ const path = require('node:path');
     const capturedEntries = await page.evaluate(() => window.__capturedVisionFormEntries);
     const capturedMetadata = JSON.parse(capturedForm.metadata_json || '{}');
     const capturedManifest = JSON.parse(capturedForm.view_manifest_json || '[]');
+    const visionDecisionExplainabilityParts = {
+      hasPolicyHeading: bodyText.includes('Vision 판정 사용 정책'),
+      hasGraphPolicy: bodyText.includes('Graph 사용: 후보 우선 + Graph 교차검증'),
+      hasEvidenceAreaHeading: bodyText.includes('AI가 본 근거 영역'),
+      hasEvidenceRegion: bodyText.includes('영역: 리브 기부'),
+      hasNoReviewReason: bodyText.includes('재촬영/검토 사유: 없음')
+    };
     const result = {
       questionContainsFieldContext: capturedForm.question.includes(fieldContext),
       metadataContainsContextFlag: capturedMetadata.context_provided === true,
@@ -279,11 +286,8 @@ const path = require('node:path');
         && bodyText.includes('path-whitening-release')
         && bodyText.includes('과도한 이형 저항')
         && bodyText.includes('리브 구배 및 표면 거칠기 점검'),
-      visionDecisionExplainabilityRendered: bodyText.includes('Vision 판정 사용 정책')
-        && bodyText.includes('Graph 사용: 후보 우선 + Graph 교차검증')
-        && bodyText.includes('AI가 본 근거 영역')
-        && bodyText.includes('영역: 리브 기부')
-        && bodyText.includes('재촬영/검토 사유: 없음'),
+      visionDecisionExplainabilityParts,
+      visionDecisionExplainabilityRendered: Object.values(visionDecisionExplainabilityParts).every(Boolean),
       hitlActionsRendered: bodyText.includes('교정 저장')
         && bodyText.includes('재촬영 요청')
         && bodyText.includes('반려')

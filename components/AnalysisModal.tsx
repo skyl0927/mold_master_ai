@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { CapturedImage, DefectAnalysis } from '../types';
+import { CapturedImage, DefectAnalysis, VisionObservationSummary, VisionSafetyGateSummary } from '../types';
 import { CloseIcon, ClipboardIcon, SparklesIcon, SaveIcon, LockIcon } from './Icons';
 import {
     resolveVisionHitlDecision,
@@ -108,6 +108,59 @@ const DEFECT_TEMPLATES: Record<string, { desc: string; cause: string; counter: s
 };
 
 const formatRetrievalMode = (mode: string) => mode.replace(/_/g, ' ').toUpperCase();
+
+const VISION_GATE_REASON_LABELS: Record<string, string> = {
+    legacy_observation_contract: '구형 Vision 응답 계약',
+    image_quality_warning: '사진 품질 경고',
+    image_quality_rejected: '사진 품질 불량으로 재촬영 필요',
+    visual_abnormality_not_confirmed: '시각적 이상 확정 불가',
+    single_candidate_requires_review: '후보가 1개뿐이라 교차 확인 필요',
+    top_candidate_confidence_below_safety_floor: 'Top 후보 신뢰도 부족',
+    top_candidate_margin_too_small: 'Top 후보와 2순위 차이 부족',
+    insufficient_independent_visual_evidence: '독립 시각 근거 부족',
+    single_visual_evidence_category: '근거 범주가 1종에 치우침',
+    top_candidate_has_contradicting_evidence: 'Top 후보에 반대 근거 존재',
+    provider_contract_invalid: 'Vision 응답 계약 오류',
+    non_physical_image: '문서/도면 이미지로 물리 결함 판정 금지',
+    no_visible_defect: '표시 결함 확인 불가',
+    no_classifiable_candidate: '분류 가능한 결함 후보 없음',
+    missing_visual_observations: '시각 관찰 근거 누락',
+    candidate_without_observation_evidence: '후보가 관찰 근거를 인용하지 않음'
+};
+
+const formatVisionPolicy = (policy: VisionSafetyGateSummary['candidateUsePolicy']) => {
+    if (policy === 'candidate_primary_graph_cross_check') {
+        return 'Graph 사용: 후보 우선 + Graph 교차검증';
+    }
+    if (policy === 'graph_cross_check_only') {
+        return 'Graph 사용: 교차검증 전용';
+    }
+    return 'Graph 사용 금지: 재촬영/HITL 전용';
+};
+
+const formatVisionGateStatus = (status: VisionSafetyGateSummary['status']) => {
+    if (status === 'reliable') return '시각 근거 신뢰 가능';
+    if (status === 'blocked') return '자동 진단 차단';
+    return '사람 검토 필요';
+};
+
+const buildVisionReviewReasonText = (summary: VisionObservationSummary) => {
+    const safetyReasons = (summary.safetyGate?.reasons || [])
+        .map(reason => VISION_GATE_REASON_LABELS[reason] || reason);
+    const additionalViews = summary.requiredAdditionalViews
+        .map(view => `추가 촬영: ${view}`);
+    const reasons = [
+        ...summary.qualityConcerns,
+        ...safetyReasons,
+        ...additionalViews,
+        summary.abstentionReason,
+        ...summary.validationIssues.map(issue => VISION_GATE_REASON_LABELS[issue] || issue)
+    ]
+        .map(reason => reason.trim())
+        .filter(Boolean);
+    const uniqueReasons = Array.from(new Set(reasons));
+    return uniqueReasons.length > 0 ? uniqueReasons.slice(0, 5).join(', ') : '없음';
+};
 
 // Interface for Custom Defect Data
 interface CustomDefectData {
@@ -488,25 +541,25 @@ ${data.countermeasures}
                                                             ? 'border-red-700/60 bg-red-950/25'
                                                             : 'border-amber-700/60 bg-amber-950/20'
                                                 }`}>
-                                                    <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                                        <span className="font-semibold uppercase tracking-wider text-cyan-200">
-                                                            Vision Safety Gate
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="text-xs font-semibold tracking-wider text-cyan-200">
+                                                            Vision 판정 사용 정책
                                                         </span>
-                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
-                                                            {editableData.visionSummary.safetyGate.status}
-                                                        </span>
-                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
-                                                            {editableData.visionSummary.safetyGate.score}점
-                                                        </span>
-                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-200">
-                                                            {editableData.visionSummary.safetyGate.candidateUsePolicy}
+                                                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] text-gray-200">
+                                                            {editableData.visionSummary.safetyGate.score}점 · {formatVisionGateStatus(editableData.visionSummary.safetyGate.status)}
                                                         </span>
                                                     </div>
-                                                    {editableData.visionSummary.safetyGate.reasons.length > 0 && (
-                                                        <p className="mt-2 text-xs text-amber-100">
-                                                            안전 게이트 사유: {editableData.visionSummary.safetyGate.reasons.join(', ')}
-                                                        </p>
-                                                    )}
+                                                    <div className="mt-2 grid gap-2 text-xs text-gray-200 sm:grid-cols-2">
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 px-3 py-2">
+                                                            {formatVisionPolicy(editableData.visionSummary.safetyGate.candidateUsePolicy)}
+                                                        </div>
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 px-3 py-2">
+                                                            자동 확정: {editableData.visionSummary.safetyGate.autoGraphCandidateUseAllowed ? 'Graph 근거 확인 후 가능' : '불가'}
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-2 text-xs text-amber-100">
+                                                        재촬영/검토 사유: {buildVisionReviewReasonText(editableData.visionSummary)}
+                                                    </p>
                                                 </div>
                                             )}
                                             {editableData.visionSummary.fusionSummary && (
@@ -568,6 +621,9 @@ ${data.countermeasures}
                                             )}
                                             {editableData.visionSummary.visualObservations.length > 0 && (
                                                 <div className="mt-3 grid gap-2">
+                                                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
+                                                        AI가 본 근거 영역
+                                                    </p>
                                                     {editableData.visionSummary.visualObservations.map(observation => (
                                                         <div
                                                             key={observation.observationId}
@@ -576,7 +632,7 @@ ${data.countermeasures}
                                                             <div className="flex flex-wrap items-center gap-2 text-[10px]">
                                                                 <span className="font-mono text-cyan-300">{observation.observationId}</span>
                                                                 <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-cyan-200">{observation.category}</span>
-                                                                {observation.region && <span className="text-gray-500">{observation.region}</span>}
+                                                                {observation.region && <span className="text-gray-500">영역: {observation.region}</span>}
                                                                 <span className="ml-auto text-gray-500">{Math.round(observation.confidence * 100)}%</span>
                                                             </div>
                                                             <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
