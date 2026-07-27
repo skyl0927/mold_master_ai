@@ -169,6 +169,73 @@ test('Vision HITL review metadata routes corrected and recapture decisions to re
     assert.deepEqual(recapture.vision_quality_concerns, ['motion blur hides the defect edge']);
 });
 
+test('Vision HITL recapture metadata preserves bbox safety provenance for Common Agent', () => {
+    const bboxBlockedAnalysis = {
+        defectType: '판정 보류 (whitening 후보 검토 필요)',
+        severity: '-',
+        description: '리브 주변 유백색 변색 후보',
+        possibleCauses: '',
+        countermeasures: '',
+        rawOutput: '',
+        visionSummary: {
+            contractVersion: 'vision-observation/v2',
+            imageKind: 'physical_product' as const,
+            normalityStatus: 'defect_visible' as const,
+            captureViewTag: 'defect_closeup',
+            qualityStatus: 'pass' as const,
+            visualObservations: [],
+            visibleFeatures: ['리브 주변 유백색 변색 후보'],
+            candidates: [],
+            primaryCandidate: null,
+            requiredAdditionalViews: [
+                'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+                'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+            ],
+            qualityConcerns: [],
+            abstentionReason: '',
+            validationIssues: [],
+            groundingStatus: 'grounded' as const,
+            decisionStatus: 'needs_review' as const,
+            decisionReason: 'vision_safety_gate_requires_review',
+            safetyGate: {
+                status: 'needs_review' as const,
+                score: 64,
+                reasons: ['low_region_bbox_confidence', 'overbroad_region_bbox'],
+                candidateUsePolicy: 'graph_cross_check_only' as const,
+                autoGraphCandidateUseAllowed: false,
+                humanReviewRequired: true,
+                supportObservationCount: 2,
+                supportCategoryCount: 2,
+                supportPixelGroundingCount: 2,
+                weakPixelGroundingCount: 1,
+                lowRegionBboxConfidenceCount: 1,
+                overbroadRegionBboxCount: 1,
+                bboxGroundingProfileId: 'defect_closeup_precision',
+                bboxGroundingThresholds: {
+                    minConfidence: 0.72,
+                    maxArea: 0.55
+                },
+                topCandidateMargin: 0.7
+            }
+        }
+    };
+
+    const recapture = buildVisionHitlReviewMetadata(bboxBlockedAnalysis, 'recapture');
+
+    assert.deepEqual(recapture.vision_safety_gate_reasons, [
+        'low_region_bbox_confidence',
+        'overbroad_region_bbox'
+    ]);
+    assert.equal(recapture.vision_bbox_grounding_profile_id, 'defect_closeup_precision');
+    assert.deepEqual(recapture.vision_bbox_grounding_thresholds, {
+        minConfidence: 0.72,
+        maxArea: 0.55
+    });
+    assert.equal(recapture.vision_bbox_low_confidence_count, 1);
+    assert.equal(recapture.vision_bbox_overbroad_count, 1);
+    assert.equal(recapture.vision_bbox_weak_grounding_count, 1);
+});
+
 test('specification analysis removes reasoning text and keeps only concise engineering statements', () => {
     const compact = compactSpecificationAnalysis({
         problem: [

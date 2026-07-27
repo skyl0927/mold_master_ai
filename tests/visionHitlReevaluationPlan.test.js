@@ -93,6 +93,37 @@ test('recapture HITL metadata is excluded from benchmark until a fresh image exi
   assert.deepEqual(plan.items[0].qualityConcerns, ['motion blur hides the defect edge']);
 });
 
+test('recapture HITL plan preserves bbox safety reasons for field follow-up', () => {
+  const plan = buildVisionHitlReevaluationPlan({
+    generatedAt: '2026-07-27T08:00:00.000Z',
+    items: [
+      correctedItem({
+        imageId: 'image-bbox-recapture-1',
+        metadata: {
+          human_review_decision: 'recapture',
+          vision_review_decision: 'recapture',
+          vision_review_next_action: 'request_recapture',
+          vision_review_re_evaluation_queue: 'vision_recapture_required',
+          vision_safety_gate_reasons: ['low_region_bbox_confidence', 'overbroad_region_bbox'],
+          vision_bbox_grounding_profile_id: 'defect_closeup_precision',
+          vision_required_additional_views: [
+            'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+            'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+          ]
+        }
+      })
+    ]
+  });
+
+  assert.equal(plan.items[0].status, 'waiting_for_recapture');
+  assert.deepEqual(plan.items[0].reasons, [
+    'recapture_required',
+    'low_region_bbox_confidence',
+    'overbroad_region_bbox'
+  ]);
+  assert.equal(plan.items[0].bboxGroundingProfileId, 'defect_closeup_precision');
+});
+
 test('re-evaluation manifest contains only active corrected recheck candidates', () => {
   const plan = buildVisionHitlReevaluationPlan({
     generatedAt: '2026-07-27T08:00:00.000Z',
