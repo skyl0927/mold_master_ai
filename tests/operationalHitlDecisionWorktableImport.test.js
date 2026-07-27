@@ -171,6 +171,56 @@ test('fails closed when the CSV contains unsupported actions or unknown decision
   assert.equal(writes.length, 0);
 });
 
+test('fails closed when action-specific required fields are missing before apply', () => {
+  const writes = [];
+  const report = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: [
+      'queueCode,decisionId,newAction,approvedDefectType,reviewComment',
+      'vision_pending_hitl,pending-hitl-001,approve_candidate,싱크,짧음'
+    ].join('\n'),
+    apply: true,
+    readFileText: filePath => editableFiles().get(filePath),
+    writeFileText: (filePath, text) => writes.push({ filePath, text })
+  });
+
+  assert.equal(report.status, 'invalid_worktable');
+  assert.equal(report.applyRequested, true);
+  assert.equal(report.localEditableWritesPerformed, false);
+  assert.equal(report.summary.plannedUpdates, 0);
+  assert.equal(report.summary.invalidRows, 1);
+  assert.equal(report.invalidRows[0].code, 'missing_required_fields');
+  assert.equal(report.invalidRows[0].decisionId, 'pending-hitl-001');
+  assert.deepEqual(report.invalidRows[0].missingFields, [
+    'manufacturingImageConfirmed',
+    'labelConfirmed',
+    'reviewer.id',
+    'decidedAt',
+    'reviewComment'
+  ]);
+  assert.equal(writes.length, 0);
+});
+
+test('accepts rows whose fields satisfy the selected action requirements', () => {
+  const report = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: [
+      'queueCode,decisionId,newAction,reviewerId,decidedAt,reviewComment,requestedViews',
+      'vision_label_conflicts,conflict-001,request_recapture,reviewer-01,2026-07-27T14:20:00.000Z,원본 이미지 품질이 낮아 재촬영을 요청합니다.,제품 전체 정면 | 결함부 근접'
+    ].join('\n'),
+    readFileText: filePath => editableFiles().get(filePath)
+  });
+
+  assert.equal(report.status, 'dry_run_ready');
+  assert.equal(report.summary.plannedUpdates, 1);
+  assert.equal(report.summary.invalidRows, 0);
+  assert.equal(report.plannedUpdates[0].action, 'request_recapture');
+  assert.deepEqual(report.plannedUpdates[0].fieldUpdates.requestedViews, [
+    '제품 전체 정면',
+    '결함부 근접'
+  ]);
+});
+
 test('ignores exported read-only rows until newAction or explicit action is entered', () => {
   const report = buildOperationalHitlDecisionWorktableImport({
     workspaceManifest: workspaceManifest(),
