@@ -47,6 +47,7 @@
     "test:vision-observation": "node --test tests/visionImageQuality.test.js tests/visionObservation.test.js",
     "test:vision-bbox-overlay": "node --test tests/visionBboxOverlay.test.js",
     "test:vision-bbox-annotation": "node --test tests/visionBboxAnnotation.test.js",
+    "test:vision-bbox-annotation-status": "node --test tests/visionBboxAnnotationStatus.test.js",
     "test:candidates": "node --test tests/localVisionCandidate.test.js tests/knowledgeCardVisionCandidateSync.test.js tests/webCaseVisionCandidate.test.js tests/visionAuditCache.test.js tests/visionReviewPriority.test.js tests/visionReviewQueue.test.js",
     "test:review-packet": "node --test tests/visionHumanReviewPacket.test.js",
     "test:vision-hitl-authorization": "node --test tests/visionHitlAuthorization.test.js",
