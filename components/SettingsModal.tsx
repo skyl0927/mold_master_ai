@@ -41,7 +41,8 @@ import {
   summarizeVisionOperationalHitlWorkflowDisplay,
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
   summarizeOperationalHitlActionPackDisplay,
-  summarizeOperationalHitlPipelineStatusDisplay
+  summarizeOperationalHitlPipelineStatusDisplay,
+  summarizeOperationalHitlWorktableSuggestionDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -92,6 +93,8 @@ const OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY =
   'mold-master-ai:operational-hitl-action-pack:v1';
 const OPERATIONAL_HITL_PIPELINE_STATUS_STORAGE_KEY =
   'mold-master-ai:operational-hitl-pipeline-status:v1';
+const OPERATIONAL_HITL_WORKTABLE_SUGGESTION_STORAGE_KEY =
+  'mold-master-ai:operational-hitl-worktable-suggestion:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -142,6 +145,23 @@ const readOperationalHitlPipelineStatus = (): any | null => {
 const saveOperationalHitlPipelineStatus = (pipelineStatus: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_HITL_PIPELINE_STATUS_STORAGE_KEY, JSON.stringify(pipelineStatus));
+};
+
+const readOperationalHitlWorktableSuggestion = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_HITL_WORKTABLE_SUGGESTION_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-hitl-decision-worktable-suggestion/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalHitlWorktableSuggestion = (suggestion: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_HITL_WORKTABLE_SUGGESTION_STORAGE_KEY, JSON.stringify(suggestion));
 };
 
 const operationalWorklistStatusLabel = (status: string): string => {
@@ -249,6 +269,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlPipelineStatus, setOperationalHitlPipelineStatus] = useState(
     () => readOperationalHitlPipelineStatus()
   );
+  const [operationalHitlWorktableSuggestion, setOperationalHitlWorktableSuggestion] = useState(
+    () => readOperationalHitlWorktableSuggestion()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -260,10 +283,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeOperationalHitlActionPackDisplay(operationalHitlActionPack);
   const operationalHitlPipelineStatusDisplay =
     summarizeOperationalHitlPipelineStatusDisplay(operationalHitlPipelineStatus);
+  const operationalHitlWorktableSuggestionDisplay =
+    summarizeOperationalHitlWorktableSuggestionDisplay(operationalHitlWorktableSuggestion);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
   const [operationalHitlPipelineStatusImportStatus, setOperationalHitlPipelineStatusImportStatus] = useState('');
+  const [operationalHitlWorktableSuggestionImportStatus, setOperationalHitlWorktableSuggestionImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -402,6 +428,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalBlockerWorklist,
       operationalHitlActionPack,
       operationalHitlPipelineStatus,
+      operationalHitlWorktableSuggestion,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -497,6 +524,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalHitlPipelineStatusImportStatus(
         error instanceof Error ? `Pipeline status 등록 실패: ${error.message}` : 'Pipeline status 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalHitlWorktableSuggestionImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const suggestion = JSON.parse(await file.text());
+      if (suggestion?.contractVersion !== 'operational-hitl-decision-worktable-suggestion/v1') {
+        throw new Error('invalid operational HITL worktable suggestion');
+      }
+      saveOperationalHitlWorktableSuggestion(suggestion);
+      setOperationalHitlWorktableSuggestion(suggestion);
+      setOperationalHitlWorktableSuggestionImportStatus('HITL worktable suggestion을 등록했습니다.');
+    } catch (error) {
+      setOperationalHitlWorktableSuggestionImportStatus(
+        error instanceof Error ? `Suggestion 등록 실패: ${error.message}` : 'Suggestion 등록 실패'
       );
     }
   };
@@ -833,6 +881,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalHitlPipelineStatusImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-teal-800 px-2 py-1 text-[9px] text-teal-100 hover:bg-teal-700">
+                    Suggestion 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalHitlWorktableSuggestionImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -874,6 +931,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalHitlPipelineStatusImportStatus}
+                </p>
+              )}
+              {operationalHitlWorktableSuggestionImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalHitlWorktableSuggestionImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalHitlWorktableSuggestionImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -979,6 +1045,73 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     )}
                     <div className="mt-2 flex flex-wrap gap-1">
                       {operationalHitlPipelineStatusDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {operationalHitlWorktableSuggestionDisplay && (
+                  <div
+                    aria-label="HITL Worktable Suggestions"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlWorktableSuggestionDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlWorktableSuggestionDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-teal-800/70 bg-teal-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-teal-100">
+                          {operationalHitlWorktableSuggestionDisplay.title}
+                        </p>
+                        <p className="mt-1 text-teal-200">
+                          {operationalHitlWorktableSuggestionDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlWorktableSuggestionDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlWorktableSuggestionDisplay.summaryText}
+                    </p>
+                    {operationalHitlWorktableSuggestionDisplay.riskText && (
+                      <p className="mt-1 break-words text-amber-100">
+                        {operationalHitlWorktableSuggestionDisplay.riskText}
+                      </p>
+                    )}
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlWorktableSuggestionDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlWorktableSuggestionDisplay.rowPreviews.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {operationalHitlWorktableSuggestionDisplay.rowPreviews.map(row => (
+                          <div
+                            key={`${row.queueCode}:${row.decisionId}:${row.action}`}
+                            className="rounded bg-gray-950/40 px-2 py-1"
+                          >
+                            <p className="break-words text-[8px] font-semibold text-teal-50">
+                              {row.queueCode} · {row.decisionId} · {row.action} · {row.risk}
+                            </p>
+                            <p className="mt-1 break-words text-[8px] text-gray-300">
+                              {row.displayLabel}
+                            </p>
+                            <p className="mt-1 break-words text-[8px] text-gray-400">
+                              {row.reasonKo}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlWorktableSuggestionDisplay.safetyBadges.map(badge => (
                         <span
                           key={badge}
                           className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"

@@ -5,7 +5,8 @@ const {
   summarizeVisionOperationalHitlWorkflowDisplay,
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
   summarizeOperationalHitlActionPackDisplay,
-  summarizeOperationalHitlPipelineStatusDisplay
+  summarizeOperationalHitlPipelineStatusDisplay,
+  summarizeOperationalHitlWorktableSuggestionDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -363,4 +364,97 @@ test('highlights missing operational HITL pipeline evidence', () => {
 test('returns null when no operational HITL pipeline status is available to display', () => {
   assert.equal(summarizeOperationalHitlPipelineStatusDisplay(null), null);
   assert.equal(summarizeOperationalHitlPipelineStatusDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes operational HITL worktable suggestions for Settings UI display', () => {
+  const display = summarizeOperationalHitlWorktableSuggestionDisplay({
+    contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
+    status: 'ready_for_human_review',
+    summary: {
+      totalRows: 59,
+      pendingRows: 59,
+      suggestionRows: 59,
+      recaptureSuggestions: 5,
+      approveCandidateSuggestions: 7,
+      approveCardSuggestions: 43,
+      needsReviewSuggestions: 4,
+      needsChangesSuggestions: 0
+    },
+    rows: [
+      {
+        queueCode: 'vision_label_conflicts',
+        decisionId: 'conflict-001',
+        displayLabel: '제팅 | 플로우마크',
+        recommendedNewAction: 'mark_needs_review',
+        recommendationRisk: 'high',
+        recommendationReasonKo: '라벨 충돌 항목은 원본 동일 hash와 지배 결함 확인 전까지 needs_review 격리가 안전합니다.',
+        copyToWorktableInstructionKo: '원본 worktable row에 newAction과 검토 필드를 옮겨 적으세요.'
+      },
+      {
+        queueCode: 'vision_pending_hitl',
+        decisionId: 'pending-hitl-003',
+        displayLabel: '웰드라인',
+        recommendedNewAction: 'approve_candidate',
+        recommendationRisk: 'medium',
+        recommendationReasonKo: '비전 설명과 결함명이 일치하는 승인 후보입니다.'
+      },
+      {
+        queueCode: 'web_knowledge_hitl',
+        decisionId: 'web-basf-22-jetting',
+        displayLabel: '제팅',
+        recommendedNewAction: 'approve_card',
+        recommendationRisk: 'medium',
+        recommendationReasonKo: '필수 도메인 카드 필드가 채워져 있어 승인 후보입니다.'
+      }
+    ],
+    recommendedAction: '추천 초안을 사람이 검토한 뒤 원본 worktable CSV에 옮겨 적으세요.'
+  });
+
+  assert.equal(display.title, 'HITL Worktable Suggestions');
+  assert.equal(display.statusLabel, '사람 검토용 추천 준비');
+  assert.equal(display.severity, 'warning');
+  assert.equal(
+    display.summaryText,
+    '추천 59건 · 대기 59건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건 · 검토필요 4건'
+  );
+  assert.equal(display.riskText, '위험도: high 1건 · medium 2건');
+  assert.match(display.nextActionKo, /CSV/);
+  assert.deepEqual(display.rowPreviews, [
+    {
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      displayLabel: '제팅 | 플로우마크',
+      action: 'mark_needs_review',
+      risk: 'high',
+      reasonKo: '라벨 충돌 항목은 원본 동일 hash와 지배 결함 확인 전까지 needs_review 격리가 안전합니다.'
+    },
+    {
+      queueCode: 'vision_pending_hitl',
+      decisionId: 'pending-hitl-003',
+      displayLabel: '웰드라인',
+      action: 'approve_candidate',
+      risk: 'medium',
+      reasonKo: '비전 설명과 결함명이 일치하는 승인 후보입니다.'
+    },
+    {
+      queueCode: 'web_knowledge_hitl',
+      decisionId: 'web-basf-22-jetting',
+      displayLabel: '제팅',
+      action: 'approve_card',
+      risk: 'medium',
+      reasonKo: '필수 도메인 카드 필드가 채워져 있어 승인 후보입니다.'
+    }
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Suggestion-only',
+    'newAction 자동 입력 금지',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Model 학습 금지'
+  ]);
+});
+
+test('returns null when no operational HITL worktable suggestions are available to display', () => {
+  assert.equal(summarizeOperationalHitlWorktableSuggestionDisplay(null), null);
+  assert.equal(summarizeOperationalHitlWorktableSuggestionDisplay({ contractVersion: 'unknown/v1' }), null);
 });

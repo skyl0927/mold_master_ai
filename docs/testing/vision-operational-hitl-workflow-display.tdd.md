@@ -9,7 +9,8 @@
 template 수, 미판정 수, 오류 수, 다음 명령, 안전 정책을 확인할 수 있어야 한다.
 또한 운영 전환 단계의 실제 병목인 `operational-hitl-pipeline-status/v1`를
 Settings에 등록해 현재 개발 완료 단계, HITL 미입력 수, 추천 분포, 다음 명령을
-한 카드에서 확인할 수 있어야 한다.
+한 카드에서 확인할 수 있어야 한다. `operational-hitl-decision-worktable-suggestion/v1`
+도 Settings에서 등록해 사람이 승인할 후보와 위험 행을 빠르게 검토할 수 있어야 한다.
 
 ## RED
 
@@ -53,12 +54,17 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
   `재촬영 5건`, `Vision 후보 7건`, `Web 후보 43건`을 요약한다.
 - Pipeline Status 카드의 안전 배지는 `Artifact-only`, `자동 적용 금지`,
   `Graph 승격 금지`, `Reference 학습 금지`, `Model 학습 금지`를 표시한다.
+- `operational-hitl-decision-worktable-suggestion/v1`는 `HITL Worktable
+  Suggestions` 카드로 표시하고 추천 59건, 재촬영 5건, Vision 후보 7건,
+  Web 후보 43건, 검토필요 4건, 위험도 분포와 상위 row preview를 보여준다.
+- Suggestion 카드는 `Suggestion-only`, `newAction 자동 입력 금지`, `자동 적용 금지`,
+  `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
 
 ## 확인 결과
 
 ```text
 npm run test:vision-operational-hitl-display
-PASS 12
+PASS 14
 ```
 
 Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가 표시되고,
@@ -69,3 +75,8 @@ Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가
 `artifacts/operational-hitl-pipeline-status-*.json`을 등록하면 `HITL Pipeline
 Status` 카드가 표시된다. 현재 실제 상태는 소프트웨어 scaffold 100%, 운영 전환
 0%, HITL decision 입력 56건 미완료, Vision Top-1 46.2% / Top-3 53.8% 병목이다.
+
+`Suggestion 등록` 버튼으로 최신
+`artifacts/operational-hitl-decision-worktable-suggestion-*.json`을 등록하면
+`HITL Worktable Suggestions` 카드가 표시된다. 이 카드는 추천 후보를 보여주지만
+자동으로 승인하거나 CSV `newAction`을 채우지 않는다.

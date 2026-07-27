@@ -48,3 +48,13 @@ npm run operational:hitl:worktable-suggest
 - Vision 승인 후보: 7
 - Web 카드 승인 후보: 43
 - 라벨 충돌 needs_review 추천: 4
+
+## Settings UI 연동
+
+Settings의 `비전 릴리스 게이트` 영역에 `Suggestion 등록` 버튼을 추가했다.
+최신 `artifacts/operational-hitl-decision-worktable-suggestion-*.json`을 등록하면
+`Vision 운영 작업 목록` 아래에 `HITL Worktable Suggestions` 카드가 표시된다.
+
+카드는 추천/대기/재촬영/Vision 후보/Web 후보/검토필요 수, 위험도 분포, 상위
+5개 row의 queue/decision/action/risk/추천 사유를 보여준다. 이 표시는
+`Suggestion-only`이며 원본 worktable CSV의 `newAction`을 자동 입력하지 않는다.

@@ -146,6 +146,19 @@ const pipelineSeverityFor = status => {
   return 'warning';
 };
 
+const worktableSuggestionStatusLabelFor = status => {
+  if (status === 'ready_for_human_review') return '사람 검토용 추천 준비';
+  if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (status === 'clear') return '추천 대기 없음';
+  return compact(status);
+};
+
+const worktableSuggestionSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (status === 'clear') return 'success';
+  return 'warning';
+};
+
 const summarizeOperationalHitlActionPackDisplay = actionPack => {
   if (actionPack?.contractVersion !== 'operational-hitl-action-pack/v1') return null;
 
@@ -271,6 +284,70 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
   };
 };
 
+const summarizeOperationalHitlWorktableSuggestionDisplay = suggestion => {
+  if (suggestion?.contractVersion !== 'operational-hitl-decision-worktable-suggestion/v1') {
+    return null;
+  }
+
+  const summary = suggestion.summary || {};
+  const rows = Array.isArray(suggestion.rows) ? suggestion.rows : [];
+  const status = compact(suggestion.status);
+  const riskCounts = new Map();
+  rows.forEach(row => {
+    const risk = compact(row?.recommendationRisk);
+    if (!risk) return;
+    riskCounts.set(risk, (riskCounts.get(risk) || 0) + 1);
+  });
+  const riskText = Array.from(riskCounts.entries())
+    .map(([risk, count]) => `${risk} ${count}건`)
+    .join(' · ');
+  const summaryParts = [
+    `추천 ${numberValue(summary.suggestionRows)}건`,
+    `대기 ${numberValue(summary.pendingRows)}건`,
+    numberValue(summary.recaptureSuggestions) > 0
+      ? `재촬영 ${numberValue(summary.recaptureSuggestions)}건`
+      : '',
+    numberValue(summary.approveCandidateSuggestions) > 0
+      ? `Vision 후보 ${numberValue(summary.approveCandidateSuggestions)}건`
+      : '',
+    numberValue(summary.approveCardSuggestions) > 0
+      ? `Web 후보 ${numberValue(summary.approveCardSuggestions)}건`
+      : '',
+    numberValue(summary.needsReviewSuggestions) > 0
+      ? `검토필요 ${numberValue(summary.needsReviewSuggestions)}건`
+      : '',
+    numberValue(summary.needsChangesSuggestions) > 0
+      ? `수정필요 ${numberValue(summary.needsChangesSuggestions)}건`
+      : ''
+  ].filter(Boolean);
+
+  return {
+    title: 'HITL Worktable Suggestions',
+    status,
+    statusLabel: worktableSuggestionStatusLabelFor(status),
+    severity: worktableSuggestionSeverityFor(status),
+    summaryText: summaryParts.join(' · '),
+    riskText: riskText ? `위험도: ${riskText}` : '',
+    nextActionKo: compact(suggestion.recommendedAction)
+      || '추천 초안을 사람이 검토한 뒤 원본 worktable CSV에 필요한 값만 옮겨 적으세요.',
+    rowPreviews: rows.slice(0, 5).map(row => ({
+      queueCode: compact(row?.queueCode),
+      decisionId: compact(row?.decisionId),
+      displayLabel: compact(row?.displayLabel),
+      action: compact(row?.recommendedNewAction),
+      risk: compact(row?.recommendationRisk),
+      reasonKo: compact(row?.recommendationReasonKo)
+    })),
+    safetyBadges: [
+      'Suggestion-only',
+      'newAction 자동 입력 금지',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Model 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -318,5 +395,6 @@ module.exports = {
   summarizeVisionOperationalHitlWorkflowDisplay,
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
   summarizeOperationalHitlActionPackDisplay,
-  summarizeOperationalHitlPipelineStatusDisplay
+  summarizeOperationalHitlPipelineStatusDisplay,
+  summarizeOperationalHitlWorktableSuggestionDisplay
 };
