@@ -127,3 +127,52 @@ test('returns clear guide when there are no pending HITL decisions', () => {
   assert.deepEqual(guide.items, []);
   assert.match(guide.recommendedAction, /검토 대상 없음/);
 });
+
+test('treats parenthetical defect label variants as source and vision agreement', () => {
+  const guide = buildVisionPendingHitlReviewGuide({
+    decisionTemplate: {
+      contractVersion: 'common-agent-hitl-review-decisions/v1',
+      templateVersion: 'common-agent-hitl-review-decisions-template/v1',
+      status: 'template_ready',
+      decisions: [
+        {
+          queueId: 'pending-hitl-009',
+          defectType: '미성형',
+          defectClass: 'short_shot',
+          evidence: {
+            sourceLabel: '미성형',
+            visionSuggestedLabel: '미성형(단락 충전, Short shot)',
+            visionConfidence: 0.96
+          },
+          source: {
+            relativePath: 'web-case/10-Injection-moulding-defects.jpg'
+          }
+        },
+        {
+          queueId: 'pending-hitl-010',
+          defectType: '흑점/탄화',
+          defectClass: 'burn',
+          evidence: {
+            sourceLabel: '흑점/탄화',
+            visionSuggestedLabel: '흑점/탄화(번 마크)',
+            visionConfidence: 0.94
+          },
+          source: {
+            relativePath: 'web-case/17-mdpi-polymers-13-04087-figure-2.jpg'
+          }
+        }
+      ]
+    }
+  });
+
+  assert.equal(guide.summary.sourceVisionAgreements, 2);
+  assert.equal(guide.summary.labelMismatches, 0);
+  assert.deepEqual(guide.items[0].riskFlags, [
+    'source_vision_agreement',
+    'human_confirmation_required'
+  ]);
+  assert.deepEqual(guide.items[1].riskFlags, [
+    'source_vision_agreement',
+    'human_confirmation_required'
+  ]);
+});
