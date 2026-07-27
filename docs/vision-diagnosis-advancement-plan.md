@@ -234,9 +234,10 @@ Common Agent worker 환경에서 DINOv2 `facebook/dinov2-base`와 SigLIP2
 응답에 provider, model, dimension, device, runtime, production-ready 계보를
 노출하도록 확장했다. 또한 `GET /v1/vision/classifier/references/current`로
 현재 reference store 준비 상태를 조회하고, Mold Master AI 데이터 관리자에서
-상태 확인과 수동 refresh를 실행할 수 있게 했다. 학습 헤드는 승인 다중
-시점 데이터가 클래스별 최소 30세션에 도달한 뒤 실측 holdout 기준으로
-승격한다.
+상태 확인과 수동 refresh를 실행할 수 있게 했다. `npm run
+vision:reference:gate`는 `current -> refresh -> current -> benchmark-current`
+순서로 외부 서버 실측 artifact를 생성한다. 학습 헤드는 승인 다중 시점
+데이터가 클래스별 최소 30세션에 도달한 뒤 실측 holdout 기준으로 승격한다.
 
 개발:
 
@@ -402,7 +403,8 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 2026-07-25 이후 다음 개발 단위:
 
 1. Common Agent에 연결된 DINOv2/SigLIP2 실제 임베딩 런타임으로 승인 현장
-   데이터 reference store를 생성하고 실측 benchmark로 교체
+   데이터 reference store를 생성하고 `npm run vision:reference:gate` 실측
+   artifact로 benchmark를 교체
 2. Mold Master 설정의 Vision 벤치마크 게이트를 `shadow`로 전환해 진단
    실패 없이 기준 미달 항목을 수집
 3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행

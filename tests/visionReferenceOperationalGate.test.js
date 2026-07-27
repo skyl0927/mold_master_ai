@@ -191,3 +191,22 @@ test('runner refreshes, rechecks current store, then benchmarks the promoted mod
   assert.equal(result.status, 'passed');
   assert.equal(result.readyForGraphRetrieval, true);
 });
+
+test('runner includes the failing endpoint when the current store cannot be reached', async () => {
+  const result = await runVisionReferenceOperationalGate({
+    agentUrl: 'http://agent.test',
+    refresh: false,
+    generatedAt: '2026-07-27T01:00:00.000Z',
+    fetchJson: async () => {
+      throw new Error('network down');
+    }
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.blockers[0].code, 'reference_store_invalid');
+  assert.match(
+    result.blockers[0].detail,
+    /http:\/\/agent\.test\/v1\/vision\/classifier\/references\/current/
+  );
+  assert.match(result.blockers[0].detail, /network down/);
+});
