@@ -200,6 +200,10 @@ Graph 승격과 학습 승격을 모두 차단한다. 이어서 관찰 카드에
 패킷에 포함되도록 했다. Common Agent에 이미 동기화된 이미지는 관찰 카드의
 `Common Agent 제출` 버튼으로 보정 bbox를 `needs_review` annotation으로 직접
 제출하고, 제출 후 annotation summary를 다시 갱신한다.
+또한 Vision safety gate가 촬영 view별 bbox calibration profile을 적용해
+`defect_closeup`, `oblique_light`, `parting_line_context` 등 정밀 검수가 필요한
+시점에서는 기본값보다 엄격한 bbox confidence/area 기준으로 자동 Graph 후보
+사용을 보류한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

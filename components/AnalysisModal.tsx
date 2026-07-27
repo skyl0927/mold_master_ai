@@ -801,6 +801,14 @@ ${data.countermeasures}
                                                             자동 확정: {editableData.visionSummary.safetyGate.autoGraphCandidateUseAllowed ? 'Graph 근거 확인 후 가능' : '불가'}
                                                         </div>
                                                     </div>
+                                                    {editableData.visionSummary.safetyGate.bboxGroundingProfileId && (
+                                                        <p className="mt-2 text-[11px] text-cyan-100">
+                                                            bbox 기준: {editableData.visionSummary.safetyGate.bboxGroundingProfileId}
+                                                            {editableData.visionSummary.safetyGate.bboxGroundingThresholds
+                                                                ? ` · 최소 신뢰도 ${Math.round(editableData.visionSummary.safetyGate.bboxGroundingThresholds.minConfidence * 100)}% · 최대 면적 ${Math.round(editableData.visionSummary.safetyGate.bboxGroundingThresholds.maxArea * 100)}%`
+                                                                : ''}
+                                                        </p>
+                                                    )}
                                                     <p className="mt-2 text-xs text-amber-100">
                                                         재촬영/검토 사유: {buildVisionReviewReasonText(editableData.visionSummary)}
                                                     </p>

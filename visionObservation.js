@@ -22,8 +22,42 @@ const finiteNumber = value => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const MIN_REGION_BBOX_CONFIDENCE_FOR_AUTO_USE = 0.65;
-const MAX_REGION_BBOX_AREA_FOR_AUTO_USE = 0.72;
+const DEFAULT_BBOX_GROUNDING_PROFILE = {
+  id: 'default_visual_evidence',
+  minConfidence: 0.65,
+  maxArea: 0.72
+};
+
+const CAPTURE_VIEW_BBOX_GROUNDING_PROFILES = {
+  defect_closeup: {
+    id: 'defect_closeup_precision',
+    minConfidence: 0.72,
+    maxArea: 0.55
+  },
+  oblique_light: {
+    id: 'oblique_surface_precision',
+    minConfidence: 0.7,
+    maxArea: 0.62
+  },
+  parting_line_context: {
+    id: 'parting_line_context',
+    minConfidence: 0.68,
+    maxArea: 0.68
+  },
+  ejection_location: {
+    id: 'ejection_location_precision',
+    minConfidence: 0.7,
+    maxArea: 0.6
+  },
+  full_part_context: {
+    id: 'full_part_context',
+    minConfidence: 0.62,
+    maxArea: 0.82
+  }
+};
+
+const resolveBboxGroundingProfile = ({ captureViewTag } = {}) =>
+  CAPTURE_VIEW_BBOX_GROUNDING_PROFILES[compact(captureViewTag)] || DEFAULT_BBOX_GROUNDING_PROFILE;
 
 const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
@@ -487,11 +521,13 @@ const buildSafetyGate = ({
   qualityStatus,
   validationIssues,
   candidates,
-  observationById
+  observationById,
+  captureViewTag
 }) => {
   const reasons = [];
   const top = candidates[0] || null;
   const second = candidates[1] || null;
+  const bboxGroundingProfile = resolveBboxGroundingProfile({ captureViewTag });
   const topCandidateMargin = top && second
     ? Math.round((top.confidence - second.confidence) * 1000) / 1000
     : null;
@@ -508,10 +544,10 @@ const buildSafetyGate = ({
     .map(observation => observation.regionBbox)
     .filter(Boolean);
   const lowConfidenceBboxes = supportingBboxes.filter(
-    bbox => bbox.confidence < MIN_REGION_BBOX_CONFIDENCE_FOR_AUTO_USE
+    bbox => bbox.confidence < bboxGroundingProfile.minConfidence
   );
   const overbroadBboxes = supportingBboxes.filter(
-    bbox => bbox.width * bbox.height > MAX_REGION_BBOX_AREA_FOR_AUTO_USE
+    bbox => bbox.width * bbox.height > bboxGroundingProfile.maxArea
   );
   const weakPixelGroundingObservationIds = new Set([
     ...lowConfidenceBboxes.map(bbox =>
@@ -554,6 +590,11 @@ const buildSafetyGate = ({
       weakPixelGroundingCount,
       lowRegionBboxConfidenceCount,
       overbroadRegionBboxCount,
+      bboxGroundingProfileId: bboxGroundingProfile.id,
+      bboxGroundingThresholds: {
+        minConfidence: bboxGroundingProfile.minConfidence,
+        maxArea: bboxGroundingProfile.maxArea
+      },
       topCandidateMargin
     };
   }
@@ -620,6 +661,11 @@ const buildSafetyGate = ({
     weakPixelGroundingCount,
     lowRegionBboxConfidenceCount,
     overbroadRegionBboxCount,
+    bboxGroundingProfileId: bboxGroundingProfile.id,
+    bboxGroundingThresholds: {
+      minConfidence: bboxGroundingProfile.minConfidence,
+      maxArea: bboxGroundingProfile.maxArea
+    },
     topCandidateMargin
   };
 };
@@ -636,6 +682,7 @@ const normalizeVisionObservation = input => {
   const normalityStatus = VALID_NORMALITY_STATUSES.has(rawNormalityStatus)
     ? rawNormalityStatus
     : 'uncertain';
+  const captureViewTag = compact(input?.captureViewTag || input?.capture_view_tag);
   const qualityConcerns = stringList(input?.qualityConcerns || input?.quality_concerns);
   const qualityStatus = normalizeQualityStatus(
     input?.qualityStatus || input?.quality_status,
@@ -725,7 +772,8 @@ const normalizeVisionObservation = input => {
     qualityStatus,
     validationIssues,
     candidates,
-    observationById
+    observationById,
+    captureViewTag
   });
   const decision = safetyGate.status === 'blocked'
     ? baseDecision
@@ -751,6 +799,7 @@ const normalizeVisionObservation = input => {
     contractVersion,
     imageKind,
     normalityStatus,
+    ...(captureViewTag ? { captureViewTag } : {}),
     qualityStatus,
     visualObservations,
     visibleFeatures: visualObservations.map(observation => observation.description),

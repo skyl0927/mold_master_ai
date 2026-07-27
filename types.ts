@@ -62,6 +62,11 @@ export interface VisionSafetyGateSummary {
   weakPixelGroundingCount?: number;
   lowRegionBboxConfidenceCount?: number;
   overbroadRegionBboxCount?: number;
+  bboxGroundingProfileId?: string;
+  bboxGroundingThresholds?: {
+    minConfidence: number;
+    maxArea: number;
+  };
   topCandidateMargin: number | null;
 }
 
@@ -158,6 +163,7 @@ export interface VisionObservationSummary {
   contractVersion: string;
   imageKind: 'physical_product' | 'document_or_diagram' | 'unknown';
   normalityStatus: 'defect_visible' | 'no_defect_visible' | 'uncertain';
+  captureViewTag?: string;
   qualityStatus: VisionImageQualityReport['status'];
   visualObservations: VisionVisualObservation[];
   visibleFeatures: string[];
