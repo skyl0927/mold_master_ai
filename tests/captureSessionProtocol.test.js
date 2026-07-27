@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
   assessCaptureImageForDiagnosis,
+  buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
@@ -199,6 +200,43 @@ test('HITL recapture review builds next-capture lineage from vision safety evide
     ],
     bboxGroundingProfileId: 'defect_closeup_precision'
   });
+});
+
+test('recapture capture guidance recommends a defect close-up for weak bbox grounding', () => {
+  const guidance = buildRecaptureCaptureGuidance({
+    safetyGateReasons: ['overbroad_region_bbox'],
+    requiredAdditionalViews: [
+      'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+    ],
+    bboxGroundingProfileId: 'defect_closeup_precision'
+  });
+
+  assert.deepEqual(guidance, {
+    protocolVersion: 'vision-recapture-capture-guidance/v1',
+    active: true,
+    recommendedViewTag: 'defect_closeup',
+    reasonCodes: ['overbroad_region_bbox'],
+    instructions: [
+      'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영',
+      '결함 경계와 주변 정상면이 함께 보이도록 근접 촬영'
+    ],
+    message: '재촬영 권장 시점: 결함 근접 사진'
+  });
+});
+
+test('recapture capture guidance recommends oblique light when lighting evidence is requested', () => {
+  const guidance = buildRecaptureCaptureGuidance({
+    safetyGateReasons: ['low_region_bbox_confidence'],
+    requiredAdditionalViews: [
+      'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+      '사선광으로 표면 광택 차이를 확인'
+    ]
+  });
+
+  assert.equal(guidance.active, true);
+  assert.equal(guidance.recommendedViewTag, 'oblique_light');
+  assert.ok(guidance.instructions.some(item => item.includes('사선광')));
+  assert.ok(guidance.instructions.some(item => item.includes('초점/조명')));
 });
 
 test('session diagnosis collects every physical view with the selected image first', () => {
