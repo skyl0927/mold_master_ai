@@ -209,9 +209,13 @@ const path = require('node:path');
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uAE30\uC900 Vision \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       hasReleaseEvidenceComplete: bodyText.includes('\uC6B4\uC601 \uADFC\uAC70 \uC5F0\uACB0 \uC644\uB8CC'),
+      hasReleaseEvidenceAlignment: bodyText.includes('\uC6B4\uC601 \uADFC\uAC70 \uC815\uD569\uC131 \uD655\uC778 \uC644\uB8CC'),
       hasOperatorDecision: bodyText.includes('\uC6B4\uC601 \uC870\uCE58 \uD655\uC778 \uC644\uB8CC'),
       hasReleaseHistoryPanel: bodyText.includes('\uB9B4\uB9AC\uC2A4 \uC774\uB825'),
       releaseDecision: captured.report.operationalRelease?.decision,
+      releaseEvidenceAlignmentPassed: captured.report.operationalEvidenceAlignment?.passed,
+      releaseEvidenceGraphMatched:
+        captured.report.operationalEvidenceAlignment?.checks?.graphSnapshotMatchesCandidateGraphVersion,
       releaseEvidenceComplete: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.complete,
       releaseEvidenceItemCount: captured.report.operationalRelease?.decisionCard?.evidenceBundle?.items?.length,
       releaseOperatorDecisionAction: captured.report.operationalRelease?.operatorDecision?.action,
@@ -264,9 +268,12 @@ const path = require('node:path');
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
       || !result.hasReleaseEvidenceComplete
+      || !result.hasReleaseEvidenceAlignment
       || !result.hasOperatorDecision
       || !result.hasReleaseHistoryPanel
       || result.releaseDecision !== 'rollback_required'
+      || result.releaseEvidenceAlignmentPassed !== true
+      || result.releaseEvidenceGraphMatched !== true
       || result.releaseEvidenceComplete !== true
       || result.releaseEvidenceItemCount !== 5
       || result.releaseOperatorDecisionAction !== 'restore_baseline_snapshot'

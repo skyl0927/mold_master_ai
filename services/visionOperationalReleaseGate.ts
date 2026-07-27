@@ -147,6 +147,27 @@ export interface VisionOperationalEvidenceBundle {
     missingEvidence: string[];
 }
 
+export type VisionOperationalEvidenceAlignmentCheck =
+    | 'completeEvidenceBundle'
+    | 'localArtifactHashesPresent'
+    | 'commonAgentDatasetExportPinned'
+    | 'graphSnapshotPinned'
+    | 'graphSnapshotMatchesCandidateGraphVersion';
+
+export interface VisionOperationalEvidenceAlignmentIssue {
+    check: VisionOperationalEvidenceAlignmentCheck;
+    kind?: VisionOperationalEvidenceKind;
+    severity: 'warning' | 'critical';
+    message: string;
+}
+
+export interface VisionOperationalEvidenceAlignment {
+    contractVersion: 'vision-operational-evidence-alignment/v1';
+    passed: boolean;
+    checks: Record<VisionOperationalEvidenceAlignmentCheck, boolean>;
+    issues: VisionOperationalEvidenceAlignmentIssue[];
+}
+
 export interface VisionOperationalDecisionCard {
     contractVersion: 'vision-operational-decision-card/v1';
     status: VisionOperationalDecisionStatus;
@@ -541,6 +562,111 @@ export const normalizeVisionOperationalEvidenceBundle = (
     };
 };
 
+const evidenceItemsForKind = (
+    bundle: VisionOperationalEvidenceBundle,
+    kind: VisionOperationalEvidenceKind
+): VisionOperationalEvidenceReference[] =>
+    bundle.items.filter(item => item.kind === kind);
+
+const hasValidSha256 = (item: VisionOperationalEvidenceReference): boolean =>
+    typeof item.sha256 === 'string' && /^[a-f0-9]{64}$/i.test(item.sha256);
+
+const evidenceText = (item: VisionOperationalEvidenceReference): string =>
+    [item.uri, item.label, item.generatedAt, item.sha256]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase();
+
+const isPinnedEvidenceUri = (uri: string): boolean =>
+    Boolean(uri.trim())
+    && !/(?:^|[-_/:.])(latest|unknown|unconfigured|unpinned|placeholder|example|yyyy|mm|dd)(?:$|[-_/:.])/i
+        .test(uri);
+
+export const auditVisionOperationalEvidenceAlignment = (
+    report: Pick<
+        VisionOperationalReleaseReport,
+        'candidateVersion' | 'evidenceBundle' | 'decisionCard'
+    >
+): VisionOperationalEvidenceAlignment => {
+    const bundle = normalizeVisionOperationalEvidenceBundle(report.evidenceBundle);
+    const localArtifactHashesPresent = ([
+        'baseline_benchmark',
+        'candidate_benchmark',
+        'release_config'
+    ] as VisionOperationalEvidenceKind[]).every(kind =>
+        evidenceItemsForKind(bundle, kind).some(hasValidSha256)
+    );
+    const commonAgentItems = evidenceItemsForKind(bundle, 'common_agent_dataset_export');
+    const commonAgentDatasetExportPinned = commonAgentItems.length > 0
+        && commonAgentItems.every(item => isPinnedEvidenceUri(item.uri));
+    const graphSnapshotItems = evidenceItemsForKind(bundle, 'graph_snapshot');
+    const graphSnapshotPinned = graphSnapshotItems.length > 0
+        && graphSnapshotItems.every(item => isPinnedEvidenceUri(item.uri));
+    const candidateGraphVersion = report.candidateVersion.graphVersion
+        .trim()
+        .toLocaleLowerCase();
+    const graphSnapshotMatchesCandidateGraphVersion = Boolean(candidateGraphVersion)
+        && graphSnapshotItems.some(item => evidenceText(item).includes(candidateGraphVersion));
+    const checks: Record<VisionOperationalEvidenceAlignmentCheck, boolean> = {
+        completeEvidenceBundle: bundle.complete,
+        localArtifactHashesPresent,
+        commonAgentDatasetExportPinned,
+        graphSnapshotPinned,
+        graphSnapshotMatchesCandidateGraphVersion
+    };
+    const issues: VisionOperationalEvidenceAlignmentIssue[] = [];
+
+    if (!checks.completeEvidenceBundle) {
+        issues.push({
+            check: 'completeEvidenceBundle',
+            severity: 'critical',
+            message: `Missing operational evidence: ${bundle.missingEvidence.join(', ')}`
+        });
+    }
+    if (!checks.localArtifactHashesPresent) {
+        issues.push({
+            check: 'localArtifactHashesPresent',
+            severity: 'critical',
+            message:
+                'Baseline, candidate, and release config artifacts must include SHA-256 hashes.'
+        });
+    }
+    if (!checks.commonAgentDatasetExportPinned) {
+        issues.push({
+            check: 'commonAgentDatasetExportPinned',
+            kind: 'common_agent_dataset_export',
+            severity: 'critical',
+            message:
+                'Common Agent dataset export evidence must be a pinned export URI, not a placeholder or latest alias.'
+        });
+    }
+    if (!checks.graphSnapshotPinned) {
+        issues.push({
+            check: 'graphSnapshotPinned',
+            kind: 'graph_snapshot',
+            severity: 'critical',
+            message:
+                'Graph snapshot evidence must be a pinned snapshot URI, not a placeholder or latest alias.'
+        });
+    }
+    if (!checks.graphSnapshotMatchesCandidateGraphVersion) {
+        issues.push({
+            check: 'graphSnapshotMatchesCandidateGraphVersion',
+            kind: 'graph_snapshot',
+            severity: 'critical',
+            message:
+                `Graph snapshot evidence must reference candidate graph version ${report.candidateVersion.graphVersion}.`
+        });
+    }
+
+    return {
+        contractVersion: 'vision-operational-evidence-alignment/v1',
+        passed: issues.every(issue => issue.severity !== 'critical'),
+        checks,
+        issues
+    };
+};
+
 type VisionOperationalDecisionCardSource = Pick<
     VisionOperationalReleaseReport,
     | 'decision'
@@ -723,6 +849,14 @@ export const attachVisionOperationalOperatorDecision = (
     }
     if (!report.decisionCard.evidenceBundle.complete) {
         throw new Error('Vision operator decision evidence bundle is incomplete.');
+    }
+    const evidenceAlignment = auditVisionOperationalEvidenceAlignment(report);
+    if (!evidenceAlignment.passed) {
+        throw new Error(
+            `Vision operator decision evidence alignment failed: ${
+                evidenceAlignment.issues.map(issue => issue.check).join(', ')
+            }`
+        );
     }
     return {
         ...report,

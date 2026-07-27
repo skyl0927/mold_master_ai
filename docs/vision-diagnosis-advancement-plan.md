@@ -490,7 +490,11 @@ config, Common Agent export URI, Graph snapshot URI를 `evidenceBundle`로
 릴리스 보고서를 import 후 담당자가 확인하면 최신 1건만 덮어쓰지 않고
 `vision-operational-release-history/v1` 이력에 누적·갱신하며, Settings
 화면과 전환 리포트 JSON에 총 이력, 근거 완료, 운영 확인, 최신 상태를
-함께 내보낸다. 실제 승인 현장 데이터의 운영 합격 판정은 계속 보류한다.
+함께 내보낸다. 또한 운영 근거 정합성 감사(`vision-operational-evidence-
+alignment/v1`)를 추가해 benchmark/config SHA-256, 고정 Common Agent export
+URI, 후보 `graphVersion`과 일치하는 Graph snapshot URI가 확인되지 않으면
+담당자 운영 확인을 저장하지 않는다. 실제 승인 현장 데이터의 운영 합격
+판정은 계속 보류한다.
 
 개발:
 
@@ -568,10 +572,10 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 3. 승인 이미지가 핵심 결함군별 30세션에 도달하면 holdout benchmark를 실행
    후 `enforce`로 승격
 4. 2026-07-27 운영 릴리스 보고서의 결정 카드, 담당자 확인 기록,
-   evidenceBundle, release history ledger 연결을 구현했다. 남은 작업은 실제
-   Common Agent export와 Graph snapshot URI가 포함된 운영 benchmark artifact를
-   승인 현장 데이터로 생성하고, 누적 history에서 승격, 보류, 롤백의 최종
-   운영 판정을 반복 검증하는 단계다.
+   evidenceBundle, release history ledger, evidence alignment gate 연결을
+   구현했다. 남은 작업은 실제 Common Agent export와 Graph snapshot URI가
+   포함된 운영 benchmark artifact를 승인 현장 데이터로 생성하고, 누적
+   history에서 승격, 보류, 롤백의 최종 운영 판정을 반복 검증하는 단계다.
 5. 오판 사례는 자동 학습하지 않고 Common Agent HITL 큐에 넣어 수정 라벨,
    반대 근거, 추가 촬영 요구를 함께 저장
 

@@ -81,7 +81,10 @@ const run = () => {
   const candidateReport = readJson(candidatePath);
   const config = readJson(configPath);
   const built = buildShadowReleaseInput(baselineReport, candidateReport, config);
-  const { evaluateVisionOperationalRelease } = loadGate();
+  const {
+    auditVisionOperationalEvidenceAlignment,
+    evaluateVisionOperationalRelease
+  } = loadGate();
   built.gateInput.evidenceBundle = {
     contractVersion: 'vision-operational-evidence-bundle/v1',
     items: [
@@ -99,8 +102,10 @@ const run = () => {
     missingEvidence: []
   };
   const report = evaluateVisionOperationalRelease(built.gateInput);
+  const evidenceAlignment = auditVisionOperationalEvidenceAlignment(report);
   const artifact = {
     ...report,
+    evidenceAlignment,
     inputDiagnostics: built.diagnostics,
     sourceArtifacts: {
       baseline: baselinePath,
@@ -115,8 +120,12 @@ const run = () => {
   console.log(`Vision operational release card: ${report.decisionCard.title}`);
   console.log(`Vision operational release action: ${report.decisionCard.primaryAction}`);
   console.log(`Blocking reasons: ${report.blockingReasons.join(', ') || 'none'}`);
+  console.log(`Evidence alignment: ${evidenceAlignment.passed ? 'passed' : 'failed'}`);
+  if (!evidenceAlignment.passed) {
+    console.log(`Evidence issues: ${evidenceAlignment.issues.map(issue => issue.check).join(', ')}`);
+  }
   console.log(`Report: ${outputPath}`);
-  if (!report.releaseAllowed) process.exitCode = 1;
+  if (!report.releaseAllowed || !evidenceAlignment.passed) process.exitCode = 1;
 };
 
 try {

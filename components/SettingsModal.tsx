@@ -24,6 +24,7 @@ import {
 } from '../services/visionDatasetReadinessService';
 import { DEFECT_CLASS_LABELS } from '../shared/defect-taxonomy';
 import {
+  auditVisionOperationalEvidenceAlignment,
   attachVisionOperationalOperatorDecision,
   parseVisionOperationalReleaseReport,
   readVisionOperationalReleaseHistory,
@@ -160,6 +161,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   );
   const operationalReleaseHistorySummary =
     summarizeVisionOperationalReleaseHistory(operationalReleaseHistory);
+  const operationalEvidenceAlignment = operationalRelease
+    ? auditVisionOperationalEvidenceAlignment(operationalRelease)
+    : null;
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
@@ -291,6 +295,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
         generatedAt
       ),
       operationalRelease,
+      operationalEvidenceAlignment,
       operationalReleaseHistory,
       operationalReleaseHistorySummary,
       records
@@ -702,6 +707,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           {releaseEvidenceKindLabel(item.kind)}: {item.uri}
                         </p>
                       ))}
+                      {operationalEvidenceAlignment && (
+                        <div className={`mt-2 rounded border p-2 ${
+                          operationalEvidenceAlignment.passed
+                            ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-200'
+                            : 'border-red-900/60 bg-red-950/20 text-red-200'
+                        }`}>
+                          <p className="font-semibold">
+                            {operationalEvidenceAlignment.passed
+                              ? '운영 근거 정합성 확인 완료'
+                              : '운영 근거 정합성 실패'}
+                          </p>
+                          {operationalEvidenceAlignment.issues.slice(0, 2).map(issue => (
+                            <p key={`${issue.check}:${issue.message}`} className="mt-1 break-words text-[9px]">
+                              {issue.message}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="font-semibold text-sky-200">운영 확인 절차</p>
@@ -806,7 +829,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           <button
                             type="button"
                             onClick={handleConfirmOperationalDecision}
-                            disabled={!operationalRelease.decisionCard.evidenceBundle.complete}
+                            disabled={
+                              !operationalRelease.decisionCard.evidenceBundle.complete
+                              || !operationalEvidenceAlignment?.passed
+                            }
                             className="rounded bg-sky-700 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {releaseActionLabel(operationalRelease.decisionCard.primaryAction)} 확인
