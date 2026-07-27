@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   buildVisionBboxCorrectionDraft,
   buildVisionBboxReviewPacket,
+  buildVisionBboxReviewSubmission,
   buildVisionBboxAnnotationPayloads
 } = require('../visionBboxAnnotation');
 
@@ -317,4 +318,56 @@ test('rejects correction drafts that overflow the normalized image boundary', ()
   assert.equal(draft.isValid, false);
   assert.equal(draft.correctedBbox, null);
   assert.ok(draft.errors.includes('x_plus_width_exceeds_1'));
+});
+
+test('builds a Common Agent submission request for a corrected bbox draft', () => {
+  const submission = buildVisionBboxReviewSubmission({
+    image: {
+      id: 'local-image-1',
+      commonAgentImageId: 'image-common-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white',
+    draftValues: {
+      x: '0.100',
+      y: '0.200',
+      width: '0.350',
+      height: '0.200'
+    }
+  });
+
+  assert.equal(submission.canSubmit, true);
+  assert.equal(submission.commonAgentImageId, 'image-common-1');
+  assert.equal(submission.rejectionReason, '');
+  assert.equal(submission.annotationRequest.review_status, 'needs_review');
+  assert.equal(submission.annotationRequest.metadata.review_action, 'corrected_bbox');
+  assert.deepEqual(submission.annotationRequest.bbox, {
+    coordinate_system: 'normalized_xywh',
+    x: 0.1,
+    y: 0.2,
+    width: 0.35,
+    height: 0.2
+  });
+  assert.equal(submission.graphPromotionAllowed, false);
+  assert.equal(submission.learningSyncAllowed, false);
+});
+
+test('blocks direct bbox review submission without a Common Agent image id', () => {
+  const submission = buildVisionBboxReviewSubmission({
+    image: {
+      id: 'local-image-1',
+      analysis: {
+        defectType: '백화',
+        visionSummary
+      }
+    },
+    observationId: 'obs-white'
+  });
+
+  assert.equal(submission.canSubmit, false);
+  assert.equal(submission.rejectionReason, 'missing_common_agent_image_id');
+  assert.equal(submission.annotationRequest, null);
 });
