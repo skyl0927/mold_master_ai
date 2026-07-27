@@ -103,6 +103,7 @@ test('reports collection and Common Agent validation ready while HITL approval r
   assert.deepEqual(readiness.blockers.map(item => item.code), ['web_hitl_approvals_missing']);
   assert.match(readiness.recommendedAction, /Web Case HITL/);
   assert.match(readiness.recommendedAction, /knowledge:web:hitl:decision-template/);
+  assert.match(readiness.recommendedAction, /knowledge:web:hitl:review-guide/);
 });
 
 test('fails closed when quality audit or no-write Common Agent validation is missing', () => {

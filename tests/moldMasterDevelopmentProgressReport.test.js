@@ -180,6 +180,13 @@ test('summarizes the current development phase and remaining operational blocker
   const webStage = report.stageCards.find(stage => stage.id === 'web_case_knowledge');
   assert.equal(webStage.status, 'awaiting_human_review');
   assert.equal(webStage.softwareImplemented, true);
+  assert.deepEqual(webStage.commands, [
+    'npm run knowledge:web:readiness',
+    'npm run knowledge:web:hitl:decision-template',
+    'npm run knowledge:web:hitl:review-guide',
+    'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-web-knowledge-hitl-decisions.json>',
+    'npm run knowledge:web:hitl:apply -- --decisions <verified-web-knowledge-hitl-decisions.json> --apply'
+  ]);
   assert.match(webStage.feedbackKo, /40건/);
 
   assert.ok(report.progress.software.percent > report.progress.operational.percent);
