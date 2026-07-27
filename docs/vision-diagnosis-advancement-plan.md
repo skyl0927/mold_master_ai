@@ -365,6 +365,11 @@ HITL metadata를 재평가 plan으로 변환한다. `corrected` 항목은
 또한 통합 migration gate와 DatabaseView benchmark 결과 패널에
 `Vision HITL Re-evaluation` 요약을 추가해 recheck 후보, 재촬영 대기, HITL
 보류, metadata 차단 건수가 0이 아닐 때 운영 승격을 막도록 했다.
+다음 단계로 `vision:hitl:reeval-verify` post-check를 추가했다. shadow
+benchmark 결과에서 Top-1/Top-3, accepted prediction, unsafe error, 품질,
+Vision contract, 촬영 protocol을 모두 통과한 교정 건만 사람 승인 후보로
+분류하고, 실패·재촬영·누락 건은 다시 HITL/재촬영 blocker로 migration gate에
+표시한다.
 
 개발:
 
@@ -384,6 +389,8 @@ HITL metadata를 재평가 plan으로 변환한다. `corrected` 항목은
   refresh 대상에서 제외
 - 통합 migration gate에서 HITL recheck/recapture/pending/blocker 상태를
   직접 표시하고, 남은 항목이 있으면 운영 승격을 차단
+- HITL recheck benchmark 후 post-check를 실행해 통과 건만 사람 승인 후보로
+  분류하고 실패·재촬영·누락 건은 다시 차단 큐로 순환
 - 재촬영 요청은 우선순위 100으로 검토 큐 최상단에 배치
 - 반복 모델 교정, 희소 클래스, Vision-Graph 충돌을 코호트 우선순위에 반영
 - 승인 데이터도 fine-tuning 자동 실행 없이 `candidate_only` 상태로 격리
