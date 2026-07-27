@@ -225,6 +225,9 @@ const buildCaptureMetadata = (image, images) => {
     || compact(recaptureSource.commonAgentImageId)
     || compact(recaptureSource.reviewDecisionId)
   );
+  const recaptureGuidance = hasRecaptureLineage
+    ? buildRecaptureCaptureGuidance(recaptureSource)
+    : null;
   return {
     capture_session_id: image?.captureSessionId,
     capture_view_tags: normalizeViewTags(image?.captureViewTag),
@@ -240,7 +243,12 @@ const buildCaptureMetadata = (image, images) => {
       recapture_review_decision_id: compact(recaptureSource.reviewDecisionId),
       recapture_safety_gate_reasons: stringList(recaptureSource.safetyGateReasons),
       recapture_required_additional_views: stringList(recaptureSource.requiredAdditionalViews),
-      recapture_bbox_grounding_profile_id: compact(recaptureSource.bboxGroundingProfileId)
+      recapture_bbox_grounding_profile_id: compact(recaptureSource.bboxGroundingProfileId),
+      recapture_guidance_protocol_version: recaptureGuidance.protocolVersion,
+      recapture_recommended_view_tag: recaptureGuidance.recommendedViewTag,
+      recapture_guidance_message: recaptureGuidance.message,
+      recapture_guidance_reason_codes: recaptureGuidance.reasonCodes,
+      recapture_guidance_instructions: recaptureGuidance.instructions
     } : {})
   };
 };

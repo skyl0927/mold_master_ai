@@ -219,7 +219,11 @@ guidance/v1`을 추가해 bbox 과대 영역, 낮은 bbox 신뢰도, 사선광/�
 취출·파팅라인 같은 재촬영 사유를 다음 권장 촬영 시점으로 변환한다. 화면
 캡처 기본 시점과 카메라 모달 선택값은 이 권장값으로 자동 전환되고, 모바일·
 파일·드래그 업로드도 재촬영 대기 상태에서는 권장 `captureViewTag` metadata를
-자동 부착한다.
+자동 부착한다. 또한 fresh recapture upload의 `buildCaptureMetadata()` 결과에
+`recapture_guidance_protocol_version`, `recapture_recommended_view_tag`,
+`recapture_guidance_reason_codes`, `recapture_guidance_instructions`를 함께
+보존해 Common Agent와 GraphRAG 재평가가 재촬영 의도와 실제 촬영 시점을 추적할
+수 있게 했다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

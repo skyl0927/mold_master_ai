@@ -41,6 +41,11 @@ export interface CaptureMetadata {
   recapture_safety_gate_reasons?: string[];
   recapture_required_additional_views?: string[];
   recapture_bbox_grounding_profile_id?: string;
+  recapture_guidance_protocol_version?: 'vision-recapture-capture-guidance/v1';
+  recapture_recommended_view_tag?: CaptureViewTag;
+  recapture_guidance_message?: string;
+  recapture_guidance_reason_codes?: string[];
+  recapture_guidance_instructions?: string[];
 }
 
 export type RecaptureSource = NonNullable<CapturedImage['recaptureSource']>;
