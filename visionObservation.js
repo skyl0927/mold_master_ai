@@ -22,6 +22,9 @@ const finiteNumber = value => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const MIN_REGION_BBOX_CONFIDENCE_FOR_AUTO_USE = 0.65;
+const MAX_REGION_BBOX_AREA_FOR_AUTO_USE = 0.72;
+
 const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
@@ -498,8 +501,32 @@ const buildSafetyGate = ({
       .map(id => observationById.get(id)?.category)
       .filter(Boolean)
   );
+  const supportingObservations = supportingObservationIds
+    .map(id => observationById.get(id))
+    .filter(Boolean);
+  const supportingBboxes = supportingObservations
+    .map(observation => observation.regionBbox)
+    .filter(Boolean);
+  const lowConfidenceBboxes = supportingBboxes.filter(
+    bbox => bbox.confidence < MIN_REGION_BBOX_CONFIDENCE_FOR_AUTO_USE
+  );
+  const overbroadBboxes = supportingBboxes.filter(
+    bbox => bbox.width * bbox.height > MAX_REGION_BBOX_AREA_FOR_AUTO_USE
+  );
+  const weakPixelGroundingObservationIds = new Set([
+    ...lowConfidenceBboxes.map(bbox =>
+      supportingObservations.find(observation => observation.regionBbox === bbox)?.observationId
+    ),
+    ...overbroadBboxes.map(bbox =>
+      supportingObservations.find(observation => observation.regionBbox === bbox)?.observationId
+    )
+  ].filter(Boolean));
   const supportObservationCount = supportingObservationIds.length || (top?.supportingFeatures || []).length;
   const supportCategoryCount = supportingCategories.size;
+  const supportPixelGroundingCount = supportingBboxes.length;
+  const weakPixelGroundingCount = weakPixelGroundingObservationIds.size;
+  const lowRegionBboxConfidenceCount = lowConfidenceBboxes.length;
+  const overbroadRegionBboxCount = overbroadBboxes.length;
 
   const blockedReason = [
     validationIssues.includes('provider_contract_invalid') ? 'provider_contract_invalid' : '',
@@ -523,6 +550,10 @@ const buildSafetyGate = ({
       humanReviewRequired: true,
       supportObservationCount,
       supportCategoryCount,
+      supportPixelGroundingCount,
+      weakPixelGroundingCount,
+      lowRegionBboxConfidenceCount,
+      overbroadRegionBboxCount,
       topCandidateMargin
     };
   }
@@ -538,6 +569,12 @@ const buildSafetyGate = ({
   }
   if (top && isV2 && supportCategoryCount < 2) {
     reasons.push('single_visual_evidence_category');
+  }
+  if (top && isV2 && lowRegionBboxConfidenceCount > 0) {
+    reasons.push('low_region_bbox_confidence');
+  }
+  if (top && isV2 && overbroadRegionBboxCount > 0) {
+    reasons.push('overbroad_region_bbox');
   }
   if (
     top
@@ -558,6 +595,8 @@ const buildSafetyGate = ({
     top_candidate_margin_too_small: 18,
     insufficient_independent_visual_evidence: 24,
     single_visual_evidence_category: 14,
+    low_region_bbox_confidence: 18,
+    overbroad_region_bbox: 18,
     top_candidate_has_contradicting_evidence: 24
   };
   const score = clampScore(100 - reasons.reduce(
@@ -577,6 +616,10 @@ const buildSafetyGate = ({
     humanReviewRequired: status !== 'reliable',
     supportObservationCount,
     supportCategoryCount,
+    supportPixelGroundingCount,
+    weakPixelGroundingCount,
+    lowRegionBboxConfidenceCount,
+    overbroadRegionBboxCount,
     topCandidateMargin
   };
 };

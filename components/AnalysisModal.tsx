@@ -136,6 +136,8 @@ const VISION_GATE_REASON_LABELS: Record<string, string> = {
     top_candidate_margin_too_small: 'Top 후보와 2순위 차이 부족',
     insufficient_independent_visual_evidence: '독립 시각 근거 부족',
     single_visual_evidence_category: '근거 범주가 1종에 치우침',
+    low_region_bbox_confidence: 'bbox 위치 근거 신뢰도 부족',
+    overbroad_region_bbox: 'bbox가 너무 넓어 결함 위치 특정 부족',
     top_candidate_has_contradicting_evidence: 'Top 후보에 반대 근거 존재',
     provider_contract_invalid: 'Vision 응답 계약 오류',
     non_physical_image: '문서/도면 이미지로 물리 결함 판정 금지',

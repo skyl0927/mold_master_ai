@@ -58,6 +58,10 @@ export interface VisionSafetyGateSummary {
   humanReviewRequired: boolean;
   supportObservationCount: number;
   supportCategoryCount: number;
+  supportPixelGroundingCount?: number;
+  weakPixelGroundingCount?: number;
+  lowRegionBboxConfidenceCount?: number;
+  overbroadRegionBboxCount?: number;
   topCandidateMargin: number | null;
 }
 
