@@ -214,7 +214,10 @@ JSON에서 `dual_model_disagreement`, `image_quality_rejected`처럼 자동 확�
 운영 조치로 변환해 설정 화면과 전환 리포트 JSON에 표시하도록 했다. 이어서
 품질 거절, 모델 불일치, 시점 부족 사유를 우선순위가 있는 HITL 검토 큐로
 변환하고 샘플 이미지 ID를 함께 노출해 운영자가 실제 검토 대상을 바로 찾을
-수 있게 했다.
+수 있게 했다. 전환 리포트 JSON에는 `diagnosis-vision-review-packet/v1`
+경량 패킷을 추가해 imageId, comparisonId, action code, defect/classifier
+후보, 촬영 컨텍스트를 Common Agent/HITL에 전달할 수 있게 했으며, 이 패킷은
+쓰기와 Graph 승격을 금지하고 사람 검토를 필수로 요구한다.
 
 개발:
 

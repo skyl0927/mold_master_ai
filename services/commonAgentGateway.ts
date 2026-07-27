@@ -168,6 +168,40 @@ export interface DiagnosisVisionDecisionReviewQueueItem {
     sampleImageIds: string[];
 }
 
+export interface DiagnosisVisionReviewPacketItem {
+    priority: number;
+    actionCode: DiagnosisObservabilityAction['code'];
+    imageId: string;
+    comparisonId: string;
+    createdAt: string;
+    status: VisionDecisionStatus;
+    reason: string;
+    selectedSource: DiagnosisCandidate['source'];
+    strategy: AiOrchestrationMode;
+    defectCandidate?: string;
+    classifierCandidate?: string;
+    recommendedHumanAction: string;
+    context: {
+        roiCount: number;
+        ocrProvided: boolean;
+        visionQualityStatus?: VisionImageQualityReport['status'];
+        visionQualityIssueCodes: string[];
+    };
+}
+
+export interface DiagnosisVisionReviewPacket {
+    schemaVersion: 'diagnosis-vision-review-packet/v1';
+    generatedAt: string;
+    source: 'mold-master-ai-diagnosis-observability';
+    queueCount: number;
+    policy: {
+        persistence: 'none';
+        graphPromotion: 'disabled_until_hitl_approval';
+        commonAgentReviewRequired: true;
+    };
+    items: DiagnosisVisionReviewPacketItem[];
+}
+
 export interface DiagnosisObservability {
     total: number;
     commonAgentLatencyMs: DiagnosisLatencySummary;
@@ -794,6 +828,83 @@ const buildVisionDecisionReviewQueue = (
             || right.count - left.count
             || left.reason.localeCompare(right.reason, 'ko')
         );
+};
+
+const humanActionForVisionDecision = (
+    actionCode: DiagnosisObservabilityAction['code']
+): string => {
+    if (actionCode === 'improve_vision_capture_quality') {
+        return '재촬영 기준을 강화하고 조명, 초점, ROI 해상도를 먼저 보정하세요.';
+    }
+    if (actionCode === 'complete_vision_multiview_protocol') {
+        return '전체/근접/사선광 필수 시점과 결함별 추가 촬영을 완료하세요.';
+    }
+    if (actionCode === 'review_vision_decision_disagreement') {
+        return 'VLM/Classifier 후보, ROI 위치, 라벨 alias를 함께 검토하세요.';
+    }
+    return 'HITL 검토 후 확정, 수정, 반려, 재촬영 중 하나로 판정하세요.';
+};
+
+export const buildDiagnosisVisionReviewPacket = (
+    records: DiagnosisComparisonRecord[],
+    observability: DiagnosisObservability = calculateDiagnosisObservability(records),
+    generatedAt: string = new Date().toISOString()
+): DiagnosisVisionReviewPacket => {
+    const recordsByImageId = new Map<string, DiagnosisComparisonRecord[]>();
+    for (const record of records) {
+        const bucket = recordsByImageId.get(record.imageId) || [];
+        bucket.push(record);
+        recordsByImageId.set(record.imageId, bucket);
+    }
+    for (const bucket of recordsByImageId.values()) {
+        bucket.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    }
+
+    const items = observability.visionDecisionReviewQueue.flatMap(queueItem =>
+        queueItem.sampleImageIds.flatMap(imageId => {
+            const matchingRecord = (recordsByImageId.get(imageId) || []).find(record =>
+                record.visionDecisionStatus === queueItem.status
+                && (record.visionDecisionReason || record.visionFusionDecisionReason || '미확인')
+                    === queueItem.reason
+            );
+            if (!matchingRecord) return [];
+            return [{
+                priority: queueItem.priority,
+                actionCode: queueItem.actionCode,
+                imageId,
+                comparisonId: matchingRecord.id,
+                createdAt: matchingRecord.createdAt,
+                status: queueItem.status,
+                reason: queueItem.reason,
+                selectedSource: matchingRecord.selectedSource,
+                strategy: matchingRecord.strategy,
+                defectCandidate: matchingRecord.visionClassifierVisionCandidate
+                    || matchingRecord.commonAgentDefectType
+                    || matchingRecord.legacyDefectType,
+                classifierCandidate: matchingRecord.visionClassifierTopCandidate,
+                recommendedHumanAction: humanActionForVisionDecision(queueItem.actionCode),
+                context: {
+                    roiCount: matchingRecord.roiCount || 0,
+                    ocrProvided: matchingRecord.ocrProvided === true,
+                    visionQualityStatus: matchingRecord.visionQualityStatus,
+                    visionQualityIssueCodes: matchingRecord.visionQualityIssueCodes || []
+                }
+            }];
+        })
+    );
+
+    return {
+        schemaVersion: 'diagnosis-vision-review-packet/v1',
+        generatedAt,
+        source: 'mold-master-ai-diagnosis-observability',
+        queueCount: items.length,
+        policy: {
+            persistence: 'none',
+            graphPromotion: 'disabled_until_hitl_approval',
+            commonAgentReviewRequired: true
+        },
+        items
+    };
 };
 
 const buildVisionDecisionRecommendedActions = ({

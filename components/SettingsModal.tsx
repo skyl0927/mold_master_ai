@@ -12,6 +12,7 @@ import { DEFAULT_AGENT_SERVER_URL } from '../services/runtimeConfig';
 import {
   calculateDiagnosisObservability,
   calculateTransitionReadiness,
+  buildDiagnosisVisionReviewPacket,
   clearDiagnosisComparisons,
   readDiagnosisComparisons
 } from '../services/commonAgentGateway';
@@ -239,10 +240,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
 
   const handleExportComparisonReport = () => {
     const records = readDiagnosisComparisons();
+    const generatedAt = new Date().toISOString();
+    const observability = calculateDiagnosisObservability(records);
     const report = {
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       readiness: calculateTransitionReadiness(records),
-      observability: calculateDiagnosisObservability(records),
+      observability,
+      diagnosisVisionReviewPacket: buildDiagnosisVisionReviewPacket(
+        records,
+        observability,
+        generatedAt
+      ),
       operationalRelease,
       records
     };
