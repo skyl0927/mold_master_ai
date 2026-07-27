@@ -1796,6 +1796,47 @@ test('Vision dataset readiness counts same-hash same-label approvals once', () =
     );
 });
 
+test('Vision dataset readiness excludes approved recaptures blocked from capture learning', () => {
+    const readiness = calculateVisionDatasetReadiness([
+        {
+            image_id: 'approved-clean',
+            defect_type: '백화',
+            review_status: 'approved',
+            metadata: {
+                content_sha256: 'clean-whitening-hash',
+                learning_candidate_eligible: true,
+                capture_learning_candidate_eligible: true,
+                capture_learning_candidate_eligibility_reason: 'approved_capture_ready'
+            }
+        },
+        {
+            image_id: 'approved-recapture-mismatch',
+            defect_type: '백화',
+            review_status: 'approved',
+            metadata: {
+                content_sha256: 'recapture-mismatch-hash',
+                learning_candidate_eligible: false,
+                capture_learning_candidate_eligible: false,
+                capture_learning_candidate_eligibility_reason: 'recapture_guidance_view_mismatch',
+                recapture_lineage_protocol_version: 'vision-recapture-lineage/v1',
+                recapture_guidance_fulfilled: false
+            }
+        }
+    ], 2, 1);
+
+    assert.equal(readiness.approved, 2);
+    assert.equal(readiness.cleanApproved, 1);
+    assert.equal(readiness.learningIneligibleApproved, 1);
+    assert.deepEqual(readiness.learningIneligibleReasons, [
+        { reason: 'recapture_guidance_view_mismatch', count: 1 }
+    ]);
+    assert.equal(readiness.sampleGateReady, false);
+    assert.equal(
+        readiness.defectClassCoverage.find(item => item.defectClass === 'whitening')?.count,
+        1
+    );
+});
+
 test('Vision readiness requires balanced coverage instead of 20 repeated labels', () => {
     const repeatedWhitening = Array.from({ length: 20 }, (_, index) => ({
         image_id: `whitening-${index}`,
