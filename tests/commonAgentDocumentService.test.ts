@@ -751,6 +751,21 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
             sampleImageIds: ['image-1']
         }
     ]);
+    assert.deepEqual(
+        observability.visionDecisionRecommendedActions.map(action => action.code),
+        [
+            'improve_vision_capture_quality',
+            'review_vision_decision_disagreement'
+        ]
+    );
+    assert.match(
+        observability.visionDecisionRecommendedActions[0].message,
+        /image_quality_rejected.*재촬영.*조명.*초점/
+    );
+    assert.match(
+        observability.visionDecisionRecommendedActions[1].message,
+        /dual_model_disagreement.*VLM.*Classifier/
+    );
     assert.deepEqual(observability.visionClassifierDisagreementTargets, [
         {
             visionCandidate: '백화',
