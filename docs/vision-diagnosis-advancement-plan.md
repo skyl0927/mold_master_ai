@@ -249,7 +249,9 @@ vision:reference:gate`는 `current -> refresh -> current -> benchmark-current`
 2026-07-27 Mold Master AI는 Common Agent 진단 응답의 `classifier_report`를
 정규화해 `visionSummary.classifierSummary`에 보존하고, VLM Top-1과
 classifier Top-1이 불일치하거나 참조 수가 부족하면 Graph grounding이 있어도
-자동 확정과 원인·대책 본문 출력을 차단한다.
+자동 확정과 원인·대책 본문 출력을 차단한다. 또한 comparison record와
+observability 집계에 classifier 합의율, 불일치율, 참조 부족률, 평균 참조
+수를 저장해 데이터 수집과 HITL 검토 우선순위를 추적한다.
 
 개발:
 

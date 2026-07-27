@@ -957,6 +957,20 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
                 }],
                 decision_status: 'needs_review',
                 decision_reason: 'insufficient_multiview_consensus'
+            },
+            classifier_report: {
+                contract_version: 'vision-classifier/v1',
+                embedding_model_version: 'dinov2:facebook/dinov2-base',
+                embedding_provider: 'dinov2',
+                embedding_model_name: 'facebook/dinov2-base',
+                top_candidates: [{
+                    defect_type: '백화',
+                    confidence: 0.86,
+                    reference_count: 5,
+                    distance: 0.2,
+                    support_image_ids: ['ref-white-1', 'ref-white-2', 'ref-white-3']
+                }],
+                minimum_reference_support: 3
             }
         };
     };
@@ -1044,9 +1058,15 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(result.analysis.visionSummary?.fusionSummary?.validViewCount, 2);
         assert.equal(result.analysis.visionSummary?.fusionSummary?.disagreementScore, 0.12);
         assert.equal(result.analysis.visionSummary?.viewEvidence?.length, 2);
+        assert.equal(result.analysis.visionSummary?.classifierSummary?.status, 'agreed');
+        assert.equal(result.analysis.visionSummary?.classifierSummary?.embeddingModelVersion, 'dinov2:facebook/dinov2-base');
         assert.equal(result.comparison.visionCandidateCount, 1);
         assert.equal(result.comparison.visionViewCount, 2);
         assert.equal(result.comparison.visionDisagreementScore, 0.12);
+        assert.equal(result.comparison.visionClassifierStatus, 'agreed');
+        assert.equal(result.comparison.visionClassifierAgreementWithVisionTop1, true);
+        assert.equal(result.comparison.visionClassifierTopCandidate, '백화');
+        assert.equal(result.comparison.visionClassifierReferenceCount, 5);
         assert.deepEqual(result.comparison.commonAgentVersionSnapshot, {
             modelVersion: 'vision-model-2026.07',
             promptVersion: 'vision-prompt-v6',

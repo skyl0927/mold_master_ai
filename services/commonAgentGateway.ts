@@ -8,7 +8,8 @@ import {
     VisionDecisionStatus,
     VisionImageQualityReport,
     VisionReferenceBenchmarkGateMode,
-    VisionRuntimeVersionSnapshot
+    VisionRuntimeVersionSnapshot,
+    VisionClassifierSummary
 } from '../types';
 import { analyzeMoldDefect } from './aiService';
 import { streamChatResponse } from './aiService';
@@ -57,6 +58,11 @@ export interface DiagnosisComparisonRecord {
     graphAutoFinalizeAllowed?: boolean;
     graphApprovedPathCount?: number;
     graphCitationCount?: number;
+    visionClassifierStatus?: VisionClassifierSummary['status'];
+    visionClassifierAgreementWithVisionTop1?: boolean | null;
+    visionClassifierTopCandidate?: string;
+    visionClassifierReferenceCount?: number;
+    visionClassifierMinimumReferenceSupport?: number;
     llmSupplementTrainingEligible?: boolean;
     visionQualityStatus?: VisionImageQualityReport['status'];
     visionQualityScore?: number;
@@ -128,6 +134,10 @@ export interface DiagnosisObservability {
     visionGraphConflictRate: number;
     graphAutoFinalizeRate: number;
     averageApprovedGraphPaths: number;
+    visionClassifierAgreementRate: number;
+    visionClassifierDisagreementRate: number;
+    visionClassifierInsufficientReferenceRate: number;
+    averageClassifierReferenceCount: number;
     ungroundedLlmTrainingLeakCount: number;
     averageEvidenceCount: number;
     contextProvidedRate: number;
@@ -139,6 +149,7 @@ export interface DiagnosisObservability {
         graphGrounded: number;
         llmSupplemented: number;
         graphValidation: number;
+        visionClassifier: number;
         evidence: number;
         contextProvided: number;
         roiContext: number;
@@ -531,6 +542,13 @@ export const calculateDiagnosisObservability = (
         typeof record.graphApprovedPathCount === 'number'
         && Number.isFinite(record.graphApprovedPathCount)
     );
+    const classifierMeasured = records.filter(record =>
+        typeof record.visionClassifierStatus === 'string'
+    );
+    const classifierReferenceMeasured = records.filter(record =>
+        typeof record.visionClassifierReferenceCount === 'number'
+        && Number.isFinite(record.visionClassifierReferenceCount)
+    );
     const groundedRecords = graphMeasured.filter(record => record.graphGrounded === true);
     const evidenceMeasured = records.filter(record =>
         typeof record.evidenceCount === 'number' && Number.isFinite(record.evidenceCount)
@@ -592,6 +610,21 @@ export const calculateDiagnosisObservability = (
         averageApprovedGraphPaths: roundedAverage(
             approvedPathMeasured.map(record => record.graphApprovedPathCount!)
         ),
+        visionClassifierAgreementRate: roundedRate(
+            classifierMeasured.filter(record => record.visionClassifierStatus === 'agreed').length,
+            classifierMeasured.length
+        ),
+        visionClassifierDisagreementRate: roundedRate(
+            classifierMeasured.filter(record => record.visionClassifierStatus === 'disagreed').length,
+            classifierMeasured.length
+        ),
+        visionClassifierInsufficientReferenceRate: roundedRate(
+            classifierMeasured.filter(record => record.visionClassifierStatus === 'insufficient_reference').length,
+            classifierMeasured.length
+        ),
+        averageClassifierReferenceCount: roundedAverage(
+            classifierReferenceMeasured.map(record => record.visionClassifierReferenceCount!)
+        ),
         ungroundedLlmTrainingLeakCount: records.filter(record =>
             record.graphGrounded === false
             && record.llmSupplemented === true
@@ -616,6 +649,7 @@ export const calculateDiagnosisObservability = (
             graphGrounded: graphMeasured.length,
             llmSupplemented: llmMeasured.length,
             graphValidation: graphValidationMeasured.length,
+            visionClassifier: classifierMeasured.length,
             evidence: evidenceMeasured.length,
             contextProvided: contextMeasured.length,
             roiContext: roiMeasured.length,
@@ -735,6 +769,7 @@ export class CommonAgentGateway {
                 }
             }
             : selectedCandidate.analysis;
+        const classifierSummary = selectedAnalysis.visionSummary?.classifierSummary;
         const comparisonId = `comparison-${options.imageId}-${Date.now()}`;
         const comparison: DiagnosisComparisonRecord = {
             id: comparisonId,
@@ -766,6 +801,11 @@ export class CommonAgentGateway {
             graphAutoFinalizeAllowed: selectedAnalysis.retrievalSummary?.graphValidation?.autoFinalizeAllowed,
             graphApprovedPathCount: selectedAnalysis.retrievalSummary?.graphValidation?.approvedPathCount,
             graphCitationCount: selectedAnalysis.retrievalSummary?.graphValidation?.citationCount,
+            visionClassifierStatus: classifierSummary?.status,
+            visionClassifierAgreementWithVisionTop1: classifierSummary?.agreementWithVisionTop1,
+            visionClassifierTopCandidate: classifierSummary?.topCandidate?.defectType,
+            visionClassifierReferenceCount: classifierSummary?.topCandidate?.referenceCount,
+            visionClassifierMinimumReferenceSupport: classifierSummary?.minimumReferenceSupport,
             llmSupplementTrainingEligible: selectedAnalysis.retrievalSummary?.graphValidation?.llmSupplementTrainingEligible,
             visionQualityStatus: options.visionQuality?.status,
             visionQualityScore: options.visionQuality?.score,
