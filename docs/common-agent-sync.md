@@ -88,6 +88,7 @@ npm run operational:progress
 npm run operational:hitl:intake-status
 npm run operational:hitl:action-pack
 npm run operational:hitl:prepare-plan
+npm run operational:hitl:prepare-run
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -115,6 +116,12 @@ Vision pending HITL, Web Knowledge HITL로 나눠 집계한다.
 수 있는 준비 명령만 `preparationCommands`로 모은다. `verify-decisions`,
 `apply`, `approve`, `authorization-bridge`류 명령은 사람이 판정 파일을 채운
 뒤에만 실행할 수 있도록 `humanGatedCommands`로 격리한다.
+
+`operational:hitl:prepare-run`은 `preparationCommands` 중 allowlist된 6개
+template/guide 생성 명령만 Node 스크립트로 직접 실행하고
+`operational-hitl-preparation-run/v1` manifest를 남긴다. 셸 실행은 사용하지
+않으며, `verify-decisions`, `apply`, `approve` 계열 명령은 자동 실행하지 않고
+`skippedCommands.reason=human_decision_required`로 기록한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,

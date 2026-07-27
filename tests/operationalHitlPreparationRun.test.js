@@ -76,6 +76,12 @@ test('runs only allowlisted preparation commands and records generated artifacts
     'vision:label-conflicts:review-guide',
     'vision:hitl:decision-template'
   ]);
+  assert.ok(calls.every(call => call.executable === process.execPath));
+  assert.deepEqual(calls.map(call => call.args[0]), [
+    'scripts/build-vision-approved-label-conflict-decision-template.js',
+    'scripts/build-vision-approved-label-conflict-review-guide.js',
+    'scripts/build-vision-pending-hitl-decision-template.js'
+  ]);
   assert.deepEqual(report.executedCommands.map(item => item.command), [
     'npm run vision:label-conflicts:decision-template',
     'npm run vision:label-conflicts:review-guide',
