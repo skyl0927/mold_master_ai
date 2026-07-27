@@ -92,6 +92,7 @@ npm run operational:hitl:prepare-run
 npm run operational:hitl:decision-review-packet
 npm run operational:hitl:reviewer-worksheet
 npm run operational:hitl:editable-workspace
+npm run operational:hitl:editable-preflight
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -144,6 +145,12 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 뿐이며, manifest에는 원본 경로, 복사본 경로, 검증 명령, source hash가 함께
 기록된다. 원본 template 파일이 하나라도 없으면 아무 파일도 쓰지 않고
 `missing_source_templates`로 중단한다.
+
+`operational:hitl:editable-preflight`는 workspace 안의 editable decision file을
+읽어 `pending` action, 지원하지 않는 action, 필수 필드 누락, JSON 오류, 파일
+누락을 먼저 점검한다. 이 단계는 `verify-decisions`를 실행하지 않고
+`verificationCommandsReady`만 계산하므로, 사람이 입력을 마친 뒤 검증 명령을
+실행하기 전의 안전 점검으로 사용한다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
