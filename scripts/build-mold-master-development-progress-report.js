@@ -73,6 +73,12 @@ const visionAccuracyPlanPath = resolveOptionalPath(
   latestArtifact('vision-accuracy-improvement-plan-')
 );
 
+const operationalHitlIntakeStatusPath = resolveOptionalPath(
+  valueAfter('--hitl-intake-status'),
+  process.env.OPERATIONAL_HITL_DECISION_INTAKE_STATUS,
+  latestArtifact('operational-hitl-decision-intake-status-')
+);
+
 const outputPath = path.resolve(
   valueAfter('--output')
   || process.env.MOLD_MASTER_DEVELOPMENT_PROGRESS_REPORT_OUTPUT
@@ -86,12 +92,14 @@ const run = () => {
     commonAgentHandoff: readOptionalJson(commonAgentHandoffPath),
     webKnowledgeReadiness: readOptionalJson(webKnowledgeReadinessPath),
     visionAccuracyPlan: readOptionalJson(visionAccuracyPlanPath),
+    operationalHitlIntakeStatus: readOptionalJson(operationalHitlIntakeStatusPath),
     sourceArtifacts: {
       visionReadiness: visionReadinessPath,
       visionWorklist: visionWorklistPath,
       commonAgentHandoff: commonAgentHandoffPath,
       webKnowledgeReadiness: webKnowledgeReadinessPath,
-      visionAccuracyPlan: visionAccuracyPlanPath
+      visionAccuracyPlan: visionAccuracyPlanPath,
+      operationalHitlIntakeStatus: operationalHitlIntakeStatusPath
     }
   });
 
@@ -108,6 +116,8 @@ const run = () => {
     visionTop1Accuracy: report.summary.visionTop1Accuracy ?? null,
     visionTop3Accuracy: report.summary.visionTop3Accuracy ?? null,
     visionAccuracyFirstTrackCode: report.summary.visionAccuracyFirstTrackCode || null,
+    hitlDecisionInputsMissing: report.summary.operationalHitlDecisionInputsMissing ?? null,
+    hitlFirstQueueCode: report.summary.operationalHitlFirstQueueCode || null,
     serviceWritesPerformed: report.serviceWritesPerformed,
     progressFeedbackKo: report.progressFeedbackKo
   }, null, 2));
@@ -122,7 +132,8 @@ try {
       visionWorklist: visionWorklistPath,
       commonAgentHandoff: commonAgentHandoffPath,
       webKnowledgeReadiness: webKnowledgeReadinessPath,
-      visionAccuracyPlan: visionAccuracyPlanPath
+      visionAccuracyPlan: visionAccuracyPlanPath,
+      operationalHitlIntakeStatus: operationalHitlIntakeStatusPath
     }
   });
   report.status = 'missing_evidence';

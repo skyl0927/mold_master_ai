@@ -24,6 +24,9 @@ const hasBlockerFrom = (readiness, source) =>
 const isVisionAccuracyPlan = artifact =>
   isContract(artifact, 'vision-accuracy-improvement-plan/v1');
 
+const isOperationalHitlIntakeStatus = artifact =>
+  isContract(artifact, 'operational-hitl-decision-intake-status/v1');
+
 const missingArtifactsFor = ({
   visionReadiness,
   visionWorklist,
@@ -132,6 +135,45 @@ const visionAccuracyStageFor = visionAccuracyPlan => {
   });
 };
 
+const operationalHitlIntakeStageFor = operationalHitlIntakeStatus => {
+  if (!isOperationalHitlIntakeStatus(operationalHitlIntakeStatus)) return null;
+
+  const summary = operationalHitlIntakeStatus.summary || {};
+  const queues = asArray(operationalHitlIntakeStatus.queues);
+  const firstQueue = queues.find(queue => queue?.code === summary.firstQueueCode)
+    || queues.find(queue => numberFrom(queue?.pending) > 0)
+    || queues[0]
+    || null;
+  const totalMissing = numberFrom(summary.totalDecisionInputsMissing);
+  const ready = operationalHitlIntakeStatus.status === 'clear';
+  const missingEvidence = operationalHitlIntakeStatus.status === 'missing_evidence';
+
+  return stageCard({
+    id: 'operational_hitl_decision_intake',
+    titleKo: 'HITL decision intake',
+    status: ready ? 'completed' : missingEvidence ? 'missing_evidence' : 'action_required',
+    softwareImplemented: true,
+    owner: compact(firstQueue?.owner) || 'quality_hitl',
+    blockerCodes: ready ? [] : ['hitl_decision_inputs_missing'],
+    commands: ready ? ['npm run operational:progress'] : asArray(firstQueue?.commands),
+    metrics: {
+      totalDecisionInputsMissing: totalMissing,
+      firstQueueCode: compact(summary.firstQueueCode) || null,
+      labelConflictPending: numberFrom(summary.labelConflictPending),
+      visionHitlPending: numberFrom(summary.visionHitlPending),
+      webHitlMissing: numberFrom(summary.webHitlMissing),
+      staleDecisionEvidenceCount: numberFrom(summary.staleDecisionEvidenceCount),
+      queueBreakdown: queues.map(queue => [
+        compact(queue?.code),
+        numberFrom(queue?.pending)
+      ])
+    },
+    feedbackKo: ready
+      ? 'HITL decision intake queue가 닫혔습니다.'
+      : `HITL decision 입력 ${totalMissing}건이 남아 있습니다. 1순위는 ${firstQueue?.titleKo || firstQueue?.code || 'HITL intake 증거 재생성'}입니다.`
+  });
+};
+
 const webStageFor = webKnowledgeReadiness => {
   if (!isContract(webKnowledgeReadiness, 'web-knowledge-operational-readiness/v1')) {
     return stageCard({
@@ -188,7 +230,8 @@ const stageCardsFor = ({
   visionWorklist,
   commonAgentHandoff,
   webKnowledgeReadiness,
-  visionAccuracyPlan
+  visionAccuracyPlan,
+  operationalHitlIntakeStatus
 }) => {
   const labelConflictTask = taskByCode(visionWorklist, 'resolve_label_conflicts');
   const closeHitlTask = taskByCode(visionWorklist, 'close_hitl_reviews');
@@ -289,6 +332,7 @@ const stageCardsFor = ({
       doneFeedbackKo: 'Vision reference store gate는 통과 상태입니다.'
     }),
     visionAccuracyStageFor(visionAccuracyPlan),
+    operationalHitlIntakeStageFor(operationalHitlIntakeStatus),
     webStageFor(webKnowledgeReadiness),
     taskStage({
       id: 'release_evidence',
@@ -377,7 +421,8 @@ const statusFor = ({
   visionReadiness,
   visionWorklist,
   commonAgentHandoff,
-  webKnowledgeReadiness
+  webKnowledgeReadiness,
+  operationalHitlIntakeStatus
 }) => {
   if (missingArtifacts.length > 0) return 'missing_evidence';
   const visionReady =
@@ -394,7 +439,10 @@ const statusFor = ({
     webKnowledgeReadiness?.readyForGraphRoundtrip === true
     && webKnowledgeReadiness?.readyForCommonAgentLearning === true
     && webKnowledgeReadiness?.serviceWritesPerformed !== true;
-  return visionReady && worklistReady && handoffReady && webReady
+  const intakeReady =
+    !isOperationalHitlIntakeStatus(operationalHitlIntakeStatus)
+    || operationalHitlIntakeStatus.status === 'clear';
+  return visionReady && worklistReady && handoffReady && webReady && intakeReady
     ? 'ready_for_operator_review'
     : 'action_required';
 };
@@ -492,6 +540,13 @@ const feedbackFor = ({
       `Vision 정확도 병목: Top-1 ${summary.visionTop1Accuracy}%, Top-3 ${summary.visionTop3Accuracy}%, 촬영 프로토콜 ${summary.visionCaptureProtocolReadyRate}%이며 ${summary.visionAccuracyFirstTrackTitle || '개선 계획'} 작업이 필요합니다.`
     );
   }
+  if (summary.operationalHitlIntakeStatus) {
+    feedback.splice(
+      3,
+      0,
+      `HITL decision 입력 ${summary.operationalHitlDecisionInputsMissing}건이 남아 있으며 1순위 큐는 ${summary.operationalHitlFirstQueueCode || '미확정'}입니다.`
+    );
+  }
   return feedback;
 };
 
@@ -502,6 +557,7 @@ const buildMoldMasterDevelopmentProgressReport = ({
   commonAgentHandoff = null,
   webKnowledgeReadiness = null,
   visionAccuracyPlan = null,
+  operationalHitlIntakeStatus = null,
   sourceArtifacts = {}
 } = {}) => {
   const missingArtifacts = missingArtifactsFor({
@@ -515,14 +571,16 @@ const buildMoldMasterDevelopmentProgressReport = ({
     visionReadiness,
     visionWorklist,
     commonAgentHandoff,
-    webKnowledgeReadiness
+    webKnowledgeReadiness,
+    operationalHitlIntakeStatus
   });
   const stageCards = stageCardsFor({
     visionReadiness,
     visionWorklist,
     commonAgentHandoff,
     webKnowledgeReadiness,
-    visionAccuracyPlan
+    visionAccuracyPlan,
+    operationalHitlIntakeStatus
   });
   const nextActions = nextActionsFor({
     status,
@@ -540,6 +598,9 @@ const buildMoldMasterDevelopmentProgressReport = ({
     : null;
   const firstAccuracyTrack = isVisionAccuracyPlan(visionAccuracyPlan)
     ? asArray(visionAccuracyPlan.improvementTracks)[0] || null
+    : null;
+  const intakeSummary = isOperationalHitlIntakeStatus(operationalHitlIntakeStatus)
+    ? operationalHitlIntakeStatus.summary || {}
     : null;
   const summary = {
     missingArtifacts,
@@ -561,6 +622,15 @@ const buildMoldMasterDevelopmentProgressReport = ({
       visionCoreMissingViews: asArray(accuracySummary.coreMissingViews),
       visionUndercoveredDefectClasses: asArray(accuracySummary.undercoveredDefectClasses),
       visionZeroAccuracyDefectClasses: asArray(accuracySummary.zeroAccuracyDefectClasses)
+    } : {}),
+    ...(intakeSummary ? {
+      operationalHitlIntakeStatus: compact(operationalHitlIntakeStatus.status) || null,
+      operationalHitlDecisionInputsMissing: numberFrom(intakeSummary.totalDecisionInputsMissing),
+      operationalHitlFirstQueueCode: compact(intakeSummary.firstQueueCode) || null,
+      operationalHitlLabelConflictPending: numberFrom(intakeSummary.labelConflictPending),
+      operationalHitlVisionPending: numberFrom(intakeSummary.visionHitlPending),
+      operationalHitlWebMissing: numberFrom(intakeSummary.webHitlMissing),
+      operationalHitlStaleDecisionEvidenceCount: numberFrom(intakeSummary.staleDecisionEvidenceCount)
     } : {}),
     handoffStatus: compact(commonAgentHandoff?.status) || null,
     topPriorityTaskCode: nextActions[0]?.code || null
@@ -601,7 +671,8 @@ const buildMoldMasterDevelopmentProgressReport = ({
       visionWorklist: sourceArtifacts.visionWorklist || null,
       commonAgentHandoff: sourceArtifacts.commonAgentHandoff || null,
       webKnowledgeReadiness: sourceArtifacts.webKnowledgeReadiness || null,
-      visionAccuracyPlan: sourceArtifacts.visionAccuracyPlan || null
+      visionAccuracyPlan: sourceArtifacts.visionAccuracyPlan || null,
+      operationalHitlIntakeStatus: sourceArtifacts.operationalHitlIntakeStatus || null
     },
     recommendedAction: nextActions[0]
       ? nextActions[0].titleKo
