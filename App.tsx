@@ -52,7 +52,7 @@ import {
     selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
-import { buildVisionBboxAnnotationPayloads } from './visionBboxAnnotation';
+import { buildVisionBboxAnnotationPayloads, VisionBboxReviewSubmission } from './visionBboxAnnotation';
 import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatus';
 
 interface EditingState {
@@ -784,6 +784,66 @@ const App: React.FC = () => {
         }
     }, [capturedImages, isAnalyzing, isOnline]);
 
+    const formatBboxReviewSubmissionError = (reason: string) => {
+        if (reason === 'missing_common_agent_image_id') return '먼저 Agent 동기화를 완료해야 bbox 검수 제출이 가능합니다.';
+        if (reason === 'invalid_bbox_correction_draft') return 'bbox 보정 좌표가 유효하지 않습니다.';
+        if (reason === 'invalid_vision_observation_bbox') return '유효한 Vision bbox 근거가 없습니다.';
+        return 'bbox 검수 제출 요청이 유효하지 않습니다.';
+    };
+
+    const handleSubmitVisionBboxReview = useCallback(async (submission: VisionBboxReviewSubmission) => {
+        if (!submission.canSubmit || !submission.packet || !submission.annotationRequest) {
+            throw new Error(formatBboxReviewSubmissionError(submission.rejectionReason));
+        }
+
+        const imageId = submission.packet.localImageId;
+        const image = capturedImages.find(item => item.id === imageId);
+        if (!image) {
+            throw new Error('bbox 검수 대상 이미지를 찾을 수 없습니다.');
+        }
+
+        setCapturedImages(prev => prev.map(item => item.id === imageId ? {
+            ...item,
+            commonAgentStatus: 'syncing',
+            analysisError: undefined
+        } : item));
+
+        try {
+            const createdAnnotation = await CommonAgentApiService.createAnnotation(
+                submission.commonAgentImageId,
+                submission.annotationRequest
+            );
+            const allAnnotations = await CommonAgentApiService
+                .listAnnotations(submission.commonAgentImageId)
+                .catch(() => [createdAnnotation]);
+            const visionBboxAnnotationSummary = image.analysis?.visionSummary
+                ? summarizeVisionBboxAnnotationStatus({
+                    visionSummary: image.analysis.visionSummary,
+                    annotations: allAnnotations
+                })
+                : image.visionBboxAnnotationSummary;
+
+            setCapturedImages(prev => prev.map(item => item.id === imageId ? {
+                ...item,
+                commonAgentStatus: 'synced',
+                commonAgentLastSyncAt: Date.now(),
+                commonAgentAnnotationCount: allAnnotations.length,
+                visionBboxAnnotationSummary,
+                analysisError: undefined
+            } : item));
+            setCopyNotification(`bbox 검수 제출 완료: ${submission.packet.observationId}`);
+            setTimeout(() => setCopyNotification(''), 3000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'bbox 검수 제출 실패';
+            setCapturedImages(prev => prev.map(item => item.id === imageId ? {
+                ...item,
+                commonAgentStatus: 'error',
+                analysisError: message
+            } : item));
+            throw error;
+        }
+    }, [capturedImages]);
+
     const handleBatchAnalysis = async () => {
         if (selectedImageIds.size === 0) return;
         setIsBatchProcessing(true);
@@ -1355,6 +1415,7 @@ const App: React.FC = () => {
                 onClose={() => setModalImageId(null)}
                 onTryAgain={() => runDiagnosis(modalImageId!)}
                 onTrainAI={handleTrainAI}
+                onSubmitVisionBboxReview={handleSubmitVisionBboxReview}
                 isAdmin={isAdmin}
             />
 

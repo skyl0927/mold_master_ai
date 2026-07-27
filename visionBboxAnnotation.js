@@ -309,8 +309,80 @@ const buildVisionBboxReviewPacket = ({
   };
 };
 
+const buildVisionBboxReviewSubmission = ({
+  image,
+  observationId,
+  draftValues,
+  reviewerNote = ''
+} = {}) => {
+  const commonAgentImageId = compact(image?.commonAgentImageId);
+  const baseResult = {
+    protocolVersion: 'vision-bbox-hitl-submit/v1',
+    commonAgentImageId,
+    observationId: compact(observationId),
+    packet: null,
+    annotationRequest: null,
+    canSubmit: false,
+    rejectionReason: '',
+    graphPromotionAllowed: false,
+    learningSyncAllowed: false
+  };
+  if (!commonAgentImageId) {
+    return {
+      ...baseResult,
+      rejectionReason: 'missing_common_agent_image_id'
+    };
+  }
+
+  const draft = draftValues
+    ? buildVisionBboxCorrectionDraft({
+      image,
+      observationId,
+      draftValues
+    })
+    : null;
+  if (draftValues && (!draft || !draft.isValid)) {
+    return {
+      ...baseResult,
+      rejectionReason: 'invalid_bbox_correction_draft',
+      draft
+    };
+  }
+
+  const packet = buildVisionBboxReviewPacket({
+    image,
+    observationId,
+    reviewAction: draft?.hasChanges ? 'corrected_bbox' : 'needs_review',
+    correctedBbox: draft?.hasChanges ? draft.correctedBbox : undefined,
+    reviewerNote: compact(reviewerNote) || (
+      draft?.hasChanges
+        ? 'Mold Master AI bbox correction draft'
+        : 'Mold Master AI bbox HITL review request'
+    )
+  });
+  if (!packet) {
+    return {
+      ...baseResult,
+      rejectionReason: 'invalid_vision_observation_bbox',
+      draft
+    };
+  }
+
+  return {
+    ...baseResult,
+    packet,
+    annotationRequest: packet.annotationRequest,
+    draft,
+    canSubmit: true,
+    rejectionReason: '',
+    graphPromotionAllowed: packet.graphPromotionAllowed,
+    learningSyncAllowed: packet.learningSyncAllowed
+  };
+};
+
 module.exports = {
   buildVisionBboxCorrectionDraft,
   buildVisionBboxReviewPacket,
+  buildVisionBboxReviewSubmission,
   buildVisionBboxAnnotationPayloads
 };

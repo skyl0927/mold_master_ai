@@ -10,7 +10,12 @@ import {
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
 import { buildVisionBboxOverlayReviewModel, overlayItemStyle } from '../visionBboxOverlay';
-import { buildVisionBboxCorrectionDraft, buildVisionBboxReviewPacket } from '../visionBboxAnnotation';
+import {
+    buildVisionBboxCorrectionDraft,
+    buildVisionBboxReviewPacket,
+    buildVisionBboxReviewSubmission,
+    VisionBboxReviewSubmission
+} from '../visionBboxAnnotation';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -19,6 +24,7 @@ interface AnalysisModalProps {
   onTryAgain: () => void;
   // Function to save corrected analysis to knowledge base
   onTrainAI: (correctedAnalysis: DefectAnalysis, status: VisionHitlDecision) => Promise<void> | void;
+  onSubmitVisionBboxReview?: (submission: VisionBboxReviewSubmission) => Promise<void> | void;
   isAdmin: boolean;
 }
 
@@ -190,13 +196,22 @@ interface CustomDefectData {
     countermeasures: string;
 }
 
-const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose, onTryAgain, onTrainAI, isAdmin }) => {
+const AnalysisModal: React.FC<AnalysisModalProps> = ({
+    image,
+    isLoading,
+    onClose,
+    onTryAgain,
+    onTrainAI,
+    onSubmitVisionBboxReview,
+    isAdmin
+}) => {
     const [copySuccess, setCopySuccess] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editableData, setEditableData] = useState<DefectAnalysis | null>(null);
     const [trainStatus, setTrainStatus] = useState('');
     const [activeVisionObservationId, setActiveVisionObservationId] = useState('');
     const [visionBboxCorrectionDrafts, setVisionBboxCorrectionDrafts] = useState<Record<string, VisionBboxDraftFields>>({});
+    const [submittingVisionBboxObservationId, setSubmittingVisionBboxObservationId] = useState('');
     const observationCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     // Updated: Store full defect info for custom types
@@ -212,6 +227,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ image, isLoading, onClose
     useEffect(() => {
         setActiveVisionObservationId('');
         setVisionBboxCorrectionDrafts({});
+        setSubmittingVisionBboxObservationId('');
         observationCardRefs.current = {};
     }, [image?.id]);
 
@@ -436,6 +452,45 @@ ${data.countermeasures}
             setCopySuccess('bbox 검수 패킷 복사 완료!');
             setTimeout(() => setCopySuccess(''), 2000);
         });
+    };
+
+    const formatBboxSubmissionRejection = (reason: string) => {
+        if (reason === 'missing_common_agent_image_id') return '먼저 Agent 동기화가 필요합니다.';
+        if (reason === 'invalid_bbox_correction_draft') return 'bbox 보정값을 확인하세요.';
+        if (reason === 'invalid_vision_observation_bbox') return '유효한 Vision bbox 근거가 없습니다.';
+        return 'bbox 검수 제출을 진행할 수 없습니다.';
+    };
+
+    const handleSubmitVisionBboxReview = async (observationId: string) => {
+        if (!image || !onSubmitVisionBboxReview) return;
+        const submission = buildVisionBboxReviewSubmission({
+            image: {
+                ...image,
+                analysis: editableData || image.analysis
+            },
+            observationId,
+            draftValues: visionBboxCorrectionDrafts[observationId],
+            reviewerNote: 'Mold Master AI bbox direct HITL submission'
+        });
+
+        if (!submission.canSubmit) {
+            setCopySuccess(formatBboxSubmissionRejection(submission.rejectionReason));
+            setTimeout(() => setCopySuccess(''), 2500);
+            return;
+        }
+
+        try {
+            setSubmittingVisionBboxObservationId(observationId);
+            await onSubmitVisionBboxReview(submission);
+            setCopySuccess('Common Agent bbox 검수 제출 완료!');
+            setTimeout(() => setCopySuccess(''), 2500);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Common Agent bbox 검수 제출 실패';
+            setCopySuccess(message);
+            setTimeout(() => setCopySuccess(''), 3000);
+        } finally {
+            setSubmittingVisionBboxObservationId('');
+        }
     };
 
     if (!image) return null;
@@ -976,6 +1031,20 @@ ${data.countermeasures}
                                                                 )}
                                                                 {overlayItem && (
                                                                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={!onSubmitVisionBboxReview || !image.commonAgentImageId || submittingVisionBboxObservationId === observation.observationId}
+                                                                            className="inline-flex items-center gap-1 rounded border border-emerald-700/70 bg-emerald-950/60 px-2 py-1 text-[10px] font-semibold text-emerald-100 transition hover:border-emerald-400 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                            title={image.commonAgentImageId ? 'Common Agent HITL 검수 큐에 제출' : '먼저 Agent 동기화가 필요합니다.'}
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                void handleSubmitVisionBboxReview(observation.observationId);
+                                                                            }}
+                                                                        >
+                                                                            {submittingVisionBboxObservationId === observation.observationId
+                                                                                ? '제출 중...'
+                                                                                : 'Common Agent 제출'}
+                                                                        </button>
                                                                         <button
                                                                             type="button"
                                                                             className="inline-flex items-center gap-1 rounded border border-cyan-700/70 bg-cyan-950/60 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-900"

@@ -197,7 +197,9 @@ observation id, 검토 사유를 Common Agent/HITL에 전달할 수 있게 했�
 모달 관찰 카드에서 해당 패킷을 복사할 수 있게 했다. 이 패킷은 사람 승인 전
 Graph 승격과 학습 승격을 모두 차단한다. 이어서 관찰 카드에 x/y/width/height
 수동 보정 draft 입력을 추가해 유효한 normalized 좌표만 `corrected_bbox`로
-패킷에 포함되도록 했다.
+패킷에 포함되도록 했다. Common Agent에 이미 동기화된 이미지는 관찰 카드의
+`Common Agent 제출` 버튼으로 보정 bbox를 `needs_review` annotation으로 직접
+제출하고, 제출 후 annotation summary를 다시 갱신한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

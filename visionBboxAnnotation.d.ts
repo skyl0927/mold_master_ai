@@ -37,6 +37,19 @@ export interface VisionBboxReviewPacket {
   requiresHumanReview: true;
 }
 
+export interface VisionBboxReviewSubmission {
+  protocolVersion: 'vision-bbox-hitl-submit/v1';
+  commonAgentImageId: string;
+  observationId: string;
+  packet: VisionBboxReviewPacket | null;
+  annotationRequest: CommonAgentAnnotationRequest | null;
+  canSubmit: boolean;
+  rejectionReason: string;
+  graphPromotionAllowed: false;
+  learningSyncAllowed: false;
+  draft?: VisionBboxCorrectionDraft | null;
+}
+
 export function buildVisionBboxReviewPacket(options: {
   image?: Partial<CapturedImage>;
   observationId?: string;
@@ -48,6 +61,20 @@ export function buildVisionBboxReviewPacket(options: {
   }>;
   reviewerNote?: string;
 }): VisionBboxReviewPacket | null;
+
+export function buildVisionBboxReviewSubmission(options: {
+  image?: Partial<CapturedImage>;
+  observationId?: string;
+  draftValues?: Partial<{
+    x: number | string;
+    y: number | string;
+    width: number | string;
+    height: number | string;
+    w?: number | string;
+    h?: number | string;
+  }>;
+  reviewerNote?: string;
+}): VisionBboxReviewSubmission;
 
 export function buildVisionBboxCorrectionDraft(options: {
   image?: Partial<CapturedImage>;
