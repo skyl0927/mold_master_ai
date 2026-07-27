@@ -57,6 +57,7 @@ const buildBlockers = ({
     visionReference,
     visionReferenceBackfill,
     visionHitlReevaluation,
+    visionHitlReevaluationPostCheck,
     visionReferenceBackfillPostApply
 }) => {
     const blockers = [];
@@ -100,6 +101,36 @@ const buildBlockers = ({
             code: 'vision_hitl_reevaluation_blocked',
             count: visionHitlReevaluation.blocked,
             reasonCounts: visionHitlReevaluation.reasonCounts
+        });
+    }
+    if (visionHitlReevaluationPostCheck.readyForHumanApproval > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_human_approval_required',
+            count: visionHitlReevaluationPostCheck.readyForHumanApproval
+        });
+    }
+    if (visionHitlReevaluationPostCheck.needsHitlReview > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_review_required',
+            count: visionHitlReevaluationPostCheck.needsHitlReview
+        });
+    }
+    if (visionHitlReevaluationPostCheck.needsRecapture > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_recapture_required',
+            count: visionHitlReevaluationPostCheck.needsRecapture
+        });
+    }
+    if (visionHitlReevaluationPostCheck.unsafeAcceptedErrors > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_unsafe_error',
+            count: visionHitlReevaluationPostCheck.unsafeAcceptedErrors
+        });
+    }
+    if (visionHitlReevaluationPostCheck.missingBenchmarkResults > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_missing_benchmark_result',
+            count: visionHitlReevaluationPostCheck.missingBenchmarkResults
         });
     }
     if (visionReference.required && !visionReference.readyForGraphRetrieval) {
@@ -216,6 +247,25 @@ const summarizeVisionHitlReevaluation = report => {
     };
 };
 
+const summarizeVisionHitlReevaluationPostCheck = report => {
+    const summary = report?.summary || {};
+    return {
+        required: Boolean(report),
+        status: String(report?.status || 'not_run'),
+        readyForReferenceRefresh: report?.readyForReferenceRefresh === true,
+        totalRecheckCandidates: Number(summary.totalRecheckCandidates) || 0,
+        evaluatedBenchmarkResults: Number(summary.evaluatedBenchmarkResults) || 0,
+        readyForHumanApproval: Number(summary.readyForHumanApproval) || 0,
+        needsHitlReview: Number(summary.needsHitlReview) || 0,
+        needsRecapture: Number(summary.needsRecapture) || 0,
+        unsafeAcceptedErrors: Number(summary.unsafeAcceptedErrors) || 0,
+        missingBenchmarkResults: Number(summary.missingBenchmarkResults) || 0,
+        blockers: asArray(report?.blockers),
+        recommendedAction: String(report?.recommendedAction || ''),
+        artifactGeneratedAt: report?.generatedAt || null
+    };
+};
+
 const buildMigrationGateStatus = ({
     generatedAt = new Date().toISOString(),
     agentHealth = {},
@@ -227,6 +277,7 @@ const buildMigrationGateStatus = ({
     visionReferenceReport = null,
     visionReferenceBackfillPlan = null,
     visionHitlReevaluationPlan = null,
+    visionHitlReevaluationPostCheck = null,
     visionReferenceBackfillPostApplyVerification = null
 }) => {
     const agent = healthState(agentHealth);
@@ -289,6 +340,9 @@ const buildMigrationGateStatus = ({
     const visionReference = summarizeVisionReferenceGate(visionReferenceReport);
     const visionReferenceBackfill = summarizeVisionReferenceBackfill(visionReferenceBackfillPlan);
     const visionHitlReevaluation = summarizeVisionHitlReevaluation(visionHitlReevaluationPlan);
+    const visionHitlReevaluationPostCheckSummary = summarizeVisionHitlReevaluationPostCheck(
+        visionHitlReevaluationPostCheck
+    );
     const visionReferenceBackfillPostApply = summarizeVisionReferenceBackfillPostApply(
         visionReferenceBackfillPostApplyVerification
     );
@@ -302,6 +356,11 @@ const buildMigrationGateStatus = ({
         && visionHitlReevaluation.waitingForRecapture === 0
         && visionHitlReevaluation.pendingHumanReview === 0
         && visionHitlReevaluation.blocked === 0
+        && visionHitlReevaluationPostCheckSummary.readyForHumanApproval === 0
+        && visionHitlReevaluationPostCheckSummary.needsHitlReview === 0
+        && visionHitlReevaluationPostCheckSummary.needsRecapture === 0
+        && visionHitlReevaluationPostCheckSummary.unsafeAcceptedErrors === 0
+        && visionHitlReevaluationPostCheckSummary.missingBenchmarkResults === 0
         && visionReference.readyForGraphRetrieval === true
         && (
             !visionReferenceBackfillPostApply.required
@@ -317,6 +376,7 @@ const buildMigrationGateStatus = ({
         visionReference,
         visionReferenceBackfill,
         visionHitlReevaluation,
+        visionHitlReevaluationPostCheck: visionHitlReevaluationPostCheckSummary,
         visionReferenceBackfillPostApply
     });
 
@@ -354,6 +414,7 @@ const buildMigrationGateStatus = ({
         visionReference,
         visionReferenceBackfill,
         visionHitlReevaluation,
+        visionHitlReevaluationPostCheck: visionHitlReevaluationPostCheckSummary,
         visionReferenceBackfillPostApply,
         gate: {
             minimumSamples,
@@ -383,6 +444,14 @@ const buildMigrationGateStatus = ({
                     || visionHitlReevaluation.blocked > 0
                 )
                     ? visionHitlReevaluation.recommendedAction
+                : (
+                    visionHitlReevaluationPostCheckSummary.readyForHumanApproval > 0
+                    || visionHitlReevaluationPostCheckSummary.needsHitlReview > 0
+                    || visionHitlReevaluationPostCheckSummary.needsRecapture > 0
+                    || visionHitlReevaluationPostCheckSummary.unsafeAcceptedErrors > 0
+                    || visionHitlReevaluationPostCheckSummary.missingBenchmarkResults > 0
+                )
+                    ? visionHitlReevaluationPostCheckSummary.recommendedAction
                 : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
                 : failedChecks.includes('captureProtocol')

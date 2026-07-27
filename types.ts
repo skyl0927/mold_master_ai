@@ -474,6 +474,21 @@ export interface MigrationGateStatus {
     recommendedAction?: string;
     artifactGeneratedAt?: string | null;
   };
+  visionHitlReevaluationPostCheck?: {
+    required: boolean;
+    status: string;
+    readyForReferenceRefresh: boolean;
+    totalRecheckCandidates: number;
+    evaluatedBenchmarkResults: number;
+    readyForHumanApproval: number;
+    needsHitlReview: number;
+    needsRecapture: number;
+    unsafeAcceptedErrors: number;
+    missingBenchmarkResults: number;
+    blockers: Array<{ code: string; count?: number; detail?: unknown }>;
+    recommendedAction?: string;
+    artifactGeneratedAt?: string | null;
+  };
   visionReferenceBackfillPostApply?: {
     required: boolean;
     status: string;

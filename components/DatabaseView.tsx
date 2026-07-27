@@ -119,6 +119,11 @@ const migrationBlockerLabel: Record<string, string> = {
     vision_hitl_recapture_required: 'Vision 재촬영 필요',
     vision_hitl_review_pending: 'Vision HITL 검토 대기',
     vision_hitl_reevaluation_blocked: 'Vision 재평가 메타데이터 차단',
+    vision_hitl_recheck_human_approval_required: 'Vision 재평가 승인 대기',
+    vision_hitl_recheck_review_required: 'Vision 재평가 실패 검토',
+    vision_hitl_recheck_recapture_required: 'Vision 재평가 재촬영',
+    vision_hitl_recheck_unsafe_error: 'Vision 재평가 위험 오판',
+    vision_hitl_recheck_missing_benchmark_result: 'Vision 재평가 결과 누락',
     vision_reference_backfill_post_apply_verification_failed: 'Backfill 적용 후 검증 실패'
 };
 
@@ -2038,6 +2043,65 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                             교정 건은 shadow Vision benchmark로 재확인하고, 재촬영 건은 새 이미지 확보 전까지 Reference Store 갱신 대상에서 제외합니다.
                                                         </p>
                                                     )}
+                                                </div>
+                                            ) : null}
+                                            {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck?.required ? (
+                                                <div className="mt-3 rounded border border-indigo-800/80 bg-indigo-950/30 p-3">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="text-xs font-bold text-indigo-100">
+                                                            Vision HITL Recheck Post-check
+                                                        </p>
+                                                        <span className={`rounded border px-2 py-0.5 text-[9px] font-bold ${backfillStatusBadge(benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.status)}`}>
+                                                            {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.status === 'ready_for_human_approval'
+                                                                ? 'HUMAN APPROVAL REQUIRED'
+                                                                : reEvaluationStatusLabel(benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.status)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-300 md:grid-cols-5">
+                                                        <span>
+                                                            승인 검토 후보{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.readyForHumanApproval > 0
+                                                                ? 'text-amber-200'
+                                                                : 'text-gray-200'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.readyForHumanApproval}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            HITL 재검토{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.needsHitlReview > 0
+                                                                ? 'text-orange-200'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.needsHitlReview}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            재촬영{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.needsRecapture > 0
+                                                                ? 'text-orange-200'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.needsRecapture}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            위험 오판{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.unsafeAcceptedErrors > 0
+                                                                ? 'text-red-300'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.unsafeAcceptedErrors}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            결과 누락{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.missingBenchmarkResults > 0
+                                                                ? 'text-red-300'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluationPostCheck.missingBenchmarkResults}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-2 text-[10px] text-indigo-100">
+                                                        Shadow recheck 통과 건도 사람 승인 전까지 자동 학습 또는 Graph 승격하지 않습니다.
+                                                    </p>
                                                 </div>
                                             ) : null}
                                             {benchmarkResult.gateStatus.visionReferenceBackfillPostApply?.required ? (
