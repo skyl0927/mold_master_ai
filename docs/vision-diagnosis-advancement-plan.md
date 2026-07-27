@@ -350,6 +350,13 @@ Classifier 후보` 충돌쌍과 참조 부족 결함군별 평균 참조 수/목
 기간: 2주
 개발 상태: 2026-07-24 소프트웨어 구현 및 자동 검증 완료. 월별 반복 오류
 클래스 감소와 교정 사례의 현장 재현율은 승인 데이터가 누적된 후 운영 검증한다.
+2026-07-27 Mold Master AI의 HITL review payload에
+`vision-hitl-review/v1` 메타데이터를 추가했다. `corrected`는
+`vision_candidate_recheck`, `recapture`는 `vision_recapture_required` 큐로
+명시되며, blocked Vision 분석은 Graph 승격 허용 값과 차단 사유를 함께
+Common Agent에 전달한다. Electron HITL 스모크는 실제 review request body에
+프로토콜 버전, next action, queue, Graph 승격 허용, 학습 적격 값이 포함되는지
+검증한다.
 
 개발:
 
@@ -361,6 +368,8 @@ Classifier 후보` 충돌쌍과 참조 부족 결함군별 평균 참조 수/목
   retrieval 개선을 우선
 - 최초 모델 출력과 사람 교정본을 부모 버전 ID가 연결된 불변 리비전으로 저장
 - 승인 외 결정은 Graph 승격과 로컬 지식 행렬 학습을 차단
+- 승인 외 결정은 Common Agent에 재평가 큐, 재촬영 큐, 제외 큐로 구조화해
+  전달
 - 재촬영 요청은 우선순위 100으로 검토 큐 최상단에 배치
 - 반복 모델 교정, 희소 클래스, Vision-Graph 충돌을 코호트 우선순위에 반영
 - 승인 데이터도 fine-tuning 자동 실행 없이 `candidate_only` 상태로 격리
