@@ -1,7 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
+import type { ResponseFormatJSONSchema } from 'openai/resources/shared';
 import { DefectAnalysis, RetrievalMode, VisionObservationSummary } from '../types';
 import { buildVisionRetrievalQuery, parseVisionObservationText } from '../visionObservation';
+import { buildOpenAiVisionObservationResponseFormat } from '../visionStructuredOutputSchema';
 import {
     buildVisionDiagnosisGuard,
     buildVisionGuardAbstentionAnalysis,
@@ -170,7 +172,7 @@ Perform a blind visual observation of this image. Do not use field context and d
                     ]
                 }
             ],
-            response_format: { type: 'json_object' },
+            response_format: buildOpenAiVisionObservationResponseFormat() as ResponseFormatJSONSchema,
             max_completion_tokens: OPENAI_VISION_MAX_COMPLETION_TOKENS
         });
         rawObservation = response.choices[0].message.content || '';

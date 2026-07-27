@@ -1,0 +1,143 @@
+const VISION_OBSERVATION_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'contract_version',
+    'image_kind',
+    'normality_status',
+    'observations',
+    'candidates',
+    'required_additional_views',
+    'quality_concerns',
+    'abstention_reason'
+  ],
+  properties: {
+    contract_version: {
+      type: 'string',
+      enum: ['vision-observation/v2']
+    },
+    image_kind: {
+      type: 'string',
+      enum: ['physical_product', 'document_or_diagram', 'unknown']
+    },
+    normality_status: {
+      type: 'string',
+      enum: ['defect_visible', 'no_defect_visible', 'uncertain']
+    },
+    observations: {
+      type: 'array',
+      maxItems: 16,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'observation_id',
+          'category',
+          'description',
+          'region',
+          'confidence'
+        ],
+        properties: {
+          observation_id: {
+            type: 'string',
+            minLength: 1
+          },
+          category: {
+            type: 'string',
+            enum: [
+              'color',
+              'boundary',
+              'geometry',
+              'surface',
+              'location',
+              'repetition',
+              'orientation',
+              'contrast',
+              'other'
+            ]
+          },
+          description: {
+            type: 'string'
+          },
+          region: {
+            type: 'string'
+          },
+          confidence: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1
+          }
+        }
+      }
+    },
+    candidates: {
+      type: 'array',
+      maxItems: 3,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'defect_type',
+          'confidence',
+          'supporting_observation_ids',
+          'contradicting_observation_ids'
+        ],
+        properties: {
+          defect_type: {
+            type: 'string'
+          },
+          confidence: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1
+          },
+          supporting_observation_ids: {
+            type: 'array',
+            maxItems: 16,
+            items: {
+              type: 'string'
+            }
+          },
+          contradicting_observation_ids: {
+            type: 'array',
+            maxItems: 16,
+            items: {
+              type: 'string'
+            }
+          }
+        }
+      }
+    },
+    required_additional_views: {
+      type: 'array',
+      maxItems: 8,
+      items: {
+        type: 'string'
+      }
+    },
+    quality_concerns: {
+      type: 'array',
+      maxItems: 8,
+      items: {
+        type: 'string'
+      }
+    },
+    abstention_reason: {
+      type: 'string'
+    }
+  }
+};
+
+const buildOpenAiVisionObservationResponseFormat = () => ({
+  type: 'json_schema',
+  json_schema: {
+    name: 'mold_master_vision_observation_v2',
+    strict: true,
+    schema: VISION_OBSERVATION_JSON_SCHEMA
+  }
+});
+
+module.exports = {
+  VISION_OBSERVATION_JSON_SCHEMA,
+  buildOpenAiVisionObservationResponseFormat
+};

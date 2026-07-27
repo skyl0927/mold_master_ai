@@ -39,6 +39,7 @@
     "test:capture-session": "node --test tests/captureSessionProtocol.test.js",
     "test:translation": "node --test tests/translationRequest.test.js",
     "test:benchmark": "node --test tests/multimodalBenchmark.test.js tests/visionCaptureProtocol.test.js tests/retryAsync.test.js",
+    "test:vision-structured-output": "node --test tests/visionStructuredOutputSchema.test.js",
     "test:vision-diagnosis-guard": "node --test tests/visionDiagnosisGuard.test.js",
     "test:vision-observation": "node --test tests/visionImageQuality.test.js tests/visionObservation.test.js",
     "test:candidates": "node --test tests/localVisionCandidate.test.js tests/knowledgeCardVisionCandidateSync.test.js tests/webCaseVisionCandidate.test.js tests/visionAuditCache.test.js tests/visionReviewPriority.test.js tests/visionReviewQueue.test.js",
