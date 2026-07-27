@@ -83,6 +83,7 @@ test('blocker worklist turns readiness blockers into prioritized human tasks', (
   assert.deepEqual(conflicts.commands, [
     'npm run vision:label-conflicts:packet',
     'npm run vision:label-conflicts:decision-template',
+    'npm run vision:label-conflicts:review-guide',
     'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
     'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json>',
     'npm run vision:label-conflicts:apply -- --verification <vision-approved-label-conflict-decision-verification-report.json> --apply',
