@@ -124,6 +124,28 @@ const actionPackSeverityFor = status => {
   return 'warning';
 };
 
+const pipelineStatusLabelFor = (status, stageCode) => {
+  if (status === 'missing_evidence') return '증거 재생성 필요';
+  if (stageCode === 'awaiting_human_csv_decisions') return 'CSV 판정 입력 대기';
+  if (stageCode === 'review_worktable_import_plan') return '작업표 반영 승인 대기';
+  if (status === 'ready_for_common_agent_manual_review') return 'Common Agent 전달 준비';
+  if (status === 'ready_for_post_import_validation') return '사후 검증 준비';
+  if (status === 'complete' || status === 'clear') return '완료';
+  if (status === 'action_required') return '조치 필요';
+  return compact(status);
+};
+
+const pipelineSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (
+    status === 'ready_for_common_agent_manual_review'
+    || status === 'ready_for_post_import_validation'
+    || status === 'complete'
+    || status === 'clear'
+  ) return 'success';
+  return 'warning';
+};
+
 const summarizeOperationalHitlActionPackDisplay = actionPack => {
   if (actionPack?.contractVersion !== 'operational-hitl-action-pack/v1') return null;
 
@@ -163,6 +185,88 @@ const summarizeOperationalHitlActionPackDisplay = actionPack => {
       '자동 적용 금지',
       'Graph 승격 금지',
       'Reference 학습 금지'
+    ]
+  };
+};
+
+const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
+  if (pipelineStatus?.contractVersion !== 'operational-hitl-pipeline-status/v1') return null;
+
+  const summary = pipelineStatus.summary || {};
+  const status = compact(pipelineStatus.status);
+  const stageCode = compact(pipelineStatus.currentStage?.code);
+  const firstAction = Array.isArray(pipelineStatus.nextActions)
+    ? pipelineStatus.nextActions[0]
+    : null;
+  const missingArtifacts = numberValue(summary.missingArtifacts);
+  const suggestionParts = [
+    numberValue(summary.worktableRecaptureSuggestions) > 0
+      ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
+      : '',
+    numberValue(summary.worktableApproveCandidateSuggestions) > 0
+      ? `Vision 후보 ${numberValue(summary.worktableApproveCandidateSuggestions)}건`
+      : '',
+    numberValue(summary.worktableApproveCardSuggestions) > 0
+      ? `Web 후보 ${numberValue(summary.worktableApproveCardSuggestions)}건`
+      : '',
+    numberValue(summary.worktableNeedsReviewSuggestions) > 0
+      ? `검토필요 ${numberValue(summary.worktableNeedsReviewSuggestions)}건`
+      : '',
+    numberValue(summary.worktableNeedsChangesSuggestions) > 0
+      ? `수정필요 ${numberValue(summary.worktableNeedsChangesSuggestions)}건`
+      : ''
+  ].filter(Boolean);
+  const summaryParts = [
+    missingArtifacts > 0 ? `누락 증거 ${missingArtifacts}건` : '',
+    `미입력 ${numberValue(summary.totalDecisionInputsMissing)}건`,
+    `작업표 ${numberValue(summary.worktableRows)}건`,
+    numberValue(summary.worktableSuggestionRows) > 0
+      ? `추천 ${numberValue(summary.worktableSuggestionRows)}건`
+      : '',
+    numberValue(summary.worktableRecaptureSuggestions) > 0
+      ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
+      : '',
+    numberValue(summary.worktableApproveCandidateSuggestions) > 0
+      ? `Vision 후보 ${numberValue(summary.worktableApproveCandidateSuggestions)}건`
+      : '',
+    numberValue(summary.worktableApproveCardSuggestions) > 0
+      ? `Web 후보 ${numberValue(summary.worktableApproveCardSuggestions)}건`
+      : '',
+    numberValue(summary.worktablePlannedUpdates) > 0
+      ? `반영계획 ${numberValue(summary.worktablePlannedUpdates)}건`
+      : '',
+    numberValue(summary.commonAgentApprovedPayloads) > 0
+      ? `Agent 전달 ${numberValue(summary.commonAgentApprovedPayloads)}건`
+      : ''
+  ].filter(Boolean);
+
+  return {
+    title: 'HITL Pipeline Status',
+    status,
+    statusLabel: pipelineStatusLabelFor(status, stageCode),
+    severity: pipelineSeverityFor(status),
+    stageText: compact(pipelineStatus.currentStage?.titleKo)
+      || compact(pipelineStatus.currentStage?.code),
+    summaryText: summaryParts.join(' · '),
+    suggestionText: suggestionParts.length > 0
+      ? `추천 분포: ${suggestionParts.join(' · ')}`
+      : '',
+    nextActionKo: compact(firstAction?.instructionKo)
+      || compact(firstAction?.titleKo)
+      || compact(pipelineStatus.recommendedAction),
+    nextCommand: compact(firstAction?.commands?.[0]),
+    nextCommands: Array.isArray(firstAction?.commands)
+      ? firstAction.commands.map(compact).filter(Boolean)
+      : [],
+    stageTrailPreviews: (Array.isArray(pipelineStatus.stageTrail) ? pipelineStatus.stageTrail : [])
+      .slice(0, 5)
+      .map(item => `${compact(item?.titleKo) || compact(item?.code)} · ${compact(item?.status)}`),
+    safetyBadges: [
+      'Artifact-only',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Reference 학습 금지',
+      'Model 학습 금지'
     ]
   };
 };
@@ -213,5 +317,6 @@ const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
 module.exports = {
   summarizeVisionOperationalHitlWorkflowDisplay,
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
-  summarizeOperationalHitlActionPackDisplay
+  summarizeOperationalHitlActionPackDisplay,
+  summarizeOperationalHitlPipelineStatusDisplay
 };

@@ -46,9 +46,20 @@ Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
 
 - 상태: `action_required`
 - 현재 단계: `awaiting_human_csv_decisions`
+- 남은 HITL 입력: 56
 - 작업표 row: 59
 - 추천 row: 59
 - 재촬영 추천: 5
 - Vision 승인 후보: 7
 - Web 카드 승인 후보: 43
 - planned update: 0
+
+## Settings UI 연동
+
+Settings의 `비전 릴리스 게이트` 영역에 `Pipeline Status 등록` 버튼을 추가했다.
+최신 `artifacts/operational-hitl-pipeline-status-*.json`을 등록하면
+`Vision 운영 작업 목록` 아래에 `HITL Pipeline Status` 카드가 표시된다.
+
+카드는 현재 단계, 미입력/작업표/추천 분포, 다음 명령, 안전 배지를 표시한다.
+이 UI는 외부 서비스 쓰기 없이 localStorage에 artifact를 저장하며, 사람이 HITL
+CSV 판정을 끝내기 전까지 Graph/Reference/Model 승격 금지를 명시한다.

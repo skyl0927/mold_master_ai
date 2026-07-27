@@ -40,7 +40,8 @@ import { buildVisionOperationalBlockerWorklist } from '../visionOperationalBlock
 import {
   summarizeVisionOperationalHitlWorkflowDisplay,
   summarizeVisionOperationalLabelConflictWorkflowDisplay,
-  summarizeOperationalHitlActionPackDisplay
+  summarizeOperationalHitlActionPackDisplay,
+  summarizeOperationalHitlPipelineStatusDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -89,6 +90,8 @@ const VISION_OPERATIONAL_READINESS_AUDIT_STORAGE_KEY =
   'mold-master-ai:vision-operational-readiness-audit:v1';
 const OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY =
   'mold-master-ai:operational-hitl-action-pack:v1';
+const OPERATIONAL_HITL_PIPELINE_STATUS_STORAGE_KEY =
+  'mold-master-ai:operational-hitl-pipeline-status:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -122,6 +125,23 @@ const readOperationalHitlActionPack = (): any | null => {
 const saveOperationalHitlActionPack = (actionPack: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_HITL_ACTION_PACK_STORAGE_KEY, JSON.stringify(actionPack));
+};
+
+const readOperationalHitlPipelineStatus = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_HITL_PIPELINE_STATUS_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-hitl-pipeline-status/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalHitlPipelineStatus = (pipelineStatus: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_HITL_PIPELINE_STATUS_STORAGE_KEY, JSON.stringify(pipelineStatus));
 };
 
 const operationalWorklistStatusLabel = (status: string): string => {
@@ -226,6 +246,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlActionPack, setOperationalHitlActionPack] = useState(
     () => readOperationalHitlActionPack()
   );
+  const [operationalHitlPipelineStatus, setOperationalHitlPipelineStatus] = useState(
+    () => readOperationalHitlPipelineStatus()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -235,9 +258,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeVisionOperationalLabelConflictWorkflowDisplay(operationalBlockerWorklist);
   const operationalHitlActionPackDisplay =
     summarizeOperationalHitlActionPackDisplay(operationalHitlActionPack);
+  const operationalHitlPipelineStatusDisplay =
+    summarizeOperationalHitlPipelineStatusDisplay(operationalHitlPipelineStatus);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
+  const [operationalHitlPipelineStatusImportStatus, setOperationalHitlPipelineStatusImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -375,6 +401,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalReadinessAudit,
       operationalBlockerWorklist,
       operationalHitlActionPack,
+      operationalHitlPipelineStatus,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -449,6 +476,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalHitlActionPackImportStatus(
         error instanceof Error ? `Action pack 등록 실패: ${error.message}` : 'Action pack 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalHitlPipelineStatusImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const pipelineStatus = JSON.parse(await file.text());
+      if (pipelineStatus?.contractVersion !== 'operational-hitl-pipeline-status/v1') {
+        throw new Error('invalid operational HITL pipeline status');
+      }
+      saveOperationalHitlPipelineStatus(pipelineStatus);
+      setOperationalHitlPipelineStatus(pipelineStatus);
+      setOperationalHitlPipelineStatusImportStatus('HITL pipeline status를 등록했습니다.');
+    } catch (error) {
+      setOperationalHitlPipelineStatusImportStatus(
+        error instanceof Error ? `Pipeline status 등록 실패: ${error.message}` : 'Pipeline status 등록 실패'
       );
     }
   };
@@ -776,6 +824,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalHitlActionPackImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-indigo-800 px-2 py-1 text-[9px] text-indigo-100 hover:bg-indigo-700">
+                    Pipeline Status 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalHitlPipelineStatusImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -808,6 +865,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalHitlActionPackImportStatus}
+                </p>
+              )}
+              {operationalHitlPipelineStatusImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalHitlPipelineStatusImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalHitlPipelineStatusImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -859,6 +925,70 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     {task.missing !== undefined ? ` · 부족 ${task.missing}건` : ''}
                   </p>
                 ))}
+                {operationalHitlPipelineStatusDisplay && (
+                  <div
+                    aria-label="HITL Pipeline Status"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlPipelineStatusDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlPipelineStatusDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-indigo-800/70 bg-indigo-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-indigo-100">
+                          {operationalHitlPipelineStatusDisplay.title}
+                        </p>
+                        <p className="mt-1 text-indigo-200">
+                          {operationalHitlPipelineStatusDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlPipelineStatusDisplay.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-indigo-100">
+                      현재 단계: {operationalHitlPipelineStatusDisplay.stageText}
+                    </p>
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlPipelineStatusDisplay.summaryText}
+                    </p>
+                    {operationalHitlPipelineStatusDisplay.suggestionText && (
+                      <p className="mt-1 break-words text-cyan-100">
+                        {operationalHitlPipelineStatusDisplay.suggestionText}
+                      </p>
+                    )}
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlPipelineStatusDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlPipelineStatusDisplay.nextCommand && (
+                      <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-indigo-100">
+                        {operationalHitlPipelineStatusDisplay.nextCommand}
+                      </p>
+                    )}
+                    {operationalHitlPipelineStatusDisplay.stageTrailPreviews.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {operationalHitlPipelineStatusDisplay.stageTrailPreviews.map(step => (
+                          <p key={step} className="break-words text-[8px] text-indigo-50">
+                            {step}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlPipelineStatusDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {operationalHitlActionPackDisplay && (
                   <div
                     aria-label="HITL Action Pack"
