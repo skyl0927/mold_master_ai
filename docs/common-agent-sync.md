@@ -84,12 +84,20 @@ Antigravity가 이어 받을 수 있도록 artifact-only handoff JSON으로 묶�
 npm run vision:operational:readiness
 npm run vision:operational:worklist
 npm run vision:operational:handoff
+npm run operational:progress
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
 작업, 담당 owner, Common Agent 액션 코드, 원본 artifact 경로, 안전 정책을
 포함한다. 이 명령은 Common Agent API를 호출하지 않으며 SQL, Graph, 모델
 설정을 변경하지 않는다.
+
+`operational:progress`는 위 Vision artifact와 Web Knowledge readiness를 묶어
+`mold-master-development-progress-report/v1`을 생성한다. 이 리포트는 현재 개발
+단계를 “운영 전환 전 데이터/HITL 게이트 종료 단계”, “운영자 릴리스 검토
+단계”처럼 사람이 읽기 쉬운 문장으로 요약하고, software scaffold 진행률과
+operational readiness 진행률을 분리해 표시한다. 이 리포트도 artifact-only이며
+Graph DB, Reference store, 모델 학습에는 쓰지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
