@@ -25,6 +25,7 @@ import { buildProcessKnowledgeMigrationMarkdown } from '../services/processKnowl
 import { checkServerHealth } from '../services/serverHealthService';
 import { calculateVisionDatasetReadiness } from '../services/visionDatasetReadinessService';
 import {
+    buildVisionHitlReviewMetadata,
     canPromoteVisionAnalysisToGraph,
     resolveVisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
@@ -108,6 +109,64 @@ test('blocked Vision analysis cannot be promoted to Graph even with approved HIT
 
     assert.equal(guard.allowed, false);
     assert.match(guard.message, /재촬영|HITL/);
+});
+
+test('Vision HITL review metadata routes corrected and recapture decisions to re-evaluation queues', () => {
+    const blockedAnalysis = {
+        defectType: '판정 보류 (사람 검토 필요)',
+        severity: '-',
+        description: '리브 주변에 유백색으로 보이는 흐린 영역',
+        possibleCauses: '',
+        countermeasures: '',
+        rawOutput: '',
+        visionSummary: {
+            contractVersion: 'vision-observation/v2',
+            imageKind: 'physical_product' as const,
+            normalityStatus: 'defect_visible' as const,
+            qualityStatus: 'reject' as const,
+            visualObservations: [],
+            visibleFeatures: [],
+            candidates: [],
+            primaryCandidate: null,
+            requiredAdditionalViews: ['초점 보정 후 리브 기부 근접 촬영'],
+            qualityConcerns: ['motion blur hides the defect edge'],
+            abstentionReason: 'image_quality_rejected',
+            validationIssues: ['image_quality_rejected'],
+            groundingStatus: 'invalid' as const,
+            decisionStatus: 'unclassifiable' as const,
+            decisionReason: 'image_quality_rejected',
+            safetyGate: {
+                status: 'blocked' as const,
+                score: 0,
+                reasons: ['image_quality_rejected'],
+                candidateUsePolicy: 'do_not_use_vision_candidate' as const,
+                autoGraphCandidateUseAllowed: false,
+                humanReviewRequired: true,
+                supportObservationCount: 0,
+                supportCategoryCount: 0,
+                topCandidateMargin: null
+            }
+        }
+    };
+
+    const corrected = buildVisionHitlReviewMetadata(blockedAnalysis, 'corrected');
+    const recapture = buildVisionHitlReviewMetadata(blockedAnalysis, 'recapture');
+
+    assert.equal(corrected.vision_review_protocol_version, 'vision-hitl-review/v1');
+    assert.equal(corrected.vision_review_next_action, 'queue_re_evaluation');
+    assert.equal(corrected.vision_review_re_evaluation_queue, 'vision_candidate_recheck');
+    assert.equal(corrected.vision_review_requires_re_evaluation, true);
+    assert.equal(corrected.vision_graph_promotion_allowed, false);
+    assert.equal(corrected.vision_graph_promotion_blocked, true);
+    assert.match(corrected.vision_graph_promotion_block_reason, /재촬영|HITL/);
+    assert.equal(corrected.vision_learning_candidate_eligible, false);
+    assert.equal(corrected.vision_candidate_use_policy, 'do_not_use_vision_candidate');
+
+    assert.equal(recapture.vision_review_next_action, 'request_recapture');
+    assert.equal(recapture.vision_review_re_evaluation_queue, 'vision_recapture_required');
+    assert.equal(recapture.vision_review_requires_re_evaluation, true);
+    assert.deepEqual(recapture.vision_required_additional_views, ['초점 보정 후 리브 기부 근접 촬영']);
+    assert.deepEqual(recapture.vision_quality_concerns, ['motion blur hides the defect edge']);
 });
 
 test('specification analysis removes reasoning text and keeps only concise engineering statements', () => {
