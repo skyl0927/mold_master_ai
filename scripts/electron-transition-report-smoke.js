@@ -17,6 +17,47 @@ const path = require('node:path');
 
     await page.evaluate(records => {
       localStorage.setItem('mold-master-ai:diagnosis-comparisons:v1', JSON.stringify(records));
+      localStorage.setItem('mold-master-ai:vision-operational-readiness-audit:v1', JSON.stringify({
+        contractVersion: 'vision-operational-readiness-audit/v1',
+        generatedAt: '2026-07-27T12:00:00.000Z',
+        status: 'action_required',
+        readyForCandidateActivation: false,
+        autoActivationAllowed: false,
+        blockers: [
+          {
+            source: 'post_hitl',
+            code: 'approved_label_conflicts',
+            count: 4,
+            conflicts: [{
+              contentHash: 'a'.repeat(64),
+              caseIds: ['approved-image-a', 'approved-image-b'],
+              labels: ['제팅', '플로우마크']
+            }]
+          },
+          {
+            source: 'post_hitl',
+            code: 'human_review_required',
+            count: 12
+          },
+          {
+            source: 'post_hitl',
+            code: 'approved_sample_count',
+            current: 12,
+            required: 20,
+            missing: 8
+          },
+          {
+            source: 'reference',
+            code: 'reference_store_missing',
+            detail: 'current reference manifest pointer not found'
+          },
+          {
+            source: 'release',
+            code: 'release_report_missing'
+          }
+        ],
+        pendingActions: []
+      }));
       localStorage.setItem('mold-master-ai:vision-operational-release:v1', JSON.stringify({
         schemaVersion: 'vision-operational-release/v1',
         generatedAt: '2026-07-24T02:00:00.000Z',
@@ -214,6 +255,8 @@ const path = require('node:path');
       hasReleaseHistoryPanel: bodyText.includes('\uB9B4\uB9AC\uC2A4 \uC774\uB825'),
       hasReleaseTrendAction: bodyText.includes('\uB2E4\uC74C \uC870\uCE58'),
       hasReleaseTrendRates: bodyText.includes('\uCD94\uC138: \uADFC\uAC70\uC900\uBE44 100%'),
+      hasOperationalWorklistPanel: bodyText.includes('\uC6B4\uC601 \uC791\uC5C5 \uBAA9\uB85D'),
+      hasOperationalWorklistFirstTask: bodyText.includes('\uC2B9\uC778 \uC774\uBBF8\uC9C0 \uB77C\uBCA8 \uCDA9\uB3CC \uD574\uACB0'),
       releaseDecision: captured.report.operationalRelease?.decision,
       releaseEvidenceAlignmentPassed: captured.report.operationalEvidenceAlignment?.passed,
       releaseEvidenceGraphMatched:
@@ -236,6 +279,12 @@ const path = require('node:path');
       releaseTrendHistoryWindow: captured.report.operationalReleaseTrend?.historyWindowSize,
       releaseTrendEvidenceReadyRate: captured.report.operationalReleaseTrend?.evidenceReadyRate,
       releaseTrendOperatorConfirmationRate: captured.report.operationalReleaseTrend?.operatorConfirmationRate,
+      operationalWorklistStatus: captured.report.operationalBlockerWorklist?.status,
+      operationalWorklistTotalTasks: captured.report.operationalBlockerWorklist?.summary?.totalTasks,
+      operationalWorklistFirstTask: captured.report.operationalBlockerWorklist?.tasks?.[0]?.code,
+      operationalWorklistGraphPromotion:
+        captured.report.operationalBlockerWorklist?.commonAgentHandoff?.policy?.allowGraphPromotion,
+      operationalReadinessAuditStatus: captured.report.operationalReadinessAudit?.status,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
@@ -279,6 +328,8 @@ const path = require('node:path');
       || !result.hasReleaseHistoryPanel
       || !result.hasReleaseTrendAction
       || !result.hasReleaseTrendRates
+      || !result.hasOperationalWorklistPanel
+      || !result.hasOperationalWorklistFirstTask
       || result.releaseDecision !== 'rollback_required'
       || result.releaseEvidenceAlignmentPassed !== true
       || result.releaseEvidenceGraphMatched !== true
@@ -297,6 +348,11 @@ const path = require('node:path');
       || result.releaseTrendHistoryWindow !== 1
       || result.releaseTrendEvidenceReadyRate !== 100
       || result.releaseTrendOperatorConfirmationRate !== 100
+      || result.operationalWorklistStatus !== 'action_required'
+      || result.operationalWorklistTotalTasks !== 5
+      || result.operationalWorklistFirstTask !== 'resolve_label_conflicts'
+      || result.operationalWorklistGraphPromotion !== false
+      || result.operationalReadinessAuditStatus !== 'action_required'
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50
