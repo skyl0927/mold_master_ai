@@ -459,6 +459,21 @@ export interface MigrationGateStatus {
     recommendedAction?: string;
     artifactGeneratedAt?: string | null;
   };
+  visionHitlReevaluation?: {
+    required: boolean;
+    status: string;
+    totalInputItems: number;
+    totalHitlReviewItems: number;
+    readyForShadowRecheck: number;
+    waitingForRecapture: number;
+    pendingHumanReview: number;
+    excludedRejected: number;
+    blocked: number;
+    queueCounts: Record<string, number>;
+    reasonCounts: Record<string, number>;
+    recommendedAction?: string;
+    artifactGeneratedAt?: string | null;
+  };
   visionReferenceBackfillPostApply?: {
     required: boolean;
     status: string;
@@ -471,7 +486,14 @@ export interface MigrationGateStatus {
     recommendedAction?: string;
     artifactGeneratedAt?: string | null;
   };
-  blockers: Array<{ code: string; count?: number; imageId?: string; detail?: unknown; details?: unknown }>;
+  blockers: Array<{
+    code: string;
+    count?: number;
+    imageId?: string;
+    detail?: unknown;
+    details?: unknown;
+    reasonCounts?: Record<string, number>;
+  }>;
   recommendedAction: string;
   writesPerformed: false;
 }

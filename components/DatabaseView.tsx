@@ -115,6 +115,10 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_captureProtocol: '결함별 필수 촬영 시점 부족',
     vision_reference_gate_failed: 'Vision Reference Store 미통과',
     vision_reference_backfill_required: 'Vision Reference HITL 보완 필요',
+    vision_hitl_recheck_required: 'Vision HITL 재평가 필요',
+    vision_hitl_recapture_required: 'Vision 재촬영 필요',
+    vision_hitl_review_pending: 'Vision HITL 검토 대기',
+    vision_hitl_reevaluation_blocked: 'Vision 재평가 메타데이터 차단',
     vision_reference_backfill_post_apply_verification_failed: 'Backfill 적용 후 검증 실패'
 };
 
@@ -142,6 +146,12 @@ const backfillStatusBadge = (status?: string) => {
 const backfillStatusLabel = (status?: string) => {
     if (status === 'ready') return 'READY';
     if (status === 'empty') return 'NO DATA';
+    return 'ACTION REQUIRED';
+};
+
+const reEvaluationStatusLabel = (status?: string) => {
+    if (status === 'ready_for_recheck') return 'RECHECK REQUIRED';
+    if (status === 'empty' || status === 'not_run') return 'NO DATA';
     return 'ACTION REQUIRED';
 };
 
@@ -1976,6 +1986,59 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                 <VisionReferenceGateSummary
                                                     visionReference={benchmarkResult.gateStatus.visionReference}
                                                 />
+                                            ) : null}
+                                            {benchmarkResult.gateStatus.visionHitlReevaluation?.required ? (
+                                                <div className="mt-3 rounded border border-sky-800/80 bg-sky-950/30 p-3">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="text-xs font-bold text-sky-100">
+                                                            Vision HITL Re-evaluation
+                                                        </p>
+                                                        <span className={`rounded border px-2 py-0.5 text-[9px] font-bold ${backfillStatusBadge(benchmarkResult.gateStatus.visionHitlReevaluation.status)}`}>
+                                                            {reEvaluationStatusLabel(benchmarkResult.gateStatus.visionHitlReevaluation.status)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-300 md:grid-cols-4">
+                                                        <span>
+                                                            Recheck 후보{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluation.readyForShadowRecheck > 0
+                                                                ? 'text-amber-200'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluation.readyForShadowRecheck}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            재촬영 대기{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluation.waitingForRecapture > 0
+                                                                ? 'text-orange-200'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluation.waitingForRecapture}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            HITL 대기{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluation.pendingHumanReview > 0
+                                                                ? 'text-amber-200'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluation.pendingHumanReview}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            메타데이터 차단{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionHitlReevaluation.blocked > 0
+                                                                ? 'text-red-300'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionHitlReevaluation.blocked}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+                                                    {(benchmarkResult.gateStatus.visionHitlReevaluation.readyForShadowRecheck > 0
+                                                        || benchmarkResult.gateStatus.visionHitlReevaluation.waitingForRecapture > 0
+                                                        || benchmarkResult.gateStatus.visionHitlReevaluation.blocked > 0) && (
+                                                        <p className="mt-2 text-[10px] text-sky-100">
+                                                            교정 건은 shadow Vision benchmark로 재확인하고, 재촬영 건은 새 이미지 확보 전까지 Reference Store 갱신 대상에서 제외합니다.
+                                                        </p>
+                                                    )}
+                                                </div>
                                             ) : null}
                                             {benchmarkResult.gateStatus.visionReferenceBackfillPostApply?.required ? (
                                                 <div className="mt-3 rounded border border-slate-700/80 bg-slate-950/50 p-3">

@@ -56,6 +56,7 @@ const buildBlockers = ({
     hitl,
     visionReference,
     visionReferenceBackfill,
+    visionHitlReevaluation,
     visionReferenceBackfillPostApply
 }) => {
     const blockers = [];
@@ -74,6 +75,31 @@ const buildBlockers = ({
         blockers.push({
             code: 'human_review_required',
             count: hitl.unresolvedHighConfidence
+        });
+    }
+    if (visionHitlReevaluation.readyForShadowRecheck > 0) {
+        blockers.push({
+            code: 'vision_hitl_recheck_required',
+            count: visionHitlReevaluation.readyForShadowRecheck
+        });
+    }
+    if (visionHitlReevaluation.waitingForRecapture > 0) {
+        blockers.push({
+            code: 'vision_hitl_recapture_required',
+            count: visionHitlReevaluation.waitingForRecapture
+        });
+    }
+    if (visionHitlReevaluation.pendingHumanReview > 0) {
+        blockers.push({
+            code: 'vision_hitl_review_pending',
+            count: visionHitlReevaluation.pendingHumanReview
+        });
+    }
+    if (visionHitlReevaluation.blocked > 0) {
+        blockers.push({
+            code: 'vision_hitl_reevaluation_blocked',
+            count: visionHitlReevaluation.blocked,
+            reasonCounts: visionHitlReevaluation.reasonCounts
         });
     }
     if (visionReference.required && !visionReference.readyForGraphRetrieval) {
@@ -171,6 +197,25 @@ const summarizeVisionReferenceBackfillPostApply = report => {
     };
 };
 
+const summarizeVisionHitlReevaluation = report => {
+    const summary = report?.summary || {};
+    return {
+        required: Boolean(report),
+        status: String(report?.status || 'not_run'),
+        totalInputItems: Number(summary.totalInputItems) || 0,
+        totalHitlReviewItems: Number(summary.totalHitlReviewItems) || 0,
+        readyForShadowRecheck: Number(summary.readyForShadowRecheck) || 0,
+        waitingForRecapture: Number(summary.waitingForRecapture) || 0,
+        pendingHumanReview: Number(summary.pendingHumanReview) || 0,
+        excludedRejected: Number(summary.excludedRejected) || 0,
+        blocked: Number(summary.blocked) || 0,
+        queueCounts: summary.queueCounts || {},
+        reasonCounts: summary.reasonCounts || {},
+        recommendedAction: String(report?.recommendedAction || ''),
+        artifactGeneratedAt: report?.generatedAt || null
+    };
+};
+
 const buildMigrationGateStatus = ({
     generatedAt = new Date().toISOString(),
     agentHealth = {},
@@ -181,6 +226,7 @@ const buildMigrationGateStatus = ({
     benchmarkReport = {},
     visionReferenceReport = null,
     visionReferenceBackfillPlan = null,
+    visionHitlReevaluationPlan = null,
     visionReferenceBackfillPostApplyVerification = null
 }) => {
     const agent = healthState(agentHealth);
@@ -242,6 +288,7 @@ const buildMigrationGateStatus = ({
     const failedChecks = asArray(benchmarkSummary.failedGateChecks);
     const visionReference = summarizeVisionReferenceGate(visionReferenceReport);
     const visionReferenceBackfill = summarizeVisionReferenceBackfill(visionReferenceBackfillPlan);
+    const visionHitlReevaluation = summarizeVisionHitlReevaluation(visionHitlReevaluationPlan);
     const visionReferenceBackfillPostApply = summarizeVisionReferenceBackfillPostApply(
         visionReferenceBackfillPostApplyVerification
     );
@@ -251,6 +298,10 @@ const buildMigrationGateStatus = ({
         && !dataset.error
         && conflictGroups === 0
         && hitl.unresolvedHighConfidence === 0
+        && visionHitlReevaluation.readyForShadowRecheck === 0
+        && visionHitlReevaluation.waitingForRecapture === 0
+        && visionHitlReevaluation.pendingHumanReview === 0
+        && visionHitlReevaluation.blocked === 0
         && visionReference.readyForGraphRetrieval === true
         && (
             !visionReferenceBackfillPostApply.required
@@ -265,6 +316,7 @@ const buildMigrationGateStatus = ({
         hitl,
         visionReference,
         visionReferenceBackfill,
+        visionHitlReevaluation,
         visionReferenceBackfillPostApply
     });
 
@@ -301,6 +353,7 @@ const buildMigrationGateStatus = ({
         },
         visionReference,
         visionReferenceBackfill,
+        visionHitlReevaluation,
         visionReferenceBackfillPostApply,
         gate: {
             minimumSamples,
@@ -323,6 +376,13 @@ const buildMigrationGateStatus = ({
                 : visionReferenceBackfillPostApply.required
                     && !visionReferenceBackfillPostApply.readyForReferenceRefresh
                     ? visionReferenceBackfillPostApply.recommendedAction
+                : (
+                    visionHitlReevaluation.readyForShadowRecheck > 0
+                    || visionHitlReevaluation.waitingForRecapture > 0
+                    || visionHitlReevaluation.pendingHumanReview > 0
+                    || visionHitlReevaluation.blocked > 0
+                )
+                    ? visionHitlReevaluation.recommendedAction
                 : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
                 : failedChecks.includes('captureProtocol')

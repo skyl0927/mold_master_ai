@@ -73,6 +73,10 @@ const probeHealth = async (baseUrl, pathName) => {
         artifactRoot,
         'vision-reference-backfill-plan.json'
     );
+    const visionHitlReevaluationPath = path.join(
+        artifactRoot,
+        'vision-hitl-reevaluation-plan.json'
+    );
     const visionReferenceBackfillPostApplyPath = latestArtifactFile(
         'vision-reference-backfill-post-apply-verification-'
     );
@@ -109,6 +113,9 @@ const probeHealth = async (baseUrl, pathName) => {
         visionReferenceBackfillPlan: fs.existsSync(visionReferenceBackfillPath)
             ? readJson(visionReferenceBackfillPath)
             : null,
+        visionHitlReevaluationPlan: fs.existsSync(visionHitlReevaluationPath)
+            ? readJson(visionHitlReevaluationPath)
+            : null,
         visionReferenceBackfillPostApplyVerification: visionReferenceBackfillPostApplyPath
             ? readJson(visionReferenceBackfillPostApplyPath)
             : null
@@ -125,6 +132,9 @@ const probeHealth = async (baseUrl, pathName) => {
             visionReferenceBackfill: fs.existsSync(visionReferenceBackfillPath)
                 ? visionReferenceBackfillPath
                 : null,
+            visionHitlReevaluation: fs.existsSync(visionHitlReevaluationPath)
+                ? visionHitlReevaluationPath
+                : null,
             visionReferenceBackfillPostApply: visionReferenceBackfillPostApplyPath || null
         }
     };
@@ -138,6 +148,7 @@ const probeHealth = async (baseUrl, pathName) => {
         hitl: report.hitl,
         visionReference: report.visionReference,
         visionReferenceBackfill: report.visionReferenceBackfill,
+        visionHitlReevaluation: report.visionHitlReevaluation,
         visionReferenceBackfillPostApply: report.visionReferenceBackfillPostApply,
         gate: report.gate,
         recommendedAction: report.recommendedAction,
