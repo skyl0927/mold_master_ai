@@ -9,7 +9,7 @@ import {
     resolveVisionHitlDecision,
     VisionHitlDecision
 } from '../services/visionHitlDecisionProtocol';
-import { buildVisionBboxOverlayItems, overlayItemStyle } from '../visionBboxOverlay';
+import { buildVisionBboxOverlayIndex, overlayItemStyle } from '../visionBboxOverlay';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -329,7 +329,8 @@ ${data.countermeasures}
 
     if (!image) return null;
 
-    const bboxOverlays = buildVisionBboxOverlayItems(editableData?.visionSummary);
+    const bboxOverlayIndex = buildVisionBboxOverlayIndex(editableData?.visionSummary);
+    const bboxOverlays = bboxOverlayIndex.items;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -359,23 +360,23 @@ ${data.countermeasures}
                             <img src={image.dataUrl} alt="Defect" className="block max-w-full max-h-[60vh] object-contain rounded border border-gray-700" />
                             {bboxOverlays.length > 0 ? (
                                 <div className="pointer-events-none absolute inset-0 rounded border border-transparent">
-                                    {bboxOverlays.map((item, index) => (
+                                    {bboxOverlays.map((item) => (
                                         <div
-                                            key={`${item.observationId}-${index}`}
+                                            key={`${item.observationId}-${item.displayIndex}`}
                                             className={`absolute rounded-sm border-2 shadow-[0_0_0_1px_rgba(0,0,0,0.75)] ${
                                                 item.isPrimarySupport
                                                     ? 'border-cyan-300 bg-cyan-400/10'
                                                     : 'border-amber-300 bg-amber-400/10'
                                             }`}
                                             style={overlayItemStyle(item)}
-                                            title={`${item.label} ${item.region || item.description}`}
+                                            title={`#${item.displayIndex} ${item.label} ${item.region || item.description}`}
                                         >
                                             <span className={`absolute -left-0.5 -top-5 rounded px-1.5 py-0.5 text-[10px] font-bold shadow ${
                                                 item.isPrimarySupport
                                                     ? 'bg-cyan-500 text-gray-950'
                                                     : 'bg-amber-400 text-gray-950'
                                             }`}>
-                                                {index + 1}
+                                                {item.displayIndex}
                                             </span>
                                         </div>
                                     ))}
@@ -725,25 +726,42 @@ ${data.countermeasures}
                                                     <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
                                                         AI가 본 근거 영역
                                                     </p>
-                                                    {editableData.visionSummary.visualObservations.map(observation => (
-                                                        <div
-                                                            key={observation.observationId}
-                                                            className="rounded-lg border border-gray-700 bg-gray-900/70 px-3 py-2"
-                                                        >
-                                                            <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                                                <span className="font-mono text-cyan-300">{observation.observationId}</span>
-                                                                <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-cyan-200">{observation.category}</span>
-                                                                {observation.region && <span className="text-gray-500">영역: {observation.region}</span>}
-                                                                <span className="ml-auto text-gray-500">{Math.round(observation.confidence * 100)}%</span>
+                                                    {editableData.visionSummary.visualObservations.map(observation => {
+                                                        const overlayItem = bboxOverlayIndex.byObservationId[observation.observationId];
+                                                        const overlayToneClass = overlayItem?.tone === 'primary'
+                                                            ? 'border-cyan-500/70 bg-cyan-950/25'
+                                                            : overlayItem
+                                                                ? 'border-amber-500/70 bg-amber-950/25'
+                                                                : 'border-gray-700 bg-gray-900/70';
+                                                        const overlayBadgeClass = overlayItem?.tone === 'primary'
+                                                            ? 'bg-cyan-500 text-gray-950'
+                                                            : 'bg-amber-400 text-gray-950';
+
+                                                        return (
+                                                            <div
+                                                                key={observation.observationId}
+                                                                className={`rounded-lg border px-3 py-2 ${overlayToneClass}`}
+                                                            >
+                                                                <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                                                    {overlayItem && (
+                                                                        <span className={`rounded px-1.5 py-0.5 font-bold shadow ${overlayBadgeClass}`}>
+                                                                            #{overlayItem.displayIndex}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="font-mono text-cyan-300">{observation.observationId}</span>
+                                                                    <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-cyan-200">{observation.category}</span>
+                                                                    {observation.region && <span className="text-gray-500">영역: {observation.region}</span>}
+                                                                    <span className="ml-auto text-gray-500">{Math.round(observation.confidence * 100)}%</span>
+                                                                </div>
+                                                                {observation.regionBbox && (
+                                                                    <p className="mt-1 font-mono text-[10px] text-sky-300">
+                                                                        bbox {observation.regionBbox.coordinateSystem}: x={observation.regionBbox.x.toFixed(3)}, y={observation.regionBbox.y.toFixed(3)}, w={observation.regionBbox.width.toFixed(3)}, h={observation.regionBbox.height.toFixed(3)}, conf={Math.round(observation.regionBbox.confidence * 100)}%
+                                                                    </p>
+                                                                )}
+                                                                <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
                                                             </div>
-                                                            {observation.regionBbox && (
-                                                                <p className="mt-1 font-mono text-[10px] text-sky-300">
-                                                                    bbox {observation.regionBbox.coordinateSystem}: x={observation.regionBbox.x.toFixed(3)}, y={observation.regionBbox.y.toFixed(3)}, w={observation.regionBbox.width.toFixed(3)}, h={observation.regionBbox.height.toFixed(3)}, conf={Math.round(observation.regionBbox.confidence * 100)}%
-                                                                </p>
-                                                            )}
-                                                            <p className="mt-1 text-xs text-gray-200">{observation.description}</p>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                             {editableData.visionSummary.visibleFeatures.length > 0 && (

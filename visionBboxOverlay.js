@@ -80,7 +80,25 @@ const buildVisionBboxOverlayItems = (visionSummary, { limit = 12 } = {}) => {
     })
     .sort((left, right) => Number(right.isPrimarySupport) - Number(left.isPrimarySupport)
       || right.confidence - left.confidence)
-    .slice(0, limit);
+    .slice(0, limit)
+    .map((item, index) => ({
+      ...item,
+      displayIndex: index + 1,
+      tone: item.isPrimarySupport ? 'primary' : 'secondary'
+    }));
+};
+
+const buildVisionBboxOverlayIndex = (visionSummary, options) => {
+  const items = buildVisionBboxOverlayItems(visionSummary, options);
+  const byObservationId = items.reduce((accumulator, item) => {
+    accumulator[item.observationId] = item;
+    return accumulator;
+  }, Object.create(null));
+
+  return {
+    items,
+    byObservationId
+  };
 };
 
 const overlayItemStyle = item => ({
@@ -91,6 +109,7 @@ const overlayItemStyle = item => ({
 });
 
 module.exports = {
+  buildVisionBboxOverlayIndex,
   buildVisionBboxOverlayItems,
   overlayItemStyle
 };
