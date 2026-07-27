@@ -203,7 +203,9 @@ Graph 승격과 학습 승격을 모두 차단한다. 이어서 관찰 카드에
 또한 Vision safety gate가 촬영 view별 bbox calibration profile을 적용해
 `defect_closeup`, `oblique_light`, `parting_line_context` 등 정밀 검수가 필요한
 시점에서는 기본값보다 엄격한 bbox confidence/area 기준으로 자동 Graph 후보
-사용을 보류한다.
+사용을 보류한다. bbox 위치 근거가 약한 경우에는 단순 보류에 그치지 않고
+초점/조명 보정 재촬영, 결함 부위 중심 근접 재촬영 같은 `requiredAdditionalViews`
+지시를 자동 생성한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 

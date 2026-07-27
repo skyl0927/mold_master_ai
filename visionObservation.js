@@ -670,6 +670,23 @@ const buildSafetyGate = ({
   };
 };
 
+const buildDerivedRequiredAdditionalViews = ({ explicitViews, safetyGate }) => {
+  const reasons = new Set(safetyGate?.reasons || []);
+  const derivedViews = [
+    reasons.has('low_region_bbox_confidence')
+      ? 'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영'
+      : '',
+    reasons.has('overbroad_region_bbox')
+      ? 'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
+      : ''
+  ].filter(Boolean);
+
+  return Array.from(new Set([
+    ...explicitViews,
+    ...derivedViews
+  ]));
+};
+
 const normalizeVisionObservation = input => {
   const contractVersion = compact(input?.contractVersion || input?.contract_version)
     || 'vision-observation/v1';
@@ -775,6 +792,12 @@ const normalizeVisionObservation = input => {
     observationById,
     captureViewTag
   });
+  const requiredAdditionalViews = buildDerivedRequiredAdditionalViews({
+    explicitViews: stringList(
+      input?.requiredAdditionalViews || input?.required_additional_views
+    ),
+    safetyGate
+  });
   const decision = safetyGate.status === 'blocked'
     ? baseDecision
     : baseDecision.decisionStatus === 'probable' && safetyGate.status !== 'reliable'
@@ -805,9 +828,7 @@ const normalizeVisionObservation = input => {
     visibleFeatures: visualObservations.map(observation => observation.description),
     candidates,
     primaryCandidate: candidates[0] || null,
-    requiredAdditionalViews: stringList(
-      input?.requiredAdditionalViews || input?.required_additional_views
-    ),
+    requiredAdditionalViews,
     qualityConcerns,
     abstentionReason,
     validationIssues,
