@@ -159,6 +159,7 @@ const path = require('node:path');
       hasObservabilityPanel: bodyText.includes('진단 운영 관측성'),
       hasLatencyMetric: bodyText.includes('Agent P50/P95'),
       hasClassifierMetric: bodyText.includes('Classifier 합의'),
+      hasClassifierAction: bodyText.includes('Classifier 권장 조치'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
       hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
       releaseDecision: captured.report.operationalRelease?.decision,
@@ -166,6 +167,7 @@ const path = require('node:path');
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
       reportClassifierAverageReferenceCount: captured.report.observability.averageClassifierReferenceCount,
+      reportClassifierActions: captured.report.observability.visionClassifierRecommendedActions.map(action => action.code),
       reportAgentP50: captured.report.observability.commonAgentLatencyMs.p50,
       reportAgentFailures: captured.report.observability.commonAgentFailures,
       reportRetrievalModes: captured.report.observability.retrievalModes,
@@ -180,6 +182,7 @@ const path = require('node:path');
       || !result.hasObservabilityPanel
       || !result.hasLatencyMetric
       || !result.hasClassifierMetric
+      || !result.hasClassifierAction
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
       || result.releaseDecision !== 'rollback_required'
@@ -187,6 +190,7 @@ const path = require('node:path');
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50
       || result.reportClassifierAverageReferenceCount !== 4
+      || !result.reportClassifierActions.includes('review_classifier_disagreement')
       || result.reportAgentP50 !== 120
       || result.reportAgentFailures !== 1
       || result.reportRetrievalModes.graph_only !== 1
