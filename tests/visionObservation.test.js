@@ -483,6 +483,14 @@ test('provider Vision parser accepts a schema-compliant v2 observation contract'
         category: 'color',
         description: '\uB9AC\uBE0C \uC8FC\uBCC0 \uC720\uBC31\uC0C9 \uBCC0\uC0C9',
         region: '\uB9AC\uBE0C \uC8FC\uBCC0',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.12,
+          y: 0.22,
+          width: 0.31,
+          height: 0.18,
+          confidence: 0.87
+        },
         confidence: 0.91
       },
       {
@@ -490,6 +498,14 @@ test('provider Vision parser accepts a schema-compliant v2 observation contract'
         category: 'location',
         description: '\uBCC0\uC0C9\uC774 \uB9AC\uBE0C \uAE30\uBD80\uC5D0 \uAD6D\uBD80\uC801\uC73C\uB85C \uC9D1\uC911\uB428',
         region: '\uB9AC\uBE0C \uAE30\uBD80',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.18,
+          y: 0.26,
+          width: 0.24,
+          height: 0.16,
+          confidence: 0.82
+        },
         confidence: 0.88
       }
     ],
@@ -515,7 +531,113 @@ test('provider Vision parser accepts a schema-compliant v2 observation contract'
   assert.equal(observation.providerContractValid, true);
   assert.deepEqual(observation.providerContractErrors, []);
   assert.equal(observation.primaryCandidate.defectType, '\uBC31\uD654');
+  assert.deepEqual(observation.visualObservations[0].regionBbox, {
+    coordinateSystem: 'normalized_xywh',
+    x: 0.12,
+    y: 0.22,
+    width: 0.31,
+    height: 0.18,
+    confidence: 0.87
+  });
   assert.doesNotMatch(observation.validationIssues.join(','), /provider_contract/);
+});
+
+test('provider Vision parser blocks invalid normalized observation bbox contracts', () => {
+  const observation = parseProviderVisionObservationText(JSON.stringify({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [{
+      observation_id: 'obs-color-1',
+      category: 'color',
+      description: '\uC720\uBC31\uC0C9 \uBCC0\uC0C9',
+      region: '\uB9AC\uBE0C',
+      region_bbox: {
+        coordinate_system: 'pixel_xywh',
+        x: 1.2,
+        y: 0.2,
+        width: 0,
+        height: 0.3,
+        confidence: 0.8
+      },
+      confidence: 0.9
+    }],
+    candidates: [{
+      defect_type: '\uBC31\uD654',
+      confidence: 0.88,
+      supporting_observation_ids: ['obs-color-1'],
+      contradicting_observation_ids: []
+    }],
+    required_additional_views: [],
+    quality_concerns: [],
+    abstention_reason: ''
+  }));
+
+  assert.equal(observation.providerContractValid, false);
+  assert.ok(observation.providerContractErrors.includes('invalid_enum:observations[0].region_bbox.coordinate_system'));
+  assert.ok(observation.providerContractErrors.includes('maximum:observations[0].region_bbox.x'));
+  assert.ok(observation.providerContractErrors.includes('minimum:observations[0].region_bbox.width'));
+  assert.equal(observation.candidates.length, 0);
+  assert.equal(observation.decisionStatus, 'unclassifiable');
+});
+
+test('Graph retrieval query includes normalized bbox evidence when present', () => {
+  const query = buildVisionRetrievalQuery({
+    contract_version: 'vision-observation/v2',
+    image_kind: 'physical_product',
+    normality_status: 'defect_visible',
+    observations: [
+      {
+        observation_id: 'obs-white',
+        category: 'color',
+        description: '\uB9AC\uBE0C \uC8FC\uBCC0 \uBC31\uD654',
+        region: '\uB9AC\uBE0C',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.125,
+          y: 0.25,
+          width: 0.33,
+          height: 0.2,
+          confidence: 0.78
+        },
+        confidence: 0.9
+      },
+      {
+        observation_id: 'obs-location',
+        category: 'location',
+        description: '\uCDE8\uCD9C \uD540 \uC778\uC811\uBD80',
+        region: '\uCDE8\uCD9C\uBD80',
+        region_bbox: {
+          coordinate_system: 'normalized_xywh',
+          x: 0.1,
+          y: 0.2,
+          width: 0.4,
+          height: 0.3,
+          confidence: 0.7
+        },
+        confidence: 0.86
+      }
+    ],
+    candidates: [
+      {
+        defect_type: '\uBC31\uD654',
+        confidence: 0.84,
+        supporting_observation_ids: ['obs-white', 'obs-location'],
+        contradicting_observation_ids: []
+      },
+      {
+        defect_type: '\uC2F1\uD06C',
+        confidence: 0.22,
+        supporting_observation_ids: ['obs-location'],
+        contradicting_observation_ids: ['obs-white']
+      }
+    ],
+    required_additional_views: [],
+    quality_concerns: [],
+    abstention_reason: ''
+  });
+
+  assert.match(query, /bbox: normalized_xywh x=0\.125 y=0\.250 w=0\.330 h=0\.200 conf=0\.78/);
 });
 
 test('provider Vision parser blocks schema violations instead of silently repairing them', () => {

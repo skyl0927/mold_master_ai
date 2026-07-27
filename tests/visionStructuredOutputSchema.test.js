@@ -44,8 +44,23 @@ test('Vision observation schema constrains observations and Top-3 candidates', (
     'category',
     'description',
     'region',
+    'region_bbox',
     'confidence'
   ]);
+  assert.deepEqual(observationSchema.properties.region_bbox.required, [
+    'coordinate_system',
+    'x',
+    'y',
+    'width',
+    'height',
+    'confidence'
+  ]);
+  assert.deepEqual(
+    observationSchema.properties.region_bbox.properties.coordinate_system.enum,
+    ['normalized_xywh']
+  );
+  assert.equal(observationSchema.properties.region_bbox.properties.x.minimum, 0);
+  assert.equal(observationSchema.properties.region_bbox.properties.width.minimum, 0.001);
   assert.deepEqual(candidateSchema.required, [
     'defect_type',
     'confidence',
@@ -71,6 +86,11 @@ test('Gemini Vision observation schema mirrors the v2 observer contract', () => 
   assert.equal(schema.properties.observations.type, 'ARRAY');
   assert.equal(schema.properties.observations.maxItems, '16');
   assert.equal(schema.properties.observations.items.properties.confidence.type, 'NUMBER');
+  assert.equal(schema.properties.observations.items.properties.region_bbox.type, 'OBJECT');
+  assert.deepEqual(
+    schema.properties.observations.items.properties.region_bbox.properties.coordinate_system.enum,
+    ['normalized_xywh']
+  );
   assert.equal(schema.properties.candidates.type, 'ARRAY');
   assert.equal(schema.properties.candidates.maxItems, '3');
   assert.deepEqual(schema.properties.candidates.items.required, [
