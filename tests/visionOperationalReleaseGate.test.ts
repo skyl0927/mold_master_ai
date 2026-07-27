@@ -355,9 +355,9 @@ test('release parser keeps a valid operator decision and rejects a stale one aft
     assert.throws(
         () => parseVisionOperationalReleaseReport(JSON.stringify({
             ...approved,
-            candidateVersion: {
-                ...candidateVersion,
-                promptVersion: 'vision-prompt-v7'
+            operatorDecision: {
+                ...approved.operatorDecision,
+                targetVersion: baselineVersion
             }
         })),
         /operator decision is stale/i

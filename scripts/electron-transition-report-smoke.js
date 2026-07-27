@@ -129,6 +129,9 @@ const path = require('node:path');
     ]);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: '\uC571 \uC124\uC815 \uC5F4\uAE30' }).click();
+    await page.getByPlaceholder('\uB2F4\uB2F9\uC790').fill('quality-lead');
+    await page.getByPlaceholder('\uAC80\uD1A0 \uCF54\uBA58\uD2B8').fill('rollback safety gate confirmed');
+    await page.getByRole('button', { name: '\uAE30\uC900 \uBC84\uC804 \uBCF5\uC6D0 \uD655\uC778' }).click();
     const bodyText = await page.locator('body').innerText();
     const screenshotPath = path.join(process.cwd(), 'artifacts', 'diagnosis-observability.png');
     await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -174,8 +177,14 @@ const path = require('node:path');
       hasVisionReviewQueue: bodyText.includes('Vision 우선 검토'),
       hasVisionReviewQueueSample: bodyText.includes('image-2'),
       hasReleaseGatePanel: bodyText.includes('\uBE44\uC804 \uB9B4\uB9AC\uC2A4 \uAC8C\uC774\uD2B8'),
-      hasRollbackDecision: bodyText.includes('\uC9C1\uC804 \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
+      hasRollbackDecision: bodyText.includes('\uAE30\uC900 Vision \uBC84\uC804 \uB864\uBC31 \uD544\uC694'),
+      hasOperatorDecision: bodyText.includes('\uC6B4\uC601 \uC870\uCE58 \uD655\uC778 \uC644\uB8CC'),
       releaseDecision: captured.report.operationalRelease?.decision,
+      releaseOperatorDecisionAction: captured.report.operationalRelease?.operatorDecision?.action,
+      releaseOperatorDecisionTarget:
+        captured.report.operationalRelease?.operatorDecision?.targetVersion?.modelVersion,
+      releaseOperatorDecisionAutoApplied:
+        captured.report.operationalRelease?.operatorDecision?.autoApplied,
       reportGraphGroundedRate: captured.report.observability.graphGroundedRate,
       reportClassifierAgreementRate: captured.report.observability.visionClassifierAgreementRate,
       reportClassifierDisagreementRate: captured.report.observability.visionClassifierDisagreementRate,
@@ -213,7 +222,11 @@ const path = require('node:path');
       || !result.hasVisionReviewQueueSample
       || !result.hasReleaseGatePanel
       || !result.hasRollbackDecision
+      || !result.hasOperatorDecision
       || result.releaseDecision !== 'rollback_required'
+      || result.releaseOperatorDecisionAction !== 'restore_baseline_snapshot'
+      || result.releaseOperatorDecisionTarget !== 'vision-model-2026.06'
+      || result.releaseOperatorDecisionAutoApplied !== false
       || result.reportGraphGroundedRate !== 50
       || result.reportClassifierAgreementRate !== 50
       || result.reportClassifierDisagreementRate !== 50

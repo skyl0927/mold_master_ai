@@ -24,6 +24,7 @@ import {
 } from '../services/visionDatasetReadinessService';
 import { DEFECT_CLASS_LABELS } from '../shared/defect-taxonomy';
 import {
+  attachVisionOperationalOperatorDecision,
   parseVisionOperationalReleaseReport,
   readVisionOperationalReleaseReport,
   saveVisionOperationalReleaseReport,
@@ -131,6 +132,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     () => readVisionOperationalReleaseReport()
   );
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
+  const [releaseOperator, setReleaseOperator] = useState('');
+  const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
   const [knowledgeMigrationStatus, setKnowledgeMigrationStatus] = useState('');
   const [visionReadiness, setVisionReadiness] = useState<VisionDatasetReadiness | null>(null);
@@ -284,10 +287,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       const report = parseVisionOperationalReleaseReport(await file.text());
       saveVisionOperationalReleaseReport(report);
       setOperationalRelease(report);
+      setReleaseOperator('');
+      setReleaseOperatorComment('');
       setReleaseImportStatus('운영 평가 보고서를 검증하고 등록했습니다.');
     } catch (error) {
       setReleaseImportStatus(
         error instanceof Error ? `보고서 등록 실패: ${error.message}` : '보고서 등록 실패'
+      );
+    }
+  };
+
+  const handleConfirmOperationalDecision = () => {
+    if (!operationalRelease) return;
+    try {
+      const report = attachVisionOperationalOperatorDecision(operationalRelease, {
+        action: operationalRelease.decisionCard.primaryAction,
+        targetVersion: operationalRelease.decisionCard.targetVersion,
+        operator: releaseOperator,
+        comment: releaseOperatorComment,
+        confirmed: true
+      });
+      saveVisionOperationalReleaseReport(report);
+      setOperationalRelease(report);
+      setReleaseImportStatus('운영 조치 확인 기록을 저장했습니다.');
+    } catch (error) {
+      setReleaseImportStatus(
+        error instanceof Error ? `운영 조치 기록 실패: ${error.message}` : '운영 조치 기록 실패'
       );
     }
   };
@@ -686,6 +711,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       차단 기준: {operationalRelease.decisionCard.blockingReasons.join(', ')}
                     </p>
                   )}
+                  <div className="mt-3 rounded border border-sky-900/60 bg-gray-900/40 p-2">
+                    {operationalRelease.operatorDecision ? (
+                      <div className="text-[10px] text-gray-300">
+                        <p className="font-semibold text-emerald-300">운영 조치 확인 완료</p>
+                        <p className="mt-1 break-words">
+                          {releaseActionLabel(operationalRelease.operatorDecision.action)} ·{' '}
+                          {operationalRelease.operatorDecision.operator} ·{' '}
+                          {new Date(operationalRelease.operatorDecision.decidedAt).toLocaleString()}
+                        </p>
+                        <p className="mt-1 break-words text-gray-400">
+                          {operationalRelease.operatorDecision.comment}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <input
+                            type="text"
+                            value={releaseOperator}
+                            onChange={event => setReleaseOperator(event.target.value)}
+                            placeholder="담당자"
+                            className="rounded border border-gray-700 bg-gray-950 px-2 py-1 text-[10px] text-white outline-none focus:border-sky-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleConfirmOperationalDecision}
+                            className="rounded bg-sky-700 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-600"
+                          >
+                            {releaseActionLabel(operationalRelease.decisionCard.primaryAction)} 확인
+                          </button>
+                        </div>
+                        <textarea
+                          value={releaseOperatorComment}
+                          onChange={event => setReleaseOperatorComment(event.target.value)}
+                          placeholder="검토 코멘트"
+                          rows={2}
+                          className="w-full resize-none rounded border border-gray-700 bg-gray-950 px-2 py-1 text-[10px] text-white outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <p className="mt-2 text-[10px] leading-relaxed text-gray-400">

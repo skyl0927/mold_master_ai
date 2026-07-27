@@ -136,6 +136,31 @@ export interface VisionOperationalDecisionCard {
     autoApplyAllowed: false;
 }
 
+export interface VisionOperationalOperatorDecision {
+    contractVersion: 'vision-operational-operator-decision/v1';
+    status: 'confirmed';
+    action: VisionOperationalDecisionAction;
+    decisionCardStatus: VisionOperationalDecisionStatus;
+    reportDecision: VisionOperationalReleaseDecision;
+    reportGeneratedAt: string;
+    decidedAt: string;
+    operator: string;
+    comment: string;
+    confirmed: true;
+    targetVersion: VisionVersionSnapshot;
+    blockingReasons: string[];
+    autoApplied: false;
+}
+
+export interface VisionOperationalOperatorDecisionInput {
+    action: VisionOperationalDecisionAction;
+    targetVersion: VisionVersionSnapshot;
+    operator: string;
+    comment: string;
+    confirmed: boolean;
+    decidedAt?: string;
+}
+
 export interface VisionOperationalReleaseReport {
     schemaVersion: 'vision-operational-release/v1';
     generatedAt: string;
@@ -151,6 +176,7 @@ export interface VisionOperationalReleaseReport {
     checks: VisionOperationalReleaseChecks;
     blockingReasons: string[];
     decisionCard: VisionOperationalDecisionCard;
+    operatorDecision?: VisionOperationalOperatorDecision;
 }
 
 export interface VisionOperationalReleaseInput {
@@ -527,6 +553,47 @@ export const evaluateVisionOperationalRelease = (
     };
 };
 
+export const attachVisionOperationalOperatorDecision = (
+    report: VisionOperationalReleaseReport,
+    input: VisionOperationalOperatorDecisionInput
+): VisionOperationalReleaseReport => {
+    const operator = input.operator.trim();
+    const comment = input.comment.trim();
+    if (!input.confirmed) {
+        throw new Error('Vision operator decision confirmation is required.');
+    }
+    if (!operator) {
+        throw new Error('Vision operator decision operator is required.');
+    }
+    if (!comment) {
+        throw new Error('Vision operator decision comment is required.');
+    }
+    if (input.action !== report.decisionCard.primaryAction) {
+        throw new Error('Vision operator decision does not match release card action.');
+    }
+    if (!sameVersionSnapshot(input.targetVersion, report.decisionCard.targetVersion)) {
+        throw new Error('Vision operator decision target version does not match release card target.');
+    }
+    return {
+        ...report,
+        operatorDecision: {
+            contractVersion: 'vision-operational-operator-decision/v1',
+            status: 'confirmed',
+            action: input.action,
+            decisionCardStatus: report.decisionCard.status,
+            reportDecision: report.decision,
+            reportGeneratedAt: report.generatedAt,
+            decidedAt: input.decidedAt || new Date().toISOString(),
+            operator,
+            comment,
+            confirmed: true,
+            targetVersion: { ...input.targetVersion },
+            blockingReasons: [...report.decisionCard.blockingReasons],
+            autoApplied: false
+        }
+    };
+};
+
 export const saveVisionOperationalReleaseReport = (
     report: VisionOperationalReleaseReport
 ): void => {
@@ -589,6 +656,41 @@ const isOperationalDecisionCard = (
         && isVersionSnapshot(card.targetVersion)
         && card.requiresHumanApproval === true
         && card.autoApplyAllowed === false;
+};
+
+const isOperationalOperatorDecision = (
+    value: unknown
+): value is VisionOperationalOperatorDecision => {
+    if (!value || typeof value !== 'object') return false;
+    const decision = value as Partial<VisionOperationalOperatorDecision>;
+    return decision.contractVersion === 'vision-operational-operator-decision/v1'
+        && decision.status === 'confirmed'
+        && (
+            decision.action === 'activate_candidate'
+            || decision.action === 'continue_shadow_and_collect'
+            || decision.action === 'restore_baseline_snapshot'
+        )
+        && (
+            decision.decisionCardStatus === 'ready_to_promote'
+            || decision.decisionCardStatus === 'shadow_hold'
+            || decision.decisionCardStatus === 'rollback_required'
+        )
+        && (
+            decision.reportDecision === 'promote_candidate'
+            || decision.reportDecision === 'hold_shadow'
+            || decision.reportDecision === 'rollback_required'
+        )
+        && typeof decision.reportGeneratedAt === 'string'
+        && typeof decision.decidedAt === 'string'
+        && typeof decision.operator === 'string'
+        && decision.operator.trim().length > 0
+        && typeof decision.comment === 'string'
+        && decision.comment.trim().length > 0
+        && decision.confirmed === true
+        && isVersionSnapshot(decision.targetVersion)
+        && Array.isArray(decision.blockingReasons)
+        && decision.blockingReasons.every(reason => typeof reason === 'string')
+        && decision.autoApplied === false;
 };
 
 const isOperationalMetrics = (value: unknown): value is VisionOperationalMetrics => {
@@ -661,9 +763,25 @@ export const parseVisionOperationalReleaseReport = (
             throw new Error('Invalid Vision operational release report: decision card is inconsistent.');
         }
     }
+    if (report.operatorDecision) {
+        if (!isOperationalOperatorDecision(report.operatorDecision)) {
+            throw new Error('Invalid Vision operational release report: operator decision is malformed.');
+        }
+        if (
+            report.operatorDecision.action !== expectedCard.primaryAction
+            || report.operatorDecision.decisionCardStatus !== expectedCard.status
+            || report.operatorDecision.reportDecision !== report.decision
+            || report.operatorDecision.reportGeneratedAt !== report.generatedAt
+            || !sameVersionSnapshot(report.operatorDecision.targetVersion, expectedCard.targetVersion)
+            || !sameStringList(report.operatorDecision.blockingReasons, expectedCard.blockingReasons)
+        ) {
+            throw new Error('Invalid Vision operational release report: operator decision is stale.');
+        }
+    }
     return {
         ...reportWithOptionalCard,
-        decisionCard: expectedCard
+        decisionCard: expectedCard,
+        operatorDecision: report.operatorDecision
     };
 };
 
