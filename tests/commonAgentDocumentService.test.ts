@@ -719,6 +719,21 @@ test('diagnosis observability summarizes latency, graph usage, context, sources,
     assert.equal(observability.visionClassifierDisagreementRate, 33.3);
     assert.equal(observability.visionClassifierInsufficientReferenceRate, 33.3);
     assert.equal(observability.averageClassifierReferenceCount, 3.3);
+    assert.deepEqual(
+        observability.visionClassifierRecommendedActions.map(action => action.code),
+        [
+            'review_classifier_disagreement',
+            'collect_classifier_references'
+        ]
+    );
+    assert.match(
+        observability.visionClassifierRecommendedActions[0].message,
+        /촬영 프로토콜.*라벨 taxonomy/
+    );
+    assert.match(
+        observability.visionClassifierRecommendedActions[1].message,
+        /승인 이미지.*추가/
+    );
     assert.equal(observability.ungroundedLlmTrainingLeakCount, 0);
     assert.equal(observability.averageEvidenceCount, 2);
     assert.equal(observability.contextProvidedRate, 66.7);
