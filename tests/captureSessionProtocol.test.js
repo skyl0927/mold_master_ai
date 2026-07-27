@@ -166,6 +166,18 @@ test('capture metadata preserves fresh recapture lineage for Common Agent', () =
     'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
   ]);
   assert.equal(metadata.recapture_bbox_grounding_profile_id, 'defect_closeup_precision');
+  assert.equal(metadata.recapture_guidance_protocol_version, 'vision-recapture-capture-guidance/v1');
+  assert.equal(metadata.recapture_recommended_view_tag, 'defect_closeup');
+  assert.equal(metadata.recapture_guidance_message, '재촬영 권장 시점: 결함 근접 사진');
+  assert.deepEqual(metadata.recapture_guidance_reason_codes, [
+    'low_region_bbox_confidence',
+    'overbroad_region_bbox'
+  ]);
+  assert.deepEqual(metadata.recapture_guidance_instructions, [
+    'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
+    'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영',
+    '결함 경계와 주변 정상면이 함께 보이도록 근접 촬영'
+  ]);
 });
 
 test('HITL recapture review builds next-capture lineage from vision safety evidence', () => {
