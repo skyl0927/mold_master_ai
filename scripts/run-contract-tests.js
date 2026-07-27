@@ -35,6 +35,7 @@ const result = spawnSync(process.execPath, [
     path.join(root, 'tests', 'operationalHitlReviewSessionPacket.test.js'),
     path.join(root, 'tests', 'operationalHitlReviewSessionProgress.test.js'),
     path.join(root, 'tests', 'operationalHitlDryRunRoundtrip.test.js'),
+    path.join(root, 'tests', 'operationalHitlSimulatedPreflight.test.js'),
     path.join(root, 'tests', 'operationalHitlDecisionWorktableImport.test.js'),
     path.join(root, 'tests', 'operationalHitlVerificationRun.test.js'),
     path.join(root, 'tests', 'operationalHitlCommonAgentImportPackage.test.js'),

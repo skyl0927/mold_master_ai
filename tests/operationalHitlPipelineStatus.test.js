@@ -132,6 +132,23 @@ const dryRunRoundtrip = (status = 'simulated_roundtrip_ready') => ({
   }
 });
 
+const simulatedPreflight = (status = 'simulated_preflight_ready') => ({
+  contractVersion: 'operational-hitl-simulated-preflight/v1',
+  status,
+  serviceWritesPerformed: false,
+  localEditableWritesPerformed: false,
+  summary: {
+    totalRows: 59,
+    importPlannedUpdates: status === 'blocked_roundtrip_invalid' ? 0 : 59,
+    roundtripInvalidRows: status === 'blocked_roundtrip_invalid' ? 1 : 0,
+    simulatedFilesUpdated: status === 'simulated_preflight_ready' ? 3 : 0,
+    preflightPendingDecisions: status === 'simulated_preflight_ready' ? 0 : 12,
+    preflightMissingRequiredFields: status === 'simulated_preflight_blocked' ? 2 : 0,
+    readyForVerificationFileCount: status === 'simulated_preflight_ready' ? 3 : 0,
+    verificationCommandCount: status === 'simulated_preflight_ready' ? 3 : 0
+  }
+});
+
 const preflight = status => ({
   contractVersion: 'operational-hitl-editable-decision-preflight/v1',
   status,
@@ -216,6 +233,7 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
   assert.deepEqual(status.nextActions[0].commands, [
     'npm run operational:hitl:worktable-suggest',
     'npm run operational:hitl:dry-run-roundtrip',
+    'npm run operational:hitl:simulated-preflight',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
@@ -234,6 +252,7 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
     worktableExport: worktableExport(),
     worktableSuggestion: worktableSuggestion(),
     dryRunRoundtrip: dryRunRoundtrip(),
+    simulatedPreflight: simulatedPreflight(),
     reviewSessionPlan: reviewSessionPlan(),
     reviewSessionPacket: reviewSessionPacket(),
     reviewSessionProgress: reviewSessionProgress(),
@@ -242,6 +261,7 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
     sourceArtifacts: {
       worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
       dryRunRoundtrip: 'C:\\repo\\artifacts\\operational-hitl-dry-run-roundtrip.json',
+      simulatedPreflight: 'C:\\repo\\artifacts\\operational-hitl-simulated-preflight.json',
       reviewSessionPlan: 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json',
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
       reviewSessionProgress: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json'
@@ -257,6 +277,10 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.equal(status.summary.worktableDryRunRoundtripSimulatedRows, 59);
   assert.equal(status.summary.worktableDryRunRoundtripPlannedUpdates, 59);
   assert.equal(status.summary.worktableDryRunRoundtripInvalidRows, 0);
+  assert.equal(status.summary.worktableSimulatedPreflightPlannedUpdates, 59);
+  assert.equal(status.summary.worktableSimulatedPreflightPendingDecisions, 0);
+  assert.equal(status.summary.worktableSimulatedPreflightMissingRequiredFields, 0);
+  assert.equal(status.summary.worktableSimulatedPreflightReadyFiles, 3);
   assert.equal(status.summary.worktableReviewSessionCount, 4);
   assert.equal(status.summary.worktableReviewSessionHighRiskRows, 9);
   assert.equal(status.summary.worktableReviewSessionPacketCount, 4);
@@ -268,6 +292,7 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.equal(status.summary.worktableReviewSessionProgressCompleteSessions, 0);
   assert.equal(status.sources.worktableSuggestion, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json');
   assert.equal(status.sources.dryRunRoundtrip, 'C:\\repo\\artifacts\\operational-hitl-dry-run-roundtrip.json');
+  assert.equal(status.sources.simulatedPreflight, 'C:\\repo\\artifacts\\operational-hitl-simulated-preflight.json');
   assert.equal(status.sources.reviewSessionPlan, 'C:\\repo\\artifacts\\operational-hitl-review-session-plan.json');
   assert.equal(status.sources.reviewSessionPacket, 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json');
   assert.equal(status.sources.reviewSessionProgress, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json');
@@ -285,6 +310,14 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
       code: 'dry_run_roundtrip',
       titleKo: 'Dry-run roundtrip',
       status: 'simulated_roundtrip_ready'
+    }
+  );
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'simulated_preflight'),
+    {
+      code: 'simulated_preflight',
+      titleKo: 'Simulated preflight',
+      status: 'simulated_preflight_ready'
     }
   );
   assert.deepEqual(
@@ -314,11 +347,38 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.match(status.markdown, /추천 row: 59/);
   assert.match(status.markdown, /추천값 roundtrip 계획 update: 59/);
   assert.match(status.markdown, /추천값 roundtrip 오류 row: 0/);
+  assert.match(status.markdown, /추천값 preflight 계획 update: 59/);
+  assert.match(status.markdown, /추천값 preflight pending: 0/);
+  assert.match(status.markdown, /추천값 preflight 필수필드 누락: 0/);
   assert.match(status.markdown, /검토 세션: 4/);
   assert.match(status.markdown, /검토 패킷: 4/);
   assert.match(status.markdown, /세션 완료 row: 0/);
   assert.match(status.markdown, /세션 대기 row: 59/);
   assert.match(status.markdown, /재촬영 추천: 5/);
+});
+
+test('surfaces simulated preflight blockers before human CSV entry', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    intakeStatus: intakeStatus(),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableSuggestion: worktableSuggestion(),
+    dryRunRoundtrip: dryRunRoundtrip(),
+    simulatedPreflight: simulatedPreflight('simulated_preflight_blocked'),
+    worktableImport: worktableImport('no_actionable_rows'),
+    preflightReport: preflight('needs_human_input')
+  });
+
+  assert.equal(status.status, 'action_required');
+  assert.equal(status.currentStage.code, 'fix_simulated_preflight');
+  assert.equal(status.nextActions[0].code, 'fix_simulated_preflight');
+  assert.equal(status.summary.worktableSimulatedPreflightPendingDecisions, 12);
+  assert.equal(status.summary.worktableSimulatedPreflightMissingRequiredFields, 2);
+  assert.deepEqual(status.nextActions[0].commands, [
+    'npm run operational:hitl:simulated-preflight',
+    'npm run operational:hitl:dry-run-roundtrip',
+    'npm run operational:hitl:worktable-suggest'
+  ]);
 });
 
 test('surfaces recommendation roundtrip gaps before human CSV entry', () => {

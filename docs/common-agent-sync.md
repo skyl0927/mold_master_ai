@@ -99,6 +99,7 @@ npm run operational:hitl:review-session-plan
 npm run operational:hitl:review-session-packet
 npm run operational:hitl:session-progress
 npm run operational:hitl:dry-run-roundtrip
+npm run operational:hitl:simulated-preflight
 npm run operational:hitl:worktable-import
 npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
@@ -212,6 +213,15 @@ Common Agent import, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 �
 대체하거나 `--apply` 입력으로 사용할 수 없다. 이 단계는 추천 규칙과 import 계약의
 불일치를 찾는 예행연습이며, 자동 적용, 검증 실행, Common Agent import, SQL 쓰기,
 Graph/Reference/Model 승격을 수행하지 않는다.
+
+`operational:hitl:simulated-preflight`는 위 simulation-only CSV를 다시 기존
+`worktable-import` dry-run에 통과시킨 뒤, 계획된 update를 메모리 안의 editable
+decision JSON 복사본에만 반영하고 기존 `editable-preflight` 검증기를 실행한다.
+즉 사람이 추천값을 실제로 확인해 입력했을 때 preflight까지 열릴 가능성이 있는지
+사전에 점검한다. 파일 시스템의 editable JSON은 수정하지 않으며,
+`localEditableWritesPerformed=false`, `inMemoryEditableApplyOnly=true`를 유지한다.
+결과가 `simulated_preflight_ready`여도 실제 승인이나 학습이 아니라 운영 보조
+증거일 뿐이다.
 
 `operational:hitl:verify-run`은 `editable-preflight`가 `ready_for_verification`
 상태일 때만 세 큐의 `verify-decisions` 명령을 실행할 수 있게 하는 로컬 검증

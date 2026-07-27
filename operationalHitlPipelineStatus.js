@@ -99,6 +99,10 @@ const missingEvidenceStatus = ({ generatedAt, missingArtifactNames, sourceArtifa
     worktableDryRunRoundtripSimulatedRows: 0,
     worktableDryRunRoundtripPlannedUpdates: 0,
     worktableDryRunRoundtripInvalidRows: 0,
+    worktableSimulatedPreflightPlannedUpdates: 0,
+    worktableSimulatedPreflightPendingDecisions: 0,
+    worktableSimulatedPreflightMissingRequiredFields: 0,
+    worktableSimulatedPreflightReadyFiles: 0,
     worktablePlannedUpdates: 0,
     preflightPendingDecisions: 0,
     verificationCommandsExecuted: 0,
@@ -130,6 +134,7 @@ const sourceMap = sourceArtifacts => ({
   worktableCsv: sourceArtifacts.worktableCsv || null,
   worktableSuggestion: sourceArtifacts.worktableSuggestion || null,
   dryRunRoundtrip: sourceArtifacts.dryRunRoundtrip || null,
+  simulatedPreflight: sourceArtifacts.simulatedPreflight || null,
   reviewSessionPlan: sourceArtifacts.reviewSessionPlan || null,
   reviewSessionPacket: sourceArtifacts.reviewSessionPacket || null,
   reviewSessionProgress: sourceArtifacts.reviewSessionProgress || null,
@@ -146,6 +151,7 @@ const stageTrailFor = ({
   worktableExport,
   worktableSuggestion,
   dryRunRoundtrip,
+  simulatedPreflight,
   reviewSessionPlan,
   reviewSessionPacket,
   reviewSessionProgress,
@@ -179,6 +185,11 @@ const stageTrailFor = ({
     code: 'dry_run_roundtrip',
     titleKo: 'Dry-run roundtrip',
     status: compact(dryRunRoundtrip?.status) || 'not_started'
+  },
+  {
+    code: 'simulated_preflight',
+    titleKo: 'Simulated preflight',
+    status: compact(simulatedPreflight?.status) || 'not_started'
   },
   {
     code: 'review_session_plan',
@@ -229,6 +240,7 @@ const fillCsvAction = worktableCsv => action({
   commands: [
     'npm run operational:hitl:worktable-suggest',
     'npm run operational:hitl:dry-run-roundtrip',
+    'npm run operational:hitl:simulated-preflight',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
     worktableCsv ? `edit ${worktableCsv}` : 'edit <operational-hitl-decision-worktable-export.csv>',
@@ -243,6 +255,7 @@ const pipelineDecision = ({
   worktableExport,
   worktableSuggestion,
   dryRunRoundtrip,
+  simulatedPreflight,
   worktableImport,
   preflightReport,
   verificationRun,
@@ -265,6 +278,34 @@ const pipelineDecision = ({
           titleKo: '추천값 roundtrip 오류 수정',
           instructionKo: 'dry-run roundtrip invalidRows를 확인해 추천 생성 규칙 또는 worktable 필드를 보완하세요.',
           commands: [
+            'npm run operational:hitl:dry-run-roundtrip',
+            'npm run operational:hitl:worktable-suggest'
+          ],
+          owner: 'system_operator'
+        })
+      ]
+    };
+  }
+
+  if (
+    simulatedPreflight
+    && !['simulated_preflight_ready', 'clear', 'missing_evidence'].includes(compact(simulatedPreflight.status))
+  ) {
+    return {
+      status: 'action_required',
+      currentStage: stage({
+        code: 'fix_simulated_preflight',
+        titleKo: '추천값 preflight 사전검증 오류 수정',
+        status: 'action_required',
+        feedbackKo: '추천값을 메모리 반영해도 editable preflight가 아직 통과하지 못합니다.'
+      }),
+      nextActions: [
+        action({
+          code: 'fix_simulated_preflight',
+          titleKo: '추천값 preflight 오류 수정',
+          instructionKo: 'simulated-preflight files와 roundtripInvalidRows를 확인해 추천 생성 규칙, worktable 필드, editable template 필드를 보완하세요.',
+          commands: [
+            'npm run operational:hitl:simulated-preflight',
             'npm run operational:hitl:dry-run-roundtrip',
             'npm run operational:hitl:worktable-suggest'
           ],
@@ -470,6 +511,7 @@ const summaryFor = ({
   worktableExport,
   worktableSuggestion,
   dryRunRoundtrip,
+  simulatedPreflight,
   reviewSessionPlan,
   reviewSessionPacket,
   reviewSessionProgress,
@@ -500,6 +542,10 @@ const summaryFor = ({
   worktableDryRunRoundtripSimulatedRows: numberFrom(dryRunRoundtrip?.summary?.simulatedRows),
   worktableDryRunRoundtripPlannedUpdates: numberFrom(dryRunRoundtrip?.summary?.importPlannedUpdates),
   worktableDryRunRoundtripInvalidRows: numberFrom(dryRunRoundtrip?.summary?.invalidRows),
+  worktableSimulatedPreflightPlannedUpdates: numberFrom(simulatedPreflight?.summary?.importPlannedUpdates),
+  worktableSimulatedPreflightPendingDecisions: numberFrom(simulatedPreflight?.summary?.preflightPendingDecisions),
+  worktableSimulatedPreflightMissingRequiredFields: numberFrom(simulatedPreflight?.summary?.preflightMissingRequiredFields),
+  worktableSimulatedPreflightReadyFiles: numberFrom(simulatedPreflight?.summary?.readyForVerificationFileCount),
   worktableReviewSessionCount: numberFrom(reviewSessionPlan?.summary?.sessionCount),
   worktableReviewSessionHighRiskRows: numberFrom(reviewSessionPlan?.summary?.highRiskRows),
   worktableReviewSessionPacketCount: numberFrom(reviewSessionPacket?.summary?.sessionPacketCount),
@@ -544,6 +590,9 @@ const markdownFor = report => {
     `- Web 카드 승인 후보: ${report.summary.worktableApproveCardSuggestions}`,
     `- 추천값 roundtrip 계획 update: ${report.summary.worktableDryRunRoundtripPlannedUpdates}`,
     `- 추천값 roundtrip 오류 row: ${report.summary.worktableDryRunRoundtripInvalidRows}`,
+    `- 추천값 preflight 계획 update: ${report.summary.worktableSimulatedPreflightPlannedUpdates}`,
+    `- 추천값 preflight pending: ${report.summary.worktableSimulatedPreflightPendingDecisions}`,
+    `- 추천값 preflight 필수필드 누락: ${report.summary.worktableSimulatedPreflightMissingRequiredFields}`,
     `- 작업표 계획 update: ${report.summary.worktablePlannedUpdates}`,
     `- post-import validation case: ${report.summary.postImportValidationCases}`,
     '- 안전 정책: 자동 쓰기 금지, Graph/Reference/Model 승격 금지',
@@ -570,6 +619,7 @@ const buildOperationalHitlPipelineStatus = ({
   worktableExport = null,
   worktableSuggestion = null,
   dryRunRoundtrip = null,
+  simulatedPreflight = null,
   reviewSessionPlan = null,
   reviewSessionPacket = null,
   reviewSessionProgress = null,
@@ -606,6 +656,7 @@ const buildOperationalHitlPipelineStatus = ({
     worktableExport,
     worktableSuggestion,
     dryRunRoundtrip,
+    simulatedPreflight,
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
@@ -622,6 +673,7 @@ const buildOperationalHitlPipelineStatus = ({
     worktableExport,
     worktableSuggestion,
     dryRunRoundtrip,
+    simulatedPreflight,
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
@@ -649,6 +701,7 @@ const buildOperationalHitlPipelineStatus = ({
       worktableExport,
       worktableSuggestion,
       dryRunRoundtrip,
+      simulatedPreflight,
       reviewSessionPlan,
       reviewSessionPacket,
       reviewSessionProgress,

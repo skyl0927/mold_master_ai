@@ -302,6 +302,9 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
       worktableReviewSessionProgressInvalidRows: 0,
       worktableDryRunRoundtripPlannedUpdates: 59,
       worktableDryRunRoundtripInvalidRows: 0,
+      worktableSimulatedPreflightPlannedUpdates: 59,
+      worktableSimulatedPreflightPendingDecisions: 0,
+      worktableSimulatedPreflightMissingRequiredFields: 0,
       worktablePlannedUpdates: 0,
       preflightPendingDecisions: 59,
       commonAgentApprovedPayloads: 0
@@ -314,6 +317,7 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
         commands: [
           'npm run operational:hitl:worktable-suggest',
           'npm run operational:hitl:dry-run-roundtrip',
+          'npm run operational:hitl:simulated-preflight',
           'npm run operational:hitl:review-session-plan',
           'npm run operational:hitl:review-session-packet',
           'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
@@ -328,7 +332,7 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
   assert.equal(display.severity, 'warning');
   assert.equal(
     display.summaryText,
-    '미입력 56건 · 작업표 59건 · 추천 59건 · 검토세션 4건 · 고위험 9건 · 검토패킷 4건 · 패킷파일 8개 · 세션대기 59건 · 사전검증 59건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
+    '미입력 56건 · 작업표 59건 · 추천 59건 · 검토세션 4건 · 고위험 9건 · 검토패킷 4건 · 패킷파일 8개 · 세션대기 59건 · 사전검증 59건 · preflight예행 59건 · 재촬영 5건 · Vision 후보 7건 · Web 후보 43건'
   );
   assert.equal(display.stageText, 'CSV HITL 판정 입력 대기');
   assert.equal(display.suggestionText, '추천 분포: 재촬영 5건 · Vision 후보 7건 · Web 후보 43건 · 검토필요 4건');
@@ -336,6 +340,7 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
   assert.deepEqual(display.nextCommands, [
     'npm run operational:hitl:worktable-suggest',
     'npm run operational:hitl:dry-run-roundtrip',
+    'npm run operational:hitl:simulated-preflight',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
@@ -349,6 +354,42 @@ test('summarizes operational HITL pipeline status for Settings UI display', () =
     'Reference 학습 금지',
     'Model 학습 금지'
   ]);
+});
+
+test('highlights invalid operational HITL simulated preflight evidence', () => {
+  const display = summarizeOperationalHitlPipelineStatusDisplay({
+    contractVersion: 'operational-hitl-pipeline-status/v1',
+    status: 'action_required',
+    currentStage: {
+      code: 'fix_simulated_preflight',
+      titleKo: '추천값 preflight 사전검증 오류 수정'
+    },
+    summary: {
+      totalDecisionInputsMissing: 56,
+      worktableRows: 59,
+      worktableSuggestionRows: 59,
+      worktableSimulatedPreflightPlannedUpdates: 59,
+      worktableSimulatedPreflightPendingDecisions: 12,
+      worktableSimulatedPreflightMissingRequiredFields: 2
+    },
+    nextActions: [
+      {
+        instructionKo: 'simulated-preflight files를 확인하세요.',
+        commands: [
+          'npm run operational:hitl:simulated-preflight',
+          'npm run operational:hitl:dry-run-roundtrip'
+        ]
+      }
+    ]
+  });
+
+  assert.equal(display.statusLabel, '추천 Preflight 오류');
+  assert.equal(display.severity, 'danger');
+  assert.equal(
+    display.summaryText,
+    '미입력 56건 · 작업표 59건 · 추천 59건 · preflight예행 59건 · preflight대기 12건 · preflight누락 2건'
+  );
+  assert.equal(display.nextCommand, 'npm run operational:hitl:simulated-preflight');
 });
 
 test('highlights invalid operational HITL dry-run roundtrip evidence', () => {

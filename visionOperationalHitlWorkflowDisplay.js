@@ -127,6 +127,7 @@ const actionPackSeverityFor = status => {
 const pipelineStatusLabelFor = (status, stageCode) => {
   if (status === 'missing_evidence') return '증거 재생성 필요';
   if (stageCode === 'fix_dry_run_roundtrip') return '추천 사전검증 오류';
+  if (stageCode === 'fix_simulated_preflight') return '추천 Preflight 오류';
   if (stageCode === 'awaiting_human_csv_decisions') return 'CSV 판정 입력 대기';
   if (stageCode === 'review_worktable_import_plan') return '작업표 반영 승인 대기';
   if (status === 'ready_for_common_agent_manual_review') return 'Common Agent 전달 준비';
@@ -137,7 +138,7 @@ const pipelineStatusLabelFor = (status, stageCode) => {
 };
 
 const pipelineSeverityFor = (status, stageCode) => {
-  if (stageCode === 'fix_dry_run_roundtrip') return 'danger';
+  if (stageCode === 'fix_dry_run_roundtrip' || stageCode === 'fix_simulated_preflight') return 'danger';
   if (status === 'missing_evidence') return 'danger';
   if (
     status === 'ready_for_common_agent_manual_review'
@@ -302,6 +303,15 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
       : '',
     numberValue(summary.worktableDryRunRoundtripInvalidRows) > 0
       ? `사전오류 ${numberValue(summary.worktableDryRunRoundtripInvalidRows)}건`
+      : '',
+    numberValue(summary.worktableSimulatedPreflightPlannedUpdates) > 0
+      ? `preflight예행 ${numberValue(summary.worktableSimulatedPreflightPlannedUpdates)}건`
+      : '',
+    numberValue(summary.worktableSimulatedPreflightPendingDecisions) > 0
+      ? `preflight대기 ${numberValue(summary.worktableSimulatedPreflightPendingDecisions)}건`
+      : '',
+    numberValue(summary.worktableSimulatedPreflightMissingRequiredFields) > 0
+      ? `preflight누락 ${numberValue(summary.worktableSimulatedPreflightMissingRequiredFields)}건`
       : '',
     numberValue(summary.worktableRecaptureSuggestions) > 0
       ? `재촬영 ${numberValue(summary.worktableRecaptureSuggestions)}건`
