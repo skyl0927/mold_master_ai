@@ -47,6 +47,7 @@ import {
     CAPTURE_VIEW_OPTIONS,
     assessCaptureImageForDiagnosis,
     buildCaptureMetadata,
+    buildRecaptureCaptureGuidance,
     buildRecaptureSourceFromReview,
     collectSessionDiagnosisImages,
     createCaptureSessionId,
@@ -255,6 +256,9 @@ const App: React.FC = () => {
     const [loginError, setLoginError] = useState('');
 
     const activeCaptureSummary = summarizeCaptureSession(capturedImages, activeCaptureSessionId);
+    const pendingRecaptureGuidance = pendingRecaptureSource
+        ? buildRecaptureCaptureGuidance(pendingRecaptureSource)
+        : null;
 
     const startNewCaptureSession = useCallback((source = 'workspace') => {
         const nextSessionId = createCaptureSessionId(source);
@@ -272,6 +276,11 @@ const App: React.FC = () => {
         const nextSource = source || null;
         pendingRecaptureSourceRef.current = nextSource;
         setPendingRecaptureSource(nextSource);
+        if (nextSource) {
+            const guidance = buildRecaptureCaptureGuidance(nextSource);
+            screenCaptureViewTagRef.current = guidance.recommendedViewTag;
+            setScreenCaptureViewTag(guidance.recommendedViewTag);
+        }
     }, []);
 
     const consumePendingRecaptureLineage = useCallback((): CapturedImage['recaptureSource'] | undefined => {
@@ -282,6 +291,12 @@ const App: React.FC = () => {
         }
         return source;
     }, []);
+
+    const getRecaptureRecommendedView = useCallback(
+        (source: CapturedImage['recaptureSource'] | undefined): CaptureViewTag | undefined =>
+            source ? buildRecaptureCaptureGuidance(source).recommendedViewTag : undefined,
+        []
+    );
 
     useEffect(() => {
         const refreshManualDocuments = () => {
@@ -318,6 +333,7 @@ const App: React.FC = () => {
 
         const unsubMobileUpload = window.electronAPI.onMobileUploadSuccess((payload) => {
             const recaptureSource = consumePendingRecaptureLineage();
+            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
             setCapturedImages(prev => {
                 if (prev.length > 0 && prev[prev.length - 1].dataUrl === payload.dataUrl) {
                     return prev;
@@ -329,6 +345,7 @@ const App: React.FC = () => {
                     annotations: [],
                     shapes: [],
                     captureSessionId: activeCaptureSessionIdRef.current,
+                    ...(recaptureViewTag ? { captureViewTag: recaptureViewTag } : {}),
                     captureImageKind: 'physical_product',
                     captureSource: 'mobile',
                     ...(recaptureSource ? { recaptureSource } : {})
@@ -370,7 +387,7 @@ const App: React.FC = () => {
             unsubMobileUpload();
             unsubMobileConnect();
         };
-    }, [consumePendingRecaptureLineage]);
+    }, [consumePendingRecaptureLineage, getRecaptureRecommendedView]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1207,6 +1224,7 @@ const App: React.FC = () => {
                     reader.onload = (ev) => {
                         if (ev.target?.result) {
                             const recaptureSource = consumePendingRecaptureLineage();
+                            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
                             setCapturedImages(prev => [...prev, {
                                 id: Date.now().toString() + Math.random(),
                                 baseImageUrl: ev.target!.result as string,
@@ -1214,7 +1232,8 @@ const App: React.FC = () => {
                                 annotations: [],
                                 shapes: [],
                                 captureSessionId: activeCaptureSessionIdRef.current,
-                                captureImageKind: 'unknown',
+                                ...(recaptureViewTag ? { captureViewTag: recaptureViewTag } : {}),
+                                captureImageKind: recaptureSource ? 'physical_product' : 'unknown',
                                 captureSource: 'file',
                                 ...(recaptureSource ? { recaptureSource } : {})
                             }]);
@@ -1403,6 +1422,7 @@ const App: React.FC = () => {
                     reader.onload = (ev) => {
                         if (ev.target?.result) {
                             const recaptureSource = consumePendingRecaptureLineage();
+                            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
                             setCapturedImages(prev => [...prev, {
                                 id: Date.now().toString() + Math.random(),
                                 baseImageUrl: ev.target!.result as string,
@@ -1410,7 +1430,8 @@ const App: React.FC = () => {
                                 annotations: [],
                                 shapes: [],
                                 captureSessionId: activeCaptureSessionIdRef.current,
-                                captureImageKind: 'unknown',
+                                ...(recaptureViewTag ? { captureViewTag: recaptureViewTag } : {}),
+                                captureImageKind: recaptureSource ? 'physical_product' : 'unknown',
                                 captureSource: 'file',
                                 ...(recaptureSource ? { recaptureSource } : {})
                             }]);
@@ -1436,6 +1457,7 @@ const App: React.FC = () => {
                 <CameraCapture
                     sessionId={activeCaptureSessionId}
                     sessionSummary={activeCaptureSummary}
+                    recaptureGuidance={pendingRecaptureGuidance || undefined}
                     onCapture={handleCameraCapture}
                     onNewSession={() => handleNewCaptureSession('camera')}
                     onClose={() => setIsCameraOpen(false)}
@@ -1696,10 +1718,15 @@ const App: React.FC = () => {
                                 ? activeCaptureSummary.message
                                 : '같은 제품의 전체 사진과 결함 근접 사진을 이 세션에 추가하세요.'}
                         </p>
-                        {pendingRecaptureSource && (
-                            <p className="mt-2 rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-100">
-                                재촬영 연결 대기: 원본 {pendingRecaptureSource.localImageId || 'local image'} · {pendingRecaptureSource.bboxGroundingProfileId || 'bbox profile 없음'}
-                            </p>
+                        {pendingRecaptureSource && pendingRecaptureGuidance && (
+                            <div className="mt-2 rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+                                <p className="font-bold">
+                                    {pendingRecaptureGuidance.message} · 원본 {pendingRecaptureSource.localImageId || 'local image'}
+                                </p>
+                                {pendingRecaptureGuidance.instructions[0] && (
+                                    <p className="mt-1 text-amber-200/90">{pendingRecaptureGuidance.instructions[0]}</p>
+                                )}
+                            </div>
                         )}
                     </div>
                     <label className="flex items-center gap-2">

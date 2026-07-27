@@ -7,7 +7,8 @@ import {
 } from '../types';
 import {
     CAPTURE_VIEW_OPTIONS,
-    CaptureSessionSummary
+    CaptureSessionSummary,
+    RecaptureCaptureGuidance
 } from '../captureSessionProtocol';
 
 export interface CameraCaptureMetadata {
@@ -20,6 +21,7 @@ export interface CameraCaptureMetadata {
 interface CameraCaptureProps {
     sessionId: string;
     sessionSummary: CaptureSessionSummary;
+    recaptureGuidance?: RecaptureCaptureGuidance;
     onCapture: (dataUrl: string, metadata: CameraCaptureMetadata) => void;
     onNewSession: () => void;
     onClose: () => void;
@@ -28,6 +30,7 @@ interface CameraCaptureProps {
 const CameraCapture: React.FC<CameraCaptureProps> = ({
     sessionId,
     sessionSummary,
+    recaptureGuidance,
     onCapture,
     onNewSession,
     onClose
@@ -92,6 +95,12 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         if (nextRequiredView) setSelectedViewTag(nextRequiredView);
         setLastCaptureMessage('');
     }, [sessionId, sessionSummary.missingViews.join('|')]);
+
+    useEffect(() => {
+        if (recaptureGuidance?.active) {
+            setSelectedViewTag(recaptureGuidance.recommendedViewTag);
+        }
+    }, [recaptureGuidance?.active, recaptureGuidance?.recommendedViewTag]);
 
     const captureFrame = (): string | null => {
         if (!videoRef.current || videoRef.current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
@@ -218,6 +227,15 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                     <p className={`mt-2 text-sm ${sessionSummary.ready ? 'text-emerald-300' : 'text-amber-200'}`}>
                         {sessionSummary.message}
                     </p>
+
+                    {recaptureGuidance?.active && (
+                        <div className="mt-4 rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-3 text-xs text-amber-100">
+                            <p className="font-bold">{recaptureGuidance.message}</p>
+                            {recaptureGuidance.instructions.slice(0, 2).map(instruction => (
+                                <p key={instruction} className="mt-1 text-amber-200/90">{instruction}</p>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
                         {(['full_part_context', 'defect_closeup'] as CaptureViewTag[]).map(viewTag => {

@@ -45,6 +45,15 @@ export interface CaptureMetadata {
 
 export type RecaptureSource = NonNullable<CapturedImage['recaptureSource']>;
 
+export interface RecaptureCaptureGuidance {
+  protocolVersion: 'vision-recapture-capture-guidance/v1';
+  active: boolean;
+  recommendedViewTag: CaptureViewTag;
+  reasonCodes: string[];
+  instructions: string[];
+  message: string;
+}
+
 export const CAPTURE_VIEW_OPTIONS: CaptureViewOption[];
 export const VALID_CAPTURE_SOURCES: Set<CaptureSource>;
 export const VALID_IMAGE_KINDS: Set<CaptureImageKind>;
@@ -75,6 +84,10 @@ export function buildRecaptureSourceFromReview(options?: {
   analysis?: Partial<DefectAnalysis>;
   reviewDecisionId?: string;
 }): RecaptureSource;
+
+export function buildRecaptureCaptureGuidance(
+  source?: Partial<RecaptureSource>
+): RecaptureCaptureGuidance;
 
 export function collectSessionDiagnosisImages<T extends Partial<CapturedImage>>(
   selectedImage: T,

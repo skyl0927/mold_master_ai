@@ -39,6 +39,8 @@ const stringList = value => (Array.isArray(value) ? value : [])
   .map(compact)
   .filter(Boolean);
 
+const uniqueStrings = values => [...new Set(stringList(values))];
+
 const buildRecaptureSourceFromReview = ({
   image,
   analysis,
@@ -53,6 +55,53 @@ const buildRecaptureSourceFromReview = ({
     safetyGateReasons: stringList(safetyGate?.reasons),
     requiredAdditionalViews: stringList(visionSummary?.requiredAdditionalViews),
     bboxGroundingProfileId: compact(safetyGate?.bboxGroundingProfileId)
+  };
+};
+
+const inferRecaptureViewTag = source => {
+  const text = [
+    ...stringList(source?.requiredAdditionalViews),
+    ...stringList(source?.safetyGateReasons),
+    compact(source?.bboxGroundingProfileId)
+  ].join(' ').toLocaleLowerCase();
+
+  if (/사선광|광택|oblique|raking/.test(text)) return 'oblique_light';
+  if (/취출|밀핀|이젝|eject|release/.test(text)) return 'ejection_location';
+  if (/파팅|parting|인서트/.test(text)) return 'parting_line_context';
+  if (/합류|웰드|weld|flow_convergence/.test(text)) return 'flow_convergence_context';
+  if (/벤트|가스|burn|flow_end|충전\s*말단|유동\s*말단/.test(text)) return 'fill_end_context';
+  if (/정상\s*품|정상품|비교|reference/.test(text)) return 'reference_part';
+  if (/전체|full_part|overview/.test(text)) return 'full_part_context';
+  return 'defect_closeup';
+};
+
+const buildRecaptureCaptureGuidance = (source = {}) => {
+  const reasonCodes = uniqueStrings(source?.safetyGateReasons);
+  const sourceInstructions = uniqueStrings(source?.requiredAdditionalViews);
+  const hasRecaptureSignal = Boolean(
+    compact(source?.localImageId)
+    || compact(source?.commonAgentImageId)
+    || compact(source?.reviewDecisionId)
+    || compact(source?.bboxGroundingProfileId)
+    || reasonCodes.length
+    || sourceInstructions.length
+  );
+  const recommendedViewTag = inferRecaptureViewTag(source);
+  const view = VIEW_DEFINITIONS[recommendedViewTag];
+  const instructions = uniqueStrings([
+    ...sourceInstructions,
+    view?.instruction
+  ]);
+
+  return {
+    protocolVersion: 'vision-recapture-capture-guidance/v1',
+    active: hasRecaptureSignal,
+    recommendedViewTag,
+    reasonCodes,
+    instructions,
+    message: hasRecaptureSignal
+      ? `재촬영 권장 시점: ${view?.label || recommendedViewTag}`
+      : '재촬영 연결 대기 없음'
   };
 };
 
@@ -262,6 +311,7 @@ module.exports = {
   VALID_IMAGE_KINDS,
   assessCaptureImageForDiagnosis,
   buildCaptureMetadata,
+  buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,
   collectSessionDiagnosisImages,
   createCaptureSessionId,

@@ -214,7 +214,12 @@ fresh image도 `vision-recapture-lineage/v1` metadata로 원본 local image,
 카메라 촬영, 모바일 업로드, 파일 업로드, 드래그 앤드 드롭 이미지에 해당
 recapture lineage source가 한 번 자동 주입되도록 앱 흐름까지 연결했다. 세션
 패널에는 “재촬영 연결 대기” 배지를 표시해 작업자가 다음 사진이 원본 보류
-케이스와 이어질 예정임을 확인할 수 있다.
+케이스와 이어질 예정임을 확인할 수 있다. 이어서 `vision-recapture-capture-
+guidance/v1`을 추가해 bbox 과대 영역, 낮은 bbox 신뢰도, 사선광/광택 확인,
+취출·파팅라인 같은 재촬영 사유를 다음 권장 촬영 시점으로 변환한다. 화면
+캡처 기본 시점과 카메라 모달 선택값은 이 권장값으로 자동 전환되고, 모바일·
+파일·드래그 업로드도 재촬영 대기 상태에서는 권장 `captureViewTag` metadata를
+자동 부착한다.
 실제 승인 사진을
 사용한 라이브 모델 JSON 준수율과 오판율 측정은 운영 검증 대기.
 
