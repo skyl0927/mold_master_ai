@@ -279,6 +279,11 @@ const path = require('node:path');
         && bodyText.includes('path-whitening-release')
         && bodyText.includes('과도한 이형 저항')
         && bodyText.includes('리브 구배 및 표면 거칠기 점검'),
+      visionDecisionExplainabilityRendered: bodyText.includes('Vision 판정 사용 정책')
+        && bodyText.includes('Graph 사용: 후보 우선 + Graph 교차검증')
+        && bodyText.includes('AI가 본 근거 영역')
+        && bodyText.includes('영역: 리브 기부')
+        && bodyText.includes('재촬영/검토 사유: 없음'),
       hitlActionsRendered: bodyText.includes('교정 저장')
         && bodyText.includes('재촬영 요청')
         && bodyText.includes('반려')
@@ -301,6 +306,7 @@ const path = require('node:path');
       || !result.groundedObservationRendered
       || !result.multiviewFusionRendered
       || !result.graphCrossValidationRendered
+      || !result.visionDecisionExplainabilityRendered
       || !result.hitlActionsRendered
       || !result.visionInferenceRejected
       || consoleErrors.length > 0
