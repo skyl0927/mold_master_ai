@@ -112,6 +112,27 @@ case id, content hash, 후보 라벨, 허용된 결정 옵션을 포함한다. �
 정정은 없다. 이 패킷도 `serviceWritesPerformed=false`이고 Graph promotion,
 reference learning, model training을 모두 금지한다.
 
+## 미해결 HITL 후보 검토 큐
+
+라벨 충돌과 별개로, Vision source label과 모델 관찰이 서로 일치하지만 아직
+사람이 승인하지 않은 고신뢰 후보는 다음 명령으로 Common Agent 검토 큐
+패킷으로 정리한다.
+
+```powershell
+npm run vision:hitl:pending-packet
+```
+
+생성되는 `vision-pending-hitl-review-queue-packet/v1`은 승인 manifest에 이미
+반영된 hash를 제외하고 남은 `agreement_high_confidence` 후보만
+`pending-hitl-001` 같은 queue item으로 만든다. 각 항목은 결함명, 결함 class,
+content hash, 출처, Vision 요약, 허용 결정 옵션을 포함한다.
+
+현재 PC artifact 기준 검증 결과는 `status=action_required`,
+`pendingHighConfidence=12`, `resolvedHighConfidence=6`이다. 이 패킷도
+Common Agent API를 직접 호출하지 않으며 `serviceWritesPerformed=false`이다.
+사람 승인 전에는 Graph promotion, reference learning, model training이 모두
+금지된다.
+
 ## 수동 문서 중앙 소유권
 
 상단 `Common Agent Docs` 또는 AI 어시스턴트의 `문서 업로드`에서 추가한
