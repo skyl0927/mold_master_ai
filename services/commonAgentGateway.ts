@@ -128,7 +128,11 @@ export interface DiagnosisObservabilityAction {
     code:
         | 'review_classifier_disagreement'
         | 'collect_classifier_references'
-        | 'maintain_classifier_shadow_gate';
+        | 'maintain_classifier_shadow_gate'
+        | 'improve_vision_capture_quality'
+        | 'review_vision_decision_disagreement'
+        | 'complete_vision_multiview_protocol'
+        | 'maintain_vision_decision_gate';
     severity: 'info' | 'warning';
     message: string;
 }
@@ -175,6 +179,7 @@ export interface DiagnosisObservability {
     visionNeedsReviewRate: number;
     visionUnclassifiableRate: number;
     visionDecisionReasonTargets: DiagnosisVisionDecisionReasonTarget[];
+    visionDecisionRecommendedActions: DiagnosisObservabilityAction[];
     visionClassifierDisagreementTargets: DiagnosisVisionClassifierDisagreementTarget[];
     visionClassifierReferenceTargets: DiagnosisVisionClassifierReferenceTarget[];
     visionClassifierRecommendedActions: DiagnosisObservabilityAction[];
@@ -696,6 +701,90 @@ const summarizeVisionClassifierReferenceTargets = (
         );
 };
 
+const findVisionDecisionTarget = (
+    targets: DiagnosisVisionDecisionReasonTarget[],
+    statuses: VisionDecisionStatus[],
+    reasonMarkers: string[]
+): DiagnosisVisionDecisionReasonTarget | undefined => {
+    const normalizedMarkers = reasonMarkers.map(marker => marker.toLocaleLowerCase());
+    return targets.find(target =>
+        statuses.includes(target.status)
+        && normalizedMarkers.some(marker =>
+            target.reason.toLocaleLowerCase().includes(marker)
+        )
+    );
+};
+
+const buildVisionDecisionRecommendedActions = ({
+    sampleCount,
+    probableRate,
+    needsReviewRate,
+    unclassifiableRate,
+    reasonTargets
+}: {
+    sampleCount: number;
+    probableRate: number;
+    needsReviewRate: number;
+    unclassifiableRate: number;
+    reasonTargets: DiagnosisVisionDecisionReasonTarget[];
+}): DiagnosisObservabilityAction[] => {
+    if (sampleCount === 0) return [];
+    const actions: DiagnosisObservabilityAction[] = [];
+    const qualityTarget = findVisionDecisionTarget(
+        reasonTargets,
+        ['unclassifiable', 'needs_review'],
+        ['image_quality', 'quality', 'blur', 'focus', 'exposure', 'lighting', 'resolution']
+    );
+    if (qualityTarget) {
+        const qualityRate = qualityTarget.status === 'unclassifiable'
+            ? unclassifiableRate
+            : needsReviewRate;
+        const qualityStatusLabel = qualityTarget.status === 'unclassifiable'
+            ? '판정불가'
+            : '보류';
+        actions.push({
+            code: 'improve_vision_capture_quality',
+            severity: 'warning',
+            message: `Vision ${qualityStatusLabel} ${qualityRate}%: 주요 사유 ${qualityTarget.reason} ${qualityTarget.count}건. 재촬영 기준을 강화하고 조명, 초점, ROI 해상도를 먼저 보정하세요.`
+        });
+    }
+
+    const disagreementTarget = findVisionDecisionTarget(
+        reasonTargets,
+        ['needs_review'],
+        ['dual_model_disagreement', 'vision_classifier_disagreement', 'classifier_disagreement']
+    );
+    if (disagreementTarget) {
+        actions.push({
+            code: 'review_vision_decision_disagreement',
+            severity: 'warning',
+            message: `Vision 보류 ${needsReviewRate}%: 주요 사유 ${disagreementTarget.reason} ${disagreementTarget.count}건. VLM/Classifier 후보, ROI 위치, 라벨 alias를 함께 검토하세요.`
+        });
+    }
+
+    const multiviewTarget = findVisionDecisionTarget(
+        reasonTargets,
+        ['needs_review', 'unclassifiable'],
+        ['missing_view', 'missing_required_views', 'insufficient_multiview', 'single_candidate']
+    );
+    if (multiviewTarget && !actions.some(action => action.code === 'complete_vision_multiview_protocol')) {
+        actions.push({
+            code: 'complete_vision_multiview_protocol',
+            severity: 'warning',
+            message: `Vision 시점 부족: 주요 사유 ${multiviewTarget.reason} ${multiviewTarget.count}건. 전체/근접/사선광 필수 시점과 결함별 추가 촬영을 완료하세요.`
+        });
+    }
+
+    if (actions.length === 0 && probableRate >= 80) {
+        actions.push({
+            code: 'maintain_vision_decision_gate',
+            severity: 'info',
+            message: `Vision 확정 후보 ${probableRate}%: 현재 decision gate를 유지하고 shadow 평가에서 보류율과 HITL 수정률을 계속 추적하세요.`
+        });
+    }
+    return actions;
+};
+
 const buildVisionClassifierRecommendedActions = ({
     sampleCount,
     agreementRate,
@@ -887,6 +976,13 @@ export const calculateDiagnosisObservability = (
         visionNeedsReviewRate,
         visionUnclassifiableRate,
         visionDecisionReasonTargets,
+        visionDecisionRecommendedActions: buildVisionDecisionRecommendedActions({
+            sampleCount: visionDecisionMeasured.length,
+            probableRate: visionProbableRate,
+            needsReviewRate: visionNeedsReviewRate,
+            unclassifiableRate: visionUnclassifiableRate,
+            reasonTargets: visionDecisionReasonTargets
+        }),
         visionClassifierDisagreementTargets,
         visionClassifierReferenceTargets,
         visionClassifierRecommendedActions: buildVisionClassifierRecommendedActions({

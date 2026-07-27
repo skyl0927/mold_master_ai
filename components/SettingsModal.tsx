@@ -493,6 +493,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     ))}
                   </div>
                 )}
+                {diagnosisObservability.visionDecisionRecommendedActions.length > 0 && (
+                  <div className="mt-2 rounded border border-sky-800/60 bg-sky-950/30 p-2 text-[9px] text-sky-100">
+                    <p className="font-bold text-sky-200">Vision 권장 조치</p>
+                    {diagnosisObservability.visionDecisionRecommendedActions.slice(0, 2).map(action => (
+                      <p key={action.code} className="mt-1 break-words">
+                        {action.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {diagnosisObservability.visionClassifierRecommendedActions.length > 0 && (
                   <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 p-2 text-[9px] text-amber-100">
                     <p className="font-bold text-amber-200">Classifier 권장 조치</p>
