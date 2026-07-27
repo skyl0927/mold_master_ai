@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     auditVisionEvaluationSplit,
+    auditVisionOperationalEvidenceAlignment,
     attachVisionOperationalOperatorDecision,
     evaluateVisionOperationalRelease,
     parseVisionOperationalReleaseReport,
@@ -359,6 +360,61 @@ test('operator decision records approval only when it matches the release card a
     assert.deepEqual(approved.operatorDecision?.targetVersion, candidateVersion);
     assert.equal(approved.operatorDecision?.autoApplied, false);
     assert.equal(approved.operatorDecision?.evidenceBundle.complete, true);
+});
+
+test('evidence alignment requires pinned Common Agent export and candidate Graph snapshot', () => {
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: completeEvidenceBundle
+    });
+    const alignment = auditVisionOperationalEvidenceAlignment(report);
+
+    assert.equal(alignment.passed, true);
+    assert.equal(alignment.checks.completeEvidenceBundle, true);
+    assert.equal(alignment.checks.commonAgentDatasetExportPinned, true);
+    assert.equal(alignment.checks.graphSnapshotMatchesCandidateGraphVersion, true);
+    assert.deepEqual(alignment.issues, []);
+});
+
+test('operator decision refuses complete but stale Graph evidence', () => {
+    const staleEvidenceBundle: VisionOperationalEvidenceBundle = {
+        ...completeEvidenceBundle,
+        items: completeEvidenceBundle.items.map(item =>
+            item.kind === 'graph_snapshot'
+                ? { ...item, uri: 'neo4j://mold-master/approved-graph-legacy' }
+                : item
+        )
+    };
+    const report = evaluateVisionOperationalRelease({
+        baselineVersion,
+        candidateVersion,
+        samples: makeShadowSamples(),
+        newProductFamilies: ['NEW-GRILLE'],
+        latencyTargetP95Ms: 1500,
+        evidenceBundle: staleEvidenceBundle
+    });
+    const alignment = auditVisionOperationalEvidenceAlignment(report);
+
+    assert.equal(report.decisionCard.evidenceBundle.complete, true);
+    assert.equal(alignment.passed, false);
+    assert.equal(alignment.checks.graphSnapshotMatchesCandidateGraphVersion, false);
+    assert.ok(alignment.issues.some(issue =>
+        issue.check === 'graphSnapshotMatchesCandidateGraphVersion'
+    ));
+    assert.throws(
+        () => attachVisionOperationalOperatorDecision(report, {
+            action: 'activate_candidate',
+            targetVersion: candidateVersion,
+            operator: 'quality-lead',
+            comment: 'Graph snapshot 불일치 상태 확인.',
+            confirmed: true
+        }),
+        /evidence alignment failed/i
+    );
 });
 
 test('operator decision refuses confirmation until release evidence is complete', () => {
