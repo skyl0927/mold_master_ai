@@ -453,6 +453,107 @@ test('Vision reference backfill plan explains why reference learning is blocked'
     ]);
 });
 
+test('post-apply backfill verification blocks reference refresh when applied rows are not learning-ready', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'passed',
+            readyForGraphRetrieval: true,
+            referenceStore: { referenceCount: 20 },
+            benchmark: { evaluatedCount: 20, failedGateChecks: [] },
+            blockers: []
+        },
+        visionReferenceBackfillPostApplyVerification: {
+            status: 'blocked',
+            readyForReferenceRefresh: false,
+            summary: {
+                appliedTargets: 2,
+                verifiedLearningReady: 1,
+                blockedTargets: 1,
+                missingFromLearningReadyExport: 1
+            },
+            blockers: [{
+                code: 'applied_target_missing_from_learning_ready_export',
+                imageId: 'image-missing'
+            }],
+            recommendedAction: 'Do not refresh the Vision reference store yet.'
+        }
+    });
+
+    assert.equal(status.visionReferenceBackfillPostApply.readyForReferenceRefresh, false);
+    assert.equal(status.gate.canDisableLegacyFallback, false);
+    assert.deepEqual(status.blockers, [{
+        code: 'vision_reference_backfill_post_apply_verification_failed',
+        details: [{
+            code: 'applied_target_missing_from_learning_ready_export',
+            imageId: 'image-missing'
+        }]
+    }]);
+    assert.match(status.recommendedAction, /Do not refresh/);
+});
+
+test('ready post-apply backfill verification keeps fallback retirement eligible', () => {
+    const status = buildMigrationGateStatus({
+        agentHealth: { online: true },
+        qaHealth: { online: true },
+        dataset: {
+            total: 20,
+            items: Array.from({ length: 20 }, () => ({ review_status: 'approved' }))
+        },
+        approvedManifest: {
+            minimumSamples: 20,
+            qualityIssues: [],
+            cases: Array.from({ length: 20 }, () => ({ status: 'active' }))
+        },
+        benchmarkReport: {
+            summary: {
+                total: 20,
+                failedGateChecks: [],
+                readyToDisableLegacyFallback: true
+            }
+        },
+        visionReferenceReport: {
+            status: 'passed',
+            readyForGraphRetrieval: true,
+            referenceStore: { referenceCount: 20 },
+            benchmark: { evaluatedCount: 20, failedGateChecks: [] },
+            blockers: []
+        },
+        visionReferenceBackfillPostApplyVerification: {
+            status: 'ready',
+            readyForReferenceRefresh: true,
+            summary: {
+                appliedTargets: 2,
+                verifiedLearningReady: 2,
+                blockedTargets: 0,
+                missingFromLearningReadyExport: 0
+            },
+            blockers: []
+        }
+    });
+
+    assert.equal(status.visionReferenceBackfillPostApply.readyForReferenceRefresh, true);
+    assert.equal(status.gate.canDisableLegacyFallback, true);
+    assert.deepEqual(status.blockers, []);
+});
+
 test('Vision reference API missing action is surfaced by migration gate', () => {
     const status = buildMigrationGateStatus({
         agentHealth: { online: true },

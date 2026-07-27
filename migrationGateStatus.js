@@ -55,7 +55,8 @@ const buildBlockers = ({
     benchmarkSummary,
     hitl,
     visionReference,
-    visionReferenceBackfill
+    visionReferenceBackfill,
+    visionReferenceBackfillPostApply
 }) => {
     const blockers = [];
     if (!agent.online) blockers.push({ code: 'common_agent_offline', detail: agent.error || agent.url });
@@ -85,6 +86,15 @@ const buildBlockers = ({
         blockers.push({
             code: 'vision_reference_backfill_required',
             count: visionReferenceBackfill.needsHitlBackfill
+        });
+    }
+    if (
+        visionReferenceBackfillPostApply.required
+        && !visionReferenceBackfillPostApply.readyForReferenceRefresh
+    ) {
+        blockers.push({
+            code: 'vision_reference_backfill_post_apply_verification_failed',
+            details: visionReferenceBackfillPostApply.blockers
         });
     }
     return blockers;
@@ -145,6 +155,22 @@ const summarizeVisionReferenceBackfill = report => {
     };
 };
 
+const summarizeVisionReferenceBackfillPostApply = report => {
+    const summary = report?.summary || {};
+    return {
+        required: Boolean(report),
+        status: String(report?.status || 'not_run'),
+        readyForReferenceRefresh: report?.readyForReferenceRefresh === true,
+        appliedTargets: Number(summary.appliedTargets) || 0,
+        verifiedLearningReady: Number(summary.verifiedLearningReady) || 0,
+        blockedTargets: Number(summary.blockedTargets) || 0,
+        missingFromLearningReadyExport: Number(summary.missingFromLearningReadyExport) || 0,
+        blockers: asArray(report?.blockers),
+        recommendedAction: String(report?.recommendedAction || ''),
+        artifactGeneratedAt: report?.generatedAt || null
+    };
+};
+
 const buildMigrationGateStatus = ({
     generatedAt = new Date().toISOString(),
     agentHealth = {},
@@ -154,7 +180,8 @@ const buildMigrationGateStatus = ({
     reviewManifest = {},
     benchmarkReport = {},
     visionReferenceReport = null,
-    visionReferenceBackfillPlan = null
+    visionReferenceBackfillPlan = null,
+    visionReferenceBackfillPostApplyVerification = null
 }) => {
     const agent = healthState(agentHealth);
     const qa = healthState(qaHealth);
@@ -215,13 +242,20 @@ const buildMigrationGateStatus = ({
     const failedChecks = asArray(benchmarkSummary.failedGateChecks);
     const visionReference = summarizeVisionReferenceGate(visionReferenceReport);
     const visionReferenceBackfill = summarizeVisionReferenceBackfill(visionReferenceBackfillPlan);
+    const visionReferenceBackfillPostApply = summarizeVisionReferenceBackfillPostApply(
+        visionReferenceBackfillPostApplyVerification
+    );
     const canDisableLegacyFallback = benchmarkSummary.readyToDisableLegacyFallback === true
         && agent.online
         && qa.online
         && !dataset.error
         && conflictGroups === 0
         && hitl.unresolvedHighConfidence === 0
-        && visionReference.readyForGraphRetrieval === true;
+        && visionReference.readyForGraphRetrieval === true
+        && (
+            !visionReferenceBackfillPostApply.required
+            || visionReferenceBackfillPostApply.readyForReferenceRefresh === true
+        );
     const blockers = buildBlockers({
         agent,
         qa,
@@ -230,7 +264,8 @@ const buildMigrationGateStatus = ({
         benchmarkSummary,
         hitl,
         visionReference,
-        visionReferenceBackfill
+        visionReferenceBackfill,
+        visionReferenceBackfillPostApply
     });
 
     return {
@@ -266,6 +301,7 @@ const buildMigrationGateStatus = ({
         },
         visionReference,
         visionReferenceBackfill,
+        visionReferenceBackfillPostApply,
         gate: {
             minimumSamples,
             additionalCleanApprovalsRequired: Math.max(0, minimumSamples - cleanRunnable),
@@ -279,8 +315,14 @@ const buildMigrationGateStatus = ({
             : visionReference.required && !visionReference.readyForGraphRetrieval
                 ? visionReferenceBackfill.needsHitlBackfill > 0
                     ? visionReferenceBackfill.recommendedAction
+                    : visionReferenceBackfillPostApply.required
+                        && !visionReferenceBackfillPostApply.readyForReferenceRefresh
+                        ? visionReferenceBackfillPostApply.recommendedAction
                     : visionReference.recommendedAction
                     || 'Common Agent Vision Reference Store를 갱신하고 reference benchmark gate를 먼저 통과시키세요.'
+                : visionReferenceBackfillPostApply.required
+                    && !visionReferenceBackfillPostApply.readyForReferenceRefresh
+                    ? visionReferenceBackfillPostApply.recommendedAction
                 : hitl.unresolvedHighConfidence > 0
                 ? `고신뢰 후보 ${hitl.unresolvedHighConfidence}건을 사람이 검토하고 명확한 표본만 승인하세요.`
                 : failedChecks.includes('captureProtocol')

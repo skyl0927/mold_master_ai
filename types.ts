@@ -421,7 +421,30 @@ export interface MigrationGateStatus {
     recommendedAction?: string;
     artifactGeneratedAt?: string | null;
   };
-  blockers: Array<{ code: string; count?: number; detail?: unknown; details?: unknown }>;
+  visionReferenceBackfill?: {
+    required: boolean;
+    status: string;
+    total: number;
+    eligibleReferenceCandidates: number;
+    needsHitlBackfill: number;
+    blocked: number;
+    reasonCounts: Record<string, number>;
+    recommendedAction?: string;
+    artifactGeneratedAt?: string | null;
+  };
+  visionReferenceBackfillPostApply?: {
+    required: boolean;
+    status: string;
+    readyForReferenceRefresh: boolean;
+    appliedTargets: number;
+    verifiedLearningReady: number;
+    blockedTargets: number;
+    missingFromLearningReadyExport: number;
+    blockers: Array<{ code: string; imageId?: string; detail?: unknown }>;
+    recommendedAction?: string;
+    artifactGeneratedAt?: string | null;
+  };
+  blockers: Array<{ code: string; count?: number; imageId?: string; detail?: unknown; details?: unknown }>;
   recommendedAction: string;
   writesPerformed: false;
 }

@@ -114,7 +114,8 @@ const migrationBlockerLabel: Record<string, string> = {
     benchmark_visionContract: 'Top-3 구조화 응답 미지원',
     benchmark_captureProtocol: '결함별 필수 촬영 시점 부족',
     vision_reference_gate_failed: 'Vision Reference Store 미통과',
-    vision_reference_backfill_required: 'Vision Reference HITL 보완 필요'
+    vision_reference_backfill_required: 'Vision Reference HITL 보완 필요',
+    vision_reference_backfill_post_apply_verification_failed: 'Backfill 적용 후 검증 실패'
 };
 
 const visionBackfillReasonLabel: Record<string, string> = {
@@ -1975,6 +1976,55 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                                                 <VisionReferenceGateSummary
                                                     visionReference={benchmarkResult.gateStatus.visionReference}
                                                 />
+                                            ) : null}
+                                            {benchmarkResult.gateStatus.visionReferenceBackfillPostApply?.required ? (
+                                                <div className="mt-3 rounded border border-slate-700/80 bg-slate-950/50 p-3">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="text-xs font-bold text-slate-100">
+                                                            Backfill Post-Apply Verification
+                                                        </p>
+                                                        <span className={`rounded border px-2 py-0.5 text-[9px] font-bold ${backfillStatusBadge(benchmarkResult.gateStatus.visionReferenceBackfillPostApply.status)}`}>
+                                                            {benchmarkResult.gateStatus.visionReferenceBackfillPostApply.readyForReferenceRefresh
+                                                                ? 'REFERENCE REFRESH READY'
+                                                                : 'REFRESH BLOCKED'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-300 md:grid-cols-4">
+                                                        <span>
+                                                            적용 대상{' '}
+                                                            <strong className="text-white">
+                                                                {benchmarkResult.gateStatus.visionReferenceBackfillPostApply.appliedTargets}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            Learning-ready 확인{' '}
+                                                            <strong className="text-emerald-300">
+                                                                {benchmarkResult.gateStatus.visionReferenceBackfillPostApply.verifiedLearningReady}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            차단{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionReferenceBackfillPostApply.blockedTargets > 0
+                                                                ? 'text-red-300'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionReferenceBackfillPostApply.blockedTargets}
+                                                            </strong>
+                                                        </span>
+                                                        <span>
+                                                            Export 누락{' '}
+                                                            <strong className={benchmarkResult.gateStatus.visionReferenceBackfillPostApply.missingFromLearningReadyExport > 0
+                                                                ? 'text-red-300'
+                                                                : 'text-emerald-300'}>
+                                                                {benchmarkResult.gateStatus.visionReferenceBackfillPostApply.missingFromLearningReadyExport}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+                                                    {!benchmarkResult.gateStatus.visionReferenceBackfillPostApply.readyForReferenceRefresh && (
+                                                        <p className="mt-2 text-[10px] text-amber-300">
+                                                            Reference Store 갱신 전 post-apply 검증을 먼저 통과해야 합니다.
+                                                        </p>
+                                                    )}
+                                                </div>
                                             ) : null}
                                             {benchmarkResult.gateStatus.blockers.length > 0 && (
                                                 <div className="mt-2 flex flex-wrap gap-1">

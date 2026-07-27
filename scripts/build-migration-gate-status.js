@@ -11,7 +11,21 @@ const outputPath = path.resolve(
     || path.join(artifactRoot, 'migration-gate-status.json')
 );
 
-const readJson = filePath => JSON.parse(fs.readFileSync(filePath, 'utf8'));
+const readJson = filePath => JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+
+const latestArtifactFile = prefix => {
+    if (!fs.existsSync(artifactRoot)) return '';
+    return fs.readdirSync(artifactRoot, { withFileTypes: true })
+        .filter(entry => entry.isFile() && entry.name.startsWith(prefix) && entry.name.endsWith('.json'))
+        .map(entry => {
+            const filePath = path.join(artifactRoot, entry.name);
+            return {
+                filePath,
+                mtimeMs: fs.statSync(filePath).mtimeMs
+            };
+        })
+        .sort((left, right) => right.mtimeMs - left.mtimeMs)[0]?.filePath || '';
+};
 
 const latestReviewPacket = () => fs.readdirSync(artifactRoot, { withFileTypes: true })
     .filter(entry => entry.isDirectory() && entry.name.startsWith('vision-human-review-packet-'))
@@ -59,6 +73,9 @@ const probeHealth = async (baseUrl, pathName) => {
         artifactRoot,
         'vision-reference-backfill-plan.json'
     );
+    const visionReferenceBackfillPostApplyPath = latestArtifactFile(
+        'vision-reference-backfill-post-apply-verification-'
+    );
 
     const [agentHealth, qaHealth, dataset] = await Promise.all([
         probeHealth(agentUrl, '/healthz'),
@@ -91,6 +108,9 @@ const probeHealth = async (baseUrl, pathName) => {
             },
         visionReferenceBackfillPlan: fs.existsSync(visionReferenceBackfillPath)
             ? readJson(visionReferenceBackfillPath)
+            : null,
+        visionReferenceBackfillPostApplyVerification: visionReferenceBackfillPostApplyPath
+            ? readJson(visionReferenceBackfillPostApplyPath)
             : null
     });
     const report = {
@@ -104,7 +124,8 @@ const probeHealth = async (baseUrl, pathName) => {
                 : null,
             visionReferenceBackfill: fs.existsSync(visionReferenceBackfillPath)
                 ? visionReferenceBackfillPath
-                : null
+                : null,
+            visionReferenceBackfillPostApply: visionReferenceBackfillPostApplyPath || null
         }
     };
     fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
@@ -117,6 +138,7 @@ const probeHealth = async (baseUrl, pathName) => {
         hitl: report.hitl,
         visionReference: report.visionReference,
         visionReferenceBackfill: report.visionReferenceBackfill,
+        visionReferenceBackfillPostApply: report.visionReferenceBackfillPostApply,
         gate: report.gate,
         recommendedAction: report.recommendedAction,
         writesPerformed: report.writesPerformed
