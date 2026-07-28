@@ -269,9 +269,10 @@ const buildOperationalHitlPostImportValidationPlan = ({
     blockingImportPackageStatus: null,
     testCases,
     recommendedCommands: [
-      'npm run eval:graph',
-      'npm run test:electron:multimodal',
-      'npm run operational:progress'
+      'npm run operational:hitl:post-import-validation-observations',
+      'npm run operational:hitl:post-import-validation-evidence',
+      'npm run operational:hitl:post-import-validation-result',
+      'npm run eval:graph'
     ],
     sources: {
       importPackage: sourceArtifacts.importPackage || null,

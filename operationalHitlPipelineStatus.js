@@ -457,6 +457,9 @@ const pipelineDecision = ({
           commands: [
             'npm run operational:hitl:common-agent-import-package',
             'npm run operational:hitl:post-import-validation-plan',
+            'npm run operational:hitl:post-import-validation-observations',
+            'npm run operational:hitl:post-import-validation-evidence',
+            'npm run operational:hitl:post-import-validation-result',
             'npm run eval:graph'
           ],
           owner: 'common_agent_operator'
