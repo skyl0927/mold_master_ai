@@ -103,6 +103,12 @@ const webKnowledgeCommonAgentPackagePath = resolveOptionalPath(
   latestFile('web-knowledge-common-agent-learning-package-', '.json')
 );
 
+const operationalPreparationRunPath = resolveOptionalPath(
+  valueAfter('--preparation-run'),
+  process.env.OPERATIONAL_HITL_PREPARATION_RUN,
+  latestFile('operational-hitl-preparation-run-', '.json')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -119,6 +125,7 @@ const run = () => {
   const visionCaptureWorkOrderPlan = readOptionalJson(visionCaptureWorkOrderPlanPath);
   const labelConflictReviewGuide = readOptionalJson(labelConflictReviewGuidePath);
   const webKnowledgeCommonAgentPackage = readOptionalJson(webKnowledgeCommonAgentPackagePath);
+  const operationalPreparationRun = readOptionalJson(operationalPreparationRunPath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
@@ -126,6 +133,7 @@ const run = () => {
     visionCaptureWorkOrderPlan,
     labelConflictReviewGuide,
     webKnowledgeCommonAgentPackage,
+    operationalPreparationRun,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -137,14 +145,16 @@ const run = () => {
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
-      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath
+      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
+      operationalPreparationRun: operationalPreparationRunPath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
       worktableSuggestion,
       visionCaptureWorkOrderPlan,
       labelConflictReviewGuide,
-      webKnowledgeCommonAgentPackage
+      webKnowledgeCommonAgentPackage,
+      operationalPreparationRun
     }
   });
 
@@ -180,6 +190,11 @@ const run = () => {
     webKnowledgeGraphRoundtripCases: bundle.summary.webKnowledgeGraphRoundtripCases ?? null,
     webKnowledgeCommonAgentRequestedAction: bundle.summary.webKnowledgeCommonAgentRequestedAction ?? null,
     webKnowledgePackagePath: bundle.summary.webKnowledgePackagePath ?? null,
+    preparationRunStatus: bundle.summary.preparationRunStatus ?? null,
+    preparationGeneratedArtifacts: bundle.summary.preparationGeneratedArtifacts ?? null,
+    preparationWorksheetArtifacts: bundle.summary.preparationWorksheetArtifacts ?? null,
+    preparationFirstWorksheetArtifactPath: bundle.summary.preparationFirstWorksheetArtifactPath ?? null,
+    preparationRunPath: bundle.summary.preparationRunPath ?? null,
     postImportValidationCases: bundle.summary.postImportValidationCases ?? null,
     postImportValidationObservationStatus: bundle.summary.postImportValidationObservationStatus ?? null,
     postImportGraphCapturedCases: bundle.summary.postImportGraphCapturedCases ?? null,
@@ -211,7 +226,8 @@ try {
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
-      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath
+      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
+      operationalPreparationRun: operationalPreparationRunPath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);

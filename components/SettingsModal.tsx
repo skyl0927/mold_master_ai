@@ -1480,6 +1480,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       )}
                     </div>
                   )}
+                  {operationalStatusBundleDisplay.preparationRunText && (
+                    <div className="mt-2 rounded border border-cyan-900/50 bg-cyan-950/20 px-2 py-1">
+                      <p className="break-words text-[8px] font-bold text-cyan-50">
+                        {operationalStatusBundleDisplay.preparationRunText}
+                      </p>
+                      {operationalStatusBundleDisplay.preparationRunPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.preparationRunPath}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.preparationWorksheetPaths.length > 0 && (
+                        <div className="mt-1 space-y-1">
+                          {operationalStatusBundleDisplay.preparationWorksheetPaths.map(path => (
+                            <p key={path} className="break-words font-mono text-[8px] text-cyan-100">
+                              {path}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.accuracyText}

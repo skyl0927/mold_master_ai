@@ -19,6 +19,9 @@ const isLabelConflictReviewGuide = artifact =>
 const isWebKnowledgeCommonAgentPackage = artifact =>
   isContract(artifact, 'web-knowledge-common-agent-learning-package/v1');
 
+const isOperationalPreparationRun = artifact =>
+  isContract(artifact, 'operational-hitl-preparation-run/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -133,6 +136,12 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: 'Web Knowledge Common Agent package',
     contractVersion: 'web-knowledge-common-agent-learning-package/v1',
     path: compact(sourceArtifacts.webKnowledgeCommonAgentPackage)
+  },
+  {
+    key: 'operationalPreparationRun',
+    labelKo: 'Operational HITL preparation run',
+    contractVersion: 'operational-hitl-preparation-run/v1',
+    path: compact(sourceArtifacts.operationalPreparationRun)
   }
 ].filter(item => item.path);
 
@@ -319,6 +328,68 @@ const webKnowledgePackageSummaryFor = ({ webKnowledgeCommonAgentPackage, sourceA
   };
 };
 
+const uniqueCompactPaths = paths => {
+  const seen = new Set();
+  return paths
+    .map(compact)
+    .filter(Boolean)
+    .filter(item => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+};
+
+const preparationWorksheetArtifactsFor = operationalPreparationRun => {
+  if (!isOperationalPreparationRun(operationalPreparationRun)) return [];
+
+  const commandPaths = asArray(operationalPreparationRun.executedCommands).flatMap(command => {
+    const commandText = [
+      command?.command,
+      command?.script,
+      command?.outputPath,
+      ...asArray(command?.companionOutputPaths)
+    ].map(compact).join(' ').toLowerCase();
+    if (!commandText.includes('web-knowledge-hitl-review-guide')) return [];
+    return [
+      command?.outputPath,
+      ...asArray(command?.companionOutputPaths)
+    ];
+  });
+
+  return uniqueCompactPaths([
+    ...commandPaths,
+    ...asArray(operationalPreparationRun.generatedArtifacts)
+  ]).filter(item =>
+    /web-knowledge-hitl-review-guide/i.test(item)
+    && /\.(md|csv)$/i.test(item)
+  );
+};
+
+const preparationRunSummaryFor = ({ operationalPreparationRun, sourceArtifacts, worksheetArtifacts }) => {
+  if (!isOperationalPreparationRun(operationalPreparationRun)) return null;
+
+  const summary = operationalPreparationRun.summary || {};
+  const generatedArtifacts = asArray(operationalPreparationRun.generatedArtifacts);
+  const generatedArtifactCount = Number.isFinite(Number(summary.generatedArtifactCount))
+    ? Number(summary.generatedArtifactCount)
+    : generatedArtifacts.length;
+  const skippedHumanGatedCommands = Number.isFinite(Number(summary.skippedHumanGatedCommands))
+    ? Number(summary.skippedHumanGatedCommands)
+    : asArray(operationalPreparationRun.skippedCommands).length;
+
+  return {
+    preparationRunStatus: compact(operationalPreparationRun.status),
+    preparationGeneratedArtifacts: generatedArtifactCount,
+    preparationExecutedCommands: numberValue(summary.executedCommands),
+    preparationFailedCommands: numberValue(summary.failedCommands),
+    preparationSkippedHumanGatedCommands: skippedHumanGatedCommands,
+    preparationWorksheetArtifacts: worksheetArtifacts.length,
+    preparationFirstWorksheetArtifactPath: worksheetArtifacts[0] || '',
+    preparationRunPath: compact(sourceArtifacts.operationalPreparationRun)
+  };
+};
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -340,13 +411,19 @@ const postImportValidationSummaryFor = pipelineStatus => {
   };
 };
 
-const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
+const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief, preparationWorksheetArtifacts }) => [
   {
     code: 'register_status_artifacts_in_settings',
     titleKo: 'Settings 운영 artifact 등록',
     instructionKo: 'Settings의 Progress/Pipeline Status/Human Brief/Session Packet 버튼에 최신 JSON을 등록하세요.',
     buttonLabelsKo: settingsImportChecklistFor(sourceArtifacts).map(item => item.buttonLabelKo)
   },
+  ...(asArray(preparationWorksheetArtifacts).length > 0 || compact(sourceArtifacts.operationalPreparationRun) ? [{
+    code: 'open_preparation_run_outputs',
+    titleKo: 'HITL preparation worksheet 열기',
+    instructionKo: 'prepare-run에서 생성된 Markdown/CSV worksheet를 열고 사람이 승인/보류/수정 결정을 입력하세요.',
+    path: compact(asArray(preparationWorksheetArtifacts)[0] || sourceArtifacts.operationalPreparationRun)
+  }] : []),
   ...(compact(sourceArtifacts.labelConflictReviewGuideMarkdown || sourceArtifacts.labelConflictReviewGuide) ? [{
     code: 'open_label_conflict_review_guide',
     titleKo: 'Label conflict HITL guide 확인',
@@ -438,6 +515,7 @@ const markdownFor = bundle => {
     `- Web 승인대기: ${bundle.summary.webHitlApprovalsMissing}건`,
     `- Web cases: ${bundle.summary.webCards || 0}/${bundle.summary.webTargetCards || 0} / Common Agent ${bundle.summary.webCommonAgentValidationPassed || 0} / HITL missing ${bundle.summary.webHitlApprovalsMissing || 0} / central missing ${bundle.summary.webCentralApprovalsMissing || 0}`,
     `- Web Knowledge package: ${bundle.summary.webKnowledgePackageStatus || 'not_started'} / approved rows ${bundle.summary.webKnowledgePackageApprovedRows || 0} / items ${bundle.summary.webKnowledgePackageItems || 0} / graph cases ${bundle.summary.webKnowledgeGraphRoundtripCases || 0}`,
+    `- Preparation run: ${bundle.summary.preparationRunStatus || 'not_started'} / generated ${bundle.summary.preparationGeneratedArtifacts || 0} / worksheets ${bundle.summary.preparationWorksheetArtifacts || 0}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
@@ -474,6 +552,13 @@ const markdownFor = bundle => {
     if (session.csvPath) lines.push(`  - CSV: ${session.csvPath}`);
   });
 
+  if (asArray(bundle.preparationWorksheetArtifacts).length > 0) {
+    lines.push('', '## Preparation run worksheet artifacts', '');
+    bundle.preparationWorksheetArtifacts.forEach(artifactPath => {
+      lines.push(`- ${artifactPath}`);
+    });
+  }
+
   if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
     lines.push('', '## Vision capture work orders', '');
     bundle.visionCaptureWorkOrderPreviews.forEach(order => {
@@ -505,6 +590,7 @@ const buildOperationalStatusBundle = ({
   visionCaptureWorkOrderPlan = null,
   labelConflictReviewGuide = null,
   webKnowledgeCommonAgentPackage = null,
+  operationalPreparationRun = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -552,6 +638,12 @@ const buildOperationalStatusBundle = ({
     webKnowledgeCommonAgentPackage,
     sourceArtifacts
   });
+  const preparationWorksheetArtifacts = preparationWorksheetArtifactsFor(operationalPreparationRun);
+  const preparationRunSummary = preparationRunSummaryFor({
+    operationalPreparationRun,
+    sourceArtifacts,
+    worksheetArtifacts: preparationWorksheetArtifacts
+  });
   const bundle = {
     schemaVersion: 1,
     contractVersion: 'operational-status-bundle/v1',
@@ -592,6 +684,7 @@ const buildOperationalStatusBundle = ({
       ...(captureWorkOrderSummary || {}),
       ...(labelConflictGuideSummary || {}),
       ...(webKnowledgePackageSummary || {}),
+      ...(preparationRunSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
@@ -603,10 +696,12 @@ const buildOperationalStatusBundle = ({
     sourceArtifacts: sourceArtifactListFor(sourceArtifacts),
     sourceArtifactSnapshots,
     visionCaptureWorkOrderPreviews: captureWorkOrderPreviewsFor(visionCaptureWorkOrderPlan),
+    preparationWorksheetArtifacts,
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,
-      humanDecisionBrief
+      humanDecisionBrief,
+      preparationWorksheetArtifacts
     }),
     sessionPointers: sessionPointersFor(humanDecisionBrief),
     recommendedAction: compact(humanDecisionBrief.recommendedAction)

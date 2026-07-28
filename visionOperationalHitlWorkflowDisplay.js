@@ -835,6 +835,18 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
       summary.webKnowledgeReadyForGraphRoundtrip === true ? 'Graph roundtrip ready' : 'Graph roundtrip blocked'
     ].join(' · ')
     : '';
+  const preparationRunStatus = compact(summary.preparationRunStatus);
+  const preparationRunText = preparationRunStatus
+    ? [
+      `Preparation ${preparationRunStatus}`,
+      `Generated ${numberValue(summary.preparationGeneratedArtifacts)}`,
+      `Worksheets ${numberValue(summary.preparationWorksheetArtifacts)}`,
+      `Human-gated ${numberValue(summary.preparationSkippedHumanGatedCommands)}`
+    ].join(' · ')
+    : '';
+  const preparationWorksheetPaths = asArray(bundle.preparationWorksheetArtifacts)
+    .map(compact)
+    .filter(Boolean);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -874,6 +886,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     webKnowledgePackageText,
     webKnowledgePackageActionText,
     webKnowledgePackagePath: compact(summary.webKnowledgePackagePath),
+    preparationRunText,
+    preparationRunPath: compact(summary.preparationRunPath),
+    preparationWorksheetPaths,
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
     labelConflictGuideText,
