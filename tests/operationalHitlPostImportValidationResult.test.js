@@ -158,6 +158,23 @@ test('waits for validation evidence without treating missing responses as approv
   ]);
 });
 
+test('waits when an evidence artifact exists but execution has not run yet', () => {
+  const result = buildOperationalHitlPostImportValidationResult({
+    validationPlan: readyPlan(),
+    validationEvidence: {
+      contractVersion: 'operational-hitl-post-import-validation-evidence/v1',
+      status: 'awaiting_validation_execution',
+      serviceWritesPerformed: false,
+      results: []
+    }
+  });
+
+  assert.equal(result.status, 'awaiting_validation_evidence');
+  assert.equal(result.summary.totalCases, 3);
+  assert.equal(result.summary.missingEvidenceCases, 3);
+  assert.equal(result.readyForOperationalReleaseValidation, false);
+});
+
 test('fails closed for blocked plans and unsafe validation evidence', () => {
   const blocked = buildOperationalHitlPostImportValidationResult({
     validationPlan: {

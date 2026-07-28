@@ -146,6 +146,12 @@ const statusFor = ({ validationPlan, validationEvidence, summary }) => {
   if (validationEvidence.contractVersion !== REQUIRED_EVIDENCE_CONTRACT) {
     return 'invalid_validation_evidence';
   }
+  if (validationEvidence.status === 'awaiting_validation_execution') {
+    return 'awaiting_validation_evidence';
+  }
+  if (validationEvidence.status === 'unsafe_observations') {
+    return 'unsafe_validation_evidence';
+  }
   if (validationEvidence.serviceWritesPerformed === true) return 'unsafe_validation_evidence';
   if (summary.totalCases === 0) return 'blocked_no_validation_cases';
   return summary.failedCases === 0 && summary.passRate >= summary.minimumPassRate
