@@ -242,6 +242,7 @@ const run = () => {
     reviewerWorksheetFirstWorktableCopyableText: bundle.summary.reviewerWorksheetFirstWorktableCopyableText ?? null,
     reviewerWorksheetFirstWorktableManualText: bundle.summary.reviewerWorksheetFirstWorktableManualText ?? null,
     reviewerWorksheetWorktableBridgePreviewText: bundle.summary.reviewerWorksheetWorktableBridgePreviewText ?? null,
+    reviewerWorksheetWorktableBridgeScopeText: bundle.summary.reviewerWorksheetWorktableBridgeScopeText ?? null,
     reviewerWorksheetWorktableBridgePreviewCount: bundle.reviewerWorksheetWorktableBridgePreviews?.length ?? 0,
     reviewerWorksheetMarkdownLineCount: bundle.summary.reviewerWorksheetMarkdownLineCount ?? null,
     reviewerWorksheetPath: bundle.summary.reviewerWorksheetPath ?? null,

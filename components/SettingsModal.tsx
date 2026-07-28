@@ -1592,6 +1592,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgeText}
                         </p>
                       )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgeScopeText && (
+                        <p className="mt-1 break-words text-[8px] font-bold text-amber-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgeScopeText}
+                        </p>
+                      )}
                       {operationalStatusBundleDisplay.reviewerWorksheetWorktableCsvPath && (
                         <p className="mt-1 break-words font-mono text-[8px] text-cyan-100">
                           {operationalStatusBundleDisplay.reviewerWorksheetWorktableCsvPath}

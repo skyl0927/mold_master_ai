@@ -17,6 +17,7 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 - As an operator, I want the review-slip queue connected to the human decision worktable entry queue, so that I can see the exact CSV path and copy/manual fields for the first matched HITL item without allowing automatic writes.
 - As an operator, I want the bridge information visible in the Markdown and CLI handoff, so that a new login session or Common Agent collaborator can see the matched worktable row without opening the JSON internals.
 - As an operator, I want several matched bridge entries visible as a preview list, so that I can batch the next HITL rows without losing the safety filter.
+- As an operator, I want the bridge preview scope to show full pending and outside-preview counts, so that `10/10 matched` cannot be misread as all HITL work being complete.
 - As a developer, I want the CLI bundle builder to automatically include the latest preparation-run artifact, so that new handoff bundles preserve the same context.
 
 ## RED Evidence
@@ -43,8 +44,10 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.markdown` did not include the reviewer worksheet worktable bridge count, first decision, CSV path, copy fields, manual fields, or bridge safety notice. |
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetWorktableBridgePreviewText` and `bundle.reviewerWorksheetWorktableBridgePreviews` were `undefined` instead of the safe matched slip previews. |
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgePreviewText` was `undefined` instead of the multi-row bridge preview. |
+| `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetWorktableBridgeScopeText` was `undefined` instead of `Bridge preview 2/4 matched · full pending 59 · outside preview 55`. |
+| `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgeScopeText` was `undefined` instead of the same preview scope text. |
 
-The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, `e50839c test: require HITL worktable bridge`, `d50bd8f test: require HITL bridge markdown handoff`, and `3524e53 test: require HITL bridge entry previews`.
+The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, `e50839c test: require HITL worktable bridge`, `d50bd8f test: require HITL bridge markdown handoff`, `3524e53 test: require HITL bridge entry previews`, and `4775d19 test: require HITL bridge scope text`.
 
 ## GREEN Evidence
 
@@ -74,6 +77,8 @@ The RED checkpoint commits are `708f9fa test: add preparation run status bundle 
 | `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle now emits a safe bridge preview text plus structured preview rows and excludes unsafe auto-populate/apply entries from the preview. |
 | `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the bridge preview text and structured preview cards. |
 | `npm run operational:status-bundle` | PASS | The live CLI output now surfaces `reviewerWorksheetWorktableBridgePreviewText` and `reviewerWorksheetWorktableBridgePreviewCount=10`. |
+| `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle computes bridge scope text from matched preview rows, review-slip preview count, and full pending HITL rows. |
+| `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the bridge scope text so preview-only matches are not confused with full completion. |
 
 ## Known Gaps
 

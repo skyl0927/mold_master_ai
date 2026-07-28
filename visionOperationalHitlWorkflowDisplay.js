@@ -901,6 +901,8 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     : '';
   const reviewerWorksheetWorktableBridgePreviewText =
     compact(summary.reviewerWorksheetWorktableBridgePreviewText);
+  const reviewerWorksheetWorktableBridgeScopeText =
+    compact(summary.reviewerWorksheetWorktableBridgeScopeText);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -963,6 +965,7 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetWorktableCopyableText: compact(summary.reviewerWorksheetFirstWorktableCopyableText),
     reviewerWorksheetWorktableManualText: compact(summary.reviewerWorksheetFirstWorktableManualText),
     reviewerWorksheetWorktableBridgePreviewText,
+    reviewerWorksheetWorktableBridgeScopeText,
     reviewerWorksheetWorktableBridgePreviews: asArray(bundle.reviewerWorksheetWorktableBridgePreviews)
       .slice(0, 5)
       .map(item => ({

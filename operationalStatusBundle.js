@@ -563,6 +563,16 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisi
     operationalReviewerWorksheet,
     humanDecisionBrief
   });
+  const totalPendingActions = numberValue(summary.totalPendingActions);
+  const reviewSlipQueueCount = numberValue(summary.reviewSlipQueueCount || reviewSlipQueue.length);
+  const outsidePreviewCount = Math.max(0, totalPendingActions - reviewSlipQueueCount);
+  const bridgeScopeText = reviewSlipQueueCount > 0
+    ? [
+      `Bridge preview ${worktableBridge.matchedSlips}/${reviewSlipQueueCount} matched`,
+      `full pending ${totalPendingActions}`,
+      `outside preview ${outsidePreviewCount}`
+    ].join(' · ')
+    : '';
   const reviewSlipQueuePreviewText = reviewSlipQueue
     .slice(0, 5)
     .map((item, index) => [
@@ -588,7 +598,7 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisi
     reviewerWorksheetNextReviewSlipTitleKo: compact(slip.titleKo),
     reviewerWorksheetNextReviewSlipFirstInstructionKo: slipInstructions[0] || '',
     reviewerWorksheetNextReviewSlipSafetyNoticeKo: compact(slip.safetyNoticeKo),
-    reviewerWorksheetSlipQueueCount: numberValue(summary.reviewSlipQueueCount || reviewSlipQueue.length),
+    reviewerWorksheetSlipQueueCount: reviewSlipQueueCount,
     reviewerWorksheetSlipQueuePreviewText: reviewSlipQueuePreviewText,
     reviewerWorksheetWorktableMatchedSlips: worktableBridge.matchedSlips,
     reviewerWorksheetFirstWorktableDecisionId: worktableBridge.firstDecisionId,
@@ -596,6 +606,7 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisi
     reviewerWorksheetFirstWorktableCopyableText: worktableBridge.firstCopyableText,
     reviewerWorksheetFirstWorktableManualText: worktableBridge.firstManualText,
     reviewerWorksheetWorktableBridgePreviewText: worktableBridge.previewText,
+    reviewerWorksheetWorktableBridgeScopeText: bridgeScopeText,
     reviewerWorksheetWorktableBridgePreviews: worktableBridge.entryPreviews,
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
@@ -732,6 +743,7 @@ const markdownFor = bundle => {
         `- Worktable CSV: ${bundle.summary.reviewerWorksheetFirstWorktableCsvPath || bundle.summary.worktableCsvPath || '확인 필요'}`,
         `- Copy fields: ${bundle.summary.reviewerWorksheetFirstWorktableCopyableText || 'none'}`,
         `- Manual fields: ${bundle.summary.reviewerWorksheetFirstWorktableManualText || 'none'}`,
+        `- Bridge scope: ${bundle.summary.reviewerWorksheetWorktableBridgeScopeText || '확인 필요'}`,
         '- Bridge safety: requiresHumanReview=true 항목만 안내하며 autoPopulateAllowed=true 또는 autoApplyAllowed=true 항목은 bridge에서 제외'
       ]
       : [];
