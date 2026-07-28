@@ -1,6 +1,9 @@
 const {
   buildVisionConsensusGate
 } = require('./visionConsensusGate');
+const {
+  buildVisionDiagnosticReliabilityCard
+} = require('./visionDiagnosticReliabilityCard');
 
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -152,6 +155,7 @@ const additionalViewAction = visionSummary => {
 const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {}) => {
   const candidate = topCandidateName(visionSummary);
   const consensusGate = buildVisionConsensusGate(visionSummary, { graphValidation });
+  const diagnosticReliabilityCard = buildVisionDiagnosticReliabilityCard(visionSummary, { graphValidation });
   const classifierBlocked = classifierRequiresReview(visionSummary);
   const blocked = isV2Observation(visionSummary) && consensusGate.status === 'blocked';
   const weak = isV2Observation(visionSummary) && !blocked && consensusGate.status !== 'accepted';
@@ -196,7 +200,8 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
       || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
     observationText: visibleObservationText(visionSummary),
     recommendedReviewAction: additionalViewAction(visionSummary),
-    consensusGate
+    consensusGate,
+    diagnosticReliabilityCard
   };
 };
 
@@ -209,7 +214,8 @@ const guardDefectAnalysisForVisionRisk = (
   const guard = buildVisionDiagnosisGuard(visionSummary, { graphValidation: effectiveGraphValidation });
   const enrichedVisionSummary = {
     ...(analysis.visionSummary || visionSummary),
-    consensusGate: guard.consensusGate
+    consensusGate: guard.consensusGate,
+    diagnosticReliabilityCard: guard.diagnosticReliabilityCard
   };
   const enrichedRetrievalSummary = analysis.retrievalSummary
     ? {
