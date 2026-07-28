@@ -41,6 +41,8 @@ node --test tests\operationalHitlPipelineStatus.test.js
 - simulation-only CSV 차단 스모크처럼 의도적으로 실패한 worktable-import
   artifact는 운영 HITL 입력 증거로 취급하지 않고, 무시된 row 수만 summary와
   Markdown에 남긴다.
+- 사람이 CSV 입력을 시작하기 전에 `operational:hitl:human-brief`로 다음 세션과
+  원본 worktable CSV 경로를 한 번에 확인할 수 있게 next action 명령에 포함한다.
 
 ## GREEN
 
@@ -94,6 +96,7 @@ Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
 - Vision 승인 후보: 7
 - Web 카드 승인 후보: 43
 - planned update: 0
+- 다음 명령 목록에는 `npm run operational:hitl:human-brief`가 포함된다.
 
 ## Settings UI 연동
 

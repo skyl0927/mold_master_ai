@@ -190,6 +190,14 @@ manualConfirmationFields를 포함한다. 이 산출물도 추천 전용이며 �
 값만 수동으로 옮겨 적는다. 이 단계도 자동 `newAction` 입력, 검증 실행, Common
 Agent import, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 않는다.
 
+`operational:hitl:human-brief`는 pipeline status, review session plan, session
+packet, session progress를 하나로 묶어 다음 세션, 첫 decision id, 원본 worktable
+CSV 경로, copyable field, 사람이 직접 확인해야 할 필드와 검증 순서를
+`operational-hitl-human-decision-brief/v1` Markdown/JSON으로 만든다. 긴 Web 지식
+카드 원인/대책 값은 브리프 Markdown에서 축약하고 전체 값은 세션 패킷 또는 JSON에서
+확인하게 한다. 이 브리프도 안내 전용이며 원본 CSV나 editable JSON을 수정하지
+않는다.
+
 `operational:hitl:worktable-import`는 사람이 수정한 CSV 작업표를 다시 editable
 decision JSON에 반영하기 위한 왕복 입력 도구다. 기본 실행은 dry-run이며,
 `queueCode`, `decisionId`, `newAction`, reviewer, comment, decidedAt, 확인 boolean,

@@ -275,6 +275,8 @@ const fillCsvAction = worktableCsv => action({
     'npm run operational:hitl:simulated-preflight',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
+    'npm run operational:hitl:session-progress',
+    'npm run operational:hitl:human-brief',
     worktableCsv ? `edit ${worktableCsv}` : 'edit <operational-hitl-decision-worktable-export.csv>',
     'npm run operational:hitl:worktable-import',
     'npm run operational:hitl:session-progress'

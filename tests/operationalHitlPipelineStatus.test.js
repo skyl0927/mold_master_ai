@@ -261,6 +261,8 @@ test('reports the real current bottleneck as waiting for human CSV decisions', (
     'npm run operational:hitl:simulated-preflight',
     'npm run operational:hitl:review-session-plan',
     'npm run operational:hitl:review-session-packet',
+    'npm run operational:hitl:session-progress',
+    'npm run operational:hitl:human-brief',
     'edit C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
     'npm run operational:hitl:worktable-import',
     'npm run operational:hitl:session-progress'
