@@ -47,6 +47,7 @@ import QRCode from 'qrcode';
 import {
     CAPTURE_VIEW_OPTIONS,
     assessCaptureImageForDiagnosis,
+    buildCaptureEvidenceMergePlan,
     buildCaptureMetadata,
     buildRecaptureCaptureGuidance,
     buildRecaptureSourceFromReview,
@@ -258,6 +259,11 @@ const App: React.FC = () => {
     const [loginError, setLoginError] = useState('');
 
     const activeCaptureSummary = summarizeCaptureSession(capturedImages, activeCaptureSessionId);
+    const selectedCaptureEvidenceMergePlan = buildCaptureEvidenceMergePlan({
+        images: capturedImages,
+        selectedIds: Array.from(selectedImageIds),
+        fallbackSessionId: activeCaptureSessionId
+    });
     const pendingRecaptureGuidance = pendingRecaptureSource
         ? buildRecaptureCaptureGuidance(pendingRecaptureSource)
         : null;
@@ -1221,6 +1227,46 @@ const App: React.FC = () => {
         ));
     };
 
+    const handleMergeSelectedCaptureEvidence = () => {
+        const plan = buildCaptureEvidenceMergePlan({
+            images: capturedImages,
+            selectedIds: Array.from(selectedImageIds),
+            fallbackSessionId: activeCaptureSessionIdRef.current
+        });
+
+        if (!plan.canMerge) {
+            setCopyNotification(plan.message);
+            setTimeout(() => setCopyNotification(''), 3000);
+            return;
+        }
+
+        const selectedSet = new Set(selectedImageIds);
+        activeCaptureSessionIdRef.current = plan.targetSessionId;
+        setActiveCaptureSessionId(plan.targetSessionId);
+        setCapturedImages(previous => previous.map(image =>
+            selectedSet.has(image.id)
+                ? {
+                    ...image,
+                    captureSessionId: plan.targetSessionId,
+                    analysis: undefined,
+                    analysisError: undefined,
+                    visionQuality: undefined,
+                    commonAgentImageId: undefined,
+                    commonAgentStatus: 'idle',
+                    commonAgentLastSyncAt: undefined,
+                    commonAgentAnnotationCount: undefined,
+                    visionBboxAnnotationSummary: undefined
+                }
+                : image
+        ));
+
+        const message = plan.readyAfterMerge
+            ? `사진 증거 통합 완료: ${plan.selectedCount}장 · 기본 시점 충족`
+            : `사진 증거 통합 완료: ${plan.selectedCount}장 · 추가 필요 ${plan.missingViewLabels.join(', ')}`;
+        setCopyNotification(message);
+        setTimeout(() => setCopyNotification(''), 4000);
+    };
+
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             Array.from(e.target.files).forEach((file: any) => {
@@ -1771,12 +1817,24 @@ const App: React.FC = () => {
                             검사 대기 목록 <span className="bg-gray-700 text-xs px-2 py-0.5 rounded-full text-gray-300">{capturedImages.length}</span>
                         </h2>
                         {capturedImages.length > 0 && (
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap justify-end gap-2">
                                 <button onClick={() => copyImagesToClipboard(Array.from(selectedImageIds))} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white flex items-center gap-2"><CopyIcon className="w-4 h-4" />선택 복사</button>
                                 <button onClick={handleCopyCommonAgentImageIdList} className="px-3 py-1.5 bg-blue-800 hover:bg-blue-700 rounded text-sm text-white flex items-center gap-2"><CopyIcon className="w-4 h-4" />Agent ID 복사</button>
                                 <button onClick={handleDownloadCommonAgentImageIdList} className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded text-sm text-white flex items-center gap-2"><UploadIcon className="w-4 h-4" />Agent ID TXT</button>
                                 <button onClick={() => handleGenerateReportClick('pptx')} className="px-3 py-1.5 bg-orange-700 hover:bg-orange-600 rounded text-sm text-white flex items-center gap-2"><PptIcon className="w-4 h-4" />PPTX</button>
                                 <button onClick={() => handleGenerateReportClick('xlsx')} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded text-sm text-white flex items-center gap-2"><ExcelIcon className="w-4 h-4" />XLSX</button>
+
+                                {selectedImageIds.size >= 2 && (
+                                    <button
+                                        onClick={handleMergeSelectedCaptureEvidence}
+                                        disabled={isAnalyzing.size > 0 || !selectedCaptureEvidenceMergePlan.canMerge}
+                                        title={selectedCaptureEvidenceMergePlan.message}
+                                        className="px-3 py-1.5 rounded text-sm text-white flex items-center gap-2 transition-colors bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <CameraIcon className="w-4 h-4" />
+                                        사진 증거 통합
+                                    </button>
+                                )}
 
                                 {selectedImageIds.size > 0 && (
                                     <button

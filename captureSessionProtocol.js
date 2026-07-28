@@ -190,6 +190,63 @@ const summarizeCaptureSession = (images, sessionId) => {
   };
 };
 
+const buildCaptureEvidenceMergePlan = ({
+  images,
+  selectedIds,
+  targetSessionId,
+  fallbackSessionId
+} = {}) => {
+  const selectedIdList = selectedIds instanceof Set
+    ? stringList([...selectedIds])
+    : stringList(selectedIds);
+  const selectedIdSet = new Set(selectedIdList);
+  const allImages = Array.isArray(images) ? images : [];
+  const selectedImages = allImages.filter(
+    image => image?.id && selectedIdSet.has(String(image.id))
+  );
+  const physicalImages = selectedImages.filter(
+    image => normalizeImageKind(image?.captureImageKind) === 'physical_product'
+  );
+  const availableViews = normalizeViewTags(
+    physicalImages.map(image => image?.captureViewTag)
+  );
+  const missingViews = BASE_REQUIRED_VIEWS.filter(
+    view => !availableViews.includes(view)
+  );
+  const safeTargetSessionId = compact(targetSessionId)
+    || compact(selectedImages.find(image => image?.captureSessionId)?.captureSessionId)
+    || compact(fallbackSessionId)
+    || createCaptureSessionId('evidence-merge');
+  const sessionIds = uniqueStrings(
+    selectedImages.map(image => image?.captureSessionId)
+  );
+  const canMerge = selectedImages.length >= 2;
+  const readyAfterMerge = canMerge
+    && physicalImages.length >= 2
+    && missingViews.length === 0;
+
+  return {
+    protocolVersion: 'capture-evidence-merge/v1',
+    canMerge,
+    targetSessionId: safeTargetSessionId,
+    selectedCount: selectedImages.length,
+    physicalImageCount: physicalImages.length,
+    availableViews,
+    missingViews,
+    missingViewLabels: missingViews.map(getViewLabel),
+    readyAfterMerge,
+    changedImageIds: selectedImages
+      .filter(image => image?.captureSessionId !== safeTargetSessionId)
+      .map(image => image.id),
+    sourceSessionIds: sessionIds,
+    message: !canMerge
+      ? 'Select at least 2 photos to merge as one evidence set.'
+      : readyAfterMerge
+        ? `Selected ${selectedImages.length} photos can be merged into one diagnosis-ready evidence set.`
+        : `Selected photos can be merged, but required views are still missing: ${missingViews.map(getViewLabel).join(', ')}`
+  };
+};
+
 const assessCaptureImageForDiagnosis = (image, images) => {
   const imageKind = normalizeImageKind(image?.captureImageKind);
   if (imageKind === 'document_or_diagram') {
@@ -364,6 +421,7 @@ module.exports = {
   VALID_CAPTURE_SOURCES,
   VALID_IMAGE_KINDS,
   assessCaptureImageForDiagnosis,
+  buildCaptureEvidenceMergePlan,
   buildCaptureMetadata,
   buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,

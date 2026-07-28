@@ -26,6 +26,21 @@ export interface CaptureSessionSummary {
   message: string;
 }
 
+export interface CaptureEvidenceMergePlan {
+  protocolVersion: 'capture-evidence-merge/v1';
+  canMerge: boolean;
+  targetSessionId: string;
+  selectedCount: number;
+  physicalImageCount: number;
+  availableViews: CaptureViewTag[];
+  missingViews: CaptureViewTag[];
+  missingViewLabels: string[];
+  readyAfterMerge: boolean;
+  changedImageIds: string[];
+  sourceSessionIds: string[];
+  message: string;
+}
+
 export interface CaptureMetadata {
   capture_session_id?: string;
   capture_view_tags: CaptureViewTag[];
@@ -94,6 +109,13 @@ export function assessCaptureImageForDiagnosis(
   image: Partial<CapturedImage>,
   images: Array<Partial<CapturedImage>>
 ): CaptureSessionSummary;
+
+export function buildCaptureEvidenceMergePlan(options?: {
+  images?: Array<Partial<CapturedImage>>;
+  selectedIds?: Iterable<string> | string[];
+  targetSessionId?: string;
+  fallbackSessionId?: string;
+}): CaptureEvidenceMergePlan;
 
 export function buildCaptureMetadata(
   image: Partial<CapturedImage>,
