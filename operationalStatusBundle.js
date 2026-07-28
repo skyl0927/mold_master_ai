@@ -253,6 +253,27 @@ const captureWorkOrderPreviewsFor = visionCaptureWorkOrderPlan =>
     }))
     : [];
 
+const postImportValidationSummaryFor = pipelineStatus => {
+  const summary = pipelineStatus?.summary || {};
+  return {
+    postImportValidationCases: numberValue(summary.postImportValidationCases),
+    postImportValidationObservationStatus: compact(summary.postImportValidationObservationStatus) || 'not_started',
+    postImportGraphExecutableCases: numberValue(summary.postImportGraphExecutableCases),
+    postImportGraphCapturedCases: numberValue(summary.postImportGraphCapturedCases),
+    postImportGraphFailedCases: numberValue(summary.postImportGraphFailedCases),
+    postImportManualObservationRequiredCases: numberValue(summary.postImportManualObservationRequiredCases),
+    postImportManualObservationTemplateStatus: compact(summary.postImportManualObservationTemplateStatus) || 'not_started',
+    postImportManualObservationRows: numberValue(summary.postImportManualObservationRows),
+    postImportValidationEvidenceStatus: compact(summary.postImportValidationEvidenceStatus) || 'not_started',
+    postImportValidationObservedEvidenceCases: numberValue(summary.postImportValidationObservedEvidenceCases),
+    postImportValidationEvidenceMissingCases: numberValue(summary.postImportValidationEvidenceMissingCases),
+    postImportValidationResultStatus: compact(summary.postImportValidationResultStatus) || 'not_started',
+    postImportValidationPassedCases: numberValue(summary.postImportValidationPassedCases),
+    postImportValidationFailedCases: numberValue(summary.postImportValidationFailedCases),
+    postImportValidationPassRate: numberValue(summary.postImportValidationPassRate)
+  };
+};
+
 const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
   {
     code: 'register_status_artifacts_in_settings',
@@ -340,6 +361,13 @@ const markdownFor = bundle => {
     `- Web cases: ${bundle.summary.webCards || 0}/${bundle.summary.webTargetCards || 0} / Common Agent ${bundle.summary.webCommonAgentValidationPassed || 0} / HITL missing ${bundle.summary.webHitlApprovalsMissing || 0} / central missing ${bundle.summary.webCentralApprovalsMissing || 0}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
+    `- Post-import cases: ${bundle.summary.postImportValidationCases || 0}`,
+    `- Graph observations: ${bundle.summary.postImportGraphCapturedCases || 0}/${bundle.summary.postImportGraphExecutableCases || 0}`,
+    `- Graph observation failed: ${bundle.summary.postImportGraphFailedCases || 0}`,
+    `- Manual observations: ${bundle.summary.postImportManualObservationRows || 0}`,
+    `- Evidence: ${bundle.summary.postImportValidationObservedEvidenceCases || 0}/${bundle.summary.postImportValidationCases || 0}`,
+    `- Evidence missing: ${bundle.summary.postImportValidationEvidenceMissingCases || 0}`,
+    `- Validation result: ${bundle.summary.postImportValidationResultStatus || 'not_started'}`,
     `- 다음 세션: ${bundle.summary.nextSessionCode || '없음'} / ${bundle.summary.nextDecisionId || '없음'}`,
     `- 원본 worktable CSV: ${bundle.summary.worktableCsvPath || '확인 필요'}`,
     '- 안전 정책: 자동 적용 금지, Graph/Reference/Model 승격 금지',
@@ -457,6 +485,7 @@ const buildOperationalStatusBundle = ({
       visionCaptureProtocolReadyRate: numberValue(progressSummary.visionCaptureProtocolReadyRate),
       visionAccuracyFirstTrackCode: compact(progressSummary.visionAccuracyFirstTrackCode),
       ...(captureWorkOrderSummary || {}),
+      ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
       nextDecisionId: compact(humanSummary.nextDecisionId),

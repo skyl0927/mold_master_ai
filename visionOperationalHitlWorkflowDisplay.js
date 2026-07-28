@@ -820,6 +820,7 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     webKnowledgeText,
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
+    postImportValidationText: postImportPipelineSummaryParts(summary).join(' · '),
     captureWorkOrderPreviews: asArray(bundle.visionCaptureWorkOrderPreviews)
       .slice(0, 4)
       .map(order => ({

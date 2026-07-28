@@ -83,6 +83,32 @@ const pipelineStatus = () => ({
   ]
 });
 
+const postImportPipelineStatus = () => ({
+  ...pipelineStatus(),
+  currentStage: {
+    code: 'execute_post_import_validation',
+    titleKo: 'Post-import validation evidence capture'
+  },
+  summary: {
+    ...pipelineStatus().summary,
+    postImportValidationCases: 44,
+    postImportValidationObservationStatus: 'partial_observations_collected',
+    postImportGraphExecutableCases: 40,
+    postImportGraphCapturedCases: 40,
+    postImportGraphFailedCases: 1,
+    postImportManualObservationRequiredCases: 4,
+    postImportManualObservationTemplateStatus: 'ready_for_manual_observation',
+    postImportManualObservationRows: 4,
+    postImportValidationEvidenceStatus: 'partial_evidence_collected',
+    postImportValidationObservedEvidenceCases: 40,
+    postImportValidationEvidenceMissingCases: 4,
+    postImportValidationResultStatus: 'awaiting_validation_evidence',
+    postImportValidationPassedCases: 0,
+    postImportValidationFailedCases: 0,
+    postImportValidationPassRate: 0
+  }
+});
+
 const humanBrief = () => ({
   contractVersion: 'operational-hitl-human-decision-brief/v1',
   status: 'ready_for_human_entry',
@@ -365,6 +391,39 @@ test('embeds Vision capture work orders in the status bundle handoff', () => {
   const restorable = extractRestorableStatusBundleArtifacts(bundle);
   assert.equal(restorable.artifacts.visionCaptureWorkOrderPlan.contractVersion, 'vision-capture-work-order-plan/v1');
   assert.ok(bundle.markdown.includes('Vision capture work orders'));
+});
+
+test('surfaces post-import validation status in the one-file operational bundle', () => {
+  const bundle = buildOperationalStatusBundle({
+    generatedAt: '2026-07-28T05:25:00.000Z',
+    developmentProgress: progressReport(),
+    pipelineStatus: postImportPipelineStatus(),
+    humanDecisionBrief: humanBrief(),
+    sourceArtifacts: {
+      developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
+      pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
+      humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json'
+    }
+  });
+
+  assert.equal(bundle.summary.currentPipelineStageCode, 'execute_post_import_validation');
+  assert.equal(bundle.summary.postImportValidationCases, 44);
+  assert.equal(bundle.summary.postImportValidationObservationStatus, 'partial_observations_collected');
+  assert.equal(bundle.summary.postImportGraphExecutableCases, 40);
+  assert.equal(bundle.summary.postImportGraphCapturedCases, 40);
+  assert.equal(bundle.summary.postImportGraphFailedCases, 1);
+  assert.equal(bundle.summary.postImportManualObservationRequiredCases, 4);
+  assert.equal(bundle.summary.postImportManualObservationTemplateStatus, 'ready_for_manual_observation');
+  assert.equal(bundle.summary.postImportManualObservationRows, 4);
+  assert.equal(bundle.summary.postImportValidationEvidenceStatus, 'partial_evidence_collected');
+  assert.equal(bundle.summary.postImportValidationObservedEvidenceCases, 40);
+  assert.equal(bundle.summary.postImportValidationEvidenceMissingCases, 4);
+  assert.equal(bundle.summary.postImportValidationResultStatus, 'awaiting_validation_evidence');
+  assert.match(bundle.markdown, /Post-import cases: 44/);
+  assert.match(bundle.markdown, /Graph observations: 40\/40/);
+  assert.match(bundle.markdown, /Manual observations: 4/);
+  assert.match(bundle.markdown, /Evidence: 40\/44/);
+  assert.match(bundle.markdown, /Validation result: awaiting_validation_evidence/);
 });
 
 test('rejects unsupported or contract-mismatched status bundle snapshots', () => {

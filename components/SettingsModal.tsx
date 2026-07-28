@@ -1381,6 +1381,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       {operationalStatusBundleDisplay.captureWorkOrderText}
                     </p>
                   )}
+                  {operationalStatusBundleDisplay.postImportValidationText && (
+                    <p className="mt-1 break-words text-sky-100">
+                      {operationalStatusBundleDisplay.postImportValidationText}
+                    </p>
+                  )}
                   {operationalStatusBundleDisplay.captureWorkOrderPreviews.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {operationalStatusBundleDisplay.captureWorkOrderPreviews.map(order => (

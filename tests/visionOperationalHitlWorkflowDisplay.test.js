@@ -1242,6 +1242,44 @@ test('summarizes operational status bundle for one-step Settings handoff display
   ]);
 });
 
+test('summarizes post-import validation metrics in one-step Settings handoff display', () => {
+  const display = summarizeOperationalStatusBundleDisplay({
+    contractVersion: 'operational-status-bundle/v1',
+    status: 'action_required',
+    statusLabelKo: 'Post-import validation pending',
+    summary: {
+      currentPhaseKo: 'Operational validation',
+      currentPipelineStageKo: 'Post-import validation evidence capture',
+      softwareScaffoldPercent: 100,
+      operationalProgressPercent: 75,
+      hitlDecisionInputsMissing: 0,
+      pendingRows: 0,
+      highRiskRows: 0,
+      postImportValidationCases: 44,
+      postImportValidationObservationStatus: 'partial_observations_collected',
+      postImportGraphExecutableCases: 40,
+      postImportGraphCapturedCases: 40,
+      postImportGraphFailedCases: 1,
+      postImportManualObservationRequiredCases: 4,
+      postImportManualObservationRows: 4,
+      postImportValidationEvidenceStatus: 'partial_evidence_collected',
+      postImportValidationObservedEvidenceCases: 40,
+      postImportValidationEvidenceMissingCases: 4,
+      postImportValidationResultStatus: 'awaiting_validation_evidence',
+      worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
+    },
+    settingsImportChecklist: [],
+    sessionPointers: [],
+    nextOperatorActions: [],
+    progressFeedbackKo: [],
+    recommendedAction: 'Run post-import observation and evidence commands.'
+  });
+
+  assert.equal(display.statusLabel, 'Post-import validation pending');
+  assert.equal(display.postImportValidationText, 'Post-import cases 44 · Graph obs 40/40 · Graph fail 1 · Manual obs 4 · Evidence 40/44 · Evidence missing 4 · Result awaiting_validation_evidence');
+  assert.equal(display.summaryText.includes('Software 100%'), true);
+});
+
 test('returns null when no operational status bundle is available to display', () => {
   assert.equal(summarizeOperationalStatusBundleDisplay(null), null);
   assert.equal(summarizeOperationalStatusBundleDisplay({ contractVersion: 'unknown/v1' }), null);
