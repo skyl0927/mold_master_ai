@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
   assessCaptureImageForDiagnosis,
+  buildCaptureEvidenceMergePlan,
   buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,
   buildCaptureMetadata,
@@ -49,6 +50,50 @@ test('full context and defect close-up make a physical capture session ready', (
   assert.equal(summary.status, 'ready');
   assert.deepEqual(summary.missingViews, []);
   assert.equal(assessment.ready, true);
+});
+
+test('selected full context and close-up from different sessions can be planned as one evidence set', () => {
+  const images = [
+    image({
+      id: 'full-view',
+      captureSessionId: 'session-full',
+      captureViewTag: 'full_part_context'
+    }),
+    image({
+      id: 'closeup-view',
+      captureSessionId: 'session-closeup',
+      captureViewTag: 'defect_closeup'
+    })
+  ];
+
+  const plan = buildCaptureEvidenceMergePlan({
+    images,
+    selectedIds: ['full-view', 'closeup-view']
+  });
+
+  assert.equal(plan.canMerge, true);
+  assert.equal(plan.targetSessionId, 'session-full');
+  assert.equal(plan.selectedCount, 2);
+  assert.equal(plan.readyAfterMerge, true);
+  assert.deepEqual(plan.missingViews, []);
+  assert.deepEqual(plan.changedImageIds, ['closeup-view']);
+});
+
+test('evidence merge plan refuses one selected image and reports missing required views', () => {
+  const plan = buildCaptureEvidenceMergePlan({
+    images: [
+      image({
+        id: 'full-view',
+        captureViewTag: 'full_part_context'
+      })
+    ],
+    selectedIds: ['full-view']
+  });
+
+  assert.equal(plan.canMerge, false);
+  assert.equal(plan.readyAfterMerge, false);
+  assert.deepEqual(plan.missingViews, ['defect_closeup']);
+  assert.match(plan.message, /2/);
 });
 
 test('duplicate view tags do not satisfy the two-view protocol', () => {
