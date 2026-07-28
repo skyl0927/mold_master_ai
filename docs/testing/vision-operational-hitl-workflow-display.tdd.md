@@ -17,6 +17,9 @@ Settings에 등록해 현재 개발 완료 단계, HITL 미입력 수, 추천 �
 `operational-hitl-human-decision-brief/v1`도 Settings에서 등록해 실제 판정자가
 열어야 할 세션 파일, 원본 worktable CSV, 다음 decision id, 자동 적용 금지 정책을
 한 화면에서 확인할 수 있어야 한다.
+`mold-master-development-progress-report/v1`도 Settings에서 등록해 소프트웨어
+scaffold 진행률, 운영 전환 진행률, Vision/HITL/Web 병목, 다음 1순위 작업을
+한 카드에서 확인할 수 있어야 한다.
 
 ## RED
 
@@ -79,12 +82,18 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
   다음 decision id, 원본 worktable CSV, 작업 순서, 다음 입력 row를 보여준다.
 - Human Brief 카드는 `Brief-only`, `newAction 자동 입력 금지`, `자동 적용 금지`,
   `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
+- `mold-master-development-progress-report/v1`는 `Mold Master Development
+  Progress` 카드로 표시하고 현재 phase, 소프트웨어/운영 진행률, Vision blocker,
+  HITL 미입력, Web 승인대기, Vision Top-1/Top-3/촬영 프로토콜 병목, 다음 작업,
+  stage preview를 보여준다.
+- Development Progress 카드는 `Artifact-only`, `자동 적용 금지`, `Graph 승격 금지`,
+  `Reference 학습 금지`, `Model 학습 금지`를 표시한다.
 
 ## 확인 결과
 
 ```text
 npm run test:vision-operational-hitl-display
-PASS 22
+PASS 24
 ```
 
 Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가 표시되고,
@@ -95,6 +104,14 @@ Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가
 `artifacts/operational-hitl-pipeline-status-*.json`을 등록하면 `HITL Pipeline
 Status` 카드가 표시된다. 현재 실제 상태는 소프트웨어 scaffold 100%, 운영 전환
 0%, HITL decision 입력 56건 미완료, Vision Top-1 46.2% / Top-3 53.8% 병목이다.
+
+`Progress 등록` 버튼으로 최신
+`artifacts/mold-master-development-progress-report-*.json`을 등록하면
+`Mold Master Development Progress` 카드가 표시된다. 현재 실제 상태는
+소프트웨어 100%, 운영 0%, Vision blocker 8건, HITL 56건, Web 승인대기 40건,
+Vision Top-1 46.2%, Top-3 53.8%, 촬영 프로토콜 0%, 다음 1순위
+`승인 이미지 라벨 충돌 해결`이다. 이 카드는 진행 상황 설명과 stage preview를
+제공하지만 자동 적용이나 Graph/Reference/Model 승격은 수행하지 않는다.
 
 `Suggestion 등록` 버튼으로 최신
 `artifacts/operational-hitl-decision-worktable-suggestion-*.json`을 등록하면

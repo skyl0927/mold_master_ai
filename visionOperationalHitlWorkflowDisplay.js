@@ -203,6 +203,20 @@ const humanDecisionBriefSeverityFor = status => {
   return 'warning';
 };
 
+const developmentProgressStatusLabelFor = status => {
+  if (status === 'ready_for_operator_review') return '운영자 릴리스 검토 준비';
+  if (status === 'missing_evidence') return '진행 증거 재생성 필요';
+  if (status === 'action_required') return '운영 전환 조치 필요';
+  if (status === 'complete' || status === 'clear') return '완료';
+  return compact(status);
+};
+
+const developmentProgressSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (status === 'ready_for_operator_review' || status === 'complete' || status === 'clear') return 'success';
+  return 'warning';
+};
+
 const copyableTextFor = fields => {
   const parts = (Array.isArray(fields) ? fields : [])
     .map(field => `${compact(field?.worktableColumn)}=${compact(field?.value)}`)
@@ -629,6 +643,75 @@ const summarizeOperationalHitlHumanDecisionBriefDisplay = brief => {
   };
 };
 
+const summarizeMoldMasterDevelopmentProgressDisplay = report => {
+  if (report?.contractVersion !== 'mold-master-development-progress-report/v1') {
+    return null;
+  }
+
+  const status = compact(report.status);
+  const summary = report.summary || {};
+  const progress = report.progress || {};
+  const firstAction = Array.isArray(report.nextActions) ? report.nextActions[0] : null;
+  const softwarePercent = numberValue(progress.software?.percent);
+  const operationalPercent = numberValue(progress.operational?.percent);
+  const firstTrackCode = compact(summary.visionAccuracyFirstTrackCode);
+  const accuracyParts = [
+    `Vision Top-1 ${numberValue(summary.visionTop1Accuracy)}%`,
+    `Top-3 ${numberValue(summary.visionTop3Accuracy)}%`,
+    `촬영 프로토콜 ${numberValue(summary.visionCaptureProtocolReadyRate)}%`,
+    firstTrackCode ? `개선 ${firstTrackCode}` : ''
+  ].filter(Boolean);
+
+  return {
+    title: 'Mold Master Development Progress',
+    status,
+    statusLabel: developmentProgressStatusLabelFor(status),
+    severity: developmentProgressSeverityFor(status),
+    phaseText: compact(report.currentPhase?.titleKo) || compact(report.currentPhase?.code),
+    summaryText: [
+      `소프트웨어 ${softwarePercent}%`,
+      `운영 ${operationalPercent}%`,
+      `Vision blocker ${numberValue(summary.visionBlockers)}건`,
+      `HITL ${numberValue(summary.operationalHitlDecisionInputsMissing)}건`,
+      `Web 승인대기 ${numberValue(summary.webHitlApprovalsMissing)}건`
+    ].join(' · '),
+    accuracyText: accuracyParts.join(' · '),
+    nextActionKo: firstAction
+      ? [
+        compact(firstAction.titleKo) || compact(firstAction.code),
+        compact(firstAction.owner),
+        numberValue(firstAction.priority) > 0 ? `P${numberValue(firstAction.priority)}` : ''
+      ].filter(Boolean).join(' · ')
+      : compact(report.recommendedAction),
+    nextCommand: compact(firstAction?.commands?.[0]),
+    feedbackPreviews: (Array.isArray(report.progressFeedbackKo) ? report.progressFeedbackKo : [])
+      .slice(0, 5)
+      .map(compact)
+      .filter(Boolean),
+    stagePreviews: (Array.isArray(report.stageCards) ? report.stageCards : [])
+      .slice(0, 6)
+      .map(stage => ({
+        id: compact(stage?.id),
+        titleKo: compact(stage?.titleKo),
+        status: compact(stage?.status),
+        owner: compact(stage?.owner),
+        blockerText: (Array.isArray(stage?.blockerCodes) ? stage.blockerCodes : [])
+          .map(compact)
+          .filter(Boolean)
+          .join(' · '),
+        commandCount: Array.isArray(stage?.commands) ? stage.commands.length : 0,
+        feedbackKo: compact(stage?.feedbackKo)
+      })),
+    safetyBadges: [
+      'Artifact-only',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Reference 학습 금지',
+      'Model 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -680,5 +763,6 @@ module.exports = {
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
-  summarizeOperationalHitlHumanDecisionBriefDisplay
+  summarizeOperationalHitlHumanDecisionBriefDisplay,
+  summarizeMoldMasterDevelopmentProgressDisplay
 };

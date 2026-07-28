@@ -9,7 +9,8 @@ const {
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
-  summarizeOperationalHitlHumanDecisionBriefDisplay
+  summarizeOperationalHitlHumanDecisionBriefDisplay,
+  summarizeMoldMasterDevelopmentProgressDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -907,4 +908,126 @@ test('summarizes operational HITL human decision brief for Settings UI display',
 test('returns null when no operational HITL human decision brief is available to display', () => {
   assert.equal(summarizeOperationalHitlHumanDecisionBriefDisplay(null), null);
   assert.equal(summarizeOperationalHitlHumanDecisionBriefDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes Mold Master development progress for Settings UI display', () => {
+  const display = summarizeMoldMasterDevelopmentProgressDisplay({
+    contractVersion: 'mold-master-development-progress-report/v1',
+    status: 'action_required',
+    currentPhase: {
+      code: 'operational_data_hitl_closure',
+      titleKo: '운영 전환 전 데이터/HITL 게이트 종료 단계'
+    },
+    summary: {
+      visionBlockers: 8,
+      visionTasks: 5,
+      webHitlApprovalsMissing: 40,
+      webCentralApprovalsMissing: 40,
+      operationalHitlDecisionInputsMissing: 56,
+      operationalHitlFirstQueueCode: 'vision_label_conflicts',
+      visionTop1Accuracy: 46.2,
+      visionTop3Accuracy: 53.8,
+      visionCaptureProtocolReadyRate: 0,
+      visionAccuracyFirstTrackCode: 'repair_capture_protocol',
+      topPriorityTaskCode: 'resolve_label_conflicts'
+    },
+    progress: {
+      software: {
+        implementedStages: 10,
+        totalStages: 10,
+        percent: 100
+      },
+      operational: {
+        completedStages: 0,
+        totalStages: 10,
+        blockedStages: 10,
+        percent: 0
+      }
+    },
+    nextActions: [
+      {
+        code: 'resolve_label_conflicts',
+        owner: 'quality_hitl',
+        priority: 100,
+        titleKo: '승인 이미지 라벨 충돌 해결',
+        commands: [
+          'npm run vision:label-conflicts:packet',
+          'npm run vision:label-conflicts:decision-template'
+        ]
+      }
+    ],
+    stageCards: [
+      {
+        id: 'vision_safety_contract',
+        titleKo: 'Vision 안전 계약/Graph 차단',
+        status: 'implemented',
+        owner: 'mold_master_ai',
+        blockerCodes: ['post_hitl_blockers'],
+        commands: [],
+        feedbackKo: 'Vision 분석은 안전 게이트와 Graph 승격 차단 정책이 동작 중입니다.'
+      },
+      {
+        id: 'operational_hitl_decision_intake',
+        titleKo: 'HITL decision intake',
+        status: 'action_required',
+        owner: 'quality_hitl',
+        blockerCodes: ['hitl_decision_inputs_missing'],
+        commands: ['npm run vision:label-conflicts:decision-template'],
+        feedbackKo: 'HITL decision 입력 56건이 남아 있습니다.'
+      }
+    ],
+    progressFeedbackKo: [
+      '개발 단계: 운영 전환 전 데이터/HITL 게이트 종료 단계입니다.',
+      '현재 Vision blocker 8건, 운영 작업 5건, Web HITL 미승인 40건이 남아 있습니다.',
+      '다음 1순위는 승인 이미지 라벨 충돌 해결입니다.',
+      '자동 Graph 승격, Reference 학습, 모델 학습은 사람이 검증하기 전까지 금지됩니다.'
+    ]
+  });
+
+  assert.equal(display.title, 'Mold Master Development Progress');
+  assert.equal(display.statusLabel, '운영 전환 조치 필요');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.phaseText, '운영 전환 전 데이터/HITL 게이트 종료 단계');
+  assert.equal(display.summaryText, '소프트웨어 100% · 운영 0% · Vision blocker 8건 · HITL 56건 · Web 승인대기 40건');
+  assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8% · 촬영 프로토콜 0% · 개선 repair_capture_protocol');
+  assert.equal(display.nextActionKo, '승인 이미지 라벨 충돌 해결 · quality_hitl · P100');
+  assert.equal(display.nextCommand, 'npm run vision:label-conflicts:packet');
+  assert.deepEqual(display.feedbackPreviews, [
+    '개발 단계: 운영 전환 전 데이터/HITL 게이트 종료 단계입니다.',
+    '현재 Vision blocker 8건, 운영 작업 5건, Web HITL 미승인 40건이 남아 있습니다.',
+    '다음 1순위는 승인 이미지 라벨 충돌 해결입니다.',
+    '자동 Graph 승격, Reference 학습, 모델 학습은 사람이 검증하기 전까지 금지됩니다.'
+  ]);
+  assert.deepEqual(display.stagePreviews, [
+    {
+      id: 'vision_safety_contract',
+      titleKo: 'Vision 안전 계약/Graph 차단',
+      status: 'implemented',
+      owner: 'mold_master_ai',
+      blockerText: 'post_hitl_blockers',
+      commandCount: 0,
+      feedbackKo: 'Vision 분석은 안전 게이트와 Graph 승격 차단 정책이 동작 중입니다.'
+    },
+    {
+      id: 'operational_hitl_decision_intake',
+      titleKo: 'HITL decision intake',
+      status: 'action_required',
+      owner: 'quality_hitl',
+      blockerText: 'hitl_decision_inputs_missing',
+      commandCount: 1,
+      feedbackKo: 'HITL decision 입력 56건이 남아 있습니다.'
+    }
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Artifact-only',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Reference 학습 금지',
+    'Model 학습 금지'
+  ]);
+});
+
+test('returns null when no Mold Master development progress report is available to display', () => {
+  assert.equal(summarizeMoldMasterDevelopmentProgressDisplay(null), null);
+  assert.equal(summarizeMoldMasterDevelopmentProgressDisplay({ contractVersion: 'unknown/v1' }), null);
 });

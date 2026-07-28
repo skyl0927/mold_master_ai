@@ -45,7 +45,8 @@ import {
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
-  summarizeOperationalHitlHumanDecisionBriefDisplay
+  summarizeOperationalHitlHumanDecisionBriefDisplay,
+  summarizeMoldMasterDevelopmentProgressDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -104,6 +105,8 @@ const OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY =
   'mold-master-ai:operational-hitl-review-session-packet:v1';
 const OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY =
   'mold-master-ai:operational-hitl-human-decision-brief:v1';
+const MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY =
+  'mold-master-ai:development-progress:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -224,6 +227,23 @@ const saveOperationalHitlHumanDecisionBrief = (brief: any): void => {
   localStorage.setItem(OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY, JSON.stringify(brief));
 };
 
+const readMoldMasterDevelopmentProgress = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'mold-master-development-progress-report/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveMoldMasterDevelopmentProgress = (report: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY, JSON.stringify(report));
+};
+
 const operationalWorklistStatusLabel = (status: string): string => {
   if (status === 'ready') return '수동 활성화 준비 완료';
   if (status === 'waiting_for_operator') return '운영 담당자 승인 대기';
@@ -341,6 +361,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlHumanDecisionBrief, setOperationalHitlHumanDecisionBrief] = useState(
     () => readOperationalHitlHumanDecisionBrief()
   );
+  const [moldMasterDevelopmentProgress, setMoldMasterDevelopmentProgress] = useState(
+    () => readMoldMasterDevelopmentProgress()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -360,6 +383,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeOperationalHitlReviewSessionPacketDisplay(operationalHitlReviewSessionPacket);
   const operationalHitlHumanDecisionBriefDisplay =
     summarizeOperationalHitlHumanDecisionBriefDisplay(operationalHitlHumanDecisionBrief);
+  const moldMasterDevelopmentProgressDisplay =
+    summarizeMoldMasterDevelopmentProgressDisplay(moldMasterDevelopmentProgress);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
@@ -368,6 +393,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlReviewSessionPlanImportStatus, setOperationalHitlReviewSessionPlanImportStatus] = useState('');
   const [operationalHitlReviewSessionPacketImportStatus, setOperationalHitlReviewSessionPacketImportStatus] = useState('');
   const [operationalHitlHumanDecisionBriefImportStatus, setOperationalHitlHumanDecisionBriefImportStatus] = useState('');
+  const [moldMasterDevelopmentProgressImportStatus, setMoldMasterDevelopmentProgressImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -510,6 +536,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalHitlReviewSessionPlan,
       operationalHitlReviewSessionPacket,
       operationalHitlHumanDecisionBrief,
+      moldMasterDevelopmentProgress,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -689,6 +716,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalHitlHumanDecisionBriefImportStatus(
         error instanceof Error ? `Human brief 등록 실패: ${error.message}` : 'Human brief 등록 실패'
+      );
+    }
+  };
+
+  const handleMoldMasterDevelopmentProgressImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const report = JSON.parse(await file.text());
+      if (report?.contractVersion !== 'mold-master-development-progress-report/v1') {
+        throw new Error('invalid Mold Master development progress report');
+      }
+      saveMoldMasterDevelopmentProgress(report);
+      setMoldMasterDevelopmentProgress(report);
+      setMoldMasterDevelopmentProgressImportStatus('개발 진행률 리포트를 등록했습니다.');
+    } catch (error) {
+      setMoldMasterDevelopmentProgressImportStatus(
+        error instanceof Error ? `진행률 리포트 등록 실패: ${error.message}` : '진행률 리포트 등록 실패'
       );
     }
   };
@@ -1007,6 +1055,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalReadinessAuditImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-violet-800 px-2 py-1 text-[9px] text-violet-100 hover:bg-violet-700">
+                    Progress 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleMoldMasterDevelopmentProgressImport}
+                    />
+                  </label>
                   <label className="cursor-pointer rounded bg-cyan-800 px-2 py-1 text-[9px] text-cyan-100 hover:bg-cyan-700">
                     HITL Pack 등록
                     <input
@@ -1084,6 +1141,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalAuditImportStatus}
+                </p>
+              )}
+              {moldMasterDevelopmentProgressImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  moldMasterDevelopmentProgressImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {moldMasterDevelopmentProgressImportStatus}
                 </p>
               )}
               {operationalHitlActionPackImportStatus && (
@@ -1171,6 +1237,100 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   {operationalReleaseTrend.narrative}
                 </p>
               </div>
+              {moldMasterDevelopmentProgressDisplay && (
+                <div
+                  aria-label="Mold Master Development Progress"
+                  className={`mt-2 rounded border p-2 text-[9px] text-gray-300 ${
+                    moldMasterDevelopmentProgressDisplay.severity === 'danger'
+                      ? 'border-red-800/70 bg-red-950/30'
+                      : moldMasterDevelopmentProgressDisplay.severity === 'success'
+                        ? 'border-emerald-800/70 bg-emerald-950/25'
+                        : 'border-violet-800/70 bg-violet-950/25'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-violet-100">
+                        {moldMasterDevelopmentProgressDisplay.title}
+                      </p>
+                      <p className="mt-1 text-violet-200">
+                        {moldMasterDevelopmentProgressDisplay.statusLabel}
+                      </p>
+                    </div>
+                    <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                      {moldMasterDevelopmentProgressDisplay.status}
+                    </span>
+                  </div>
+                  {moldMasterDevelopmentProgressDisplay.phaseText && (
+                    <p className="mt-1 break-words text-violet-100">
+                      현재 단계: {moldMasterDevelopmentProgressDisplay.phaseText}
+                    </p>
+                  )}
+                  <p className="mt-1 break-words text-gray-300">
+                    {moldMasterDevelopmentProgressDisplay.summaryText}
+                  </p>
+                  {moldMasterDevelopmentProgressDisplay.accuracyText && (
+                    <p className="mt-1 break-words text-amber-100">
+                      {moldMasterDevelopmentProgressDisplay.accuracyText}
+                    </p>
+                  )}
+                  <p className="mt-1 break-words text-gray-400">
+                    다음: {moldMasterDevelopmentProgressDisplay.nextActionKo}
+                  </p>
+                  {moldMasterDevelopmentProgressDisplay.nextCommand && (
+                    <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-violet-100">
+                      {moldMasterDevelopmentProgressDisplay.nextCommand}
+                    </p>
+                  )}
+                  {moldMasterDevelopmentProgressDisplay.feedbackPreviews.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {moldMasterDevelopmentProgressDisplay.feedbackPreviews.map(feedback => (
+                        <p key={feedback} className="break-words text-[8px] text-gray-300">
+                          {feedback}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {moldMasterDevelopmentProgressDisplay.stagePreviews.length > 0 && (
+                    <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                      {moldMasterDevelopmentProgressDisplay.stagePreviews.map(stage => (
+                        <div
+                          key={stage.id}
+                          className="rounded border border-violet-900/50 bg-gray-950/35 px-2 py-1"
+                        >
+                          <p className="break-words text-[8px] font-bold text-violet-50">
+                            {stage.titleKo} · {stage.status}
+                          </p>
+                          <p className="mt-1 break-words text-[8px] text-gray-400">
+                            {stage.owner}
+                            {stage.commandCount > 0 ? ` · 명령 ${stage.commandCount}개` : ''}
+                          </p>
+                          {stage.blockerText && (
+                            <p className="mt-1 break-words text-[8px] text-amber-100">
+                              차단: {stage.blockerText}
+                            </p>
+                          )}
+                          {stage.feedbackKo && (
+                            <p className="mt-1 break-words text-[8px] text-gray-500">
+                              {stage.feedbackKo}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {moldMasterDevelopmentProgressDisplay.safetyBadges.map(badge => (
+                      <span
+                        key={badge}
+                        className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div
                 aria-label="Vision 운영 작업 목록"
                 className="mt-2 rounded border border-amber-900/60 bg-amber-950/20 p-2 text-[9px] text-gray-300"
