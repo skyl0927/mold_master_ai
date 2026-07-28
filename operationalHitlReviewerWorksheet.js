@@ -57,6 +57,7 @@ const missingEvidenceWorksheet = (generatedAt, sourceArtifacts) => ({
   },
   reviewChecklist: [],
   nextReviewCursor: null,
+  nextReviewSlip: null,
   markdown: '',
   markdownPath: null,
   sources: {
@@ -177,10 +178,52 @@ const nextReviewCursorMarkdown = cursor => {
   ];
 };
 
+const nextReviewSlipFor = cursor => {
+  if (!cursor) return null;
+
+  const queueCode = compact(cursor.queueCode) || 'review_required';
+  const decisionId = compact(cursor.decisionId) || 'source file 확인 필요';
+  return {
+    titleKo: `다음 HITL 판정: ${queueCode} / ${decisionId}`,
+    queueCode,
+    decisionId,
+    owner: compact(cursor.owner) || 'quality_hitl',
+    sourceArtifact: compact(cursor.sourceArtifact),
+    verificationCommand: compact(cursor.verificationCommand),
+    requiredFields: unique(cursor.requiredFields),
+    allowedActions: unique(cursor.allowedActions),
+    operatorInstructionsKo: [
+      `source file에서 ${decisionId} 항목을 찾으세요.`,
+      '원본 이미지/텍스트 근거를 확인하고 allowed action 중 하나만 선택하세요.',
+      'required fields를 모두 채운 뒤 verification command를 실행하세요.',
+      '검증이 ready가 되기 전에는 Graph, Reference, Model 학습에 반영하지 마세요.'
+    ],
+    safetyNoticeKo: 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.'
+  };
+};
+
+const nextReviewSlipMarkdown = slip => {
+  if (!slip) return [];
+
+  return [
+    '## Next HITL Review Slip',
+    '',
+    `- title: ${slip.titleKo}`,
+    `- owner: ${slip.owner}`,
+    `- source file: ${slip.sourceArtifact || 'check input packet'}`,
+    `- verification command: ${slip.verificationCommand || 'check input packet'}`,
+    '- operator instructions:',
+    ...asArray(slip.operatorInstructionsKo).map(item => `  - ${item}`),
+    `- safety: ${slip.safetyNoticeKo}`,
+    ''
+  ];
+};
+
 const markdownFor = (inputReviewPacket, generatedAt) => {
   const summary = inputReviewPacket.summary || {};
   const sections = asArray(inputReviewPacket.sections);
   const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
+  const nextReviewSlip = nextReviewSlipFor(nextReviewCursor);
   const lines = [
     '# Operational HITL Reviewer Worksheet',
     '',
@@ -193,6 +236,7 @@ const markdownFor = (inputReviewPacket, generatedAt) => {
     '- 안전 정책: 자동 적용 금지, 서비스 쓰기 없음, Graph/Reference/Model 승격 금지',
     '',
     ...nextReviewCursorMarkdown(nextReviewCursor),
+    ...nextReviewSlipMarkdown(nextReviewSlip),
     '## 리뷰 공통 체크리스트',
     '',
     ...REVIEW_CHECKLIST.map(item => `- ${item}`),
@@ -233,6 +277,7 @@ const buildOperationalHitlReviewerWorksheet = ({
   const sections = asArray(inputReviewPacket.sections);
   const summary = inputReviewPacket.summary || {};
   const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
+  const nextReviewSlip = nextReviewSlipFor(nextReviewCursor);
   const markdown = markdownFor(inputReviewPacket, generatedAt);
   const lineCount = markdown.split(/\r?\n/).filter(line => line.length > 0).length;
 
@@ -263,6 +308,7 @@ const buildOperationalHitlReviewerWorksheet = ({
     },
     reviewChecklist: REVIEW_CHECKLIST,
     nextReviewCursor,
+    nextReviewSlip,
     markdown,
     markdownPath,
     sources: {

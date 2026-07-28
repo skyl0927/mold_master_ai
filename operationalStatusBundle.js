@@ -500,6 +500,8 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
 
   const summary = operationalReviewerWorksheet.summary || {};
   const cursor = operationalReviewerWorksheet.nextReviewCursor || {};
+  const slip = operationalReviewerWorksheet.nextReviewSlip || {};
+  const slipInstructions = asArray(slip.operatorInstructionsKo).map(compact).filter(Boolean);
   return {
     reviewerWorksheetStatus: compact(operationalReviewerWorksheet.status),
     reviewerWorksheetSourceStatus: compact(summary.sourceStatus),
@@ -513,6 +515,9 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
     reviewerWorksheetNextReviewVerificationCommand: compact(
       summary.nextReviewVerificationCommand || cursor.verificationCommand
     ),
+    reviewerWorksheetNextReviewSlipTitleKo: compact(slip.titleKo),
+    reviewerWorksheetNextReviewSlipFirstInstructionKo: slipInstructions[0] || '',
+    reviewerWorksheetNextReviewSlipSafetyNoticeKo: compact(slip.safetyNoticeKo),
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
     reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),

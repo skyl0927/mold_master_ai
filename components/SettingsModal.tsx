@@ -1562,6 +1562,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           {operationalStatusBundleDisplay.reviewerWorksheetCursorText}
                         </p>
                       )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetSlipTitle && (
+                        <p className="mt-1 break-words text-[8px] font-bold text-emerald-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetSlipTitle}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetSlipInstruction && (
+                        <p className="mt-1 break-words text-[8px] text-emerald-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetSlipInstruction}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetSlipSafetyNotice && (
+                        <p className="mt-1 break-words text-[8px] text-amber-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetSlipSafetyNotice}
+                        </p>
+                      )}
                       {operationalStatusBundleDisplay.reviewerWorksheetCursorPath && (
                         <p className="mt-1 break-words font-mono text-[8px] text-lime-100">
                           {operationalStatusBundleDisplay.reviewerWorksheetCursorPath}

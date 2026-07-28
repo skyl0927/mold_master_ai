@@ -879,6 +879,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
       reviewerWorksheetNextDecision
     ].filter(Boolean).join(' · ')
     : '';
+  const reviewerWorksheetSlipTitle = compact(summary.reviewerWorksheetNextReviewSlipTitleKo);
+  const reviewerWorksheetSlipInstruction = compact(summary.reviewerWorksheetNextReviewSlipFirstInstructionKo);
+  const reviewerWorksheetSlipSafetyNotice = compact(summary.reviewerWorksheetNextReviewSlipSafetyNoticeKo);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -931,6 +934,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetCursorText,
     reviewerWorksheetCursorPath: compact(summary.reviewerWorksheetNextReviewSourceArtifact),
     reviewerWorksheetCursorCommand: compact(summary.reviewerWorksheetNextReviewVerificationCommand),
+    reviewerWorksheetSlipTitle,
+    reviewerWorksheetSlipInstruction,
+    reviewerWorksheetSlipSafetyNotice,
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({
