@@ -113,6 +113,12 @@ const csv = [
   'vision_pending_hitl,pending-hitl-001,approve_candidate,reviewer-01,품질 담당자,2026-07-27T14:05:00.000Z,제조 이미지와 싱크 라벨을 확인했습니다.,,,true,true,,싱크'
 ].join('\n');
 
+const simulationOnlyCsv = [
+  'queueCode,decisionId,newAction,reviewerId,reviewerName,decidedAt,reviewComment,selectedLabel,imageSetConfirmed,labelConfirmed,manufacturingImageConfirmed,requestedViews,approvedDefectType',
+  'vision_label_conflicts,conflict-001,keep_label,SIMULATION_ONLY,HITL dry-run simulator,2026-07-27T14:00:00.000Z,SIMULATION ONLY - 추천값 기반 후속 게이트 검증용입니다.,백화,true,true,,,',
+  'vision_pending_hitl,pending-hitl-001,approve_candidate,SIMULATION_ONLY,HITL dry-run simulator,2026-07-27T14:05:00.000Z,SIMULATION ONLY - 추천값 기반 후속 게이트 검증용입니다.,,,true,true,,싱크'
+].join('\n');
+
 test('dry-runs worktable CSV updates without writing editable decision files', () => {
   const files = editableFiles();
   const writes = [];
@@ -181,6 +187,64 @@ test('explicit apply writes only local editable decision JSON files', () => {
   assert.equal(visionPacket.decisions[0].approvedDefectType, '싱크');
   assert.equal(visionPacket.decisions[0].manufacturingImageConfirmed, true);
   assert.equal(visionPacket.decisions[0].labelConfirmed, true);
+});
+
+test('rejects simulation-only CSV rows so dry-run artifacts cannot become HITL decisions', () => {
+  const writes = [];
+  const report = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: simulationOnlyCsv,
+    apply: true,
+    sourceArtifacts: {
+      worktableCsv: 'C:\\repo\\artifacts\\operational-hitl-dry-run-roundtrip.simulation-only.csv'
+    },
+    readFileText: filePath => editableFiles().get(filePath),
+    writeFileText: (filePath, text) => writes.push({ filePath, text })
+  });
+
+  assert.equal(report.status, 'invalid_worktable');
+  assert.equal(report.applyRequested, true);
+  assert.equal(report.localEditableWritesPerformed, false);
+  assert.equal(report.summary.plannedUpdates, 0);
+  assert.equal(report.summary.simulationOnlyRows, 2);
+  assert.deepEqual(report.invalidRows.map(row => row.code), [
+    'simulation_only_csv',
+    'simulation_only_csv'
+  ]);
+  assert.match(report.recommendedAction, /simulation-only/);
+  assert.equal(writes.length, 0);
+});
+
+test('allows simulation-only CSV only for explicit internal dry-run validation, never apply', () => {
+  const dryRun = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: simulationOnlyCsv,
+    apply: false,
+    allowSimulationOnlyCsv: true,
+    sourceArtifacts: {
+      worktableCsv: 'simulation-only:operational-hitl-dry-run-roundtrip'
+    },
+    readFileText: filePath => editableFiles().get(filePath)
+  });
+
+  assert.equal(dryRun.status, 'dry_run_ready');
+  assert.equal(dryRun.summary.plannedUpdates, 2);
+  assert.equal(dryRun.summary.simulationOnlyRows, 2);
+
+  const writes = [];
+  const applyReport = buildOperationalHitlDecisionWorktableImport({
+    workspaceManifest: workspaceManifest(),
+    worktableCsv: simulationOnlyCsv,
+    apply: true,
+    allowSimulationOnlyCsv: true,
+    readFileText: filePath => editableFiles().get(filePath),
+    writeFileText: (filePath, text) => writes.push({ filePath, text })
+  });
+
+  assert.equal(applyReport.status, 'invalid_worktable');
+  assert.equal(applyReport.localEditableWritesPerformed, false);
+  assert.equal(applyReport.summary.simulationOnlyRows, 2);
+  assert.equal(writes.length, 0);
 });
 
 test('fails closed when the CSV contains unsupported actions or unknown decisions', () => {

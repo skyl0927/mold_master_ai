@@ -57,6 +57,27 @@ Mold Master AI의 비전 진단을 단일 사진 분류 기능이 아니라 다�
 모두 0%였다. 핵심 병목은 모델 크기보다 데이터 수, 촬영 일관성, 폐쇄형
 시각 분류기 부재, 런타임 버전 불일치다.
 
+2026-07-28 운영 진행 피드백:
+
+- `npm run operational:progress` 기준 소프트웨어 scaffold는 100%이며, 운영
+  전환 진행률은 0%다. 이는 코드가 미완성이라는 뜻이 아니라, 사람 HITL 판정과
+  승인 reference data가 닫히기 전까지 Graph/Reference/학습 승격을 막도록
+  설계된 상태라는 의미다.
+- 현재 앱이 추적하는 Vision 지표는 Top-1 46.2%, Top-3 53.8%지만
+  `vision:accuracy:improvement-plan`은 여전히 `action_required`를 반환한다.
+  촬영 프로토콜 준비율이 0%이고 전체 13건 표본만으로는 운영 품질을 증명할 수
+  없기 때문이다.
+- `vision:operational:readiness` 기준 승인 샘플은 12/20이며, reference store
+  미구축, 승인 이미지 라벨 충돌 4그룹, human review 12건, release report 부재가
+  남아 있다.
+- `operational:hitl:pipeline-status` 기준 운영 HITL worktable은 59 rows,
+  suggestion 59 rows, dry-run roundtrip planned update 59건, simulated
+  preflight pending 0건까지 검증됐지만 실제 사람 판정 입력 56건이 비어 있어
+  current stage는 `fix_invalid_worktable_csv`다.
+- 따라서 다음 개발/운영의 1순위는 모델 변경이 아니라 라벨 충돌 해결,
+  촬영 프로토콜 보강, 승인 다중 시점 reference data 확보, 그 다음 폐쇄형
+  classifier와 VLM 합의 게이트 강화다.
+
 ## 3. 목표 아키텍처
 
 ```mermaid
@@ -639,6 +660,26 @@ Phase 1~6의 안전·Graph·HITL 소프트웨어 기반은 구현했지만 blind
 
 실제 승인 사진으로 촬영 준비도 80%와 클래스별 calibration을 달성하기
 전에는 `vision-fusion/v1`의 자동 확정 임계값을 완화하지 않는다.
+
+2026-07-28 다음 실행 순서:
+
+1. `resolve_label_conflicts`부터 닫는다. 같은 이미지 또는 동일 계보 이미지가
+   서로 다른 결함 라벨을 가진 4개 그룹은 reference store와 classifier를
+   오염시키므로 모델 평가보다 먼저 정리한다.
+2. 59개 운영 HITL worktable row 중 사람 판정 입력이 없는 56건을 실제
+   reviewer CSV로 채운다. 시뮬레이션 전용 CSV는 `worktable-import --apply`에서
+   `invalid_worktable`로 차단되므로 운영 판정을 대체할 수 없다.
+3. 전체 제품 사진, 결함 근접, 필요 시 사선광/파팅라인/취출 위치를 포함하는
+   다중 시점 촬영 프로토콜을 우선 적용한다. 촬영 프로토콜 준비율 80% 미만에서는
+   Vision 결과를 Graph 원인·대책 확정에 사용하지 않는다.
+4. 승인 샘플 20건 retirement gate를 닫은 뒤 Common Agent reference store를
+   refresh하고 `vision:reference:gate`로 실제 reference benchmark를 생성한다.
+5. DINOv2/SigLIP 계열 frozen embedding의 k-NN/prototype classifier를 먼저
+   기준선으로 붙이고, 클래스별 30세션 이상 확보 후 linear head나 anomaly
+   detector를 비교한다.
+6. VLM 관찰, 폐쇄형 classifier, Graph 경로가 모두 합의한 경우에만 원인·대책
+   본문을 생성한다. 하나라도 불일치하면 시방서 본문에는 추정 원인 대신
+   추가 확인 또는 HITL 요청만 남긴다.
 
 2026-07-25 이후 다음 개발 단위:
 

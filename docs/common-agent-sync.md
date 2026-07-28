@@ -213,6 +213,9 @@ Common Agent import, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 �
 대체하거나 `--apply` 입력으로 사용할 수 없다. 이 단계는 추천 규칙과 import 계약의
 불일치를 찾는 예행연습이며, 자동 적용, 검증 실행, Common Agent import, SQL 쓰기,
 Graph/Reference/Model 승격을 수행하지 않는다.
+`worktable-import`는 기본적으로 이런 simulation-only CSV를 `invalid_worktable`로
+거부하며, 내부 시뮬레이션 빌더만 dry-run 검증 목적으로 명시 허용한다. 이 허용도
+`apply=true`에서는 차단된다.
 
 `operational:hitl:simulated-preflight`는 위 simulation-only CSV를 다시 기존
 `worktable-import` dry-run에 통과시킨 뒤, 계획된 update를 메모리 안의 editable

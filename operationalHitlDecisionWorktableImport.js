@@ -13,6 +13,7 @@ const valueAt = (object, fieldPath) =>
 const policy = () => ({
   requiresHumanReview: true,
   explicitApplyRequired: true,
+  simulationOnlyCsvApplyAllowed: false,
   autoVerifyAllowed: false,
   autoApplyAllowed: false,
   automaticServiceWritesAllowed: false,
@@ -43,6 +44,7 @@ const missingEvidenceReport = (generatedAt, sourceArtifacts, missingArtifactName
     filesToUpdate: 0,
     invalidRows: 0,
     missingRequiredFieldRows: 0,
+    simulationOnlyRows: 0,
     unchangedRows: 0
   },
   plannedUpdates: [],
@@ -342,6 +344,41 @@ const invalidRow = (row, code, message) => ({
   message
 });
 
+const simulationMarkerPattern = /SIMULATION[_\s-]*ONLY|HITL dry-run simulator/i;
+
+const sourceLooksSimulationOnly = sourceArtifacts =>
+  Object.values(sourceArtifacts || {}).some(value =>
+    /simulation-only|\.simulation-only\.csv/i.test(String(value || ''))
+  );
+
+const rowLooksSimulationOnly = row => [
+  row.reviewerId,
+  row.reviewerName,
+  row.reviewComment
+].some(value => simulationMarkerPattern.test(String(value || '')));
+
+const simulationOnlyRowsFor = ({ rows, sourceArtifacts }) => {
+  const sourceMarked = sourceLooksSimulationOnly(sourceArtifacts);
+  const detectedRows = rows.filter(row => sourceMarked || rowLooksSimulationOnly(row));
+  if (detectedRows.length > 0) {
+    return detectedRows.map(row => invalidRow(
+      row,
+      'simulation_only_csv',
+      'simulation-only CSV는 실제 HITL 판정을 대체할 수 없으며 worktable-import 적용에 사용할 수 없습니다.'
+    ));
+  }
+  return sourceMarked
+    ? [{
+      rowNumber: 1,
+      queueCode: '',
+      decisionId: '',
+      action: '',
+      code: 'simulation_only_csv',
+      message: 'simulation-only CSV source는 실제 HITL 판정 적용에 사용할 수 없습니다.'
+    }]
+    : [];
+};
+
 const buildPlans = ({ rows, workspaceIndex }) => {
   const plannedUpdates = [];
   const invalidRows = [...workspaceIndex.invalidRows];
@@ -443,6 +480,7 @@ const summaryFor = ({
   rows,
   plannedUpdates,
   invalidRows,
+  simulationOnlyRows,
   unchangedRows,
   writtenFiles
 }) => ({
@@ -455,12 +493,15 @@ const summaryFor = ({
   filesToUpdate: new Set(plannedUpdates.map(update => update.editablePath)).size,
   invalidRows: invalidRows.length,
   missingRequiredFieldRows: invalidRows.filter(row => row.code === 'missing_required_fields').length,
+  simulationOnlyRows,
   unchangedRows
 });
 
 const recommendedActionFor = (status, report) => ({
   missing_evidence: 'workspace manifest와 수정된 worktable CSV를 준비한 뒤 다시 실행하세요.',
-  invalid_worktable: 'CSV의 queueCode, decisionId, action, 필수 검토 필드를 수정한 뒤 dry-run을 다시 실행하세요. invalidRows를 먼저 확인하세요.',
+  invalid_worktable: asArray(report?.invalidRows).some(row => row.code === 'simulation_only_csv')
+    ? 'simulation-only CSV는 실제 HITL 판정 파일이 아닙니다. 원본 worktable CSV에 사람이 검토한 값만 입력한 뒤 다시 실행하세요.'
+    : 'CSV의 queueCode, decisionId, action, 필수 검토 필드를 수정한 뒤 dry-run을 다시 실행하세요. invalidRows를 먼저 확인하세요.',
   no_actionable_rows: 'CSV에 newAction 또는 검토 필드를 입력한 뒤 다시 실행하세요.',
   dry_run_ready: 'dry-run 계획이 유효합니다. 사람이 변경 내용을 확인한 뒤 같은 명령에 --apply를 붙이면 editable decision JSON에만 반영됩니다.',
   applied: '로컬 editable decision JSON에 CSV 입력을 반영했습니다. 이제 npm run operational:hitl:editable-preflight를 실행하세요.'
@@ -471,6 +512,7 @@ const buildOperationalHitlDecisionWorktableImport = ({
   workspaceManifest = null,
   worktableCsv = '',
   apply = false,
+  allowSimulationOnlyCsv = false,
   sourceArtifacts = {},
   readFileText = () => null,
   writeFileText = () => {}
@@ -484,9 +526,22 @@ const buildOperationalHitlDecisionWorktableImport = ({
   }
 
   const parsedCsv = parseCsv(worktableCsv);
+  const simulationOnlyRows = simulationOnlyRowsFor({
+    rows: parsedCsv.rows,
+    sourceArtifacts
+  });
+  const blockedSimulationOnlyRows = simulationOnlyRows.length > 0 && (!allowSimulationOnlyCsv || apply)
+    ? simulationOnlyRows
+    : [];
   const missingHeaders = requiredHeaderMissing(parsedCsv.headers);
   const workspaceIndex = buildWorkspaceIndex({ workspaceManifest, readFileText });
-  const plans = missingHeaders.length > 0
+  const plans = blockedSimulationOnlyRows.length > 0
+    ? {
+      plannedUpdates: [],
+      invalidRows: blockedSimulationOnlyRows,
+      unchangedRows: 0
+    }
+    : missingHeaders.length > 0
     ? {
       plannedUpdates: [],
       invalidRows: missingHeaders.map(header => ({
@@ -535,6 +590,7 @@ const buildOperationalHitlDecisionWorktableImport = ({
       rows: parsedCsv.rows,
       plannedUpdates: plans.plannedUpdates,
       invalidRows: plans.invalidRows,
+      simulationOnlyRows: simulationOnlyRows.length,
       unchangedRows: plans.unchangedRows,
       writtenFiles
     }),

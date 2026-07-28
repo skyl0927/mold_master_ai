@@ -14,8 +14,9 @@ model writes blocked.
 - As an operator, I want dry-run import by default, so that I can inspect planned
   JSON updates before any local editable file is changed.
 - As a safety owner, I want unsupported actions, unknown decision ids, missing
-  action-specific required fields, workspace evidence, and unedited exported rows to fail closed, so that
-  accidental CSV contents cannot become approved learning data.
+  action-specific required fields, workspace evidence, unedited exported rows,
+  and simulation-only CSV rows to fail closed, so that accidental CSV contents
+  cannot become approved learning data.
 
 ## Task Report
 
@@ -27,7 +28,9 @@ model writes blocked.
 | 4 | Selected actions with missing required review fields fail closed before dry-run/apply updates are planned. | `tests/operationalHitlDecisionWorktableImport.test.js` | unit | PASS | `invalid_worktable`, `missing_required_fields`, `plannedUpdates=0` |
 | 5 | Rows satisfying the selected action requirements are accepted as dry-run plans. | `tests/operationalHitlDecisionWorktableImport.test.js` | unit | PASS | `dry_run_ready`, `plannedUpdates=1` |
 | 6 | Exported read-only rows are ignored until `newAction` or explicit `action` is entered. | `tests/operationalHitlDecisionWorktableImport.test.js` | unit | PASS | `no_actionable_rows`, `plannedUpdates=0` |
-| 7 | Current real unedited worktable remains no-op. | `npm run operational:hitl:worktable-import` | CLI smoke | PASS | output `no_actionable_rows`, `totalRows=59`, `plannedUpdates=0` |
+| 7 | Simulation-only CSV rows are rejected by default and cannot be applied as real HITL decisions. | `tests/operationalHitlDecisionWorktableImport.test.js` | unit | PASS | `simulation_only_csv`, `localEditableWritesPerformed=false` |
+| 8 | Internal simulation tools can opt into simulation-only dry-run validation, but `apply=true` remains blocked. | `tests/operationalHitlDecisionWorktableImport.test.js` | unit | PASS | `allowSimulationOnlyCsv=true`, dry-run pass, apply fail |
+| 9 | Current real unedited worktable remains no-op. | `npm run operational:hitl:worktable-import` | CLI smoke | PASS | output `no_actionable_rows`, `totalRows=59`, `plannedUpdates=0` |
 
 ## RED/GREEN Evidence
 
@@ -41,11 +44,21 @@ model writes blocked.
 - Regression GREEN: `npm run test:operational-hitl-worktable-import` passed 7/7
   tests after adding action-specific required-field validation before planning
   or applying updates.
+- Safety RED: `npm run test:operational-hitl-worktable-import` failed because a
+  `SIMULATION_ONLY` reviewer CSV could still return `applied`.
+- Safety GREEN: `npm run test:operational-hitl-worktable-import` passed 9/9
+  tests after adding simulation-only CSV detection, default rejection, and an
+  internal dry-run-only escape hatch for simulation builders.
+- CLI safety smoke: `npm run operational:hitl:worktable-import -- --csv
+  <operational-hitl-dry-run-roundtrip-*.simulation-only.csv> --apply` returned
+  `invalid_worktable`, `plannedUpdates=0`, `invalidRows=59`, and
+  `localEditableWritesPerformed=false`.
 
 ## Coverage And Gaps
 
 Focused tests cover CSV parsing through the public builder, dry-run, explicit
 apply, invalid worktable rows, action-specific required fields, missing
-evidence, and prevention of accidental updates from unedited export rows. This
-does not execute queue-specific `verify-decisions`; after import apply, the next
-required command is `npm run operational:hitl:editable-preflight`.
+evidence, prevention of accidental updates from unedited export rows, and
+rejection of simulation-only CSVs as real HITL input. This does not execute
+queue-specific `verify-decisions`; after import apply, the next required command
+is `npm run operational:hitl:editable-preflight`.

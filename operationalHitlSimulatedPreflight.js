@@ -281,6 +281,7 @@ const buildOperationalHitlSimulatedPreflight = ({
     workspaceManifest,
     worktableCsv: roundtrip.simulatedCsv || '',
     apply: false,
+    allowSimulationOnlyCsv: true,
     sourceArtifacts: {
       workspaceManifest: sourceArtifacts.workspaceManifest || null,
       worktableCsv: 'simulation-only:operational-hitl-simulated-preflight'
