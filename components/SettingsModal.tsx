@@ -1607,6 +1607,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           Manual: {operationalStatusBundleDisplay.reviewerWorksheetWorktableManualText}
                         </p>
                       )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgePreviewText && (
+                        <p className="mt-1 break-words text-[8px] text-cyan-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgePreviewText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgePreviews.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgePreviews.map(item => (
+                            <div
+                              key={`${item.queueCode}:${item.decisionId}:${item.slipNumber}`}
+                              className="rounded border border-cyan-900/40 bg-gray-950/30 px-2 py-1"
+                            >
+                              <p className="break-words text-[8px] font-bold text-cyan-50">
+                                {item.slipNumber}. {item.queueCode} / {item.decisionId} -&gt; {item.recommendedNewAction}
+                              </p>
+                              {item.copyableText && (
+                                <p className="mt-1 break-words text-[8px] text-cyan-100">
+                                  Copy: {item.copyableText}
+                                </p>
+                              )}
+                              {item.manualText && (
+                                <p className="mt-1 break-words text-[8px] text-amber-100">
+                                  Manual: {item.manualText}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {operationalStatusBundleDisplay.reviewerWorksheetCursorPath && (
                         <p className="mt-1 break-words font-mono text-[8px] text-lime-100">
                           {operationalStatusBundleDisplay.reviewerWorksheetCursorPath}

@@ -518,13 +518,36 @@ const worktableBridgeFor = ({ operationalReviewerWorksheet, humanDecisionBrief }
     }))
     .filter(item => item.entry);
   const first = matches[0]?.entry || null;
+  const entryPreviews = matches.slice(0, 10).map(({ slip, entry }, index) => ({
+    slipNumber: numberValue(slip?.slipNumber) || index + 1,
+    entryNumber: numberValue(entry?.entryNumber),
+    queueCode: compact(entry?.queueCode) || compact(slip?.queueCode),
+    decisionId: compact(entry?.decisionId) || compact(slip?.decisionId),
+    sessionCode: compact(entry?.sessionCode),
+    recommendedNewAction: compact(entry?.recommendedNewAction),
+    worktableCsvPath: compact(entry?.worktableCsvPath),
+    copyableText: asArray(entry?.copyableFields).map(compact).filter(Boolean).join(' · '),
+    manualText: asArray(entry?.manualConfirmationFields).map(compact).filter(Boolean).join(' · ')
+  }));
+  const previewText = entryPreviews
+    .map(item => [
+      `${item.slipNumber}.`,
+      item.queueCode || 'review_required',
+      '/',
+      item.decisionId || 'source file 확인 필요',
+      '->',
+      item.recommendedNewAction || 'human_review_required'
+    ].join(' '))
+    .join(' · ');
 
   return {
     matchedSlips: matches.length,
     firstDecisionId: compact(first?.decisionId),
     firstWorktableCsvPath: compact(first?.worktableCsvPath),
     firstCopyableText: asArray(first?.copyableFields).map(compact).filter(Boolean).join(' · '),
-    firstManualText: asArray(first?.manualConfirmationFields).map(compact).filter(Boolean).join(' · ')
+    firstManualText: asArray(first?.manualConfirmationFields).map(compact).filter(Boolean).join(' · '),
+    entryPreviews,
+    previewText
   };
 };
 
@@ -572,6 +595,8 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisi
     reviewerWorksheetFirstWorktableCsvPath: worktableBridge.firstWorktableCsvPath,
     reviewerWorksheetFirstWorktableCopyableText: worktableBridge.firstCopyableText,
     reviewerWorksheetFirstWorktableManualText: worktableBridge.firstManualText,
+    reviewerWorksheetWorktableBridgePreviewText: worktableBridge.previewText,
+    reviewerWorksheetWorktableBridgePreviews: worktableBridge.entryPreviews,
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
     reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),
@@ -796,6 +821,16 @@ const markdownFor = bundle => {
     });
   }
 
+  if (asArray(bundle.reviewerWorksheetWorktableBridgePreviews).length > 0) {
+    lines.push('', '## Reviewer worksheet worktable bridge preview', '');
+    bundle.reviewerWorksheetWorktableBridgePreviews.forEach(item => {
+      lines.push(`- ${item.slipNumber}. ${item.queueCode} / ${item.decisionId} -> ${item.recommendedNewAction || 'human_review_required'}`);
+      if (item.copyableText) lines.push(`  - Copy: ${item.copyableText}`);
+      if (item.manualText) lines.push(`  - Manual: ${item.manualText}`);
+      if (item.worktableCsvPath) lines.push(`  - CSV: ${item.worktableCsvPath}`);
+    });
+  }
+
   if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
     lines.push('', '## Vision capture work orders', '');
     bundle.visionCaptureWorkOrderPreviews.forEach(order => {
@@ -954,6 +989,8 @@ const buildOperationalStatusBundle = ({
     preparationDecisionTemplateArtifacts,
     preparationHumanGatedCommands,
     decisionReviewSectionPreviews: decisionReviewSectionPreviewsFor(operationalDecisionInputReviewPacket),
+    reviewerWorksheetWorktableBridgePreviews:
+      reviewerWorksheetSummary?.reviewerWorksheetWorktableBridgePreviews || [],
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,

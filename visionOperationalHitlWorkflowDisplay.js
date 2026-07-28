@@ -899,6 +899,8 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
         : ''
     ].filter(Boolean).join(' · ')
     : '';
+  const reviewerWorksheetWorktableBridgePreviewText =
+    compact(summary.reviewerWorksheetWorktableBridgePreviewText);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -960,6 +962,20 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetWorktableCsvPath: compact(summary.reviewerWorksheetFirstWorktableCsvPath),
     reviewerWorksheetWorktableCopyableText: compact(summary.reviewerWorksheetFirstWorktableCopyableText),
     reviewerWorksheetWorktableManualText: compact(summary.reviewerWorksheetFirstWorktableManualText),
+    reviewerWorksheetWorktableBridgePreviewText,
+    reviewerWorksheetWorktableBridgePreviews: asArray(bundle.reviewerWorksheetWorktableBridgePreviews)
+      .slice(0, 5)
+      .map(item => ({
+        slipNumber: numberValue(item?.slipNumber),
+        entryNumber: numberValue(item?.entryNumber),
+        queueCode: compact(item?.queueCode),
+        decisionId: compact(item?.decisionId),
+        sessionCode: compact(item?.sessionCode),
+        recommendedNewAction: compact(item?.recommendedNewAction),
+        worktableCsvPath: compact(item?.worktableCsvPath),
+        copyableText: compact(item?.copyableText),
+        manualText: compact(item?.manualText)
+      })),
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({
