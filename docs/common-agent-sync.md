@@ -105,6 +105,7 @@ npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
 npm run operational:hitl:pipeline-status
+npm run operational:refresh-status
 npm run operational:status-bundle
 ```
 
