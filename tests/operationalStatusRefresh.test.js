@@ -31,6 +31,8 @@ test('plans the post-HITL status refresh sequence without executing by default',
     'vision:capture:work-orders:status',
     'operational:progress',
     'operational:hitl:human-brief',
+    'operational:hitl:decision-review-packet',
+    'operational:hitl:reviewer-worksheet',
     'operational:status-bundle'
   ]);
   assert.match(report.recommendedAction, /--execute/);
