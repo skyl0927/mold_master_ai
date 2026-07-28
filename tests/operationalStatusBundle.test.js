@@ -584,7 +584,9 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
       worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
       labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
-      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
+      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
+      operationalDecisionInputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json',
+      operationalReviewerWorksheet: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json'
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
@@ -603,11 +605,13 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
           requestedAction: 'manual_candidate_import_review',
           itemCount: 40
         }
-      })
+      }),
+      operationalDecisionInputReviewPacket: decisionInputReviewPacket(),
+      operationalReviewerWorksheet: reviewerWorksheet()
     }
   });
 
-  assert.equal(bundle.summary.embeddedSnapshotCount, 7);
+  assert.equal(bundle.summary.embeddedSnapshotCount, 9);
   assert.deepEqual(bundle.sourceArtifactSnapshots.map(snapshot => snapshot.key), [
     'developmentProgress',
     'pipelineStatus',
@@ -615,7 +619,9 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     'reviewSessionPacket',
     'worktableSuggestion',
     'labelConflictReviewGuide',
-    'webKnowledgeCommonAgentPackage'
+    'webKnowledgeCommonAgentPackage',
+    'operationalDecisionInputReviewPacket',
+    'operationalReviewerWorksheet'
   ]);
   assert.equal(
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'developmentProgress').payload.summary.visionBlockers,
@@ -633,6 +639,14 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'webKnowledgeCommonAgentPackage').payload.summary.packagedKnowledgeItems,
     40
   );
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'operationalDecisionInputReviewPacket').payload.summary.targetDecisionInputsMissing,
+    56
+  );
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'operationalReviewerWorksheet').payload.summary.markdownLineCount,
+    83
+  );
 
   const restorable = extractRestorableStatusBundleArtifacts(bundle);
   assert.deepEqual(restorable.restoredKeys, [
@@ -642,13 +656,17 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     'reviewSessionPacket',
     'worktableSuggestion',
     'labelConflictReviewGuide',
-    'webKnowledgeCommonAgentPackage'
+    'webKnowledgeCommonAgentPackage',
+    'operationalDecisionInputReviewPacket',
+    'operationalReviewerWorksheet'
   ]);
   assert.equal(restorable.rejectedSnapshots.length, 0);
   assert.equal(restorable.artifacts.developmentProgress.contractVersion, 'mold-master-development-progress-report/v1');
   assert.equal(restorable.artifacts.worktableSuggestion.contractVersion, 'operational-hitl-decision-worktable-suggestion/v1');
   assert.equal(restorable.artifacts.labelConflictReviewGuide.contractVersion, 'vision-approved-label-conflict-review-guide/v1');
   assert.equal(restorable.artifacts.webKnowledgeCommonAgentPackage.contractVersion, 'web-knowledge-common-agent-learning-package/v1');
+  assert.equal(restorable.artifacts.operationalDecisionInputReviewPacket.contractVersion, 'operational-hitl-decision-input-review-packet/v1');
+  assert.equal(restorable.artifacts.operationalReviewerWorksheet.contractVersion, 'operational-hitl-reviewer-worksheet/v1');
 });
 
 test('embeds Vision capture work orders in the status bundle handoff', () => {
