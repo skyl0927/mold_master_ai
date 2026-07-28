@@ -77,9 +77,17 @@ const parseCliJson = stdout => {
 const excerpt = value =>
   compact(String(value || '').slice(0, 1000));
 
+const companionOutputPathsFor = payload => [
+  payload.markdownWorksheetPath,
+  payload.csvWorksheetPath,
+  payload.markdownPath,
+  payload.csvPath
+].map(compact).filter(Boolean);
+
 const executedCommandFor = ({ commandSpec, result }) => {
   const payload = parseCliJson(result.stdout);
   const exitCode = Number(result.exitCode ?? result.status ?? 1);
+  const companionOutputPaths = companionOutputPathsFor(payload);
   return {
     command: commandSpec.command,
     script: commandSpec.script,
@@ -87,6 +95,7 @@ const executedCommandFor = ({ commandSpec, result }) => {
     status: exitCode === 0 ? 'completed' : 'failed',
     shellUsed: commandSpec.shell === true,
     outputPath: compact(payload.outputPath) || null,
+    companionOutputPaths,
     reportedStatus: compact(payload.status) || null,
     reportedServiceWritesPerformed: payload.serviceWritesPerformed === true,
     stdoutExcerpt: excerpt(result.stdout),
@@ -199,8 +208,11 @@ const runOperationalHitlPreparation = ({
 
   const failed = executedCommands.filter(item => item.status === 'failed');
   const generatedArtifacts = unique(executedCommands
-    .filter(item => item.status === 'completed' && item.outputPath)
-    .map(item => item.outputPath));
+    .filter(item => item.status === 'completed')
+    .flatMap(item => [
+      item.outputPath,
+      ...asArray(item.companionOutputPaths)
+    ]));
   const skippedCommands = asArray(preparationPlan.humanGatedCommands).map(command => ({
     command: compact(command),
     reason: 'human_decision_required'
