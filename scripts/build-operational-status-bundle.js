@@ -180,7 +180,8 @@ const run = () => {
       labelConflictReviewGuide,
       webKnowledgeCommonAgentPackage,
       operationalPreparationRun,
-      operationalDecisionInputReviewPacket
+      operationalDecisionInputReviewPacket,
+      operationalReviewerWorksheet
     }
   });
 

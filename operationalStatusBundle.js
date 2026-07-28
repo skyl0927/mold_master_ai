@@ -177,7 +177,9 @@ const restorableArtifactContracts = {
   worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1',
   visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1',
   labelConflictReviewGuide: 'vision-approved-label-conflict-review-guide/v1',
-  webKnowledgeCommonAgentPackage: 'web-knowledge-common-agent-learning-package/v1'
+  webKnowledgeCommonAgentPackage: 'web-knowledge-common-agent-learning-package/v1',
+  operationalDecisionInputReviewPacket: 'operational-hitl-decision-input-review-packet/v1',
+  operationalReviewerWorksheet: 'operational-hitl-reviewer-worksheet/v1'
 };
 
 const sourceArtifactSnapshotsFor = ({ generatedAt, sourceArtifacts, sourceArtifactPayloads }) =>
