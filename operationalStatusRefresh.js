@@ -1,5 +1,10 @@
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
+const numberValue = value => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const DEFAULT_REFRESH_COMMANDS = [
   'npm run operational:hitl:worktable-import',
   'npm run operational:hitl:session-progress',
@@ -112,6 +117,50 @@ const statusFor = ({ invalidCommands, executionResults, execute }) => {
     : 'executed';
 };
 
+const parseJsonFromStdout = stdout => {
+  const lines = String(stdout || '').split(/\r?\n/);
+  for (let start = 0; start < lines.length; start += 1) {
+    if (!lines[start].trim().startsWith('{')) continue;
+    for (let end = lines.length; end > start; end -= 1) {
+      const candidate = lines.slice(start, end).join('\n').trim();
+      if (!candidate.endsWith('}')) continue;
+      try {
+        return JSON.parse(candidate);
+      } catch (_error) {
+        // npm script banners can surround JSON output; keep searching.
+      }
+    }
+  }
+  return null;
+};
+
+const artifactReportFor = result => {
+  if (numberValue(result?.exitCode) !== 0) return null;
+  const parsed = parseJsonFromStdout(result?.stdout);
+  if (!parsed || typeof parsed !== 'object') return null;
+  const outputPath = compact(parsed.outputPath || parsed.reportPath || parsed.path);
+  const markdownPath = compact(parsed.markdownPath);
+  if (!outputPath && !markdownPath) return null;
+  return {
+    script: compact(result?.script),
+    status: compact(parsed.status),
+    outputPath,
+    markdownPath
+  };
+};
+
+const artifactReportsFor = executionResults =>
+  executionResults
+    .map(artifactReportFor)
+    .filter(Boolean);
+
+const latestArtifactFor = ({ generatedArtifacts, script }) => {
+  for (let index = generatedArtifacts.length - 1; index >= 0; index -= 1) {
+    if (generatedArtifacts[index].script === script) return generatedArtifacts[index];
+  }
+  return null;
+};
+
 const recommendedActionFor = status => ({
   invalid_refresh_commands: 'Remove unsupported refresh commands. Apply, verify --execute, and arbitrary shell commands are intentionally blocked.',
   plan_ready: 'Review the refresh plan, then run npm run operational:refresh-status -- --execute after the human HITL CSV has been edited.',
@@ -141,6 +190,11 @@ const buildOperationalStatusRefreshRun = ({
     executionResults,
     execute
   });
+  const generatedArtifacts = artifactReportsFor(executionResults);
+  const latestStatusBundle = latestArtifactFor({
+    generatedArtifacts,
+    script: 'operational:status-bundle'
+  });
 
   return {
     schemaVersion: 1,
@@ -158,11 +212,15 @@ const buildOperationalStatusRefreshRun = ({
       commandsPlanned: validCommands.length,
       commandsExecuted: executionResults.length,
       failedCommands: executionResults.filter(result => result.exitCode !== 0).length,
-      invalidCommands: invalidCommands.length
+      invalidCommands: invalidCommands.length,
+      generatedArtifactReports: generatedArtifacts.length,
+      latestStatusBundlePath: compact(latestStatusBundle?.outputPath),
+      latestStatusBundleMarkdownPath: compact(latestStatusBundle?.markdownPath)
     },
     commands: validCommands,
     invalidCommands,
     executionResults,
+    generatedArtifacts,
     recommendedAction: recommendedActionFor(status)
   };
 };

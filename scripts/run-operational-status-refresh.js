@@ -67,6 +67,9 @@ const run = () => {
     commandsExecuted: report.summary.commandsExecuted,
     failedCommands: report.summary.failedCommands,
     invalidCommands: report.summary.invalidCommands,
+    generatedArtifactReports: report.summary.generatedArtifactReports,
+    latestStatusBundlePath: report.summary.latestStatusBundlePath || null,
+    latestStatusBundleMarkdownPath: report.summary.latestStatusBundleMarkdownPath || null,
     recommendedAction: report.recommendedAction
   }, null, 2));
 

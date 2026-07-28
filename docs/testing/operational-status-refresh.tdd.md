@@ -20,6 +20,8 @@ runner로 묶는다.
   보고 싶다.
 - 다음 작업자는 최신 status bundle에서 곧바로 reviewer worksheet와 첫 HITL 큐를
   확인하고 이어받고 싶다.
+- 다음 작업자는 refresh 실행 report에서 최신 status bundle JSON/Markdown 경로를
+  구조화된 필드로 확인하고 싶다.
 
 ## 안전 경계
 
@@ -35,10 +37,12 @@ runner로 묶는다.
 |---|---|---|
 | `node --test tests/operationalStatusRefresh.test.js` | FAIL | `../operationalStatusRefresh` 모듈이 없어 refresh contract를 생성하지 못했다. |
 | `npm run test:operational-status-refresh` | FAIL, 3/4 pass | refresh 계획에 `operational:hitl:decision-review-packet`과 `operational:hitl:reviewer-worksheet`가 빠져 있었다. |
+| `npm run test:operational-status-refresh` | FAIL, 3/4 pass | refresh 실행 결과의 `summary.generatedArtifactReports`가 `undefined`여서 stdout 안의 artifact 경로를 이어받을 수 없었다. |
 
 RED checkpoint commits:
 
 - `475ba4d test: require reviewer worksheet in status refresh`
+- `9631f41 test: require refresh artifact path summary`
 
 ## GREEN 증거
 
@@ -47,6 +51,8 @@ RED checkpoint commits:
 | `npm run test:operational-status-refresh` | PASS, 4/4 | refresh runner가 allowlist된 상태 갱신 명령만 계획/실행하고 unsafe command를 차단한다. |
 | `npm run operational:refresh-status` | PASS | `plan_ready`, `commandsPlanned=9`, `commandsExecuted=0`, `serviceWritesPerformed=false`를 생성한다. |
 | `npm run operational:refresh-status -- --execute` | PASS | 9개 refresh 명령이 모두 exit code 0으로 실행됐고 `serviceWritesPerformed=false`를 유지했다. |
+| `npm run test:operational-status-refresh` | PASS, 4/4 | refresh runner가 실행 stdout의 JSON을 파싱해 `generatedArtifacts`, `latestStatusBundlePath`, `latestStatusBundleMarkdownPath`를 report에 남긴다. |
+| `npm run operational:refresh-status -- --execute` | PASS | 실제 refresh report가 `generatedArtifactReports=9`, 최신 status bundle JSON/Markdown 경로, 각 script별 artifact status를 구조화했다. |
 
 최신 실제 refresh 실행 결과:
 
@@ -60,6 +66,14 @@ operational:hitl:human-brief:0
 operational:hitl:decision-review-packet:0
 operational:hitl:reviewer-worksheet:0
 operational:status-bundle:0
+```
+
+최신 구조화 경로:
+
+```text
+generatedArtifactReports=9
+latestStatusBundlePath=I:\AI TEAM PJT\AI PROCESS MASTER\mold-master-ai (8)\artifacts\operational-status-bundle-2026-07-28T08-59-57-948Z.json
+latestStatusBundleMarkdownPath=I:\AI TEAM PJT\AI PROCESS MASTER\mold-master-ai (8)\artifacts\operational-status-bundle-2026-07-28T08-59-57-948Z.md
 ```
 
 ## 갱신 순서
