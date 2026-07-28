@@ -167,6 +167,16 @@ test('builds a Korean Markdown worksheet for human HITL review without writes', 
     ],
     nextActionKo: '라벨 충돌 decision file에서 action과 필수 확인 필드를 채운 뒤 verify-decisions로 검증하세요.'
   });
+  assert.equal(worksheet.nextReviewSlip.titleKo, '다음 HITL 판정: vision_label_conflicts / conflict-001');
+  assert.equal(worksheet.nextReviewSlip.queueCode, 'vision_label_conflicts');
+  assert.equal(worksheet.nextReviewSlip.decisionId, 'conflict-001');
+  assert.deepEqual(worksheet.nextReviewSlip.operatorInstructionsKo, [
+    'source file에서 conflict-001 항목을 찾으세요.',
+    '원본 이미지/텍스트 근거를 확인하고 allowed action 중 하나만 선택하세요.',
+    'required fields를 모두 채운 뒤 verification command를 실행하세요.',
+    '검증이 ready가 되기 전에는 Graph, Reference, Model 학습에 반영하지 마세요.'
+  ]);
+  assert.equal(worksheet.nextReviewSlip.safetyNoticeKo, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
   assert.deepEqual(worksheet.reviewChecklist, [
     '원본 이미지 또는 원문 근거 확인',
     'action을 pending에서 허용 action 중 하나로 변경',
@@ -178,7 +188,10 @@ test('builds a Korean Markdown worksheet for human HITL review without writes', 
   assert.match(worksheet.markdown, /# Operational HITL Reviewer Worksheet/);
   assert.match(worksheet.markdown, /남은 입력: 56/);
   assert.match(worksheet.markdown, /## Next HITL Review Cursor/);
+  assert.match(worksheet.markdown, /## Next HITL Review Slip/);
   assert.match(worksheet.markdown, /decision id: conflict-001/);
+  assert.match(worksheet.markdown, /source file에서 conflict-001 항목을 찾으세요/);
+  assert.match(worksheet.markdown, /Graph, Reference, Model 학습에 반영하지 마세요/);
   assert.match(worksheet.markdown, /1\. vision_label_conflicts/);
   assert.match(worksheet.markdown, /필수 필드: action, selectedLabel, imageSetConfirmed/);
   assert.match(worksheet.markdown, /결정 ID 미리보기: conflict-001, conflict-002/);
@@ -200,5 +213,6 @@ test('fails closed when the input review packet is missing', () => {
   assert.equal(worksheet.summary.markdownLineCount, 0);
   assert.equal(worksheet.markdown, '');
   assert.deepEqual(worksheet.reviewChecklist, []);
+  assert.equal(worksheet.nextReviewSlip, null);
   assert.match(worksheet.recommendedAction, /operational:hitl:decision-review-packet/);
 });

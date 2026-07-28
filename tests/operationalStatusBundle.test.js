@@ -377,6 +377,18 @@ const reviewerWorksheet = () => ({
     sourceArtifact: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
     verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
   },
+  nextReviewSlip: {
+    titleKo: '다음 HITL 판정: vision_label_conflicts / conflict-001',
+    queueCode: 'vision_label_conflicts',
+    decisionId: 'conflict-001',
+    operatorInstructionsKo: [
+      'source file에서 conflict-001 항목을 찾으세요.',
+      '원본 이미지/텍스트 근거를 확인하고 allowed action 중 하나만 선택하세요.',
+      'required fields를 모두 채운 뒤 verification command를 실행하세요.',
+      '검증이 ready가 되기 전에는 Graph, Reference, Model 학습에 반영하지 마세요.'
+    ],
+    safetyNoticeKo: 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.'
+  },
   markdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
   sources: {
     inputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json'
@@ -479,6 +491,9 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.reviewerWorksheetNextReviewDecisionId, 'conflict-001');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSourceArtifact, 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewVerificationCommand, 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipTitleKo, '다음 HITL 판정: vision_label_conflicts / conflict-001');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipFirstInstructionKo, 'source file에서 conflict-001 항목을 찾으세요.');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipSafetyNoticeKo, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
   assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
