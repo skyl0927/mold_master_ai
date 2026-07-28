@@ -43,6 +43,12 @@ const successfulRunner = calls => commandSpec => {
     exitCode: 0,
     stdout: JSON.stringify({
       outputPath: `artifacts/${commandSpec.script.replaceAll(':', '-')}.json`,
+      markdownWorksheetPath: commandSpec.script === 'knowledge:web:hitl:review-guide'
+        ? 'artifacts/web-knowledge-hitl-review-guide.md'
+        : undefined,
+      csvWorksheetPath: commandSpec.script === 'knowledge:web:hitl:review-guide'
+        ? 'artifacts/web-knowledge-hitl-review-guide.csv'
+        : undefined,
       status: 'template_ready',
       serviceWritesPerformed: false
     }),
@@ -99,6 +105,34 @@ test('runs only allowlisted preparation commands and records generated artifacts
   ]);
   assert.match(report.recommendedAction, /verify-decisions/);
   assert.equal(report.sources.preparationPlan, 'artifacts/operational-hitl-preparation-plan.json');
+});
+
+test('records companion worksheet artifacts emitted by preparation CLIs', () => {
+  const plan = preparationPlan();
+  plan.preparationCommands = [
+    'npm run knowledge:web:hitl:decision-template',
+    'npm run knowledge:web:hitl:review-guide'
+  ];
+  const calls = [];
+
+  const report = runOperationalHitlPreparation({
+    generatedAt: '2026-07-28T06:30:00.000Z',
+    preparationPlan: plan,
+    executeCommand: successfulRunner(calls)
+  });
+
+  assert.equal(report.status, 'completed');
+  assert.deepEqual(report.generatedArtifacts, [
+    'artifacts/knowledge-web-hitl-decision-template.json',
+    'artifacts/knowledge-web-hitl-review-guide.json',
+    'artifacts/web-knowledge-hitl-review-guide.md',
+    'artifacts/web-knowledge-hitl-review-guide.csv'
+  ]);
+  assert.equal(report.summary.generatedArtifactCount, 4);
+  assert.deepEqual(report.executedCommands[1].companionOutputPaths, [
+    'artifacts/web-knowledge-hitl-review-guide.md',
+    'artifacts/web-knowledge-hitl-review-guide.csv'
+  ]);
 });
 
 test('fails closed without running anything when a preparation command is not allowlisted', () => {
