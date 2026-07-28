@@ -105,6 +105,7 @@ npm run operational:hitl:verify-run
 npm run operational:hitl:common-agent-import-package
 npm run operational:hitl:post-import-validation-plan
 npm run operational:hitl:pipeline-status
+npm run operational:status-bundle
 ```
 
 생성되는 `vision-operational-common-agent-handoff-packet/v1`은 현재 차단
@@ -269,6 +270,14 @@ Common Agent import package, post-import validation artifact를 한 장의
 추천 row/재촬영/승인 후보 분포, 검토 세션/패킷/진행률/고위험 row, 다음 실행 명령,
 Common Agent 수동 검토 가능 여부를 표시하지만, 이 명령도 외부 서비스 호출,
 SQL 쓰기, Graph 승격, Reference 학습, 모델 학습을 수행하지 않는다.
+
+`operational:status-bundle`은 최신 development progress, HITL pipeline status,
+Human Decision Brief를 다시 하나로 묶어 `operational-status-bundle/v1`
+JSON/Markdown을 생성한다. 이 bundle은 새 계정, 다른 PC, Antigravity/Common
+Agent 협업자가 이어받을 때 필요한 현재 단계, 소프트웨어/운영 진행률, HITL/Web/
+Vision 병목, Settings에 등록할 artifact 경로, 다음 세션과 첫 decision id,
+원본 worktable CSV 경로를 한 곳에 둔다. 이 단계 역시 artifact-only이며 자동 CSV
+수정, 검증 실행, SQL 쓰기, Graph/Reference/Model 승격을 수행하지 않는다.
 
 현재 차단 작업이 남아 있으면 `status=blocked`,
 `manualImportAllowed=false`, `allowGraphPromotion=false`,
