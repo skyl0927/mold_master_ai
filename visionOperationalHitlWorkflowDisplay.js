@@ -847,6 +847,12 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
   const preparationWorksheetPaths = asArray(bundle.preparationWorksheetArtifacts)
     .map(compact)
     .filter(Boolean);
+  const preparationDecisionTemplatePaths = asArray(bundle.preparationDecisionTemplateArtifacts)
+    .map(compact)
+    .filter(Boolean);
+  const preparationHumanGatedCommandTexts = asArray(bundle.preparationHumanGatedCommands)
+    .map(item => compact(item?.command || item))
+    .filter(Boolean);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -889,6 +895,8 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     preparationRunText,
     preparationRunPath: compact(summary.preparationRunPath),
     preparationWorksheetPaths,
+    preparationDecisionTemplatePaths,
+    preparationHumanGatedCommandTexts,
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
     labelConflictGuideText,

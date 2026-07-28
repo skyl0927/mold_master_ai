@@ -1499,6 +1499,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           ))}
                         </div>
                       )}
+                      {operationalStatusBundleDisplay.preparationDecisionTemplatePaths.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-[8px] font-bold text-cyan-50">Decision templates</p>
+                          {operationalStatusBundleDisplay.preparationDecisionTemplatePaths.map(path => (
+                            <p key={path} className="break-words font-mono text-[8px] text-cyan-100">
+                              {path}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {operationalStatusBundleDisplay.preparationHumanGatedCommandTexts.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-[8px] font-bold text-cyan-50">Human-gated commands</p>
+                          {operationalStatusBundleDisplay.preparationHumanGatedCommandTexts.map(command => (
+                            <p key={command} className="break-words font-mono text-[8px] text-amber-100">
+                              {command}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   {operationalStatusBundleDisplay.accuracyText && (

@@ -366,7 +366,47 @@ const preparationWorksheetArtifactsFor = operationalPreparationRun => {
   );
 };
 
-const preparationRunSummaryFor = ({ operationalPreparationRun, sourceArtifacts, worksheetArtifacts }) => {
+const preparationDecisionTemplateArtifactsFor = operationalPreparationRun => {
+  if (!isOperationalPreparationRun(operationalPreparationRun)) return [];
+
+  const commandPaths = asArray(operationalPreparationRun.executedCommands).flatMap(command => [
+    command?.outputPath,
+    ...asArray(command?.companionOutputPaths)
+  ]);
+
+  return uniqueCompactPaths([
+    ...commandPaths,
+    ...asArray(operationalPreparationRun.generatedArtifacts)
+  ]).filter(item =>
+    /decisions?-template/i.test(item)
+    && /\.json$/i.test(item)
+  );
+};
+
+const preparationHumanGatedCommandsFor = operationalPreparationRun => {
+  if (!isOperationalPreparationRun(operationalPreparationRun)) return [];
+
+  const seen = new Set();
+  return asArray(operationalPreparationRun.skippedCommands)
+    .map(item => ({
+      command: compact(item?.command),
+      reason: compact(item?.reason)
+    }))
+    .filter(item => item.command)
+    .filter(item => {
+      if (seen.has(item.command)) return false;
+      seen.add(item.command);
+      return true;
+    });
+};
+
+const preparationRunSummaryFor = ({
+  operationalPreparationRun,
+  sourceArtifacts,
+  worksheetArtifacts,
+  decisionTemplateArtifacts,
+  humanGatedCommands
+}) => {
   if (!isOperationalPreparationRun(operationalPreparationRun)) return null;
 
   const summary = operationalPreparationRun.summary || {};
@@ -385,7 +425,11 @@ const preparationRunSummaryFor = ({ operationalPreparationRun, sourceArtifacts, 
     preparationFailedCommands: numberValue(summary.failedCommands),
     preparationSkippedHumanGatedCommands: skippedHumanGatedCommands,
     preparationWorksheetArtifacts: worksheetArtifacts.length,
+    preparationDecisionTemplates: decisionTemplateArtifacts.length,
+    preparationHumanGatedCommands: humanGatedCommands.length,
     preparationFirstWorksheetArtifactPath: worksheetArtifacts[0] || '',
+    preparationFirstDecisionTemplatePath: decisionTemplateArtifacts[0] || '',
+    preparationFirstHumanGatedCommand: humanGatedCommands[0]?.command || '',
     preparationRunPath: compact(sourceArtifacts.operationalPreparationRun)
   };
 };
@@ -559,6 +603,21 @@ const markdownFor = bundle => {
     });
   }
 
+  if (asArray(bundle.preparationDecisionTemplateArtifacts).length > 0) {
+    lines.push('', '## Preparation run decision templates', '');
+    bundle.preparationDecisionTemplateArtifacts.forEach(artifactPath => {
+      lines.push(`- ${artifactPath}`);
+    });
+  }
+
+  if (asArray(bundle.preparationHumanGatedCommands).length > 0) {
+    lines.push('', '## Human-gated commands', '');
+    bundle.preparationHumanGatedCommands.forEach(item => {
+      lines.push(`- ${item.command}`);
+      if (item.reason) lines.push(`  - Reason: ${item.reason}`);
+    });
+  }
+
   if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
     lines.push('', '## Vision capture work orders', '');
     bundle.visionCaptureWorkOrderPreviews.forEach(order => {
@@ -639,10 +698,14 @@ const buildOperationalStatusBundle = ({
     sourceArtifacts
   });
   const preparationWorksheetArtifacts = preparationWorksheetArtifactsFor(operationalPreparationRun);
+  const preparationDecisionTemplateArtifacts = preparationDecisionTemplateArtifactsFor(operationalPreparationRun);
+  const preparationHumanGatedCommands = preparationHumanGatedCommandsFor(operationalPreparationRun);
   const preparationRunSummary = preparationRunSummaryFor({
     operationalPreparationRun,
     sourceArtifacts,
-    worksheetArtifacts: preparationWorksheetArtifacts
+    worksheetArtifacts: preparationWorksheetArtifacts,
+    decisionTemplateArtifacts: preparationDecisionTemplateArtifacts,
+    humanGatedCommands: preparationHumanGatedCommands
   });
   const bundle = {
     schemaVersion: 1,
@@ -697,6 +760,8 @@ const buildOperationalStatusBundle = ({
     sourceArtifactSnapshots,
     visionCaptureWorkOrderPreviews: captureWorkOrderPreviewsFor(visionCaptureWorkOrderPlan),
     preparationWorksheetArtifacts,
+    preparationDecisionTemplateArtifacts,
+    preparationHumanGatedCommands,
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,
