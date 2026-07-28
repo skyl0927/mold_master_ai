@@ -1587,6 +1587,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           {operationalStatusBundleDisplay.reviewerWorksheetSlipQueuePreviewText}
                         </p>
                       )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgeText && (
+                        <p className="mt-1 break-words text-[8px] font-bold text-cyan-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetWorktableBridgeText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableCsvPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-cyan-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetWorktableCsvPath}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableCopyableText && (
+                        <p className="mt-1 break-words text-[8px] text-cyan-100">
+                          Copy: {operationalStatusBundleDisplay.reviewerWorksheetWorktableCopyableText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetWorktableManualText && (
+                        <p className="mt-1 break-words text-[8px] text-amber-100">
+                          Manual: {operationalStatusBundleDisplay.reviewerWorksheetWorktableManualText}
+                        </p>
+                      )}
                       {operationalStatusBundleDisplay.reviewerWorksheetCursorPath && (
                         <p className="mt-1 break-words font-mono text-[8px] text-lime-100">
                           {operationalStatusBundleDisplay.reviewerWorksheetCursorPath}

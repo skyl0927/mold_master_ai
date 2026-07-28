@@ -14,6 +14,7 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 - As an operator, I want the next-review cursor visible in the bundle and Settings display, so that I can start with the correct queue, decision id, source template, and verification command.
 - As an operator, I want the next-review slip visible in the bundle and Settings display, so that I can see the first decision title, first instruction, and safety notice without opening every artifact.
 - As an operator, I want a review-slip queue preview visible in the bundle and Settings display, so that I can batch the first several HITL decisions without losing the no-write safety boundary.
+- As an operator, I want the review-slip queue connected to the human decision worktable entry queue, so that I can see the exact CSV path and copy/manual fields for the first matched HITL item without allowing automatic writes.
 - As a developer, I want the CLI bundle builder to automatically include the latest preparation-run artifact, so that new handoff bundles preserve the same context.
 
 ## RED Evidence
@@ -34,8 +35,11 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetSlipTitle` was `undefined` instead of the first HITL slip title. |
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetSlipQueueCount` was `undefined` instead of `3`. |
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetSlipQueueText` was `undefined` instead of `Review slip queue 3건`. |
+| `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetWorktableMatchedSlips` was `undefined` instead of `1`. |
+| `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgeText` was `undefined` instead of `Worktable bridge 1/3 matched · first conflict-001`. |
+| `npm run test:operational-status-bundle` | FAIL, 5/6 pass | Unsafe worktable entries with `autoPopulateAllowed=true` or `autoApplyAllowed=true` were counted as matched slips (`3 !== 1`). |
 
-The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, and `b51920a test: require HITL review slip queue`.
+The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, and `e50839c test: require HITL worktable bridge`.
 
 ## GREEN Evidence
 
@@ -57,6 +61,9 @@ The RED checkpoint commits are `708f9fa test: add preparation run status bundle 
 | `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the next-review slip title, first instruction, and safety notice. |
 | `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle carries reviewer worksheet review-slip queue count and first preview decisions. |
 | `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the review-slip queue count and preview text. |
+| `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle matches reviewer worksheet slips to human decision worktable entries by `queueCode` and `decisionId`, exposing the first CSV path plus copy/manual fields without executing writes. |
+| `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the worktable bridge text, first worktable CSV path, copyable fields, and manual confirmation fields. |
+| `npm run test:operational-status-bundle` | PASS, 6/6 | The bridge only counts human-review worktable entries when `requiresHumanReview=true` and both `autoPopulateAllowed`/`autoApplyAllowed` are not true. |
 
 ## Known Gaps
 

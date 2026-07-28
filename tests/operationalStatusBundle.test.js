@@ -184,6 +184,34 @@ const humanBrief = () => ({
       requiresHumanReview: true,
       autoPopulateAllowed: false,
       autoApplyAllowed: false
+    },
+    {
+      entryNumber: 2,
+      sessionCode: 'label_conflict_session',
+      sessionPriority: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-002',
+      recommendedNewAction: 'approve_candidate',
+      copyableFields: ['newAction=approve_candidate'],
+      manualConfirmationFields: ['selectedLabel'],
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      requiresHumanReview: true,
+      autoPopulateAllowed: true,
+      autoApplyAllowed: false
+    },
+    {
+      entryNumber: 3,
+      sessionCode: 'label_conflict_session',
+      sessionPriority: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-003',
+      recommendedNewAction: 'approve_candidate',
+      copyableFields: ['newAction=approve_candidate'],
+      manualConfirmationFields: ['selectedLabel'],
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      requiresHumanReview: true,
+      autoPopulateAllowed: false,
+      autoApplyAllowed: true
     }
   ],
   recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'

@@ -887,6 +887,18 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     ? `Review slip queue ${reviewerWorksheetSlipQueueCount}건`
     : '';
   const reviewerWorksheetSlipQueuePreviewText = compact(summary.reviewerWorksheetSlipQueuePreviewText);
+  const reviewerWorksheetWorktableMatchedSlips =
+    numberValue(summary.reviewerWorksheetWorktableMatchedSlips);
+  const reviewerWorksheetFirstWorktableDecisionId =
+    compact(summary.reviewerWorksheetFirstWorktableDecisionId);
+  const reviewerWorksheetWorktableBridgeText = reviewerWorksheetWorktableMatchedSlips > 0
+    ? [
+      `Worktable bridge ${reviewerWorksheetWorktableMatchedSlips}/${reviewerWorksheetSlipQueueCount} matched`,
+      reviewerWorksheetFirstWorktableDecisionId
+        ? `first ${reviewerWorksheetFirstWorktableDecisionId}`
+        : ''
+    ].filter(Boolean).join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -944,6 +956,10 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetSlipSafetyNotice,
     reviewerWorksheetSlipQueueText,
     reviewerWorksheetSlipQueuePreviewText,
+    reviewerWorksheetWorktableBridgeText,
+    reviewerWorksheetWorktableCsvPath: compact(summary.reviewerWorksheetFirstWorktableCsvPath),
+    reviewerWorksheetWorktableCopyableText: compact(summary.reviewerWorksheetFirstWorktableCopyableText),
+    reviewerWorksheetWorktableManualText: compact(summary.reviewerWorksheetFirstWorktableManualText),
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({

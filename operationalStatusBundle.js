@@ -495,7 +495,40 @@ const decisionReviewSectionPreviewsFor = operationalDecisionInputReviewPacket =>
     }))
     : [];
 
-const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtifacts }) => {
+const decisionKeyFor = item =>
+  `${compact(item?.queueCode)}::${compact(item?.decisionId)}`;
+
+const isSafeWorktableBridgeEntry = entry =>
+  entry?.requiresHumanReview === true
+  && entry?.autoPopulateAllowed !== true
+  && entry?.autoApplyAllowed !== true;
+
+const worktableBridgeFor = ({ operationalReviewerWorksheet, humanDecisionBrief }) => {
+  const reviewSlipQueue = asArray(operationalReviewerWorksheet?.reviewSlipQueue);
+  const entriesByDecision = new Map(
+    asArray(humanDecisionBrief?.decisionEntryQueue)
+      .filter(isSafeWorktableBridgeEntry)
+      .map(entry => [decisionKeyFor(entry), entry])
+      .filter(([key]) => key !== '::')
+  );
+  const matches = reviewSlipQueue
+    .map(slip => ({
+      slip,
+      entry: entriesByDecision.get(decisionKeyFor(slip))
+    }))
+    .filter(item => item.entry);
+  const first = matches[0]?.entry || null;
+
+  return {
+    matchedSlips: matches.length,
+    firstDecisionId: compact(first?.decisionId),
+    firstWorktableCsvPath: compact(first?.worktableCsvPath),
+    firstCopyableText: asArray(first?.copyableFields).map(compact).filter(Boolean).join(' · '),
+    firstManualText: asArray(first?.manualConfirmationFields).map(compact).filter(Boolean).join(' · ')
+  };
+};
+
+const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisionBrief, sourceArtifacts }) => {
   if (!isOperationalReviewerWorksheet(operationalReviewerWorksheet)) return null;
 
   const summary = operationalReviewerWorksheet.summary || {};
@@ -503,6 +536,10 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
   const slip = operationalReviewerWorksheet.nextReviewSlip || {};
   const slipInstructions = asArray(slip.operatorInstructionsKo).map(compact).filter(Boolean);
   const reviewSlipQueue = asArray(operationalReviewerWorksheet.reviewSlipQueue);
+  const worktableBridge = worktableBridgeFor({
+    operationalReviewerWorksheet,
+    humanDecisionBrief
+  });
   const reviewSlipQueuePreviewText = reviewSlipQueue
     .slice(0, 5)
     .map((item, index) => [
@@ -530,6 +567,11 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
     reviewerWorksheetNextReviewSlipSafetyNoticeKo: compact(slip.safetyNoticeKo),
     reviewerWorksheetSlipQueueCount: numberValue(summary.reviewSlipQueueCount || reviewSlipQueue.length),
     reviewerWorksheetSlipQueuePreviewText: reviewSlipQueuePreviewText,
+    reviewerWorksheetWorktableMatchedSlips: worktableBridge.matchedSlips,
+    reviewerWorksheetFirstWorktableDecisionId: worktableBridge.firstDecisionId,
+    reviewerWorksheetFirstWorktableCsvPath: worktableBridge.firstWorktableCsvPath,
+    reviewerWorksheetFirstWorktableCopyableText: worktableBridge.firstCopyableText,
+    reviewerWorksheetFirstWorktableManualText: worktableBridge.firstManualText,
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
     reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),
@@ -840,6 +882,7 @@ const buildOperationalStatusBundle = ({
   });
   const reviewerWorksheetSummary = reviewerWorksheetSummaryFor({
     operationalReviewerWorksheet,
+    humanDecisionBrief,
     sourceArtifacts
   });
   const bundle = {
