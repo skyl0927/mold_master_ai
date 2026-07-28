@@ -1238,6 +1238,7 @@ test('summarizes operational status bundle for one-step Settings handoff display
       reviewerWorksheetFirstWorktableCopyableText: 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification',
       reviewerWorksheetFirstWorktableManualText: 'selectedLabel · reviewer.id · decidedAt',
       reviewerWorksheetWorktableBridgePreviewText: '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review',
+      reviewerWorksheetWorktableBridgeScopeText: 'Bridge preview 2/4 matched · full pending 59 · outside preview 55',
       reviewerWorksheetSectionCount: 3,
       reviewerWorksheetMarkdownLineCount: 83,
       reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
@@ -1415,6 +1416,10 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(
     display.reviewerWorksheetWorktableBridgePreviewText,
     '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review'
+  );
+  assert.equal(
+    display.reviewerWorksheetWorktableBridgeScopeText,
+    'Bridge preview 2/4 matched · full pending 59 · outside preview 55'
   );
   assert.deepEqual(display.reviewerWorksheetWorktableBridgePreviews, [
     {

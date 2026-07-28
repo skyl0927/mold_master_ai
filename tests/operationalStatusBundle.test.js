@@ -605,6 +605,10 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     bundle.summary.reviewerWorksheetWorktableBridgePreviewText,
     '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review'
   );
+  assert.equal(
+    bundle.summary.reviewerWorksheetWorktableBridgeScopeText,
+    'Bridge preview 2/4 matched · full pending 59 · outside preview 55'
+  );
   assert.deepEqual(bundle.reviewerWorksheetWorktableBridgePreviews, [
     {
       slipNumber: 1,
@@ -690,6 +694,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Copy fields: newAction=mark_needs_review · reviewComment=Keep isolated pending source verification/);
   assert.match(bundle.markdown, /Manual fields: selectedLabel · reviewer\.id · decidedAt/);
   assert.match(bundle.markdown, /autoPopulateAllowed=true 또는 autoApplyAllowed=true 항목은 bridge에서 제외/);
+  assert.match(bundle.markdown, /Bridge scope: Bridge preview 2\/4 matched · full pending 59 · outside preview 55/);
   assert.match(bundle.markdown, /Reviewer worksheet worktable bridge preview/);
   assert.match(bundle.markdown, /1\. vision_label_conflicts \/ conflict-001 -> mark_needs_review/);
   assert.match(bundle.markdown, /4\. vision_label_conflicts \/ conflict-004 -> mark_needs_review/);
