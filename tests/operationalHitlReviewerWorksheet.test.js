@@ -136,8 +136,37 @@ test('builds a Korean Markdown worksheet for human HITL review without writes', 
   assert.equal(worksheet.policy.allowModelTraining, false);
   assert.equal(worksheet.summary.targetDecisionInputsMissing, 56);
   assert.equal(worksheet.summary.firstQueueCode, 'vision_label_conflicts');
+  assert.equal(worksheet.summary.nextReviewQueueCode, 'vision_label_conflicts');
+  assert.equal(worksheet.summary.nextReviewDecisionId, 'conflict-001');
+  assert.equal(worksheet.summary.nextReviewSourceArtifact, 'artifacts/vision-approved-label-conflict-decisions-template.json');
   assert.equal(worksheet.summary.worksheetSectionCount, 2);
   assert.ok(worksheet.summary.markdownLineCount > 20);
+  assert.deepEqual(worksheet.nextReviewCursor, {
+    queueCode: 'vision_label_conflicts',
+    titleKo: '승인 이미지 라벨 충돌 판정',
+    owner: 'quality_hitl',
+    decisionIdentifierField: 'conflictId',
+    decisionId: 'conflict-001',
+    sourceArtifact: 'artifacts/vision-approved-label-conflict-decisions-template.json',
+    verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    requiredFields: [
+      'action',
+      'selectedLabel',
+      'imageSetConfirmed',
+      'labelConfirmed',
+      'reviewer.id',
+      'decidedAt',
+      'reviewComment',
+      'requestedViews'
+    ],
+    allowedActions: [
+      'keep_label',
+      'mark_needs_review',
+      'reject_conflicting_cases',
+      'request_recapture'
+    ],
+    nextActionKo: '라벨 충돌 decision file에서 action과 필수 확인 필드를 채운 뒤 verify-decisions로 검증하세요.'
+  });
   assert.deepEqual(worksheet.reviewChecklist, [
     '원본 이미지 또는 원문 근거 확인',
     'action을 pending에서 허용 action 중 하나로 변경',
@@ -148,6 +177,8 @@ test('builds a Korean Markdown worksheet for human HITL review without writes', 
   ]);
   assert.match(worksheet.markdown, /# Operational HITL Reviewer Worksheet/);
   assert.match(worksheet.markdown, /남은 입력: 56/);
+  assert.match(worksheet.markdown, /## Next HITL Review Cursor/);
+  assert.match(worksheet.markdown, /decision id: conflict-001/);
   assert.match(worksheet.markdown, /1\. vision_label_conflicts/);
   assert.match(worksheet.markdown, /필수 필드: action, selectedLabel, imageSetConfirmed/);
   assert.match(worksheet.markdown, /결정 ID 미리보기: conflict-001, conflict-002/);

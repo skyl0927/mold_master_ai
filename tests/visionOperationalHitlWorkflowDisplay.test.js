@@ -1223,6 +1223,10 @@ test('summarizes operational status bundle for one-step Settings handoff display
       reviewerWorksheetStatus: 'ready_for_human_review',
       reviewerWorksheetTargetInputsMissing: 56,
       reviewerWorksheetFirstQueueCode: 'vision_label_conflicts',
+      reviewerWorksheetNextReviewQueueCode: 'vision_label_conflicts',
+      reviewerWorksheetNextReviewDecisionId: 'conflict-001',
+      reviewerWorksheetNextReviewSourceArtifact: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+      reviewerWorksheetNextReviewVerificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
       reviewerWorksheetSectionCount: 3,
       reviewerWorksheetMarkdownLineCount: 83,
       reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
@@ -1358,6 +1362,9 @@ test('summarizes operational status bundle for one-step Settings handoff display
     }
   ]);
   assert.equal(display.reviewerWorksheetText, 'Reviewer worksheet ready_for_human_review · Missing 56 · Sections 3 · Lines 83');
+  assert.equal(display.reviewerWorksheetCursorText, 'Next review vision_label_conflicts · conflict-001');
+  assert.equal(display.reviewerWorksheetCursorPath, 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json');
+  assert.equal(display.reviewerWorksheetCursorCommand, 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>');
   assert.equal(display.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
   assert.equal(display.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');

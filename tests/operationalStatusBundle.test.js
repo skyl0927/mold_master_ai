@@ -364,8 +364,18 @@ const reviewerWorksheet = () => ({
     totalPendingActions: 59,
     targetDecisionInputsMissing: 56,
     firstQueueCode: 'vision_label_conflicts',
+    nextReviewQueueCode: 'vision_label_conflicts',
+    nextReviewDecisionId: 'conflict-001',
+    nextReviewSourceArtifact: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+    nextReviewVerificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
     worksheetSectionCount: 3,
     markdownLineCount: 83
+  },
+  nextReviewCursor: {
+    queueCode: 'vision_label_conflicts',
+    decisionId: 'conflict-001',
+    sourceArtifact: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+    verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
   },
   markdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
   sources: {
@@ -465,6 +475,10 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.reviewerWorksheetStatus, 'ready_for_human_review');
   assert.equal(bundle.summary.reviewerWorksheetTargetInputsMissing, 56);
   assert.equal(bundle.summary.reviewerWorksheetFirstQueueCode, 'vision_label_conflicts');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewQueueCode, 'vision_label_conflicts');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewDecisionId, 'conflict-001');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewSourceArtifact, 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json');
+  assert.equal(bundle.summary.reviewerWorksheetNextReviewVerificationCommand, 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>');
   assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
