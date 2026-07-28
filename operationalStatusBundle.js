@@ -25,6 +25,9 @@ const isOperationalPreparationRun = artifact =>
 const isOperationalDecisionInputReviewPacket = artifact =>
   isContract(artifact, 'operational-hitl-decision-input-review-packet/v1');
 
+const isOperationalReviewerWorksheet = artifact =>
+  isContract(artifact, 'operational-hitl-reviewer-worksheet/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -151,6 +154,18 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: 'Operational HITL decision input review packet',
     contractVersion: 'operational-hitl-decision-input-review-packet/v1',
     path: compact(sourceArtifacts.operationalDecisionInputReviewPacket)
+  },
+  {
+    key: 'operationalReviewerWorksheet',
+    labelKo: 'Operational HITL reviewer worksheet',
+    contractVersion: 'operational-hitl-reviewer-worksheet/v1',
+    path: compact(sourceArtifacts.operationalReviewerWorksheet)
+  },
+  {
+    key: 'operationalReviewerWorksheetMarkdown',
+    labelKo: 'Operational HITL reviewer worksheet Markdown',
+    contractVersion: 'text/markdown',
+    path: compact(sourceArtifacts.operationalReviewerWorksheetMarkdown)
   }
 ].filter(item => item.path);
 
@@ -478,6 +493,27 @@ const decisionReviewSectionPreviewsFor = operationalDecisionInputReviewPacket =>
     }))
     : [];
 
+const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtifacts }) => {
+  if (!isOperationalReviewerWorksheet(operationalReviewerWorksheet)) return null;
+
+  const summary = operationalReviewerWorksheet.summary || {};
+  return {
+    reviewerWorksheetStatus: compact(operationalReviewerWorksheet.status),
+    reviewerWorksheetSourceStatus: compact(summary.sourceStatus),
+    reviewerWorksheetTotalTemplateItems: numberValue(summary.totalTemplateItems),
+    reviewerWorksheetTotalPendingActions: numberValue(summary.totalPendingActions),
+    reviewerWorksheetTargetInputsMissing: numberValue(summary.targetDecisionInputsMissing),
+    reviewerWorksheetFirstQueueCode: compact(summary.firstQueueCode),
+    reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
+    reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
+    reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),
+    reviewerWorksheetPath: compact(sourceArtifacts.operationalReviewerWorksheet),
+    reviewerWorksheetMarkdownPath: compact(
+      sourceArtifacts.operationalReviewerWorksheetMarkdown || operationalReviewerWorksheet.markdownPath
+    )
+  };
+};
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -511,6 +547,12 @@ const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief, preparati
     titleKo: 'HITL preparation worksheet 열기',
     instructionKo: 'prepare-run에서 생성된 Markdown/CSV worksheet를 열고 사람이 승인/보류/수정 결정을 입력하세요.',
     path: compact(asArray(preparationWorksheetArtifacts)[0] || sourceArtifacts.operationalPreparationRun)
+  }] : []),
+  ...(compact(sourceArtifacts.operationalReviewerWorksheetMarkdown || sourceArtifacts.operationalReviewerWorksheet) ? [{
+    code: 'open_reviewer_worksheet',
+    titleKo: 'HITL reviewer worksheet 열기',
+    instructionKo: '전체 HITL 입력 현황과 큐별 검토 순서를 확인한 뒤 decision template를 채우세요.',
+    path: compact(sourceArtifacts.operationalReviewerWorksheetMarkdown || sourceArtifacts.operationalReviewerWorksheet)
   }] : []),
   ...(compact(sourceArtifacts.labelConflictReviewGuideMarkdown || sourceArtifacts.labelConflictReviewGuide) ? [{
     code: 'open_label_conflict_review_guide',
@@ -606,6 +648,8 @@ const markdownFor = bundle => {
     `- Preparation run: ${bundle.summary.preparationRunStatus || 'not_started'} / generated ${bundle.summary.preparationGeneratedArtifacts || 0} / worksheets ${bundle.summary.preparationWorksheetArtifacts || 0}`,
     `- Decision review: ${bundle.summary.decisionReviewPacketStatus || 'not_started'} / pending ${bundle.summary.decisionReviewTotalPendingActions || 0} / missing ${bundle.summary.decisionReviewTargetInputsMissing || 0}`,
     `- Decision review packet: ${bundle.summary.decisionReviewPacketPath || 'not_started'}`,
+    `- Reviewer worksheet: ${bundle.summary.reviewerWorksheetStatus || 'not_started'} / missing ${bundle.summary.reviewerWorksheetTargetInputsMissing || 0} / lines ${bundle.summary.reviewerWorksheetMarkdownLineCount || 0}`,
+    `- Reviewer worksheet Markdown: ${bundle.summary.reviewerWorksheetMarkdownPath || 'not_started'}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
@@ -706,6 +750,7 @@ const buildOperationalStatusBundle = ({
   webKnowledgeCommonAgentPackage = null,
   operationalPreparationRun = null,
   operationalDecisionInputReviewPacket = null,
+  operationalReviewerWorksheet = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -767,6 +812,10 @@ const buildOperationalStatusBundle = ({
     operationalDecisionInputReviewPacket,
     sourceArtifacts
   });
+  const reviewerWorksheetSummary = reviewerWorksheetSummaryFor({
+    operationalReviewerWorksheet,
+    sourceArtifacts
+  });
   const bundle = {
     schemaVersion: 1,
     contractVersion: 'operational-status-bundle/v1',
@@ -809,6 +858,7 @@ const buildOperationalStatusBundle = ({
       ...(webKnowledgePackageSummary || {}),
       ...(preparationRunSummary || {}),
       ...(decisionReviewPacketSummary || {}),
+      ...(reviewerWorksheetSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),

@@ -862,6 +862,15 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
       `Sections ${numberValue(summary.decisionReviewSectionCount)}`
     ].join(' · ')
     : '';
+  const reviewerWorksheetStatus = compact(summary.reviewerWorksheetStatus);
+  const reviewerWorksheetText = reviewerWorksheetStatus
+    ? [
+      `Reviewer worksheet ${reviewerWorksheetStatus}`,
+      `Missing ${numberValue(summary.reviewerWorksheetTargetInputsMissing)}`,
+      `Sections ${numberValue(summary.reviewerWorksheetSectionCount)}`,
+      `Lines ${numberValue(summary.reviewerWorksheetMarkdownLineCount)}`
+    ].join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -908,6 +917,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     preparationHumanGatedCommandTexts,
     decisionReviewText,
     decisionReviewPath: compact(summary.decisionReviewPacketPath),
+    reviewerWorksheetText,
+    reviewerWorksheetPath: compact(summary.reviewerWorksheetPath),
+    reviewerWorksheetMarkdownPath: compact(summary.reviewerWorksheetMarkdownPath),
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({

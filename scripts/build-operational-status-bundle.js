@@ -115,6 +115,18 @@ const operationalDecisionInputReviewPacketPath = resolveOptionalPath(
   latestFile('operational-hitl-decision-input-review-packet-', '.json')
 );
 
+const operationalReviewerWorksheetPath = resolveOptionalPath(
+  valueAfter('--reviewer-worksheet'),
+  process.env.OPERATIONAL_HITL_REVIEWER_WORKSHEET,
+  latestFile('operational-hitl-reviewer-worksheet-', '.json')
+);
+
+const operationalReviewerWorksheetMarkdownPath = resolveOptionalPath(
+  valueAfter('--reviewer-worksheet-md'),
+  process.env.OPERATIONAL_HITL_REVIEWER_WORKSHEET_MARKDOWN,
+  latestFile('operational-hitl-reviewer-worksheet-', '.md')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -133,6 +145,7 @@ const run = () => {
   const webKnowledgeCommonAgentPackage = readOptionalJson(webKnowledgeCommonAgentPackagePath);
   const operationalPreparationRun = readOptionalJson(operationalPreparationRunPath);
   const operationalDecisionInputReviewPacket = readOptionalJson(operationalDecisionInputReviewPacketPath);
+  const operationalReviewerWorksheet = readOptionalJson(operationalReviewerWorksheetPath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
@@ -142,6 +155,7 @@ const run = () => {
     webKnowledgeCommonAgentPackage,
     operationalPreparationRun,
     operationalDecisionInputReviewPacket,
+    operationalReviewerWorksheet,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -155,7 +169,9 @@ const run = () => {
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
       webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
       operationalPreparationRun: operationalPreparationRunPath,
-      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath
+      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath,
+      operationalReviewerWorksheet: operationalReviewerWorksheetPath,
+      operationalReviewerWorksheetMarkdown: operationalReviewerWorksheetMarkdownPath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
@@ -215,6 +231,12 @@ const run = () => {
     decisionReviewTargetInputsMissing: bundle.summary.decisionReviewTargetInputsMissing ?? null,
     decisionReviewFirstQueueCode: bundle.summary.decisionReviewFirstQueueCode ?? null,
     decisionReviewPacketPath: bundle.summary.decisionReviewPacketPath ?? null,
+    reviewerWorksheetStatus: bundle.summary.reviewerWorksheetStatus ?? null,
+    reviewerWorksheetTargetInputsMissing: bundle.summary.reviewerWorksheetTargetInputsMissing ?? null,
+    reviewerWorksheetFirstQueueCode: bundle.summary.reviewerWorksheetFirstQueueCode ?? null,
+    reviewerWorksheetMarkdownLineCount: bundle.summary.reviewerWorksheetMarkdownLineCount ?? null,
+    reviewerWorksheetPath: bundle.summary.reviewerWorksheetPath ?? null,
+    reviewerWorksheetMarkdownPath: bundle.summary.reviewerWorksheetMarkdownPath ?? null,
     postImportValidationCases: bundle.summary.postImportValidationCases ?? null,
     postImportValidationObservationStatus: bundle.summary.postImportValidationObservationStatus ?? null,
     postImportGraphCapturedCases: bundle.summary.postImportGraphCapturedCases ?? null,
@@ -248,7 +270,9 @@ try {
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
       webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
       operationalPreparationRun: operationalPreparationRunPath,
-      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath
+      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath,
+      operationalReviewerWorksheet: operationalReviewerWorksheetPath,
+      operationalReviewerWorksheetMarkdown: operationalReviewerWorksheetMarkdownPath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);

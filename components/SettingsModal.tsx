@@ -1552,6 +1552,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       )}
                     </div>
                   )}
+                  {operationalStatusBundleDisplay.reviewerWorksheetText && (
+                    <div className="mt-2 rounded border border-lime-900/50 bg-lime-950/20 px-2 py-1">
+                      <p className="break-words text-[8px] font-bold text-lime-50">
+                        {operationalStatusBundleDisplay.reviewerWorksheetText}
+                      </p>
+                      {operationalStatusBundleDisplay.reviewerWorksheetMarkdownPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-lime-100">
+                          {operationalStatusBundleDisplay.reviewerWorksheetMarkdownPath}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewerWorksheetPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.reviewerWorksheetPath}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.accuracyText}
