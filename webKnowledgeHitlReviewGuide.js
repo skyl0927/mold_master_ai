@@ -3,6 +3,18 @@ const asArray = value => Array.isArray(value) ? value : [];
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
 const unique = values => [...new Set(asArray(values).map(compact).filter(Boolean))];
+const joinList = values => unique(values).join(' | ');
+const shortText = (value, maxLength = 360) => {
+  const text = compact(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+};
+
+const csvEscape = value => {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text)
+    ? `"${text.replace(/"/g, '""')}"`
+    : text;
+};
 
 const count = value => asArray(value).length;
 
@@ -120,6 +132,154 @@ const guideItemFor = decision => {
   };
 };
 
+const approvalDecisionFields = [
+  'action',
+  'reviewerId',
+  'decidedAt',
+  'reviewComment',
+  'confirmed',
+  'reviewedDefectName',
+  'reviewedProblem',
+  'reviewedPhenomenon',
+  'causeCandidates',
+  'causeLabels',
+  'checkItems',
+  'actions'
+];
+
+const nonApprovalDecisionFields = [
+  'action',
+  'reviewerId',
+  'decidedAt',
+  'reviewComment',
+  'confirmed'
+];
+
+const recommendedActionFor = item => {
+  const flags = asArray(item?.qualityFlags);
+  const hasRepairFlag = flags.some(flag =>
+    flag === 'stale_or_changed_card' || flag.startsWith('missing_')
+  );
+  if (hasRepairFlag) return 'mark_needs_changes';
+  if (flags.includes('approval_candidate')) return 'approve_card';
+  return 'mark_needs_changes';
+};
+
+const copyrightUseFor = item =>
+  item?.evidenceSummary?.citationOnly ? 'citation_only' : 'reusable_summary';
+
+const worksheetRowsFor = items => asArray(items).map(item => {
+  const suggested = item?.suggestedKnowledge || {};
+  const recommendedAction = recommendedActionFor(item);
+  return {
+    caseId: compact(item?.caseId),
+    defectClass: compact(item?.defectClass),
+    sourceKind: compact(item?.sourceKind),
+    recommendedAction,
+    copyrightUse: copyrightUseFor(item),
+    qualityFlags: asArray(item?.qualityFlags).map(compact).filter(Boolean),
+    reviewFocusKo: compact(item?.reviewFocusKo),
+    reviewedDefectName: compact(suggested.reviewedDefectName),
+    reviewedProblem: shortText(suggested.reviewedProblem),
+    reviewedPhenomenon: shortText(suggested.reviewedPhenomenon),
+    causeCandidates: unique(suggested.causeCandidates).map(value => shortText(value, 180)),
+    causeLabels: unique(suggested.suggestedCauseLabels),
+    checkItems: unique(suggested.suggestedCheckItems).map(value => shortText(value, 180)),
+    actions: unique(suggested.suggestedActions).map(value => shortText(value, 180)),
+    evidencePublisher: compact(item?.evidenceSummary?.primaryPublisher),
+    evidenceTitle: compact(item?.evidenceSummary?.primaryTitle),
+    sourceUrl: compact(item?.evidenceSummary?.primarySourceUrl),
+    requiredDecisionFields: recommendedAction === 'approve_card'
+      ? approvalDecisionFields
+      : nonApprovalDecisionFields
+  };
+});
+
+const worksheetCsvFor = rows => {
+  const headers = [
+    'caseId',
+    'defectClass',
+    'sourceKind',
+    'recommendedAction',
+    'copyrightUse',
+    'qualityFlags',
+    'reviewedDefectName',
+    'reviewedProblem',
+    'reviewedPhenomenon',
+    'causeCandidates',
+    'causeLabels',
+    'checkItems',
+    'actions',
+    'evidencePublisher',
+    'evidenceTitle',
+    'sourceUrl',
+    'requiredDecisionFields'
+  ];
+  const lines = [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => csvEscape(
+      Array.isArray(row[header]) ? row[header].join(' | ') : row[header]
+    )).join(','))
+  ];
+  return `${lines.join('\n')}\n`;
+};
+
+const worksheetMarkdownFor = ({ generatedAt, status, rows }) => {
+  const lines = [
+    '# Web Knowledge HITL Review Worksheet',
+    '',
+    `Generated at: ${generatedAt}`,
+    `Status: ${status}`,
+    `Rows: ${rows.length}`,
+    '',
+    'Use this worksheet to review evidence and then fill the JSON decision template.',
+    'Do not treat this worksheet as an approval record by itself.',
+    ''
+  ];
+  rows.forEach((row, index) => {
+    lines.push(
+      `## ${index + 1}. ${row.caseId}`,
+      '',
+      `- Defect class: ${row.defectClass}`,
+      `- Source kind: ${row.sourceKind}`,
+      `- Recommended action: ${row.recommendedAction}`,
+      `- Copyright use: ${row.copyrightUse}`,
+      `- Quality flags: ${row.qualityFlags.join(', ') || 'none'}`,
+      `- Review focus: ${row.reviewFocusKo}`,
+      `- Evidence: ${row.evidencePublisher || 'unknown'} / ${row.evidenceTitle || 'untitled'}`,
+      `- Source URL: ${row.sourceUrl || 'none'}`,
+      `- Required decision fields: ${row.requiredDecisionFields.join(', ')}`,
+      '',
+      'Suggested reviewed knowledge:',
+      '',
+      `- Defect name: ${row.reviewedDefectName || 'missing'}`,
+      `- Problem: ${row.reviewedProblem || 'missing'}`,
+      `- Phenomenon: ${row.reviewedPhenomenon || 'missing'}`,
+      `- Causes: ${joinList(row.causeCandidates) || 'missing'}`,
+      `- Cause labels: ${joinList(row.causeLabels) || 'missing'}`,
+      `- Check items: ${joinList(row.checkItems) || 'missing'}`,
+      `- Actions: ${joinList(row.actions) || 'missing'}`,
+      ''
+    );
+  });
+  return `${lines.join('\n')}\n`;
+};
+
+const reviewWorksheetFor = ({ generatedAt, status, items }) => {
+  const rows = worksheetRowsFor(items);
+  const worksheetStatus = status === 'action_required'
+    ? 'ready'
+    : status === 'clear'
+      ? 'clear'
+      : 'not_available';
+  return {
+    status: worksheetStatus,
+    rows,
+    markdown: worksheetMarkdownFor({ generatedAt, status, rows }),
+    csvText: worksheetCsvFor(rows)
+  };
+};
+
 const buildWebKnowledgeHitlReviewGuide = ({
   generatedAt = new Date().toISOString(),
   decisionTemplate = null,
@@ -162,6 +322,7 @@ const buildWebKnowledgeHitlReviewGuide = ({
       decisionTemplate: sourceArtifacts.decisionTemplate || null,
       collectionRoot: sourceArtifacts.collectionRoot || decisionTemplate?.sources?.collectionRoot || null
     },
+    reviewWorksheet: reviewWorksheetFor({ generatedAt, status, items }),
     recommendedAction: status === 'missing_decision_template'
       ? '먼저 npm run knowledge:web:hitl:decision-template 명령으로 batch 판정 템플릿을 생성하세요.'
       : status === 'clear'

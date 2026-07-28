@@ -39,6 +39,11 @@ const writeJson = (filePath, payload) => {
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 };
 
+const writeText = (filePath, payload) => {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, payload, 'utf8');
+};
+
 const decisionTemplatePath = resolveOptionalPath(
   valueAfter('--decision-template'),
   process.env.MOLD_MASTER_WEB_HITL_DECISION_TEMPLATE,
@@ -52,6 +57,18 @@ const outputPath = path.resolve(
   || path.join(artifactRoot, `web-knowledge-hitl-review-guide-${timestamp()}.json`)
 );
 
+const outputBasePath = outputPath.replace(/\.json$/i, '');
+const markdownWorksheetPath = path.resolve(
+  valueAfter('--markdown-output')
+  || process.env.MOLD_MASTER_WEB_HITL_REVIEW_GUIDE_MARKDOWN_OUTPUT
+  || `${outputBasePath}.md`
+);
+const csvWorksheetPath = path.resolve(
+  valueAfter('--csv-output')
+  || process.env.MOLD_MASTER_WEB_HITL_REVIEW_GUIDE_CSV_OUTPUT
+  || `${outputBasePath}.csv`
+);
+
 const run = () => {
   const guide = buildWebKnowledgeHitlReviewGuide({
     decisionTemplate: readOptionalJson(decisionTemplatePath),
@@ -60,9 +77,17 @@ const run = () => {
     }
   });
 
+  guide.outputs = {
+    markdownWorksheetPath,
+    csvWorksheetPath
+  };
+  writeText(markdownWorksheetPath, guide.reviewWorksheet.markdown);
+  writeText(csvWorksheetPath, guide.reviewWorksheet.csvText);
   writeJson(outputPath, guide);
   console.log(JSON.stringify({
     outputPath,
+    markdownWorksheetPath,
+    csvWorksheetPath,
     status: guide.status,
     decisionsPrepared: guide.summary.decisionsPrepared,
     approvalReadyCandidates: guide.summary.approvalReadyCandidates,
@@ -87,6 +112,12 @@ try {
   });
   guide.status = 'missing_decision_template';
   guide.error = error instanceof Error ? error.message : String(error);
+  guide.outputs = {
+    markdownWorksheetPath,
+    csvWorksheetPath
+  };
+  writeText(markdownWorksheetPath, guide.reviewWorksheet.markdown);
+  writeText(csvWorksheetPath, guide.reviewWorksheet.csvText);
   writeJson(outputPath, guide);
   console.error(error);
   process.exitCode = 1;
