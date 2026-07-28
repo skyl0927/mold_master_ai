@@ -96,6 +96,69 @@ export interface VisionConsensusGateSummary {
     classifierAgreementWithVisionTop1: boolean | null;
   };
 }
+
+export type VisionDiagnosticReliabilityStatus =
+  | 'auto_report_ready'
+  | 'graph_cross_check_required'
+  | 'hitl_required'
+  | 'blocked';
+
+export type VisionDiagnosticContaminationRisk =
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'blocked';
+
+export interface VisionDiagnosticReliabilityCandidateSummary {
+  rank: number;
+  defectType: string;
+  confidence: number;
+  supportingObservationCount: number;
+  contradictingObservationCount: number;
+}
+
+export interface VisionDiagnosticReliabilityCard {
+  contractVersion: 'vision-diagnostic-reliability-card/v1';
+  status: VisionDiagnosticReliabilityStatus;
+  contaminationRisk: VisionDiagnosticContaminationRisk;
+  confidenceScore: number;
+  automaticReportAllowed: boolean;
+  graphRetrievalAllowed: boolean;
+  causeCountermeasureAllowed: boolean;
+  llmSupplementAllowed: boolean;
+  humanReviewRequired: boolean;
+  serviceWritesAllowed: false;
+  policy: {
+    failClosed: boolean;
+    top1VisionCandidateTrustedAlone: false;
+    graphGroundingRequiredForFinalReport: boolean;
+    llmSupplementRequiresGraphAcceptance: boolean;
+    modelTrainingAllowed: false;
+    graphPromotionAllowed: false;
+  };
+  candidateSummary: {
+    topCandidate: string;
+    topCandidateConfidence: number;
+    topCandidateMargin: number | null;
+    topK: VisionDiagnosticReliabilityCandidateSummary[];
+  };
+  riskReasons: string[];
+  nextActions: string[];
+  evidence: {
+    consensusGate: VisionConsensusGateSummary;
+    visionDecisionStatus: string;
+    visionSafetyStatus: string;
+    visionSafetyScore: number | null;
+    visionSafetyReasons: string[];
+    graphGrounded: boolean;
+    graphTopCandidateSupported: boolean;
+    graphAutoFinalizeAllowed: boolean;
+    graphRequiresHumanReview: boolean;
+    visionGraphConflict: boolean;
+    classifierStatus: string;
+    classifierAgreementWithVisionTop1: boolean | null;
+  };
+}
 export type VisionObservationCategory =
   | 'color'
   | 'boundary'
@@ -183,6 +246,7 @@ export interface VisionObservationSummary {
   viewEvidence?: VisionViewEvidence[];
   classifierSummary?: VisionClassifierSummary;
   consensusGate?: VisionConsensusGateSummary;
+  diagnosticReliabilityCard?: VisionDiagnosticReliabilityCard;
 }
 
 export interface VisionFusionCandidateSupport {

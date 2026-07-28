@@ -16,6 +16,9 @@ import {
     buildVisionBboxReviewSubmission,
     VisionBboxReviewSubmission
 } from '../visionBboxAnnotation';
+import {
+    buildVisionDiagnosticReliabilityDisplayModel
+} from '../visionDiagnosticReliabilityDisplay';
 
 interface AnalysisModalProps {
   image: CapturedImage | undefined;
@@ -170,6 +173,20 @@ const formatVisionBboxAnnotationStatus = (status: string) => {
     if (status === 'rejected') return 'bbox 반려 포함';
     if (status === 'not_synced') return 'bbox 미동기화';
     return 'bbox 없음';
+};
+
+const reliabilityCardClass = (tone: string) => {
+    if (tone === 'emerald') return 'border-emerald-700/70 bg-emerald-950/25';
+    if (tone === 'red') return 'border-red-700/70 bg-red-950/25';
+    if (tone === 'amber') return 'border-amber-700/70 bg-amber-950/25';
+    return 'border-gray-700 bg-gray-950/30';
+};
+
+const reliabilityBadgeClass = (tone: string) => {
+    if (tone === 'emerald') return 'border-emerald-500/50 bg-emerald-500/10 text-emerald-200';
+    if (tone === 'red') return 'border-red-500/50 bg-red-500/10 text-red-200';
+    if (tone === 'amber') return 'border-amber-500/50 bg-amber-500/10 text-amber-200';
+    return 'border-gray-600 bg-gray-700/60 text-gray-200';
 };
 
 const buildVisionReviewReasonText = (summary: VisionObservationSummary) => {
@@ -502,6 +519,9 @@ ${data.countermeasures}
         activeVisionObservationId
     );
     const bboxOverlays = bboxReviewModel.items;
+    const reliabilityDisplay = buildVisionDiagnosticReliabilityDisplayModel(
+        editableData?.visionSummary?.diagnosticReliabilityCard
+    );
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -777,6 +797,79 @@ ${data.countermeasures}
                                                     {editableData.visionSummary.normalityStatus}
                                                 </span>
                                             </div>
+                                            {reliabilityDisplay && (
+                                                <div className={`mt-3 rounded-lg border p-3 ${reliabilityCardClass(reliabilityDisplay.tone)}`}>
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="text-xs font-semibold tracking-wider text-cyan-200">
+                                                            Vision Diagnostic Reliability
+                                                        </span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${reliabilityBadgeClass(reliabilityDisplay.tone)}`}>
+                                                                {reliabilityDisplay.statusLabel}
+                                                            </span>
+                                                            <span className="rounded-full border border-gray-700 bg-gray-950/60 px-2 py-0.5 text-[10px] font-semibold text-gray-200">
+                                                                {reliabilityDisplay.riskLabel} · {reliabilityDisplay.confidenceLabel}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-2 text-xs leading-relaxed text-gray-200">
+                                                        {reliabilityDisplay.summary}
+                                                    </p>
+                                                    <div className="mt-3 grid gap-2 text-[11px] text-gray-200 sm:grid-cols-4">
+                                                        {reliabilityDisplay.permissions.map(permission => (
+                                                            <div
+                                                                key={permission.label}
+                                                                className={`rounded border px-2 py-1.5 ${
+                                                                    permission.allowed
+                                                                        ? 'border-emerald-800/70 bg-emerald-950/30 text-emerald-100'
+                                                                        : 'border-gray-700 bg-gray-950/50 text-gray-400'
+                                                                }`}
+                                                            >
+                                                                {permission.allowed ? '허용' : '차단'} · {permission.label}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 p-2">
+                                                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
+                                                                Top-K 후보 신뢰도
+                                                            </p>
+                                                            {reliabilityDisplay.candidateLines.map(line => (
+                                                                <p key={line} className="text-[11px] text-gray-300">
+                                                                    {line}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                        <div className="rounded border border-gray-700 bg-gray-950/50 p-2">
+                                                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
+                                                                다음 액션
+                                                            </p>
+                                                            {reliabilityDisplay.nextActionLabels.map(action => (
+                                                                <p key={action} className="text-[11px] text-gray-300">
+                                                                    {action}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    {reliabilityDisplay.riskReasonLabels.length > 0 && (
+                                                        <p className="mt-2 text-[11px] text-amber-100">
+                                                            위험 사유: {reliabilityDisplay.riskReasonLabels.join(', ')}
+                                                        </p>
+                                                    )}
+                                                    <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                                                        {reliabilityDisplay.policyBadges.map(badge => (
+                                                            <span key={badge} className="rounded-full border border-cyan-800/70 bg-cyan-950/40 px-2 py-0.5 text-cyan-100">
+                                                                {badge}
+                                                            </span>
+                                                        ))}
+                                                        {reliabilityDisplay.evidenceBadges.map(badge => (
+                                                            <span key={badge} className="rounded-full border border-gray-700 bg-gray-950/60 px-2 py-0.5 text-gray-300">
+                                                                {badge}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                             {editableData.visionSummary.safetyGate && (
                                                 <div className={`mt-3 rounded-lg border p-3 ${
                                                     editableData.visionSummary.safetyGate.status === 'reliable'

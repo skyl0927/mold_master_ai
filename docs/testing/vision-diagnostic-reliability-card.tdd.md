@@ -74,3 +74,49 @@ fail 0
 ## Known Gaps
 
 This card is deterministic and no-write. It does not improve the model's visual recognition by itself; it prevents unsafe downstream use of weak recognition. The next accuracy step is to feed this card into the report modal/UI and collect approved HITL outcomes as evaluation fixtures.
+
+## UI Display Follow-up
+
+Additional user journey:
+
+4. As an operator reading the diagnosis modal, I want the reliability card summarized in Korean before the cause/countermeasure sections, so that I can see whether the result is auto-report-ready, Graph-cross-check-only, HITL-required, or blocked.
+
+RED command:
+
+```powershell
+node --test tests\visionDiagnosticReliabilityDisplay.test.js
+```
+
+Initial failure:
+
+```text
+Error: Cannot find module '../visionDiagnosticReliabilityDisplay'
+```
+
+GREEN command:
+
+```powershell
+npm run test:vision-diagnostic-reliability-display
+```
+
+Result:
+
+```text
+tests 4
+pass 4
+fail 0
+```
+
+New guarantees:
+
+| # | Guarantee | Test file or command | Result |
+|---|-----------|----------------------|--------|
+| 7 | Accepted reliability cards render as low-risk Graph-grounded report guidance. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 8 | Missing Graph grounding renders as cross-check-required and blocks final cause/countermeasure guidance. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 9 | Blocked cards render as recapture-first and hide candidate trust. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 10 | Incompatible or missing cards are ignored instead of breaking the modal. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+
+UI integration:
+
+- `components/AnalysisModal.tsx` renders the display model near the top of the Vision section.
+- The card shows status, contamination risk, confidence score, allowed/blocked actions, Top-K candidate lines, risk reasons, next actions, and policy/evidence badges.
