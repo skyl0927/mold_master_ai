@@ -154,7 +154,7 @@
     "test:vision-operational-worklist": "node --test tests/visionOperationalBlockerWorklist.test.js tests/visionOperationalCommonAgentHandoff.test.js",
     "test:vision-operational-hitl-display": "node --test tests/visionOperationalHitlWorkflowDisplay.test.js",
     "test:operational-progress": "node --test tests/moldMasterDevelopmentProgressReport.test.js",
-    "test:vision-label-conflicts": "node --test tests/visionApprovedLabelConflictReviewPacket.test.js tests/visionApprovedLabelConflictDecisions.test.js tests/visionApprovedLabelConflictDecisionApply.test.js",
+    "test:vision-label-conflicts": "node --test tests/visionApprovedLabelConflictReviewPacket.test.js tests/visionApprovedLabelConflictDecisions.test.js tests/visionApprovedLabelConflictReviewGuide.test.js tests/visionApprovedLabelConflictDecisionApply.test.js",
     "test:vision-hitl-pending-packet": "node --test tests/visionPendingHitlReviewQueuePacket.test.js",
     "test:vision-hitl-decision-template": "node --test tests/visionPendingHitlDecisionTemplate.test.js",
     "test:vision-hitl-review-guide": "node --test tests/visionPendingHitlReviewGuide.test.js",

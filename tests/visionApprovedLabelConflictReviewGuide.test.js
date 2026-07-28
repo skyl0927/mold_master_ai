@@ -141,6 +141,11 @@ test('builds a no-write HITL review guide from enriched label conflict decisions
   assert.equal(second.labelEvidence.find(item => item.label === '백화').visionLabelCases[0], 'approved-image-c');
   assert.match(second.suggestedReviewPathKo, /자동으로 keep_label/);
   assert.equal(guide.sources.decisionTemplate, 'artifacts/vision-approved-label-conflict-decisions-template.json');
+  assert.match(guide.markdown, /Label Conflict HITL Review Guide/);
+  assert.match(guide.markdown, /conflict-001/);
+  assert.match(guide.markdown, /same_hash_multi_label/);
+  assert.match(guide.markdown, /capture_protocol_incomplete/);
+  assert.match(guide.markdown, /Prefill Decision Draft/);
 });
 
 test('fails closed when decision template evidence is missing', () => {
@@ -153,6 +158,7 @@ test('fails closed when decision template evidence is missing', () => {
   assert.deepEqual(guide.items, []);
   assert.match(guide.recommendedAction, /decision-template/);
   assert.equal(guide.policy.allowGraphPromotion, false);
+  assert.match(guide.markdown, /missing_decision_template/);
 });
 
 test('returns clear guide when there are no label conflict decisions', () => {
@@ -169,4 +175,5 @@ test('returns clear guide when there are no label conflict decisions', () => {
   assert.equal(guide.summary.conflicts, 0);
   assert.deepEqual(guide.items, []);
   assert.match(guide.recommendedAction, /라벨 충돌 없음/);
+  assert.match(guide.markdown, /No label conflict review items/);
 });

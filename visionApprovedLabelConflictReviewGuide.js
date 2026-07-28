@@ -130,6 +130,72 @@ const reviewPathFor = ({ conflictType, riskFlags }) => {
   return '후보 간 직접 충돌은 낮지만, Graph/Reference 학습 전 사람이 최종 라벨을 확인하세요.';
 };
 
+const markdownCell = value => {
+  const text = compact(value).replace(/\|/g, '/');
+  return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+};
+
+const listText = values => unique(values || []).join(', ') || '-';
+
+const markdownFor = guide => {
+  const lines = [
+    '# Label Conflict HITL Review Guide',
+    '',
+    `- Generated at: ${guide.generatedAt}`,
+    `- Status: ${guide.status}`,
+    `- Conflicts: ${guide.summary.conflicts}`,
+    `- Evidence cases: ${guide.summary.evidenceCases}`,
+    `- Manifest-unlisted cases: ${guide.summary.manifestUnlistedCases}`,
+    `- Capture protocol risk cases: ${guide.summary.captureProtocolRiskCases}`,
+    `- Service writes performed: ${guide.serviceWritesPerformed}`,
+    '- Safety: human review required, auto apply blocked, Graph/Reference/Model learning blocked.',
+    ''
+  ];
+
+  if (guide.items.length === 0) {
+    lines.push('No label conflict review items are currently available.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  guide.items.forEach(item => {
+    lines.push(`## ${item.conflictId}`);
+    lines.push(`- Type: ${item.conflictType || '-'}`);
+    lines.push(`- Candidate labels: ${listText(item.candidateLabels)}`);
+    lines.push(`- Affected cases: ${listText(item.affectedCaseIds)}`);
+    lines.push(`- Risk flags: ${listText(item.riskFlags)}`);
+    lines.push(`- Suggested review path: ${item.suggestedReviewPathKo || '-'}`);
+    lines.push('');
+    lines.push('### Decision Checklist');
+    item.decisionChecklistKo.forEach((check, index) => {
+      lines.push(`${index + 1}. ${check}`);
+    });
+    lines.push('');
+    lines.push('### Label Evidence');
+    lines.push('| Label | Expected cases | Prior observation cases | Vision label cases | Source summaries |');
+    lines.push('|---|---|---|---|---|');
+    item.labelEvidence.forEach(label => {
+      lines.push(`| ${markdownCell(label.label)} | ${markdownCell(listText(label.expectedLabelCases))} | ${markdownCell(listText(label.priorObservationCases))} | ${markdownCell(listText(label.visionLabelCases))} | ${markdownCell(label.sourceSummaries.map(source => `${source.caseId}: ${source.summary}`).join(' / '))} |`);
+    });
+    lines.push('');
+    lines.push('### Case Evidence');
+    lines.push('| Case ID | Fixture | Manifest | Expected | Prior | Vision | Image kind | ROI | Views | Focus |');
+    lines.push('|---|---|---|---|---|---|---|---|---|---|');
+    item.evidenceMatrix.forEach(evidence => {
+      lines.push(`| ${markdownCell(evidence.caseId)} | ${evidence.fixtureFound ? 'found' : 'missing'} | ${evidence.manifestListed ? markdownCell(evidence.manifestStatus || 'listed') : 'unlisted'} | ${markdownCell(evidence.expectedDefectType)} | ${markdownCell(evidence.priorObservationDefectType)} | ${markdownCell(evidence.originalVisionDefectType)} | ${markdownCell(evidence.imageKind)} | ${evidence.roiConfirmed ? 'yes' : 'no'} | ${markdownCell(listText(evidence.availableViews))} | ${markdownCell(evidence.humanReviewFocusKo)} |`);
+    });
+    lines.push('');
+    lines.push('### Prefill Decision Draft');
+    lines.push(`- conflictId=${item.prefillDecisionDraft.conflictId}`);
+    lines.push(`- action=${item.prefillDecisionDraft.action}`);
+    lines.push(`- selectedLabel=${item.prefillDecisionDraft.selectedLabel}`);
+    lines.push(`- imageSetConfirmed=${item.prefillDecisionDraft.imageSetConfirmed}`);
+    lines.push(`- labelConfirmed=${item.prefillDecisionDraft.labelConfirmed}`);
+    lines.push('');
+  });
+
+  return `${lines.join('\n')}\n`;
+};
+
 const guideItemFor = decision => {
   const evidenceCases = evidenceCasesFor(decision);
   const candidateLabels = unique(decision?.candidateLabels || []);
@@ -210,6 +276,14 @@ const buildVisionApprovedLabelConflictReviewGuide = ({
   };
 };
 
+const buildVisionApprovedLabelConflictReviewGuideWithMarkdown = options => {
+  const guide = buildVisionApprovedLabelConflictReviewGuide(options);
+  return {
+    ...guide,
+    markdown: markdownFor(guide)
+  };
+};
+
 module.exports = {
-  buildVisionApprovedLabelConflictReviewGuide
+  buildVisionApprovedLabelConflictReviewGuide: buildVisionApprovedLabelConflictReviewGuideWithMarkdown
 };

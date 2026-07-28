@@ -39,6 +39,11 @@ const writeJson = (filePath, payload) => {
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 };
 
+const writeText = (filePath, payload) => {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, payload, 'utf8');
+};
+
 const decisionTemplatePath = resolveOptionalPath(
   valueAfter('--decision-template'),
   process.env.VISION_APPROVED_LABEL_CONFLICT_DECISION_TEMPLATE,
@@ -52,6 +57,12 @@ const outputPath = path.resolve(
   || path.join(artifactRoot, `vision-approved-label-conflict-review-guide-${timestamp()}.json`)
 );
 
+const markdownOutputPath = path.resolve(
+  valueAfter('--markdown-output')
+  || process.env.VISION_APPROVED_LABEL_CONFLICT_REVIEW_GUIDE_MARKDOWN_OUTPUT
+  || outputPath.replace(/\.json$/i, '.md')
+);
+
 const run = () => {
   const guide = buildVisionApprovedLabelConflictReviewGuide({
     decisionTemplate: readOptionalJson(decisionTemplatePath),
@@ -60,9 +71,15 @@ const run = () => {
     }
   });
 
-  writeJson(outputPath, guide);
+  if (guide.markdown) writeText(markdownOutputPath, guide.markdown);
+  writeJson(outputPath, {
+    ...guide,
+    markdown: undefined,
+    markdownPath: guide.markdown ? markdownOutputPath : null
+  });
   console.log(JSON.stringify({
     outputPath,
+    markdownPath: guide.markdown ? markdownOutputPath : null,
     status: guide.status,
     conflicts: guide.summary.conflicts,
     evidenceCases: guide.summary.evidenceCases,
@@ -86,7 +103,12 @@ try {
   });
   guide.status = 'missing_decision_template';
   guide.error = error instanceof Error ? error.message : String(error);
-  writeJson(outputPath, guide);
+  if (guide.markdown) writeText(markdownOutputPath, guide.markdown);
+  writeJson(outputPath, {
+    ...guide,
+    markdown: undefined,
+    markdownPath: guide.markdown ? markdownOutputPath : null
+  });
   console.error(error);
   process.exitCode = 1;
 }
