@@ -48,10 +48,15 @@ const missingEvidenceWorksheet = (generatedAt, sourceArtifacts) => ({
     totalPendingActions: 0,
     targetDecisionInputsMissing: 0,
     firstQueueCode: null,
+    nextReviewQueueCode: null,
+    nextReviewDecisionId: null,
+    nextReviewSourceArtifact: null,
+    nextReviewVerificationCommand: null,
     worksheetSectionCount: 0,
     markdownLineCount: 0
   },
   reviewChecklist: [],
+  nextReviewCursor: null,
   markdown: '',
   markdownPath: null,
   sources: {
@@ -121,9 +126,61 @@ const reviewOrderMarkdown = inputReviewPacket =>
     `${numberFrom(item.priority)}. ${compact(item.queueCode)} - ${compact(item.titleKo)} / 남은 입력 ${numberFrom(item.targetPending)} / 담당 ${compact(item.owner)}`
   );
 
+const nextReviewCursorFor = inputReviewPacket => {
+  const sections = asArray(inputReviewPacket.sections);
+  const reviewOrderCodes = asArray(inputReviewPacket.reviewOrder)
+    .map(item => compact(item.queueCode))
+    .filter(Boolean);
+  const sectionsByCode = new Map(sections.map(section => [compact(section.queueCode), section]));
+  const orderedSections = [
+    ...reviewOrderCodes.map(code => sectionsByCode.get(code)).filter(Boolean),
+    ...sections.filter(section => !reviewOrderCodes.includes(compact(section.queueCode)))
+  ];
+  const section = orderedSections.find(item =>
+    numberFrom(item?.targetPending) > 0 || numberFrom(item?.pendingActions) > 0
+  );
+  if (!section) return null;
+
+  return {
+    queueCode: compact(section.queueCode),
+    titleKo: compact(section.titleKo),
+    owner: compact(section.owner) || 'quality_hitl',
+    decisionIdentifierField: compact(section.decisionIdentifierField) || 'decisionId',
+    decisionId: unique(section.decisionIdsPreview)[0] || '',
+    sourceArtifact: compact(section.sourceArtifact),
+    verificationCommand: compact(section.verificationCommand),
+    requiredFields: unique(section.requiredFields),
+    allowedActions: unique(section.allowedActions),
+    nextActionKo: compact(section.nextActionKo)
+  };
+};
+
+const nextReviewCursorMarkdown = cursor => {
+  if (!cursor) {
+    return [
+      '## Next HITL Review Cursor',
+      '',
+      '- status: no pending review cursor',
+      ''
+    ];
+  }
+  return [
+    '## Next HITL Review Cursor',
+    '',
+    `- queue: ${cursor.queueCode || 'unknown'}`,
+    `- decision id: ${cursor.decisionId || 'check source file'}`,
+    `- source file: ${cursor.sourceArtifact || 'check input packet'}`,
+    `- verification command: ${cursor.verificationCommand || 'check input packet'}`,
+    `- required fields: ${asArray(cursor.requiredFields).join(', ') || 'check input packet'}`,
+    `- allowed actions: ${asArray(cursor.allowedActions).join(', ') || 'check input packet'}`,
+    ''
+  ];
+};
+
 const markdownFor = (inputReviewPacket, generatedAt) => {
   const summary = inputReviewPacket.summary || {};
   const sections = asArray(inputReviewPacket.sections);
+  const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
   const lines = [
     '# Operational HITL Reviewer Worksheet',
     '',
@@ -135,6 +192,7 @@ const markdownFor = (inputReviewPacket, generatedAt) => {
     `- 첫 처리 큐: ${compact(summary.firstQueueCode) || '없음'}`,
     '- 안전 정책: 자동 적용 금지, 서비스 쓰기 없음, Graph/Reference/Model 승격 금지',
     '',
+    ...nextReviewCursorMarkdown(nextReviewCursor),
     '## 리뷰 공통 체크리스트',
     '',
     ...REVIEW_CHECKLIST.map(item => `- ${item}`),
@@ -174,6 +232,7 @@ const buildOperationalHitlReviewerWorksheet = ({
 
   const sections = asArray(inputReviewPacket.sections);
   const summary = inputReviewPacket.summary || {};
+  const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
   const markdown = markdownFor(inputReviewPacket, generatedAt);
   const lineCount = markdown.split(/\r?\n/).filter(line => line.length > 0).length;
 
@@ -195,10 +254,15 @@ const buildOperationalHitlReviewerWorksheet = ({
       totalPendingActions: numberFrom(summary.totalPendingActions),
       targetDecisionInputsMissing: numberFrom(summary.targetDecisionInputsMissing),
       firstQueueCode: compact(summary.firstQueueCode) || null,
+      nextReviewQueueCode: nextReviewCursor?.queueCode || null,
+      nextReviewDecisionId: nextReviewCursor?.decisionId || null,
+      nextReviewSourceArtifact: nextReviewCursor?.sourceArtifact || null,
+      nextReviewVerificationCommand: nextReviewCursor?.verificationCommand || null,
       worksheetSectionCount: sections.length,
       markdownLineCount: lineCount
     },
     reviewChecklist: REVIEW_CHECKLIST,
+    nextReviewCursor,
     markdown,
     markdownPath,
     sources: {

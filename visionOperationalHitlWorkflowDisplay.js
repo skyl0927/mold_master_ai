@@ -871,6 +871,14 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
       `Lines ${numberValue(summary.reviewerWorksheetMarkdownLineCount)}`
     ].join(' · ')
     : '';
+  const reviewerWorksheetNextQueue = compact(summary.reviewerWorksheetNextReviewQueueCode);
+  const reviewerWorksheetNextDecision = compact(summary.reviewerWorksheetNextReviewDecisionId);
+  const reviewerWorksheetCursorText = reviewerWorksheetNextQueue || reviewerWorksheetNextDecision
+    ? [
+      `Next review ${reviewerWorksheetNextQueue || 'review_required'}`,
+      reviewerWorksheetNextDecision
+    ].filter(Boolean).join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -920,6 +928,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetText,
     reviewerWorksheetPath: compact(summary.reviewerWorksheetPath),
     reviewerWorksheetMarkdownPath: compact(summary.reviewerWorksheetMarkdownPath),
+    reviewerWorksheetCursorText,
+    reviewerWorksheetCursorPath: compact(summary.reviewerWorksheetNextReviewSourceArtifact),
+    reviewerWorksheetCursorCommand: compact(summary.reviewerWorksheetNextReviewVerificationCommand),
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({

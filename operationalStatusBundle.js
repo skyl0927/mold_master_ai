@@ -499,6 +499,7 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
   if (!isOperationalReviewerWorksheet(operationalReviewerWorksheet)) return null;
 
   const summary = operationalReviewerWorksheet.summary || {};
+  const cursor = operationalReviewerWorksheet.nextReviewCursor || {};
   return {
     reviewerWorksheetStatus: compact(operationalReviewerWorksheet.status),
     reviewerWorksheetSourceStatus: compact(summary.sourceStatus),
@@ -506,6 +507,12 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
     reviewerWorksheetTotalPendingActions: numberValue(summary.totalPendingActions),
     reviewerWorksheetTargetInputsMissing: numberValue(summary.targetDecisionInputsMissing),
     reviewerWorksheetFirstQueueCode: compact(summary.firstQueueCode),
+    reviewerWorksheetNextReviewQueueCode: compact(summary.nextReviewQueueCode || cursor.queueCode),
+    reviewerWorksheetNextReviewDecisionId: compact(summary.nextReviewDecisionId || cursor.decisionId),
+    reviewerWorksheetNextReviewSourceArtifact: compact(summary.nextReviewSourceArtifact || cursor.sourceArtifact),
+    reviewerWorksheetNextReviewVerificationCommand: compact(
+      summary.nextReviewVerificationCommand || cursor.verificationCommand
+    ),
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
     reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),
