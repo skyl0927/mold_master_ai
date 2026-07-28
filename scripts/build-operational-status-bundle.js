@@ -85,6 +85,18 @@ const visionCaptureWorkOrderPlanPath = resolveOptionalPath(
   latestFile('vision-capture-work-order-plan-', '.json')
 );
 
+const labelConflictReviewGuidePath = resolveOptionalPath(
+  valueAfter('--label-conflict-review-guide'),
+  process.env.VISION_APPROVED_LABEL_CONFLICT_REVIEW_GUIDE,
+  latestFile('vision-approved-label-conflict-review-guide-', '.json')
+);
+
+const labelConflictReviewGuideMarkdownPath = resolveOptionalPath(
+  valueAfter('--label-conflict-review-guide-md'),
+  process.env.VISION_APPROVED_LABEL_CONFLICT_REVIEW_GUIDE_MARKDOWN,
+  latestFile('vision-approved-label-conflict-review-guide-', '.md')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -99,11 +111,13 @@ const run = () => {
   const reviewSessionPacket = readOptionalJson(reviewSessionPacketPath);
   const worktableSuggestion = readOptionalJson(worktableSuggestionPath);
   const visionCaptureWorkOrderPlan = readOptionalJson(visionCaptureWorkOrderPlanPath);
+  const labelConflictReviewGuide = readOptionalJson(labelConflictReviewGuidePath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
     humanDecisionBrief,
     visionCaptureWorkOrderPlan,
+    labelConflictReviewGuide,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -112,12 +126,15 @@ const run = () => {
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
       worktableSuggestion: worktableSuggestionPath,
-      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
+      labelConflictReviewGuide: labelConflictReviewGuidePath,
+      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
       worktableSuggestion,
-      visionCaptureWorkOrderPlan
+      visionCaptureWorkOrderPlan,
+      labelConflictReviewGuide
     }
   });
 
@@ -145,6 +162,9 @@ const run = () => {
     webCentralApprovalsMissing: bundle.summary.webCentralApprovalsMissing ?? null,
     visionCaptureWorkOrders: bundle.summary.visionCaptureWorkOrders ?? null,
     visionCaptureTopPriorityDefectClass: bundle.summary.visionCaptureTopPriorityDefectClass ?? null,
+    labelConflictGuideConflicts: bundle.summary.labelConflictGuideConflicts ?? null,
+    labelConflictGuideFirstConflictId: bundle.summary.labelConflictGuideFirstConflictId ?? null,
+    labelConflictGuideMarkdownPath: bundle.summary.labelConflictGuideMarkdownPath ?? null,
     postImportValidationCases: bundle.summary.postImportValidationCases ?? null,
     postImportValidationObservationStatus: bundle.summary.postImportValidationObservationStatus ?? null,
     postImportGraphCapturedCases: bundle.summary.postImportGraphCapturedCases ?? null,
@@ -173,7 +193,9 @@ try {
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
       worktableSuggestion: worktableSuggestionPath,
-      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
+      labelConflictReviewGuide: labelConflictReviewGuidePath,
+      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);

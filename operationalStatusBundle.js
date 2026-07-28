@@ -13,6 +13,9 @@ const isContract = (artifact, contractVersion) =>
 const isVisionCaptureWorkOrderPlan = artifact =>
   isContract(artifact, 'vision-capture-work-order-plan/v1');
 
+const isLabelConflictReviewGuide = artifact =>
+  isContract(artifact, 'vision-approved-label-conflict-review-guide/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -109,6 +112,18 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: 'Vision capture work orders',
     contractVersion: 'vision-capture-work-order-plan/v1',
     path: compact(sourceArtifacts.visionCaptureWorkOrderPlan)
+  },
+  {
+    key: 'labelConflictReviewGuide',
+    labelKo: 'Label conflict HITL review guide',
+    contractVersion: 'vision-approved-label-conflict-review-guide/v1',
+    path: compact(sourceArtifacts.labelConflictReviewGuide)
+  },
+  {
+    key: 'labelConflictReviewGuideMarkdown',
+    labelKo: 'Label conflict HITL review guide Markdown',
+    contractVersion: 'text/markdown',
+    path: compact(sourceArtifacts.labelConflictReviewGuideMarkdown)
   }
 ].filter(item => item.path);
 
@@ -118,7 +133,8 @@ const restorableArtifactContracts = {
   humanDecisionBrief: 'operational-hitl-human-decision-brief/v1',
   reviewSessionPacket: 'operational-hitl-review-session-packet/v1',
   worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1',
-  visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1'
+  visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1',
+  labelConflictReviewGuide: 'vision-approved-label-conflict-review-guide/v1'
 };
 
 const sourceArtifactSnapshotsFor = ({ generatedAt, sourceArtifacts, sourceArtifactPayloads }) =>
@@ -253,6 +269,23 @@ const captureWorkOrderPreviewsFor = visionCaptureWorkOrderPlan =>
     }))
     : [];
 
+const labelConflictGuideSummaryFor = ({ labelConflictReviewGuide, sourceArtifacts }) => {
+  if (!isLabelConflictReviewGuide(labelConflictReviewGuide)) return null;
+  const summary = labelConflictReviewGuide.summary || {};
+  const firstItem = asArray(labelConflictReviewGuide.items)[0] || null;
+  return {
+    labelConflictGuideStatus: compact(labelConflictReviewGuide.status),
+    labelConflictGuideConflicts: numberValue(summary.conflicts),
+    labelConflictGuideEvidenceCases: numberValue(summary.evidenceCases),
+    labelConflictGuideManifestUnlistedCases: numberValue(summary.manifestUnlistedCases),
+    labelConflictGuideCaptureProtocolRiskCases: numberValue(summary.captureProtocolRiskCases),
+    labelConflictGuideFirstConflictId: compact(firstItem?.conflictId),
+    labelConflictGuideFirstRiskFlags: asArray(firstItem?.riskFlags).map(compact).filter(Boolean),
+    labelConflictGuidePath: compact(sourceArtifacts.labelConflictReviewGuide),
+    labelConflictGuideMarkdownPath: compact(sourceArtifacts.labelConflictReviewGuideMarkdown)
+  };
+};
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -281,6 +314,12 @@ const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
     instructionKo: 'Settings의 Progress/Pipeline Status/Human Brief/Session Packet 버튼에 최신 JSON을 등록하세요.',
     buttonLabelsKo: settingsImportChecklistFor(sourceArtifacts).map(item => item.buttonLabelKo)
   },
+  ...(compact(sourceArtifacts.labelConflictReviewGuideMarkdown || sourceArtifacts.labelConflictReviewGuide) ? [{
+    code: 'open_label_conflict_review_guide',
+    titleKo: 'Label conflict HITL guide 확인',
+    instructionKo: '라벨 충돌 HITL guide에서 후보 라벨별 근거와 위험 플래그를 확인한 뒤 사람이 decision-template을 채우세요.',
+    path: compact(sourceArtifacts.labelConflictReviewGuideMarkdown || sourceArtifacts.labelConflictReviewGuide)
+  }] : []),
   {
     code: 'open_next_human_brief',
     titleKo: '다음 HITL 브리프 열기',
@@ -361,6 +400,7 @@ const markdownFor = bundle => {
     `- Web cases: ${bundle.summary.webCards || 0}/${bundle.summary.webTargetCards || 0} / Common Agent ${bundle.summary.webCommonAgentValidationPassed || 0} / HITL missing ${bundle.summary.webHitlApprovalsMissing || 0} / central missing ${bundle.summary.webCentralApprovalsMissing || 0}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
+    `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
     `- Post-import cases: ${bundle.summary.postImportValidationCases || 0}`,
     `- Graph observations: ${bundle.summary.postImportGraphCapturedCases || 0}/${bundle.summary.postImportGraphExecutableCases || 0}`,
     `- Graph observation failed: ${bundle.summary.postImportGraphFailedCases || 0}`,
@@ -401,6 +441,19 @@ const markdownFor = bundle => {
     });
   }
 
+  if (bundle.summary.labelConflictGuideConflicts > 0) {
+    lines.push('', '## Label conflict HITL guide', '');
+    lines.push(`- Status: ${bundle.summary.labelConflictGuideStatus || 'unknown'}`);
+    lines.push(`- First conflict: ${bundle.summary.labelConflictGuideFirstConflictId || 'none'}`);
+    lines.push(`- Risk flags: ${asArray(bundle.summary.labelConflictGuideFirstRiskFlags).join(', ') || 'none'}`);
+    if (bundle.summary.labelConflictGuideMarkdownPath) {
+      lines.push(`- Markdown: ${bundle.summary.labelConflictGuideMarkdownPath}`);
+    }
+    if (bundle.summary.labelConflictGuidePath) {
+      lines.push(`- JSON: ${bundle.summary.labelConflictGuidePath}`);
+    }
+  }
+
   return `${lines.join('\n')}\n`;
 };
 
@@ -410,6 +463,7 @@ const buildOperationalStatusBundle = ({
   pipelineStatus = null,
   humanDecisionBrief = null,
   visionCaptureWorkOrderPlan = null,
+  labelConflictReviewGuide = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -441,12 +495,17 @@ const buildOperationalStatusBundle = ({
       pipelineStatus,
       humanDecisionBrief,
       visionCaptureWorkOrderPlan,
+      labelConflictReviewGuide,
       ...sourceArtifactPayloads
     }
   });
   const progressSummary = developmentProgress.summary || {};
   const humanSummary = humanDecisionBrief.summary || {};
   const captureWorkOrderSummary = captureWorkOrderSummaryFor(visionCaptureWorkOrderPlan);
+  const labelConflictGuideSummary = labelConflictGuideSummaryFor({
+    labelConflictReviewGuide,
+    sourceArtifacts
+  });
   const bundle = {
     schemaVersion: 1,
     contractVersion: 'operational-status-bundle/v1',
@@ -485,6 +544,7 @@ const buildOperationalStatusBundle = ({
       visionCaptureProtocolReadyRate: numberValue(progressSummary.visionCaptureProtocolReadyRate),
       visionAccuracyFirstTrackCode: compact(progressSummary.visionAccuracyFirstTrackCode),
       ...(captureWorkOrderSummary || {}),
+      ...(labelConflictGuideSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),

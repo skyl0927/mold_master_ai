@@ -198,18 +198,42 @@ const captureWorkOrderPlan = () => ({
   ]
 });
 
+const labelConflictReviewGuide = () => ({
+  contractVersion: 'vision-approved-label-conflict-review-guide/v1',
+  status: 'action_required',
+  serviceWritesPerformed: false,
+  summary: {
+    conflicts: 4,
+    evidenceCases: 5,
+    manifestUnlistedCases: 1,
+    captureProtocolRiskCases: 5
+  },
+  items: [
+    {
+      conflictId: 'conflict-001',
+      riskFlags: [
+        'same_hash_multi_label',
+        'capture_protocol_incomplete'
+      ]
+    }
+  ]
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
     developmentProgress: progressReport(),
     pipelineStatus: pipelineStatus(),
     humanDecisionBrief: humanBrief(),
+    labelConflictReviewGuide: labelConflictReviewGuide(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
       humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
       humanDecisionBriefMarkdown: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.md',
-      reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json'
+      reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
+      labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
+      labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md'
     },
     markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
   });
@@ -235,6 +259,18 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.nextSessionCode, 'label_conflict_session');
   assert.equal(bundle.summary.nextDecisionId, 'conflict-001');
   assert.equal(bundle.summary.worktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
+  assert.equal(bundle.summary.labelConflictGuideConflicts, 4);
+  assert.equal(bundle.summary.labelConflictGuideEvidenceCases, 5);
+  assert.equal(bundle.summary.labelConflictGuideCaptureProtocolRiskCases, 5);
+  assert.equal(bundle.summary.labelConflictGuideFirstConflictId, 'conflict-001');
+  assert.deepEqual(bundle.summary.labelConflictGuideFirstRiskFlags, [
+    'same_hash_multi_label',
+    'capture_protocol_incomplete'
+  ]);
+  assert.equal(
+    bundle.summary.labelConflictGuideMarkdownPath,
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md'
+  );
   assert.deepEqual(bundle.settingsImportChecklist.map(item => item.buttonLabelKo), [
     'Progress 등록',
     'Pipeline Status 등록',
@@ -243,6 +279,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   ]);
   assert.deepEqual(bundle.nextOperatorActions.map(action => action.code), [
     'register_status_artifacts_in_settings',
+    'open_label_conflict_review_guide',
     'open_next_human_brief',
     'fill_original_worktable_csv',
     'dry_run_import_and_refresh_status'
@@ -252,6 +289,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Operational Status Bundle/);
   assert.match(bundle.markdown, /소프트웨어 100%/);
   assert.match(bundle.markdown, /Web cases: 43\/40/);
+  assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
+  assert.match(bundle.markdown, /vision-approved-label-conflict-review-guide\.md/);
   assert.match(bundle.markdown, /Progress 등록/);
   assert.match(bundle.markdown, /Graph\/Reference\/Model 승격 금지/);
   assert.equal(bundle.markdownPath, 'C:\\repo\\artifacts\\operational-status-bundle.md');
@@ -305,21 +344,24 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
       humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
-      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json'
+      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
+      labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json'
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
-      worktableSuggestion
+      worktableSuggestion,
+      labelConflictReviewGuide: labelConflictReviewGuide()
     }
   });
 
-  assert.equal(bundle.summary.embeddedSnapshotCount, 5);
+  assert.equal(bundle.summary.embeddedSnapshotCount, 6);
   assert.deepEqual(bundle.sourceArtifactSnapshots.map(snapshot => snapshot.key), [
     'developmentProgress',
     'pipelineStatus',
     'humanDecisionBrief',
     'reviewSessionPacket',
-    'worktableSuggestion'
+    'worktableSuggestion',
+    'labelConflictReviewGuide'
   ]);
   assert.equal(
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'developmentProgress').payload.summary.visionBlockers,
@@ -329,6 +371,10 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'worktableSuggestion').payload.rows[0].decisionId,
     'conflict-001'
   );
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'labelConflictReviewGuide').payload.summary.conflicts,
+    4
+  );
 
   const restorable = extractRestorableStatusBundleArtifacts(bundle);
   assert.deepEqual(restorable.restoredKeys, [
@@ -336,11 +382,13 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     'pipelineStatus',
     'humanDecisionBrief',
     'reviewSessionPacket',
-    'worktableSuggestion'
+    'worktableSuggestion',
+    'labelConflictReviewGuide'
   ]);
   assert.equal(restorable.rejectedSnapshots.length, 0);
   assert.equal(restorable.artifacts.developmentProgress.contractVersion, 'mold-master-development-progress-report/v1');
   assert.equal(restorable.artifacts.worktableSuggestion.contractVersion, 'operational-hitl-decision-worktable-suggestion/v1');
+  assert.equal(restorable.artifacts.labelConflictReviewGuide.contractVersion, 'vision-approved-label-conflict-review-guide/v1');
 });
 
 test('embeds Vision capture work orders in the status bundle handoff', () => {

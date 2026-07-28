@@ -830,6 +830,21 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
         : ''
     ].filter(Boolean).join(' · ')
     : '';
+  const labelConflictGuideConflicts = numberValue(summary.labelConflictGuideConflicts);
+  const labelConflictGuideText = labelConflictGuideConflicts > 0
+    ? [
+      `Label guide ${labelConflictGuideConflicts}건`,
+      `Evidence ${numberValue(summary.labelConflictGuideEvidenceCases)}건`,
+      `Capture risk ${numberValue(summary.labelConflictGuideCaptureProtocolRiskCases)}건`,
+      compact(summary.labelConflictGuideFirstConflictId)
+        ? `First ${compact(summary.labelConflictGuideFirstConflictId)}`
+        : ''
+    ].filter(Boolean).join(' · ')
+    : '';
+  const labelConflictGuideRiskText = asArray(summary.labelConflictGuideFirstRiskFlags)
+    .map(compact)
+    .filter(Boolean)
+    .join(', ');
 
   return {
     title: 'Operational Status Bundle',
@@ -842,6 +857,10 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     webKnowledgeText,
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
+    labelConflictGuideText,
+    labelConflictGuideRiskText,
+    labelConflictGuidePath: compact(summary.labelConflictGuideMarkdownPath)
+      || compact(summary.labelConflictGuidePath),
     postImportValidationText: postImportPipelineSummaryParts(summary).join(' · '),
     captureWorkOrderPreviews: asArray(bundle.visionCaptureWorkOrderPreviews)
       .slice(0, 4)

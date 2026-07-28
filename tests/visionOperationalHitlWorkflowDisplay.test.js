@@ -1184,6 +1184,15 @@ test('summarizes operational status bundle for one-step Settings handoff display
       visionCaptureMissingApprovedSamples: 4,
       visionCaptureRecaptureSamples: 10,
       visionCaptureTopPriorityDefectClass: 'burn',
+      labelConflictGuideConflicts: 4,
+      labelConflictGuideEvidenceCases: 5,
+      labelConflictGuideCaptureProtocolRiskCases: 5,
+      labelConflictGuideFirstConflictId: 'conflict-001',
+      labelConflictGuideFirstRiskFlags: [
+        'same_hash_multi_label',
+        'capture_protocol_incomplete'
+      ],
+      labelConflictGuideMarkdownPath: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1241,6 +1250,9 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
   assert.equal(display.captureWorkOrderText, 'Capture work orders 7건 · 신규 4건 · 재촬영 10건 · 우선 burn');
+  assert.equal(display.labelConflictGuideText, 'Label guide 4건 · Evidence 5건 · Capture risk 5건 · First conflict-001');
+  assert.equal(display.labelConflictGuideRiskText, 'same_hash_multi_label, capture_protocol_incomplete');
+  assert.equal(display.labelConflictGuidePath, 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md');
   assert.deepEqual(display.captureWorkOrderPreviews, [
     {
       defectClass: 'burn',

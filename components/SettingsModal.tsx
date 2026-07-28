@@ -109,6 +109,8 @@ const OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY =
   'mold-master-ai:operational-hitl-review-session-packet:v1';
 const OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY =
   'mold-master-ai:operational-hitl-human-decision-brief:v1';
+const OPERATIONAL_LABEL_CONFLICT_REVIEW_GUIDE_STORAGE_KEY =
+  'mold-master-ai:vision-approved-label-conflict-review-guide:v1';
 const MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY =
   'mold-master-ai:development-progress:v1';
 const OPERATIONAL_STATUS_BUNDLE_STORAGE_KEY =
@@ -231,6 +233,11 @@ const readOperationalHitlHumanDecisionBrief = (): any | null => {
 const saveOperationalHitlHumanDecisionBrief = (brief: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY, JSON.stringify(brief));
+};
+
+const saveOperationalLabelConflictReviewGuide = (guide: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_LABEL_CONFLICT_REVIEW_GUIDE_STORAGE_KEY, JSON.stringify(guide));
 };
 
 const readMoldMasterDevelopmentProgress = (): any | null => {
@@ -802,6 +809,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       if (restored.artifacts.worktableSuggestion) {
         saveOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
         setOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
+      }
+      if (restored.artifacts.labelConflictReviewGuide) {
+        saveOperationalLabelConflictReviewGuide(restored.artifacts.labelConflictReviewGuide);
       }
       saveOperationalStatusBundle(bundle);
       setOperationalStatusBundle(bundle);
@@ -1406,6 +1416,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                           )}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {operationalStatusBundleDisplay.labelConflictGuideText && (
+                    <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 px-2 py-1">
+                      <p className="font-bold text-amber-50">Label Conflict HITL Guide</p>
+                      <p className="mt-1 break-words text-[8px] text-amber-100">
+                        {operationalStatusBundleDisplay.labelConflictGuideText}
+                      </p>
+                      {operationalStatusBundleDisplay.labelConflictGuideRiskText && (
+                        <p className="mt-1 break-words text-[8px] text-orange-100">
+                          {operationalStatusBundleDisplay.labelConflictGuideRiskText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.labelConflictGuidePath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.labelConflictGuidePath}
+                        </p>
+                      )}
                     </div>
                   )}
                   {operationalStatusBundleDisplay.nextSessionText && (
