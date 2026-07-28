@@ -270,6 +270,8 @@ const buildOperationalHitlPostImportValidationPlan = ({
     testCases,
     recommendedCommands: [
       'npm run operational:hitl:post-import-validation-observations',
+      'npm run operational:hitl:post-import-validation-manual-template',
+      'npm run operational:hitl:post-import-validation-manual-import',
       'npm run operational:hitl:post-import-validation-evidence',
       'npm run operational:hitl:post-import-validation-result',
       'npm run eval:graph'
