@@ -1053,10 +1053,25 @@ test('summarizes operational status bundle for one-step Settings handoff display
       webHitlApprovalsMissing: 40,
       visionTop1Accuracy: 46.2,
       visionTop3Accuracy: 53.8,
+      visionCaptureWorkOrderStatus: 'capture_required',
+      visionCaptureWorkOrders: 7,
+      visionCaptureMissingApprovedSamples: 4,
+      visionCaptureRecaptureSamples: 10,
+      visionCaptureTopPriorityDefectClass: 'burn',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
     },
+    visionCaptureWorkOrderPreviews: [
+      {
+        defectClass: 'burn',
+        actionType: 'capture_new_multiview_samples',
+        priority: 105,
+        missingApprovedSamples: 2,
+        recaptureSampleCount: 0,
+        requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
+      }
+    ],
     settingsImportChecklist: [
       { buttonLabelKo: 'Progress 등록', artifactKey: 'developmentProgress' },
       { buttonLabelKo: 'Pipeline Status 등록', artifactKey: 'pipelineStatus' },
@@ -1098,6 +1113,17 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.summaryText, 'Software 100% · Operational 0% · Vision blocker 8건 · HITL missing 56건 · Pending 59건 · High risk 9건 · Web approval 40건');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
+  assert.equal(display.captureWorkOrderText, 'Capture work orders 7건 · 신규 4건 · 재촬영 10건 · 우선 burn');
+  assert.deepEqual(display.captureWorkOrderPreviews, [
+    {
+      defectClass: 'burn',
+      actionType: 'capture_new_multiview_samples',
+      priority: 105,
+      missingApprovedSamples: 2,
+      recaptureSampleCount: 0,
+      requiredViewsText: 'full_part_context, defect_closeup, fill_end_context, vent_context'
+    }
+  ]);
   assert.equal(display.worktableCsvPath, 'C:\\repo\\artifacts\\worktable.csv');
   assert.deepEqual(display.settingsImportButtons, [
     'Progress 등록',

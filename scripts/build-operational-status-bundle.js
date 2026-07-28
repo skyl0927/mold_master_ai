@@ -79,6 +79,12 @@ const worktableSuggestionPath = resolveOptionalPath(
   latestFile('operational-hitl-decision-worktable-suggestion-', '.json')
 );
 
+const visionCaptureWorkOrderPlanPath = resolveOptionalPath(
+  valueAfter('--vision-capture-work-orders'),
+  process.env.VISION_CAPTURE_WORK_ORDER_PLAN,
+  latestFile('vision-capture-work-order-plan-', '.json')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -92,10 +98,12 @@ const run = () => {
   const humanDecisionBrief = readOptionalJson(humanDecisionBriefPath);
   const reviewSessionPacket = readOptionalJson(reviewSessionPacketPath);
   const worktableSuggestion = readOptionalJson(worktableSuggestionPath);
+  const visionCaptureWorkOrderPlan = readOptionalJson(visionCaptureWorkOrderPlanPath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
     humanDecisionBrief,
+    visionCaptureWorkOrderPlan,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -103,11 +111,13 @@ const run = () => {
       humanDecisionBrief: humanDecisionBriefPath,
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
-      worktableSuggestion: worktableSuggestionPath
+      worktableSuggestion: worktableSuggestionPath,
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
-      worktableSuggestion
+      worktableSuggestion,
+      visionCaptureWorkOrderPlan
     }
   });
 
@@ -129,6 +139,8 @@ const run = () => {
     hitlDecisionInputsMissing: bundle.summary.hitlDecisionInputsMissing ?? null,
     pendingRows: bundle.summary.pendingRows ?? null,
     highRiskRows: bundle.summary.highRiskRows ?? null,
+    visionCaptureWorkOrders: bundle.summary.visionCaptureWorkOrders ?? null,
+    visionCaptureTopPriorityDefectClass: bundle.summary.visionCaptureTopPriorityDefectClass ?? null,
     nextSessionCode: bundle.summary.nextSessionCode ?? null,
     nextDecisionId: bundle.summary.nextDecisionId ?? null,
     embeddedSnapshotCount: bundle.summary.embeddedSnapshotCount ?? 0,
@@ -147,7 +159,8 @@ try {
       humanDecisionBrief: humanDecisionBriefPath,
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
-      worktableSuggestion: worktableSuggestionPath
+      worktableSuggestion: worktableSuggestionPath,
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);

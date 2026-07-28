@@ -1,5 +1,7 @@
 const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
 
+const asArray = value => Array.isArray(value) ? value : [];
+
 const numberValue = value => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -750,6 +752,17 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     `Vision Top-1 ${numberValue(summary.visionTop1Accuracy)}%`,
     `Top-3 ${numberValue(summary.visionTop3Accuracy)}%`
   ];
+  const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
+  const captureWorkOrderText = captureWorkOrders > 0
+    ? [
+      `Capture work orders ${captureWorkOrders}건`,
+      `신규 ${numberValue(summary.visionCaptureMissingApprovedSamples)}건`,
+      `재촬영 ${numberValue(summary.visionCaptureRecaptureSamples)}건`,
+      compact(summary.visionCaptureTopPriorityDefectClass)
+        ? `우선 ${compact(summary.visionCaptureTopPriorityDefectClass)}`
+        : ''
+    ].filter(Boolean).join(' · ')
+    : '';
 
   return {
     title: 'Operational Status Bundle',
@@ -760,6 +773,17 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     pipelineStageText: compact(summary.currentPipelineStageKo) || compact(summary.currentPipelineStageCode),
     summaryText: summaryParts.join(' · '),
     accuracyText: accuracyParts.join(' · '),
+    captureWorkOrderText,
+    captureWorkOrderPreviews: asArray(bundle.visionCaptureWorkOrderPreviews)
+      .slice(0, 4)
+      .map(order => ({
+        defectClass: compact(order?.defectClass),
+        actionType: compact(order?.actionType),
+        priority: numberValue(order?.priority),
+        missingApprovedSamples: numberValue(order?.missingApprovedSamples),
+        recaptureSampleCount: numberValue(order?.recaptureSampleCount),
+        requiredViewsText: asArray(order?.requiredViews).map(compact).filter(Boolean).join(', ')
+      })),
     nextSessionText: nextSessionCode || nextDecisionId
       ? `Next session: ${nextSessionCode || 'review_required'}${nextDecisionId ? ` · ${nextDecisionId}` : ''}`
       : '',

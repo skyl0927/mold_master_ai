@@ -27,6 +27,9 @@ const isVisionAccuracyPlan = artifact =>
 const isOperationalHitlIntakeStatus = artifact =>
   isContract(artifact, 'operational-hitl-decision-intake-status/v1');
 
+const isVisionCaptureWorkOrderPlan = artifact =>
+  isContract(artifact, 'vision-capture-work-order-plan/v1');
+
 const missingArtifactsFor = ({
   visionReadiness,
   visionWorklist,
@@ -174,6 +177,55 @@ const operationalHitlIntakeStageFor = operationalHitlIntakeStatus => {
   });
 };
 
+const visionCaptureWorkOrderStageFor = visionCaptureWorkOrderPlan => {
+  if (!isVisionCaptureWorkOrderPlan(visionCaptureWorkOrderPlan)) return null;
+
+  const summary = visionCaptureWorkOrderPlan.summary || {};
+  const firstOrder = asArray(visionCaptureWorkOrderPlan.workOrders)[0] || null;
+  const ready = visionCaptureWorkOrderPlan.status === 'ready_for_shadow_validation';
+  const totalWorkOrders = numberFrom(summary.totalWorkOrders);
+  const missingApprovedSamples = numberFrom(summary.totalMissingApprovedSamples);
+  const recaptureSamples = numberFrom(summary.totalRecaptureSamples);
+  const topPriorityDefectClass = compact(summary.topPriorityDefectClass);
+
+  return stageCard({
+    id: 'vision_capture_work_orders',
+    titleKo: 'Vision 촬영 work order',
+    status: ready ? 'completed' : totalWorkOrders > 0 ? 'action_required' : compact(visionCaptureWorkOrderPlan.status),
+    softwareImplemented: true,
+    owner: 'quality_capture',
+    blockerCodes: ready ? [] : ['vision_capture_work_orders_required'],
+    commands: ready
+      ? ['npm run eval:vision:release']
+      : [
+        'npm run vision:capture:work-orders',
+        'npm run eval:vision:approved',
+        'npm run vision:accuracy:improvement-plan'
+      ],
+    metrics: {
+      status: compact(visionCaptureWorkOrderPlan.status),
+      totalWorkOrders,
+      missingApprovedSamples,
+      recaptureSamples,
+      topPriorityDefectClass,
+      coreMissingViews: asArray(summary.coreMissingViews),
+      firstOrder: firstOrder
+        ? {
+          defectClass: compact(firstOrder.defectClass),
+          actionType: compact(firstOrder.actionType),
+          priority: numberFrom(firstOrder.priority),
+          missingApprovedSamples: numberFrom(firstOrder.missingApprovedSamples),
+          recaptureSampleCount: asArray(firstOrder.recaptureSampleIds).length,
+          requiredViews: asArray(firstOrder.requiredViews).map(compact).filter(Boolean)
+        }
+        : null
+    },
+    feedbackKo: ready
+      ? 'Vision 촬영 work order gate가 닫혀 shadow validation으로 진행할 수 있습니다.'
+      : `Vision 촬영 work order ${totalWorkOrders}건이 필요합니다. 우선 결함군은 ${topPriorityDefectClass || '미정'}이며 신규 ${missingApprovedSamples}건, 재촬영 ${recaptureSamples}건이 남아 있습니다.`
+  });
+};
+
 const webStageFor = webKnowledgeReadiness => {
   if (!isContract(webKnowledgeReadiness, 'web-knowledge-operational-readiness/v1')) {
     return stageCard({
@@ -231,7 +283,8 @@ const stageCardsFor = ({
   commonAgentHandoff,
   webKnowledgeReadiness,
   visionAccuracyPlan,
-  operationalHitlIntakeStatus
+  operationalHitlIntakeStatus,
+  visionCaptureWorkOrderPlan
 }) => {
   const labelConflictTask = taskByCode(visionWorklist, 'resolve_label_conflicts');
   const closeHitlTask = taskByCode(visionWorklist, 'close_hitl_reviews');
@@ -332,6 +385,7 @@ const stageCardsFor = ({
       doneFeedbackKo: 'Vision reference store gate는 통과 상태입니다.'
     }),
     visionAccuracyStageFor(visionAccuracyPlan),
+    visionCaptureWorkOrderStageFor(visionCaptureWorkOrderPlan),
     operationalHitlIntakeStageFor(operationalHitlIntakeStatus),
     webStageFor(webKnowledgeReadiness),
     taskStage({
@@ -547,6 +601,13 @@ const feedbackFor = ({
       `HITL decision 입력 ${summary.operationalHitlDecisionInputsMissing}건이 남아 있으며 1순위 큐는 ${summary.operationalHitlFirstQueueCode || '미확정'}입니다.`
     );
   }
+  if (summary.visionCaptureWorkOrderStatus) {
+    feedback.splice(
+      3,
+      0,
+      `Vision 촬영 work order ${summary.visionCaptureWorkOrders}건이 필요하며 우선 결함군은 ${summary.visionCaptureTopPriorityDefectClass || '미정'}입니다. 신규 ${summary.visionCaptureMissingApprovedSamples}건, 재촬영 ${summary.visionCaptureRecaptureSamples}건을 확보하세요.`
+    );
+  }
   return feedback;
 };
 
@@ -558,6 +619,7 @@ const buildMoldMasterDevelopmentProgressReport = ({
   webKnowledgeReadiness = null,
   visionAccuracyPlan = null,
   operationalHitlIntakeStatus = null,
+  visionCaptureWorkOrderPlan = null,
   sourceArtifacts = {}
 } = {}) => {
   const missingArtifacts = missingArtifactsFor({
@@ -580,7 +642,8 @@ const buildMoldMasterDevelopmentProgressReport = ({
     commonAgentHandoff,
     webKnowledgeReadiness,
     visionAccuracyPlan,
-    operationalHitlIntakeStatus
+    operationalHitlIntakeStatus,
+    visionCaptureWorkOrderPlan
   });
   const nextActions = nextActionsFor({
     status,
@@ -601,6 +664,9 @@ const buildMoldMasterDevelopmentProgressReport = ({
     : null;
   const intakeSummary = isOperationalHitlIntakeStatus(operationalHitlIntakeStatus)
     ? operationalHitlIntakeStatus.summary || {}
+    : null;
+  const captureWorkOrderSummary = isVisionCaptureWorkOrderPlan(visionCaptureWorkOrderPlan)
+    ? visionCaptureWorkOrderPlan.summary || {}
     : null;
   const summary = {
     missingArtifacts,
@@ -631,6 +697,14 @@ const buildMoldMasterDevelopmentProgressReport = ({
       operationalHitlVisionPending: numberFrom(intakeSummary.visionHitlPending),
       operationalHitlWebMissing: numberFrom(intakeSummary.webHitlMissing),
       operationalHitlStaleDecisionEvidenceCount: numberFrom(intakeSummary.staleDecisionEvidenceCount)
+    } : {}),
+    ...(captureWorkOrderSummary ? {
+      visionCaptureWorkOrderStatus: compact(visionCaptureWorkOrderPlan.status) || null,
+      visionCaptureWorkOrders: numberFrom(captureWorkOrderSummary.totalWorkOrders),
+      visionCaptureMissingApprovedSamples: numberFrom(captureWorkOrderSummary.totalMissingApprovedSamples),
+      visionCaptureRecaptureSamples: numberFrom(captureWorkOrderSummary.totalRecaptureSamples),
+      visionCaptureTopPriorityDefectClass: compact(captureWorkOrderSummary.topPriorityDefectClass) || null,
+      visionCaptureCoreMissingViews: asArray(captureWorkOrderSummary.coreMissingViews)
     } : {}),
     handoffStatus: compact(commonAgentHandoff?.status) || null,
     topPriorityTaskCode: nextActions[0]?.code || null
@@ -672,7 +746,8 @@ const buildMoldMasterDevelopmentProgressReport = ({
       commonAgentHandoff: sourceArtifacts.commonAgentHandoff || null,
       webKnowledgeReadiness: sourceArtifacts.webKnowledgeReadiness || null,
       visionAccuracyPlan: sourceArtifacts.visionAccuracyPlan || null,
-      operationalHitlIntakeStatus: sourceArtifacts.operationalHitlIntakeStatus || null
+      operationalHitlIntakeStatus: sourceArtifacts.operationalHitlIntakeStatus || null,
+      visionCaptureWorkOrderPlan: sourceArtifacts.visionCaptureWorkOrderPlan || null
     },
     recommendedAction: nextActions[0]
       ? nextActions[0].titleKo

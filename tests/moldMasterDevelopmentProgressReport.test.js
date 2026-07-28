@@ -217,6 +217,32 @@ const actionRequiredHitlIntakeStatus = {
   ]
 };
 
+const captureWorkOrderPlan = {
+  contractVersion: 'vision-capture-work-order-plan/v1',
+  status: 'capture_required',
+  serviceWritesPerformed: false,
+  summary: {
+    totalWorkOrders: 7,
+    totalMissingApprovedSamples: 4,
+    totalRecaptureSamples: 10,
+    topPriorityDefectClass: 'burn',
+    coreMissingViews: [
+      { view: 'defect_closeup', count: 13 },
+      { view: 'full_part_context', count: 13 }
+    ]
+  },
+  workOrders: [
+    {
+      defectClass: 'burn',
+      actionType: 'capture_new_multiview_samples',
+      priority: 105,
+      missingApprovedSamples: 2,
+      recaptureSampleIds: [],
+      requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
+    }
+  ]
+};
+
 test('summarizes the current development phase and remaining operational blockers', () => {
   const report = buildMoldMasterDevelopmentProgressReport({
     generatedAt: '2026-07-27T11:00:00.000Z',
@@ -355,6 +381,44 @@ test('surfaces operational HITL decision intake status when available', () => {
   assert.match(stage.feedbackKo, /decision 입력 56건/);
   assert.match(report.progressFeedbackKo.join('\n'), /HITL decision 입력 56건/);
   assert.equal(report.sources.operationalHitlIntakeStatus, 'artifacts/operational-hitl-decision-intake-status.json');
+});
+
+test('surfaces Vision capture work orders as the next data-quality bottleneck', () => {
+  const report = buildMoldMasterDevelopmentProgressReport({
+    generatedAt: '2026-07-28T04:30:00.000Z',
+    visionReadiness: actionRequiredReadiness,
+    visionWorklist: actionRequiredWorklist,
+    commonAgentHandoff: blockedHandoff,
+    webKnowledgeReadiness: awaitingWebReadiness,
+    visionAccuracyPlan: actionRequiredAccuracyPlan,
+    visionCaptureWorkOrderPlan: captureWorkOrderPlan,
+    sourceArtifacts: {
+      visionCaptureWorkOrderPlan: 'artifacts/vision-capture-work-order-plan.json'
+    }
+  });
+
+  assert.equal(report.summary.visionCaptureWorkOrderStatus, 'capture_required');
+  assert.equal(report.summary.visionCaptureWorkOrders, 7);
+  assert.equal(report.summary.visionCaptureMissingApprovedSamples, 4);
+  assert.equal(report.summary.visionCaptureRecaptureSamples, 10);
+  assert.equal(report.summary.visionCaptureTopPriorityDefectClass, 'burn');
+  assert.deepEqual(report.summary.visionCaptureCoreMissingViews, [
+    { view: 'defect_closeup', count: 13 },
+    { view: 'full_part_context', count: 13 }
+  ]);
+  assert.equal(report.sources.visionCaptureWorkOrderPlan, 'artifacts/vision-capture-work-order-plan.json');
+
+  const stage = report.stageCards.find(item => item.id === 'vision_capture_work_orders');
+  assert.equal(stage.status, 'action_required');
+  assert.equal(stage.owner, 'quality_capture');
+  assert.equal(stage.metrics.totalWorkOrders, 7);
+  assert.equal(stage.metrics.topPriorityDefectClass, 'burn');
+  assert.deepEqual(stage.commands, [
+    'npm run vision:capture:work-orders',
+    'npm run eval:vision:approved',
+    'npm run vision:accuracy:improvement-plan'
+  ]);
+  assert.ok(report.progressFeedbackKo.some(item => item.includes('burn')));
 });
 
 test('reports ready for operator review only when Vision and Web knowledge gates are closed', () => {

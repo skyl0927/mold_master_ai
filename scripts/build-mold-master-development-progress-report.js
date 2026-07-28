@@ -73,6 +73,12 @@ const visionAccuracyPlanPath = resolveOptionalPath(
   latestArtifact('vision-accuracy-improvement-plan-')
 );
 
+const visionCaptureWorkOrderPlanPath = resolveOptionalPath(
+  valueAfter('--vision-capture-work-orders'),
+  process.env.VISION_CAPTURE_WORK_ORDER_PLAN,
+  latestArtifact('vision-capture-work-order-plan-')
+);
+
 const operationalHitlIntakeStatusPath = resolveOptionalPath(
   valueAfter('--hitl-intake-status'),
   process.env.OPERATIONAL_HITL_DECISION_INTAKE_STATUS,
@@ -92,6 +98,7 @@ const run = () => {
     commonAgentHandoff: readOptionalJson(commonAgentHandoffPath),
     webKnowledgeReadiness: readOptionalJson(webKnowledgeReadinessPath),
     visionAccuracyPlan: readOptionalJson(visionAccuracyPlanPath),
+    visionCaptureWorkOrderPlan: readOptionalJson(visionCaptureWorkOrderPlanPath),
     operationalHitlIntakeStatus: readOptionalJson(operationalHitlIntakeStatusPath),
     sourceArtifacts: {
       visionReadiness: visionReadinessPath,
@@ -99,6 +106,7 @@ const run = () => {
       commonAgentHandoff: commonAgentHandoffPath,
       webKnowledgeReadiness: webKnowledgeReadinessPath,
       visionAccuracyPlan: visionAccuracyPlanPath,
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       operationalHitlIntakeStatus: operationalHitlIntakeStatusPath
     }
   });
@@ -116,6 +124,8 @@ const run = () => {
     visionTop1Accuracy: report.summary.visionTop1Accuracy ?? null,
     visionTop3Accuracy: report.summary.visionTop3Accuracy ?? null,
     visionAccuracyFirstTrackCode: report.summary.visionAccuracyFirstTrackCode || null,
+    visionCaptureWorkOrders: report.summary.visionCaptureWorkOrders ?? null,
+    visionCaptureTopPriorityDefectClass: report.summary.visionCaptureTopPriorityDefectClass || null,
     hitlDecisionInputsMissing: report.summary.operationalHitlDecisionInputsMissing ?? null,
     hitlFirstQueueCode: report.summary.operationalHitlFirstQueueCode || null,
     serviceWritesPerformed: report.serviceWritesPerformed,
@@ -133,6 +143,7 @@ try {
       commonAgentHandoff: commonAgentHandoffPath,
       webKnowledgeReadiness: webKnowledgeReadinessPath,
       visionAccuracyPlan: visionAccuracyPlanPath,
+      visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       operationalHitlIntakeStatus: operationalHitlIntakeStatusPath
     }
   });

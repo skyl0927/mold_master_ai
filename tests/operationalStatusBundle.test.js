@@ -135,6 +135,40 @@ const humanBrief = () => ({
   recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
 });
 
+const captureWorkOrderPlan = () => ({
+  contractVersion: 'vision-capture-work-order-plan/v1',
+  status: 'capture_required',
+  serviceWritesPerformed: false,
+  summary: {
+    totalWorkOrders: 7,
+    totalMissingApprovedSamples: 4,
+    totalRecaptureSamples: 10,
+    topPriorityDefectClass: 'burn',
+    coreMissingViews: [
+      { view: 'defect_closeup', count: 13 },
+      { view: 'full_part_context', count: 13 }
+    ]
+  },
+  workOrders: [
+    {
+      defectClass: 'burn',
+      actionType: 'capture_new_multiview_samples',
+      priority: 105,
+      missingApprovedSamples: 2,
+      recaptureSampleIds: [],
+      requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
+    },
+    {
+      defectClass: 'sink',
+      actionType: 'capture_new_and_recapture_existing_samples',
+      priority: 98,
+      missingApprovedSamples: 1,
+      recaptureSampleIds: ['sink-001'],
+      requiredViews: ['full_part_context', 'defect_closeup', 'oblique_light', 'reverse_geometry']
+    }
+  ]
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
@@ -273,6 +307,56 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
   assert.equal(restorable.rejectedSnapshots.length, 0);
   assert.equal(restorable.artifacts.developmentProgress.contractVersion, 'mold-master-development-progress-report/v1');
   assert.equal(restorable.artifacts.worktableSuggestion.contractVersion, 'operational-hitl-decision-worktable-suggestion/v1');
+});
+
+test('embeds Vision capture work orders in the status bundle handoff', () => {
+  const bundle = buildOperationalStatusBundle({
+    generatedAt: '2026-07-28T04:00:00.000Z',
+    developmentProgress: progressReport(),
+    pipelineStatus: pipelineStatus(),
+    humanDecisionBrief: humanBrief(),
+    visionCaptureWorkOrderPlan: captureWorkOrderPlan(),
+    sourceArtifacts: {
+      developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
+      pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
+      humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
+      visionCaptureWorkOrderPlan: 'C:\\repo\\artifacts\\vision-capture-work-order-plan.json'
+    }
+  });
+
+  assert.equal(bundle.summary.visionCaptureWorkOrderStatus, 'capture_required');
+  assert.equal(bundle.summary.visionCaptureWorkOrders, 7);
+  assert.equal(bundle.summary.visionCaptureMissingApprovedSamples, 4);
+  assert.equal(bundle.summary.visionCaptureRecaptureSamples, 10);
+  assert.equal(bundle.summary.visionCaptureTopPriorityDefectClass, 'burn');
+  assert.deepEqual(bundle.summary.visionCaptureCoreMissingViews, [
+    { view: 'defect_closeup', count: 13 },
+    { view: 'full_part_context', count: 13 }
+  ]);
+  assert.deepEqual(bundle.visionCaptureWorkOrderPreviews, [
+    {
+      defectClass: 'burn',
+      actionType: 'capture_new_multiview_samples',
+      priority: 105,
+      missingApprovedSamples: 2,
+      recaptureSampleCount: 0,
+      requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
+    },
+    {
+      defectClass: 'sink',
+      actionType: 'capture_new_and_recapture_existing_samples',
+      priority: 98,
+      missingApprovedSamples: 1,
+      recaptureSampleCount: 1,
+      requiredViews: ['full_part_context', 'defect_closeup', 'oblique_light', 'reverse_geometry']
+    }
+  ]);
+  assert.ok(bundle.sourceArtifacts.some(item => item.key === 'visionCaptureWorkOrderPlan'));
+  assert.equal(bundle.sourceArtifactSnapshots.at(-1).key, 'visionCaptureWorkOrderPlan');
+
+  const restorable = extractRestorableStatusBundleArtifacts(bundle);
+  assert.equal(restorable.artifacts.visionCaptureWorkOrderPlan.contractVersion, 'vision-capture-work-order-plan/v1');
+  assert.ok(bundle.markdown.includes('Vision capture work orders'));
 });
 
 test('rejects unsupported or contract-mismatched status bundle snapshots', () => {

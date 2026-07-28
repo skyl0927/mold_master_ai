@@ -28,6 +28,7 @@ test('plans the post-HITL status refresh sequence without executing by default',
     'operational:hitl:worktable-import',
     'operational:hitl:session-progress',
     'operational:hitl:pipeline-status',
+    'vision:capture:work-orders:status',
     'operational:progress',
     'operational:hitl:human-brief',
     'operational:status-bundle'
@@ -57,6 +58,7 @@ test('executes only the allowlisted refresh sequence when execute is explicit', 
   assert.equal(executed[0].script, 'operational:hitl:worktable-import');
   assert.equal(executed.at(-1).script, 'operational:status-bundle');
   assert.deepEqual(executed.map(command => command.args), [
+    [],
     [],
     [],
     [],

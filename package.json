@@ -19,6 +19,7 @@
     "eval:vision:approved": "node scripts/run-multimodal-vision-benchmark.js --manifest eval/vision-approved/manifest.json",
     "vision:accuracy:improvement-plan": "node scripts/build-vision-accuracy-improvement-plan.js",
     "vision:capture:work-orders": "node scripts/build-vision-capture-work-order-plan.js",
+    "vision:capture:work-orders:status": "node scripts/build-vision-capture-work-order-plan.js --status-refresh",
     "eval:vision:release": "node scripts/build-vision-operational-release-report.js",
     "vision:release:evidence:merge": "node scripts/merge-vision-operational-evidence-packet.js",
     "vision:operational:readiness": "node scripts/build-vision-operational-readiness-audit.js",

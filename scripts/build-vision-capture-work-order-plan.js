@@ -7,6 +7,7 @@ const {
 const root = path.resolve(__dirname, '..');
 const artifactRoot = path.join(root, 'artifacts');
 const args = process.argv.slice(2);
+const statusRefresh = args.includes('--status-refresh') || args.includes('--no-fail');
 
 const valueAfter = flag => {
   const index = args.indexOf(flag);
@@ -112,7 +113,7 @@ const run = () => {
     recommendedActionKo: artifact.recommendedActionKo
   }, null, 2));
 
-  if (artifact.status !== 'ready_for_shadow_validation') {
+  if (!statusRefresh && artifact.status !== 'ready_for_shadow_validation') {
     process.exitCode = 1;
   }
 };

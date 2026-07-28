@@ -10,6 +10,9 @@ const numberValue = value => {
 const isContract = (artifact, contractVersion) =>
   artifact?.contractVersion === contractVersion;
 
+const isVisionCaptureWorkOrderPlan = artifact =>
+  isContract(artifact, 'vision-capture-work-order-plan/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -100,6 +103,12 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: '작업표 추천',
     contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
     path: compact(sourceArtifacts.worktableSuggestion)
+  },
+  {
+    key: 'visionCaptureWorkOrderPlan',
+    labelKo: 'Vision capture work orders',
+    contractVersion: 'vision-capture-work-order-plan/v1',
+    path: compact(sourceArtifacts.visionCaptureWorkOrderPlan)
   }
 ].filter(item => item.path);
 
@@ -108,7 +117,8 @@ const restorableArtifactContracts = {
   pipelineStatus: 'operational-hitl-pipeline-status/v1',
   humanDecisionBrief: 'operational-hitl-human-decision-brief/v1',
   reviewSessionPacket: 'operational-hitl-review-session-packet/v1',
-  worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1'
+  worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1',
+  visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1'
 };
 
 const sourceArtifactSnapshotsFor = ({ generatedAt, sourceArtifacts, sourceArtifactPayloads }) =>
@@ -193,6 +203,12 @@ const settingsImportChecklistFor = sourceArtifacts => [
     artifactKey: 'worktableSuggestion',
     artifactPath: compact(sourceArtifacts.worktableSuggestion),
     contractVersion: 'operational-hitl-decision-worktable-suggestion/v1'
+  },
+  {
+    buttonLabelKo: 'Capture Work Orders 등록',
+    artifactKey: 'visionCaptureWorkOrderPlan',
+    artifactPath: compact(sourceArtifacts.visionCaptureWorkOrderPlan),
+    contractVersion: 'vision-capture-work-order-plan/v1'
   }
 ].filter(item => item.artifactPath);
 
@@ -211,6 +227,31 @@ const sessionPointersFor = humanDecisionBrief =>
     firstRecommendedAction: compact(session?.nextRows?.[0]?.recommendedNewAction),
     firstRisk: compact(session?.nextRows?.[0]?.recommendationRisk)
   }));
+
+const captureWorkOrderSummaryFor = visionCaptureWorkOrderPlan => {
+  if (!isVisionCaptureWorkOrderPlan(visionCaptureWorkOrderPlan)) return null;
+  const summary = visionCaptureWorkOrderPlan.summary || {};
+  return {
+    visionCaptureWorkOrderStatus: compact(visionCaptureWorkOrderPlan.status),
+    visionCaptureWorkOrders: numberValue(summary.totalWorkOrders),
+    visionCaptureMissingApprovedSamples: numberValue(summary.totalMissingApprovedSamples),
+    visionCaptureRecaptureSamples: numberValue(summary.totalRecaptureSamples),
+    visionCaptureTopPriorityDefectClass: compact(summary.topPriorityDefectClass),
+    visionCaptureCoreMissingViews: asArray(summary.coreMissingViews)
+  };
+};
+
+const captureWorkOrderPreviewsFor = visionCaptureWorkOrderPlan =>
+  isVisionCaptureWorkOrderPlan(visionCaptureWorkOrderPlan)
+    ? asArray(visionCaptureWorkOrderPlan.workOrders).slice(0, 5).map(order => ({
+      defectClass: compact(order?.defectClass),
+      actionType: compact(order?.actionType),
+      priority: numberValue(order?.priority),
+      missingApprovedSamples: numberValue(order?.missingApprovedSamples),
+      recaptureSampleCount: asArray(order?.recaptureSampleIds).length,
+      requiredViews: asArray(order?.requiredViews).map(compact).filter(Boolean)
+    }))
+    : [];
 
 const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
   {
@@ -243,6 +284,7 @@ const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
       'npm run operational:hitl:worktable-import',
       'npm run operational:hitl:session-progress',
       'npm run operational:hitl:pipeline-status',
+      'npm run vision:capture:work-orders:status',
       'npm run operational:progress',
       'npm run operational:hitl:human-brief'
     ]
@@ -296,6 +338,7 @@ const markdownFor = bundle => {
     `- 대기 row: ${bundle.summary.pendingRows}건 / 고위험 row: ${bundle.summary.highRiskRows}건`,
     `- Web 승인대기: ${bundle.summary.webHitlApprovalsMissing}건`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
+    `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- 다음 세션: ${bundle.summary.nextSessionCode || '없음'} / ${bundle.summary.nextDecisionId || '없음'}`,
     `- 원본 worktable CSV: ${bundle.summary.worktableCsvPath || '확인 필요'}`,
     '- 안전 정책: 자동 적용 금지, Graph/Reference/Model 승격 금지',
@@ -322,6 +365,13 @@ const markdownFor = bundle => {
     if (session.csvPath) lines.push(`  - CSV: ${session.csvPath}`);
   });
 
+  if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
+    lines.push('', '## Vision capture work orders', '');
+    bundle.visionCaptureWorkOrderPreviews.forEach(order => {
+      lines.push(`- P${order.priority} ${order.defectClass}: ${order.actionType} / new ${order.missingApprovedSamples} / recapture ${order.recaptureSampleCount} / views ${asArray(order.requiredViews).join(', ')}`);
+    });
+  }
+
   return `${lines.join('\n')}\n`;
 };
 
@@ -330,6 +380,7 @@ const buildOperationalStatusBundle = ({
   developmentProgress = null,
   pipelineStatus = null,
   humanDecisionBrief = null,
+  visionCaptureWorkOrderPlan = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -360,11 +411,13 @@ const buildOperationalStatusBundle = ({
       developmentProgress,
       pipelineStatus,
       humanDecisionBrief,
+      visionCaptureWorkOrderPlan,
       ...sourceArtifactPayloads
     }
   });
   const progressSummary = developmentProgress.summary || {};
   const humanSummary = humanDecisionBrief.summary || {};
+  const captureWorkOrderSummary = captureWorkOrderSummaryFor(visionCaptureWorkOrderPlan);
   const bundle = {
     schemaVersion: 1,
     contractVersion: 'operational-status-bundle/v1',
@@ -399,6 +452,7 @@ const buildOperationalStatusBundle = ({
       visionTop3Accuracy: numberValue(progressSummary.visionTop3Accuracy),
       visionCaptureProtocolReadyRate: numberValue(progressSummary.visionCaptureProtocolReadyRate),
       visionAccuracyFirstTrackCode: compact(progressSummary.visionAccuracyFirstTrackCode),
+      ...(captureWorkOrderSummary || {}),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
       nextDecisionId: compact(humanSummary.nextDecisionId),
@@ -408,6 +462,7 @@ const buildOperationalStatusBundle = ({
     progressFeedbackKo: asArray(developmentProgress.progressFeedbackKo).map(compact).filter(Boolean),
     sourceArtifacts: sourceArtifactListFor(sourceArtifacts),
     sourceArtifactSnapshots,
+    visionCaptureWorkOrderPreviews: captureWorkOrderPreviewsFor(visionCaptureWorkOrderPlan),
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,

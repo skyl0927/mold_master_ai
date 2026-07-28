@@ -4,6 +4,7 @@ const DEFAULT_REFRESH_COMMANDS = [
   'npm run operational:hitl:worktable-import',
   'npm run operational:hitl:session-progress',
   'npm run operational:hitl:pipeline-status',
+  'npm run vision:capture:work-orders:status',
   'npm run operational:progress',
   'npm run operational:hitl:human-brief',
   'npm run operational:status-bundle'

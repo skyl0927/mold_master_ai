@@ -1371,6 +1371,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       {operationalStatusBundleDisplay.accuracyText}
                     </p>
                   )}
+                  {operationalStatusBundleDisplay.captureWorkOrderText && (
+                    <p className="mt-1 break-words text-emerald-100">
+                      {operationalStatusBundleDisplay.captureWorkOrderText}
+                    </p>
+                  )}
+                  {operationalStatusBundleDisplay.captureWorkOrderPreviews.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {operationalStatusBundleDisplay.captureWorkOrderPreviews.map(order => (
+                        <div
+                          key={`${order.defectClass}:${order.actionType}`}
+                          className="rounded border border-emerald-900/50 bg-gray-950/35 px-2 py-1"
+                        >
+                          <p className="break-words text-[8px] font-bold text-emerald-50">
+                            P{order.priority} {order.defectClass} · {order.actionType}
+                          </p>
+                          <p className="mt-1 break-words text-[8px] text-emerald-100">
+                            신규 {order.missingApprovedSamples}건 · 재촬영 {order.recaptureSampleCount}건
+                          </p>
+                          {order.requiredViewsText && (
+                            <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                              {order.requiredViewsText}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {operationalStatusBundleDisplay.nextSessionText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.nextSessionText}

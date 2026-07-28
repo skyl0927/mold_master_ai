@@ -37,6 +37,19 @@ pass 4
 fail 0
 ```
 
+Follow-up integration command:
+
+```powershell
+node --test tests\moldMasterDevelopmentProgressReport.test.js tests\operationalStatusBundle.test.js tests\visionOperationalHitlWorkflowDisplay.test.js tests\operationalStatusRefresh.test.js
+```
+
+Result:
+
+```text
+pass 41
+fail 0
+```
+
 ## Guarantees
 
 | # | What is guaranteed | Test file or command | Type | Result |
@@ -45,6 +58,10 @@ fail 0
 | 2 | Weak benchmark results become prioritized defect-class capture work orders | `tests/visionCaptureWorkOrderPlan.test.js` | unit | PASS |
 | 3 | Covered classes with missing capture views become recapture-only work orders | `tests/visionCaptureWorkOrderPlan.test.js` | unit | PASS |
 | 4 | Strong sample, accuracy, and capture protocol evidence moves to shadow validation | `tests/visionCaptureWorkOrderPlan.test.js` | unit | PASS |
+| 5 | Capture work order status is surfaced in the development progress report | `tests/moldMasterDevelopmentProgressReport.test.js` | contract | PASS |
+| 6 | Capture work order artifacts are embedded and restorable in the operational status bundle | `tests/operationalStatusBundle.test.js` | contract | PASS |
+| 7 | Settings handoff display shows capture counts and top work order previews | `tests/visionOperationalHitlWorkflowDisplay.test.js` | display | PASS |
+| 8 | Operational status refresh includes a non-failing capture work order status step | `tests/operationalStatusRefresh.test.js` | contract | PASS |
 
 ## Runtime Command
 
@@ -53,6 +70,14 @@ npm run vision:capture:work-orders
 ```
 
 The command writes a JSON artifact and a Markdown table under `artifacts/`. If the plan status is `capture_required`, the command intentionally exits non-zero to keep release automation fail-closed.
+
+For status refresh and Settings handoff, use the non-failing companion command:
+
+```powershell
+npm run vision:capture:work-orders:status
+```
+
+This still writes the same artifact shape, but it does not fail the refresh pipeline when data capture is still required.
 
 ## Known Gaps
 
