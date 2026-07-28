@@ -161,6 +161,31 @@ const humanBrief = () => ({
       ]
     }
   ],
+  decisionEntryQueue: [
+    {
+      entryNumber: 1,
+      sessionCode: 'label_conflict_session',
+      sessionPriority: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      recommendedNewAction: 'mark_needs_review',
+      copyableFields: [
+        'newAction=mark_needs_review',
+        'reviewComment=Keep isolated pending source verification'
+      ],
+      manualConfirmationFields: [
+        'selectedLabel',
+        'reviewer.id',
+        'decidedAt'
+      ],
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      sessionMarkdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      sessionCsvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+      requiresHumanReview: true,
+      autoPopulateAllowed: false,
+      autoApplyAllowed: false
+    }
+  ],
   recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
 });
 
@@ -516,6 +541,11 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     bundle.summary.reviewerWorksheetSlipQueuePreviewText,
     '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003'
   );
+  assert.equal(bundle.summary.reviewerWorksheetWorktableMatchedSlips, 1);
+  assert.equal(bundle.summary.reviewerWorksheetFirstWorktableDecisionId, 'conflict-001');
+  assert.equal(bundle.summary.reviewerWorksheetFirstWorktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
+  assert.equal(bundle.summary.reviewerWorksheetFirstWorktableCopyableText, 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification');
+  assert.equal(bundle.summary.reviewerWorksheetFirstWorktableManualText, 'selectedLabel · reviewer.id · decidedAt');
   assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
