@@ -25,6 +25,7 @@ import DatabaseView from './components/DatabaseView';
 import DefectDashboard from './components/DefectDashboard';
 import ReportWizard from './components/ReportWizard';
 import { generatePptxReport, generateXlsxReport, ReportItem } from './services/reportService';
+import { buildReportExportReliabilityGate } from './reportExportReliabilityGate';
 import { CommonAgentGateway } from './services/commonAgentGateway';
 import {
     buildVisionHitlReviewMetadata,
@@ -1287,11 +1288,19 @@ const App: React.FC = () => {
             // handleGenerateReport 호출 시: ('pptx', layoutId, basicInfo, reportItems, isVerified)
 
             // 타입 단언 및 호환성 처리
-            let target: any = modifiedImages;
+            let target: any = Array.isArray(modifiedImages) && modifiedImages.length > 0 ? modifiedImages : undefined;
             if (!target && selectedImageIds.size > 0) {
                 target = capturedImages.filter(i => selectedImageIds.has(i.id));
             } else if (!target) {
                 target = capturedImages;
+            }
+
+            const reliabilityGate = buildReportExportReliabilityGate(target, { exportType: type, verified: isVerified });
+            if (!reliabilityGate.exportAllowed || !reliabilityGate.verifiedWriteAllowed) {
+                setError(reliabilityGate.message);
+                setCopyNotification(reliabilityGate.message);
+                setTimeout(() => setCopyNotification(''), 5000);
+                return;
             }
 
             if (type === 'pptx') {

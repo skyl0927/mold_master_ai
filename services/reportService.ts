@@ -2,6 +2,7 @@ import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { CapturedImage } from '../types';
+import { buildReportExportReliabilityGate } from '../reportExportReliabilityGate';
 
 const getFormattedDate = () => {
   const today = new Date();
@@ -79,6 +80,11 @@ export const generatePptxReport = async (items: ReportItem[] | CapturedImage[], 
     }));
   } else {
     reportItems = items as ReportItem[];
+  }
+
+  const reliabilityGate = buildReportExportReliabilityGate(reportItems, { exportType: 'pptx', verified: isVerified });
+  if (!reliabilityGate.exportAllowed || !reliabilityGate.verifiedWriteAllowed) {
+    throw new Error(reliabilityGate.message);
   }
 
   // --- [New] 품질 승인 시 DB에 저장 ---
@@ -746,6 +752,11 @@ function getSectionTitle(sectionType: string | undefined, customTitle: string | 
 }
 
 export const generateXlsxReport = async (images: CapturedImage[]): Promise<void> => {
+  const reliabilityGate = buildReportExportReliabilityGate(images, { exportType: 'xlsx' });
+  if (!reliabilityGate.exportAllowed) {
+    throw new Error(reliabilityGate.message);
+  }
+
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Captures');
 
