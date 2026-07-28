@@ -246,6 +246,52 @@ const postImportValidationResult = status => ({
   }
 });
 
+const postImportValidationObservations = status => ({
+  contractVersion: 'operational-hitl-post-import-validation-observations/v1',
+  status,
+  serviceWritesPerformed: false,
+  summary: {
+    totalPlannedCases: 44,
+    graphExecutableCases: 40,
+    graphCapturedCases: status === 'partial_observations_collected' ? 40 : 0,
+    graphFailedCases: 1,
+    manualObservationRequiredCases: 4,
+    manualObservationRequiredCaseIds: ['vision-001', 'vision-002', 'vision-003', 'label-001']
+  }
+});
+
+const postImportManualObservationTemplate = status => ({
+  contractVersion: 'operational-hitl-post-import-validation-manual-observations-template/v1',
+  status,
+  serviceWritesPerformed: false,
+  summary: {
+    totalPlannedCases: 44,
+    existingObservedCases: 40,
+    manualRows: status === 'ready_for_manual_observation' ? 4 : 0,
+    visionRows: status === 'ready_for_manual_observation' ? 3 : 0,
+    labelConflictRows: status === 'ready_for_manual_observation' ? 1 : 0,
+    manualCaseIds: ['vision-001', 'vision-002', 'vision-003', 'label-001']
+  }
+});
+
+const postImportValidationEvidence = status => ({
+  contractVersion: 'operational-hitl-post-import-validation-evidence/v1',
+  status,
+  serviceWritesPerformed: false,
+  summary: {
+    totalPlannedCases: 44,
+    observedCases: status === 'partial_evidence_collected' ? 40 : 44,
+    missingCases: status === 'partial_evidence_collected' ? 4 : 0,
+    missingCaseIds: status === 'partial_evidence_collected'
+      ? ['vision-001', 'vision-002', 'vision-003', 'label-001']
+      : [],
+    graphRagCases: 40,
+    visionRoundtripCases: 3,
+    labelConflictCases: 1,
+    ignoredObservationCases: 0
+  }
+});
+
 test('reports the real current bottleneck as waiting for human CSV decisions', () => {
   const status = buildOperationalHitlPipelineStatus({
     generatedAt: '2026-07-27T14:50:00.000Z',
@@ -561,6 +607,73 @@ test('routes awaiting post-import evidence to validation execution', () => {
     }
   );
   assert.equal(status.nextActions[0].code, 'execute_post_import_validation');
+});
+
+test('surfaces post-import observation and evidence readiness in pipeline status', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    intakeStatus: intakeStatus(0),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableImport: worktableImport('applied'),
+    preflightReport: preflight('ready_for_verification'),
+    verificationRun: verificationRun('executed'),
+    commonAgentImportPackage: commonAgentImportPackage('ready_for_common_agent_review'),
+    postImportValidationPlan: postImportValidationPlan('ready_for_post_import_validation'),
+    postImportValidationObservations: postImportValidationObservations('partial_observations_collected'),
+    postImportManualObservationTemplate: postImportManualObservationTemplate('ready_for_manual_observation'),
+    postImportValidationEvidence: postImportValidationEvidence('partial_evidence_collected'),
+    postImportValidationResult: postImportValidationResult('awaiting_validation_evidence'),
+    sourceArtifacts: {
+      postImportValidationObservations: 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-observations.json',
+      postImportManualObservationTemplate: 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-manual-observations-template.json',
+      postImportValidationEvidence: 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-evidence.json'
+    }
+  });
+
+  assert.equal(status.summary.postImportValidationObservationStatus, 'partial_observations_collected');
+  assert.equal(status.summary.postImportGraphExecutableCases, 40);
+  assert.equal(status.summary.postImportGraphCapturedCases, 40);
+  assert.equal(status.summary.postImportGraphFailedCases, 1);
+  assert.equal(status.summary.postImportManualObservationRequiredCases, 4);
+  assert.equal(status.summary.postImportManualObservationTemplateStatus, 'ready_for_manual_observation');
+  assert.equal(status.summary.postImportManualObservationRows, 4);
+  assert.equal(status.summary.postImportManualObservationVisionRows, 3);
+  assert.equal(status.summary.postImportManualObservationLabelConflictRows, 1);
+  assert.equal(status.summary.postImportValidationEvidenceStatus, 'partial_evidence_collected');
+  assert.equal(status.summary.postImportValidationObservedEvidenceCases, 40);
+  assert.equal(status.summary.postImportValidationEvidenceMissingCases, 4);
+  assert.equal(status.sources.postImportValidationObservations, 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-observations.json');
+  assert.equal(status.sources.postImportManualObservationTemplate, 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-manual-observations-template.json');
+  assert.equal(status.sources.postImportValidationEvidence, 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-evidence.json');
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'post_import_validation_observations'),
+    {
+      code: 'post_import_validation_observations',
+      titleKo: 'Post-import validation observations',
+      status: 'partial_observations_collected'
+    }
+  );
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'post_import_manual_observations'),
+    {
+      code: 'post_import_manual_observations',
+      titleKo: 'Post-import manual observations',
+      status: 'ready_for_manual_observation'
+    }
+  );
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'post_import_validation_evidence'),
+    {
+      code: 'post_import_validation_evidence',
+      titleKo: 'Post-import validation evidence',
+      status: 'partial_evidence_collected'
+    }
+  );
+  assert.match(status.markdown, /post-import graph observations: 40\/40/);
+  assert.match(status.markdown, /post-import graph observation failed: 1/);
+  assert.match(status.markdown, /post-import manual observation rows: 4/);
+  assert.match(status.markdown, /post-import evidence observed: 40\/44/);
+  assert.match(status.markdown, /post-import evidence missing: 4/);
 });
 
 test('blocks release when post-import validation fails after Common Agent import', () => {

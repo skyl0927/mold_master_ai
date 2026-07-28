@@ -152,6 +152,24 @@ const postImportValidationPath = resolveOptionalPath(
   latestArtifact('operational-hitl-post-import-validation-plan-')
 );
 
+const postImportValidationObservationsPath = resolveOptionalPath(
+  valueAfter('--post-import-validation-observations'),
+  process.env.OPERATIONAL_HITL_POST_IMPORT_VALIDATION_OBSERVATIONS,
+  latestArtifact('operational-hitl-post-import-validation-observations-')
+);
+
+const postImportManualObservationTemplatePath = resolveOptionalPath(
+  valueAfter('--post-import-manual-observation-template'),
+  process.env.OPERATIONAL_HITL_POST_IMPORT_MANUAL_OBSERVATION_TEMPLATE,
+  latestArtifact('operational-hitl-post-import-validation-manual-observations-template-')
+);
+
+const postImportValidationEvidencePath = resolveOptionalPath(
+  valueAfter('--post-import-validation-evidence'),
+  process.env.OPERATIONAL_HITL_POST_IMPORT_VALIDATION_EVIDENCE,
+  latestArtifact('operational-hitl-post-import-validation-evidence-')
+);
+
 const postImportValidationResultPath = resolveOptionalPath(
   valueAfter('--post-import-validation-result'),
   process.env.OPERATIONAL_HITL_POST_IMPORT_VALIDATION_RESULT,
@@ -181,6 +199,9 @@ const run = () => {
     verificationRun: readOptionalJson(verificationRunPath),
     commonAgentImportPackage: readOptionalJson(commonAgentImportPath),
     postImportValidationPlan: readOptionalJson(postImportValidationPath),
+    postImportValidationObservations: readOptionalJson(postImportValidationObservationsPath),
+    postImportManualObservationTemplate: readOptionalJson(postImportManualObservationTemplatePath),
+    postImportValidationEvidence: readOptionalJson(postImportValidationEvidencePath),
     postImportValidationResult: readOptionalJson(postImportValidationResultPath),
     sourceArtifacts: {
       intakeStatus: intakeStatusPath,
@@ -198,6 +219,9 @@ const run = () => {
       verificationRun: verificationRunPath,
       commonAgentImportPackage: commonAgentImportPath,
       postImportValidationPlan: postImportValidationPath,
+      postImportValidationObservations: postImportValidationObservationsPath,
+      postImportManualObservationTemplate: postImportManualObservationTemplatePath,
+      postImportValidationEvidence: postImportValidationEvidencePath,
       postImportValidationResult: postImportValidationResultPath
     }
   });
@@ -240,6 +264,16 @@ const run = () => {
     verificationCommandsExecuted: report.summary.verificationCommandsExecuted,
     commonAgentApprovedPayloads: report.summary.commonAgentApprovedPayloads,
     postImportValidationCases: report.summary.postImportValidationCases,
+    postImportValidationObservationStatus: report.summary.postImportValidationObservationStatus,
+    postImportGraphExecutableCases: report.summary.postImportGraphExecutableCases,
+    postImportGraphCapturedCases: report.summary.postImportGraphCapturedCases,
+    postImportGraphFailedCases: report.summary.postImportGraphFailedCases,
+    postImportManualObservationRequiredCases: report.summary.postImportManualObservationRequiredCases,
+    postImportManualObservationTemplateStatus: report.summary.postImportManualObservationTemplateStatus,
+    postImportManualObservationRows: report.summary.postImportManualObservationRows,
+    postImportValidationEvidenceStatus: report.summary.postImportValidationEvidenceStatus,
+    postImportValidationObservedEvidenceCases: report.summary.postImportValidationObservedEvidenceCases,
+    postImportValidationEvidenceMissingCases: report.summary.postImportValidationEvidenceMissingCases,
     postImportValidationResultStatus: report.summary.postImportValidationResultStatus,
     postImportValidationPassedCases: report.summary.postImportValidationPassedCases,
     postImportValidationFailedCases: report.summary.postImportValidationFailedCases,

@@ -454,6 +454,80 @@ test('highlights missing operational HITL pipeline evidence', () => {
   assert.equal(display.nextCommand, 'npm run operational:hitl:intake-status');
 });
 
+test('summarizes post-import observation and evidence metrics for Settings UI display', () => {
+  const display = summarizeOperationalHitlPipelineStatusDisplay({
+    contractVersion: 'operational-hitl-pipeline-status/v1',
+    status: 'action_required',
+    currentStage: {
+      code: 'execute_post_import_validation',
+      titleKo: 'Post-import validation evidence capture'
+    },
+    summary: {
+      totalDecisionInputsMissing: 0,
+      worktableRows: 59,
+      commonAgentApprovedPayloads: 44,
+      postImportValidationCases: 44,
+      postImportValidationObservationStatus: 'partial_observations_collected',
+      postImportGraphExecutableCases: 40,
+      postImportGraphCapturedCases: 40,
+      postImportGraphFailedCases: 1,
+      postImportManualObservationRequiredCases: 4,
+      postImportManualObservationTemplateStatus: 'ready_for_manual_observation',
+      postImportManualObservationRows: 4,
+      postImportManualObservationVisionRows: 3,
+      postImportManualObservationLabelConflictRows: 1,
+      postImportValidationEvidenceStatus: 'partial_evidence_collected',
+      postImportValidationObservedEvidenceCases: 40,
+      postImportValidationEvidenceMissingCases: 4,
+      postImportValidationResultStatus: 'awaiting_validation_evidence'
+    },
+    nextActions: [
+      {
+        instructionKo: 'Capture post-import validation observations and build evidence.',
+        commands: [
+          'npm run operational:hitl:post-import-validation-observations',
+          'npm run operational:hitl:post-import-validation-manual-template',
+          'npm run operational:hitl:post-import-validation-manual-import',
+          'npm run operational:hitl:post-import-validation-evidence',
+          'npm run operational:hitl:post-import-validation-result'
+        ]
+      }
+    ],
+    stageTrail: [
+      {
+        code: 'post_import_validation_observations',
+        titleKo: 'Post-import validation observations',
+        status: 'partial_observations_collected'
+      },
+      {
+        code: 'post_import_manual_observations',
+        titleKo: 'Post-import manual observations',
+        status: 'ready_for_manual_observation'
+      },
+      {
+        code: 'post_import_validation_evidence',
+        titleKo: 'Post-import validation evidence',
+        status: 'partial_evidence_collected'
+      }
+    ]
+  });
+
+  assert.equal(display.statusLabel, 'Post-import validation pending');
+  assert.equal(display.summaryText.includes('Post-import cases 44'), true);
+  assert.equal(display.summaryText.includes('Graph obs 40/40'), true);
+  assert.equal(display.summaryText.includes('Graph fail 1'), true);
+  assert.equal(display.summaryText.includes('Manual obs 4'), true);
+  assert.equal(display.summaryText.includes('Evidence 40/44'), true);
+  assert.equal(display.summaryText.includes('Evidence missing 4'), true);
+  assert.equal(display.summaryText.includes('Result awaiting_validation_evidence'), true);
+  assert.equal(display.nextCommand, 'npm run operational:hitl:post-import-validation-observations');
+  assert.deepEqual(display.stageTrailPreviews, [
+    'Post-import validation observations - partial_observations_collected',
+    'Post-import manual observations - ready_for_manual_observation',
+    'Post-import validation evidence - partial_evidence_collected'
+  ]);
+});
+
 test('returns null when no operational HITL pipeline status is available to display', () => {
   assert.equal(summarizeOperationalHitlPipelineStatusDisplay(null), null);
   assert.equal(summarizeOperationalHitlPipelineStatusDisplay({ contractVersion: 'unknown/v1' }), null);

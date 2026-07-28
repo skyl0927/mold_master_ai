@@ -140,6 +140,18 @@ const missingEvidenceStatus = ({ generatedAt, missingArtifactNames, sourceArtifa
     verificationCommandsExecuted: 0,
     commonAgentApprovedPayloads: 0,
     postImportValidationCases: 0,
+    postImportValidationObservationStatus: 'not_started',
+    postImportGraphExecutableCases: 0,
+    postImportGraphCapturedCases: 0,
+    postImportGraphFailedCases: 0,
+    postImportManualObservationRequiredCases: 0,
+    postImportManualObservationTemplateStatus: 'not_started',
+    postImportManualObservationRows: 0,
+    postImportManualObservationVisionRows: 0,
+    postImportManualObservationLabelConflictRows: 0,
+    postImportValidationEvidenceStatus: 'not_started',
+    postImportValidationObservedEvidenceCases: 0,
+    postImportValidationEvidenceMissingCases: 0,
     postImportValidationResultStatus: 'not_started',
     postImportValidationPassedCases: 0,
     postImportValidationFailedCases: 0,
@@ -180,6 +192,9 @@ const sourceMap = sourceArtifacts => ({
   verificationRun: sourceArtifacts.verificationRun || null,
   commonAgentImportPackage: sourceArtifacts.commonAgentImportPackage || null,
   postImportValidationPlan: sourceArtifacts.postImportValidationPlan || null,
+  postImportValidationObservations: sourceArtifacts.postImportValidationObservations || null,
+  postImportManualObservationTemplate: sourceArtifacts.postImportManualObservationTemplate || null,
+  postImportValidationEvidence: sourceArtifacts.postImportValidationEvidence || null,
   postImportValidationResult: sourceArtifacts.postImportValidationResult || null
 });
 
@@ -198,6 +213,9 @@ const stageTrailFor = ({
   verificationRun,
   commonAgentImportPackage,
   postImportValidationPlan,
+  postImportValidationObservations,
+  postImportManualObservationTemplate,
+  postImportValidationEvidence,
   postImportValidationResult
 }) => [
   {
@@ -271,6 +289,21 @@ const stageTrailFor = ({
     status: compact(postImportValidationPlan?.status) || 'not_started'
   },
   {
+    code: 'post_import_validation_observations',
+    titleKo: 'Post-import validation observations',
+    status: compact(postImportValidationObservations?.status) || 'not_started'
+  },
+  {
+    code: 'post_import_manual_observations',
+    titleKo: 'Post-import manual observations',
+    status: compact(postImportManualObservationTemplate?.status) || 'not_started'
+  },
+  {
+    code: 'post_import_validation_evidence',
+    titleKo: 'Post-import validation evidence',
+    status: compact(postImportValidationEvidence?.status) || 'not_started'
+  },
+  {
     code: 'post_import_validation_result',
     titleKo: 'Post-import validation result',
     status: compact(postImportValidationResult?.status) || 'not_started'
@@ -307,6 +340,9 @@ const pipelineDecision = ({
   verificationRun,
   commonAgentImportPackage,
   postImportValidationPlan,
+  postImportValidationObservations,
+  postImportManualObservationTemplate,
+  postImportValidationEvidence,
   postImportValidationResult,
   sourceArtifacts
 }) => {
@@ -431,6 +467,10 @@ const pipelineDecision = ({
           titleKo: '검증 case 실행 및 evidence 작성',
           instructionKo: '계획된 case를 Common Agent와 Mold Master AI에 실행하고 graph citation/reasoning path가 포함된 evidence artifact를 생성하세요.',
           commands: [
+            'npm run operational:hitl:post-import-validation-observations',
+            'npm run operational:hitl:post-import-validation-manual-template',
+            'npm run operational:hitl:post-import-validation-manual-import',
+            'npm run operational:hitl:post-import-validation-evidence',
             'npm run operational:hitl:post-import-validation-result',
             'npm run eval:graph'
           ],
@@ -650,6 +690,9 @@ const summaryFor = ({
   verificationRun,
   commonAgentImportPackage,
   postImportValidationPlan,
+  postImportValidationObservations,
+  postImportManualObservationTemplate,
+  postImportValidationEvidence,
   postImportValidationResult
 }) => ({
   missingArtifacts: missingArtifactNames.length,
@@ -699,6 +742,18 @@ const summaryFor = ({
   commonAgentBlockingReports: numberFrom(commonAgentImportPackage?.summary?.blockingReports),
   postImportValidationCases: numberFrom(postImportValidationPlan?.summary?.totalTestCases),
   postImportGraphRagCases: numberFrom(postImportValidationPlan?.summary?.graphRagCases),
+  postImportValidationObservationStatus: compact(postImportValidationObservations?.status) || 'not_started',
+  postImportGraphExecutableCases: numberFrom(postImportValidationObservations?.summary?.graphExecutableCases),
+  postImportGraphCapturedCases: numberFrom(postImportValidationObservations?.summary?.graphCapturedCases),
+  postImportGraphFailedCases: numberFrom(postImportValidationObservations?.summary?.graphFailedCases),
+  postImportManualObservationRequiredCases: numberFrom(postImportValidationObservations?.summary?.manualObservationRequiredCases),
+  postImportManualObservationTemplateStatus: compact(postImportManualObservationTemplate?.status) || 'not_started',
+  postImportManualObservationRows: numberFrom(postImportManualObservationTemplate?.summary?.manualRows),
+  postImportManualObservationVisionRows: numberFrom(postImportManualObservationTemplate?.summary?.visionRows),
+  postImportManualObservationLabelConflictRows: numberFrom(postImportManualObservationTemplate?.summary?.labelConflictRows),
+  postImportValidationEvidenceStatus: compact(postImportValidationEvidence?.status) || 'not_started',
+  postImportValidationObservedEvidenceCases: numberFrom(postImportValidationEvidence?.summary?.observedCases),
+  postImportValidationEvidenceMissingCases: numberFrom(postImportValidationEvidence?.summary?.missingCases),
   postImportValidationResultStatus: compact(postImportValidationResult?.status) || 'not_started',
   postImportValidationPassedCases: numberFrom(postImportValidationResult?.summary?.passedCases),
   postImportValidationFailedCases: numberFrom(postImportValidationResult?.summary?.failedCases),
@@ -735,6 +790,13 @@ const markdownFor = report => {
     `- 추천값 preflight 필수필드 누락: ${report.summary.worktableSimulatedPreflightMissingRequiredFields}`,
     `- 작업표 계획 update: ${report.summary.worktablePlannedUpdates}`,
     `- post-import validation case: ${report.summary.postImportValidationCases}`,
+    `- post-import observation status: ${report.summary.postImportValidationObservationStatus}`,
+    `- post-import graph observations: ${report.summary.postImportGraphCapturedCases}/${report.summary.postImportGraphExecutableCases}`,
+    `- post-import graph observation failed: ${report.summary.postImportGraphFailedCases}`,
+    `- post-import manual observation rows: ${report.summary.postImportManualObservationRows}`,
+    `- post-import evidence status: ${report.summary.postImportValidationEvidenceStatus}`,
+    `- post-import evidence observed: ${report.summary.postImportValidationObservedEvidenceCases}/${report.summary.postImportValidationCases}`,
+    `- post-import evidence missing: ${report.summary.postImportValidationEvidenceMissingCases}`,
     `- post-import validation result: ${report.summary.postImportValidationResultStatus}`,
     `- post-import validation pass: ${report.summary.postImportValidationPassedCases}/${report.summary.postImportValidationCases}`,
     `- post-import validation failed: ${report.summary.postImportValidationFailedCases}`,
@@ -772,6 +834,9 @@ const buildOperationalHitlPipelineStatus = ({
   verificationRun = null,
   commonAgentImportPackage = null,
   postImportValidationPlan = null,
+  postImportValidationObservations = null,
+  postImportManualObservationTemplate = null,
+  postImportValidationEvidence = null,
   postImportValidationResult = null,
   sourceArtifacts = {}
 } = {}) => {
@@ -811,6 +876,9 @@ const buildOperationalHitlPipelineStatus = ({
     verificationRun,
     commonAgentImportPackage,
     postImportValidationPlan,
+    postImportValidationObservations,
+    postImportManualObservationTemplate,
+    postImportValidationEvidence,
     postImportValidationResult,
     sourceArtifacts
   });
@@ -829,6 +897,9 @@ const buildOperationalHitlPipelineStatus = ({
     verificationRun,
     commonAgentImportPackage,
     postImportValidationPlan,
+    postImportValidationObservations,
+    postImportManualObservationTemplate,
+    postImportValidationEvidence,
     postImportValidationResult
   });
   const report = {
@@ -858,6 +929,9 @@ const buildOperationalHitlPipelineStatus = ({
       verificationRun,
       commonAgentImportPackage,
       postImportValidationPlan,
+      postImportValidationObservations,
+      postImportManualObservationTemplate,
+      postImportValidationEvidence,
       postImportValidationResult
     }),
     nextActions: decision.nextActions,

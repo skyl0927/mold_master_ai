@@ -66,7 +66,6 @@ const summarizeVisionOperationalHitlWorkflowDisplay = worklist => {
     nonApprovalCount > 0 ? `비승인 조치 ${nonApprovalCount}건` : '',
     invalidCount > 0 ? `오류 ${invalidCount}건` : ''
   ].filter(Boolean);
-
   return {
     title: 'HITL Workflow',
     status,
@@ -127,6 +126,9 @@ const actionPackSeverityFor = status => {
 };
 
 const pipelineStatusLabelFor = (status, stageCode) => {
+  if (stageCode === 'execute_post_import_validation') return 'Post-import validation pending';
+  if (stageCode === 'fix_post_import_validation') return 'Post-import validation failed';
+  if (stageCode === 'operator_release_validation') return 'Post-import release check';
   if (status === 'missing_evidence') return '증거 재생성 필요';
   if (stageCode === 'fix_dry_run_roundtrip') return '추천 사전검증 오류';
   if (stageCode === 'fix_simulated_preflight') return '추천 Preflight 오류';
@@ -140,6 +142,7 @@ const pipelineStatusLabelFor = (status, stageCode) => {
 };
 
 const pipelineSeverityFor = (status, stageCode) => {
+  if (stageCode === 'fix_post_import_validation') return 'danger';
   if (stageCode === 'fix_dry_run_roundtrip' || stageCode === 'fix_simulated_preflight') return 'danger';
   if (status === 'missing_evidence') return 'danger';
   if (
@@ -150,6 +153,32 @@ const pipelineSeverityFor = (status, stageCode) => {
   ) return 'success';
   return 'warning';
 };
+
+const postImportPipelineSummaryParts = summary => [
+  numberValue(summary.postImportValidationCases) > 0
+    ? `Post-import cases ${numberValue(summary.postImportValidationCases)}`
+    : '',
+  numberValue(summary.postImportGraphExecutableCases) > 0
+    ? `Graph obs ${numberValue(summary.postImportGraphCapturedCases)}/${numberValue(summary.postImportGraphExecutableCases)}`
+    : '',
+  numberValue(summary.postImportGraphFailedCases) > 0
+    ? `Graph fail ${numberValue(summary.postImportGraphFailedCases)}`
+    : '',
+  numberValue(summary.postImportManualObservationRows) > 0
+    ? `Manual obs ${numberValue(summary.postImportManualObservationRows)}`
+    : '',
+  numberValue(summary.postImportValidationCases) > 0
+    && compact(summary.postImportValidationEvidenceStatus) !== 'not_started'
+    ? `Evidence ${numberValue(summary.postImportValidationObservedEvidenceCases)}/${numberValue(summary.postImportValidationCases)}`
+    : '',
+  numberValue(summary.postImportValidationEvidenceMissingCases) > 0
+    ? `Evidence missing ${numberValue(summary.postImportValidationEvidenceMissingCases)}`
+    : '',
+  compact(summary.postImportValidationResultStatus)
+    && compact(summary.postImportValidationResultStatus) !== 'not_started'
+    ? `Result ${compact(summary.postImportValidationResultStatus)}`
+    : ''
+].filter(Boolean);
 
 const worktableSuggestionStatusLabelFor = status => {
   if (status === 'ready_for_human_review') return '사람 검토용 추천 준비';
@@ -381,6 +410,8 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
       : ''
   ].filter(Boolean);
 
+  summaryParts.push(...postImportPipelineSummaryParts(summary));
+
   return {
     title: 'HITL Pipeline Status',
     status,
@@ -401,7 +432,11 @@ const summarizeOperationalHitlPipelineStatusDisplay = pipelineStatus => {
       : [],
     stageTrailPreviews: (Array.isArray(pipelineStatus.stageTrail) ? pipelineStatus.stageTrail : [])
       .slice(0, 5)
-      .map(item => `${compact(item?.titleKo) || compact(item?.code)} · ${compact(item?.status)}`),
+      .map(item => {
+        const title = compact(item?.titleKo) || compact(item?.code);
+        const separator = title.startsWith('Post-import') ? ' - ' : ' · ';
+        return `${title}${separator}${compact(item?.status)}`;
+      }),
     safetyBadges: [
       'Artifact-only',
       '자동 적용 금지',
