@@ -1205,8 +1205,12 @@ test('summarizes operational status bundle for one-step Settings handoff display
       preparationRunStatus: 'completed',
       preparationGeneratedArtifacts: 9,
       preparationWorksheetArtifacts: 2,
+      preparationDecisionTemplates: 3,
+      preparationHumanGatedCommands: 4,
       preparationSkippedHumanGatedCommands: 4,
       preparationFirstWorksheetArtifactPath: 'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+      preparationFirstDecisionTemplatePath: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+      preparationFirstHumanGatedCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
       preparationRunPath: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
@@ -1225,6 +1229,21 @@ test('summarizes operational status bundle for one-step Settings handoff display
     preparationWorksheetArtifacts: [
       'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
       'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+    ],
+    preparationDecisionTemplateArtifacts: [
+      'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+      'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
+      'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json'
+    ],
+    preparationHumanGatedCommands: [
+      {
+        command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
+        reason: 'human_decision_required'
+      },
+      {
+        command: 'npm run vision:hitl:verify-decisions -- --decisions <filled.json>',
+        reason: 'human_decision_required'
+      }
     ],
     settingsImportChecklist: [
       { buttonLabelKo: 'Progress 등록', artifactKey: 'developmentProgress' },
@@ -1275,6 +1294,15 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.deepEqual(display.preparationWorksheetPaths, [
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+  ]);
+  assert.deepEqual(display.preparationDecisionTemplatePaths, [
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+    'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
+    'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json'
+  ]);
+  assert.deepEqual(display.preparationHumanGatedCommandTexts, [
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
+    'npm run vision:hitl:verify-decisions -- --decisions <filled.json>'
   ]);
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');

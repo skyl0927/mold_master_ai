@@ -263,6 +263,8 @@ const operationalPreparationRun = () => ({
     'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
     'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
     'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
+    'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
+    'C:\\repo\\artifacts\\vision-pending-hitl-review-guide.json',
     'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json',
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.json',
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
@@ -283,6 +285,18 @@ const operationalPreparationRun = () => ({
   skippedCommands: [
     {
       command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
+      reason: 'human_decision_required'
+    },
+    {
+      command: 'npm run vision:hitl:verify-decisions -- --decisions <filled.json>',
+      reason: 'human_decision_required'
+    },
+    {
+      command: 'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled.json>',
+      reason: 'human_decision_required'
+    },
+    {
+      command: 'npm run knowledge:web:hitl:apply -- --decisions <verified.json> --apply',
       reason: 'human_decision_required'
     }
   ],
@@ -359,11 +373,25 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.preparationRunStatus, 'completed');
   assert.equal(bundle.summary.preparationGeneratedArtifacts, 9);
   assert.equal(bundle.summary.preparationWorksheetArtifacts, 2);
+  assert.equal(bundle.summary.preparationDecisionTemplates, 3);
+  assert.equal(bundle.summary.preparationHumanGatedCommands, 4);
   assert.equal(bundle.summary.preparationSkippedHumanGatedCommands, 4);
+  assert.equal(bundle.summary.preparationFirstHumanGatedCommand, 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>');
   assert.equal(bundle.summary.preparationRunPath, 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json');
+  assert.deepEqual(bundle.preparationDecisionTemplateArtifacts, [
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+    'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
+    'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json'
+  ]);
   assert.deepEqual(bundle.preparationWorksheetArtifacts, [
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
     'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+  ]);
+  assert.deepEqual(bundle.preparationHumanGatedCommands.map(item => item.command), [
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
+    'npm run vision:hitl:verify-decisions -- --decisions <filled.json>',
+    'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled.json>',
+    'npm run knowledge:web:hitl:apply -- --decisions <verified.json> --apply'
   ]);
   assert.deepEqual(bundle.settingsImportChecklist.map(item => item.buttonLabelKo), [
     'Progress 등록',
@@ -389,6 +417,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
   assert.match(bundle.markdown, /Web Knowledge package: blocked_verification_not_ready/);
   assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
+  assert.match(bundle.markdown, /common-agent-hitl-review-decisions-template\.json/);
+  assert.match(bundle.markdown, /knowledge:web:hitl:verify-decisions/);
   assert.match(bundle.markdown, /web-knowledge-hitl-review-guide\.csv/);
   assert.match(bundle.markdown, /web-knowledge-common-agent-learning-package\.json/);
   assert.match(bundle.markdown, /vision-approved-label-conflict-review-guide\.md/);
