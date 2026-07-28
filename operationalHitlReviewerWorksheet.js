@@ -9,6 +9,8 @@ const numberFrom = (...values) => {
   return found === undefined ? 0 : Number(found);
 };
 
+const REVIEW_SLIP_QUEUE_PREVIEW_LIMIT = 10;
+
 const isContract = (artifact, contractVersion) =>
   artifact?.contractVersion === contractVersion;
 
@@ -52,12 +54,15 @@ const missingEvidenceWorksheet = (generatedAt, sourceArtifacts) => ({
     nextReviewDecisionId: null,
     nextReviewSourceArtifact: null,
     nextReviewVerificationCommand: null,
+    reviewSlipQueueCount: 0,
+    reviewSlipQueuePreviewLimit: REVIEW_SLIP_QUEUE_PREVIEW_LIMIT,
     worksheetSectionCount: 0,
     markdownLineCount: 0
   },
   reviewChecklist: [],
   nextReviewCursor: null,
   nextReviewSlip: null,
+  reviewSlipQueue: [],
   markdown: '',
   markdownPath: null,
   sources: {
@@ -127,16 +132,20 @@ const reviewOrderMarkdown = inputReviewPacket =>
     `${numberFrom(item.priority)}. ${compact(item.queueCode)} - ${compact(item.titleKo)} / 남은 입력 ${numberFrom(item.targetPending)} / 담당 ${compact(item.owner)}`
   );
 
-const nextReviewCursorFor = inputReviewPacket => {
+const orderedSectionsFor = inputReviewPacket => {
   const sections = asArray(inputReviewPacket.sections);
   const reviewOrderCodes = asArray(inputReviewPacket.reviewOrder)
     .map(item => compact(item.queueCode))
     .filter(Boolean);
   const sectionsByCode = new Map(sections.map(section => [compact(section.queueCode), section]));
-  const orderedSections = [
+  return [
     ...reviewOrderCodes.map(code => sectionsByCode.get(code)).filter(Boolean),
     ...sections.filter(section => !reviewOrderCodes.includes(compact(section.queueCode)))
   ];
+};
+
+const nextReviewCursorFor = inputReviewPacket => {
+  const orderedSections = orderedSectionsFor(inputReviewPacket);
   const section = orderedSections.find(item =>
     numberFrom(item?.targetPending) > 0 || numberFrom(item?.pendingActions) > 0
   );
@@ -178,12 +187,13 @@ const nextReviewCursorMarkdown = cursor => {
   ];
 };
 
-const nextReviewSlipFor = cursor => {
+const nextReviewSlipFor = (cursor, slipNumber = null) => {
   if (!cursor) return null;
 
   const queueCode = compact(cursor.queueCode) || 'review_required';
   const decisionId = compact(cursor.decisionId) || 'source file 확인 필요';
   return {
+    ...(slipNumber ? { slipNumber } : {}),
     titleKo: `다음 HITL 판정: ${queueCode} / ${decisionId}`,
     queueCode,
     decisionId,
@@ -202,6 +212,33 @@ const nextReviewSlipFor = cursor => {
   };
 };
 
+const reviewSlipQueueFor = inputReviewPacket =>
+  orderedSectionsFor(inputReviewPacket)
+    .filter(section =>
+      numberFrom(section?.targetPending) > 0 || numberFrom(section?.pendingActions) > 0
+    )
+    .flatMap(section => {
+      const ids = unique(section.decisionIdsPreview);
+      const baseCursor = decisionId => ({
+        queueCode: section.queueCode,
+        decisionId,
+        owner: section.owner,
+        sourceArtifact: section.sourceArtifact,
+        verificationCommand: section.verificationCommand,
+        requiredFields: section.requiredFields,
+        allowedActions: section.allowedActions
+      });
+      return (ids.length > 0 ? ids : ['']).map(baseCursor).map(cursor =>
+        nextReviewSlipFor(cursor)
+      );
+    })
+    .filter(Boolean)
+    .slice(0, REVIEW_SLIP_QUEUE_PREVIEW_LIMIT)
+    .map((slip, index) => ({
+      ...slip,
+      slipNumber: index + 1
+    }));
+
 const nextReviewSlipMarkdown = slip => {
   if (!slip) return [];
 
@@ -219,11 +256,25 @@ const nextReviewSlipMarkdown = slip => {
   ];
 };
 
+const reviewSlipQueueMarkdown = reviewSlipQueue => {
+  if (asArray(reviewSlipQueue).length === 0) return [];
+
+  return [
+    '## HITL Review Slip Queue',
+    '',
+    ...reviewSlipQueue.map(slip =>
+      `${slip.slipNumber}. ${slip.queueCode} / ${slip.decisionId || 'source file 확인 필요'}`
+    ),
+    ''
+  ];
+};
+
 const markdownFor = (inputReviewPacket, generatedAt) => {
   const summary = inputReviewPacket.summary || {};
   const sections = asArray(inputReviewPacket.sections);
   const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
   const nextReviewSlip = nextReviewSlipFor(nextReviewCursor);
+  const reviewSlipQueue = reviewSlipQueueFor(inputReviewPacket);
   const lines = [
     '# Operational HITL Reviewer Worksheet',
     '',
@@ -237,6 +288,7 @@ const markdownFor = (inputReviewPacket, generatedAt) => {
     '',
     ...nextReviewCursorMarkdown(nextReviewCursor),
     ...nextReviewSlipMarkdown(nextReviewSlip),
+    ...reviewSlipQueueMarkdown(reviewSlipQueue),
     '## 리뷰 공통 체크리스트',
     '',
     ...REVIEW_CHECKLIST.map(item => `- ${item}`),
@@ -278,6 +330,7 @@ const buildOperationalHitlReviewerWorksheet = ({
   const summary = inputReviewPacket.summary || {};
   const nextReviewCursor = nextReviewCursorFor(inputReviewPacket);
   const nextReviewSlip = nextReviewSlipFor(nextReviewCursor);
+  const reviewSlipQueue = reviewSlipQueueFor(inputReviewPacket);
   const markdown = markdownFor(inputReviewPacket, generatedAt);
   const lineCount = markdown.split(/\r?\n/).filter(line => line.length > 0).length;
 
@@ -303,12 +356,15 @@ const buildOperationalHitlReviewerWorksheet = ({
       nextReviewDecisionId: nextReviewCursor?.decisionId || null,
       nextReviewSourceArtifact: nextReviewCursor?.sourceArtifact || null,
       nextReviewVerificationCommand: nextReviewCursor?.verificationCommand || null,
+      reviewSlipQueueCount: reviewSlipQueue.length,
+      reviewSlipQueuePreviewLimit: REVIEW_SLIP_QUEUE_PREVIEW_LIMIT,
       worksheetSectionCount: sections.length,
       markdownLineCount: lineCount
     },
     reviewChecklist: REVIEW_CHECKLIST,
     nextReviewCursor,
     nextReviewSlip,
+    reviewSlipQueue,
     markdown,
     markdownPath,
     sources: {

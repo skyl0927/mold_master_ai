@@ -502,6 +502,16 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
   const cursor = operationalReviewerWorksheet.nextReviewCursor || {};
   const slip = operationalReviewerWorksheet.nextReviewSlip || {};
   const slipInstructions = asArray(slip.operatorInstructionsKo).map(compact).filter(Boolean);
+  const reviewSlipQueue = asArray(operationalReviewerWorksheet.reviewSlipQueue);
+  const reviewSlipQueuePreviewText = reviewSlipQueue
+    .slice(0, 5)
+    .map((item, index) => [
+      `${numberValue(item?.slipNumber) || index + 1}.`,
+      compact(item?.queueCode) || 'review_required',
+      '/',
+      compact(item?.decisionId) || 'source file 확인 필요'
+    ].join(' '))
+    .join(' · ');
   return {
     reviewerWorksheetStatus: compact(operationalReviewerWorksheet.status),
     reviewerWorksheetSourceStatus: compact(summary.sourceStatus),
@@ -518,6 +528,8 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, sourceArtif
     reviewerWorksheetNextReviewSlipTitleKo: compact(slip.titleKo),
     reviewerWorksheetNextReviewSlipFirstInstructionKo: slipInstructions[0] || '',
     reviewerWorksheetNextReviewSlipSafetyNoticeKo: compact(slip.safetyNoticeKo),
+    reviewerWorksheetSlipQueueCount: numberValue(summary.reviewSlipQueueCount || reviewSlipQueue.length),
+    reviewerWorksheetSlipQueuePreviewText: reviewSlipQueuePreviewText,
     reviewerWorksheetSectionCount: numberValue(summary.worksheetSectionCount),
     reviewerWorksheetMarkdownLineCount: numberValue(summary.markdownLineCount),
     reviewerWorksheetRecommendedAction: compact(operationalReviewerWorksheet.recommendedAction),

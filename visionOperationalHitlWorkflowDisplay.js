@@ -882,6 +882,11 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
   const reviewerWorksheetSlipTitle = compact(summary.reviewerWorksheetNextReviewSlipTitleKo);
   const reviewerWorksheetSlipInstruction = compact(summary.reviewerWorksheetNextReviewSlipFirstInstructionKo);
   const reviewerWorksheetSlipSafetyNotice = compact(summary.reviewerWorksheetNextReviewSlipSafetyNoticeKo);
+  const reviewerWorksheetSlipQueueCount = numberValue(summary.reviewerWorksheetSlipQueueCount);
+  const reviewerWorksheetSlipQueueText = reviewerWorksheetSlipQueueCount > 0
+    ? `Review slip queue ${reviewerWorksheetSlipQueueCount}건`
+    : '';
+  const reviewerWorksheetSlipQueuePreviewText = compact(summary.reviewerWorksheetSlipQueuePreviewText);
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -937,6 +942,8 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetSlipTitle,
     reviewerWorksheetSlipInstruction,
     reviewerWorksheetSlipSafetyNotice,
+    reviewerWorksheetSlipQueueText,
+    reviewerWorksheetSlipQueuePreviewText,
     decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
       .slice(0, 4)
       .map(section => ({
