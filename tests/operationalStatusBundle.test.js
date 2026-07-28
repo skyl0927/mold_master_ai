@@ -354,6 +354,26 @@ const decisionInputReviewPacket = () => ({
   recommendedAction: 'vision_label_conflicts부터 decision file을 채우고 검증하세요.'
 });
 
+const reviewerWorksheet = () => ({
+  contractVersion: 'operational-hitl-reviewer-worksheet/v1',
+  status: 'ready_for_human_review',
+  serviceWritesPerformed: false,
+  summary: {
+    sourceStatus: 'awaiting_human_input',
+    totalTemplateItems: 59,
+    totalPendingActions: 59,
+    targetDecisionInputsMissing: 56,
+    firstQueueCode: 'vision_label_conflicts',
+    worksheetSectionCount: 3,
+    markdownLineCount: 83
+  },
+  markdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
+  sources: {
+    inputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json'
+  },
+  recommendedAction: 'vision_label_conflicts부터 워크시트 순서대로 decision file을 채우고 검증 명령을 실행하세요.'
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
@@ -364,6 +384,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackage(),
     operationalPreparationRun: operationalPreparationRun(),
     operationalDecisionInputReviewPacket: decisionInputReviewPacket(),
+    operationalReviewerWorksheet: reviewerWorksheet(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
@@ -374,7 +395,9 @@ test('builds an artifact-only operational status bundle for handoff and Settings
       labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
       webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
       operationalPreparationRun: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json',
-      operationalDecisionInputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json'
+      operationalDecisionInputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json',
+      operationalReviewerWorksheet: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
+      operationalReviewerWorksheetMarkdown: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md'
     },
     markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
   });
@@ -439,6 +462,13 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.decisionReviewSectionCount, 3);
   assert.equal(bundle.summary.decisionReviewHumanGatedCommands, 3);
   assert.equal(bundle.summary.decisionReviewPacketPath, 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json');
+  assert.equal(bundle.summary.reviewerWorksheetStatus, 'ready_for_human_review');
+  assert.equal(bundle.summary.reviewerWorksheetTargetInputsMissing, 56);
+  assert.equal(bundle.summary.reviewerWorksheetFirstQueueCode, 'vision_label_conflicts');
+  assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
+  assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
+  assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
+  assert.equal(bundle.summary.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
   assert.deepEqual(bundle.preparationDecisionTemplateArtifacts, [
     'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
     'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
@@ -474,6 +504,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.deepEqual(bundle.nextOperatorActions.map(action => action.code), [
     'register_status_artifacts_in_settings',
     'open_preparation_run_outputs',
+    'open_reviewer_worksheet',
     'open_label_conflict_review_guide',
     'open_web_knowledge_common_agent_package',
     'open_next_human_brief',
@@ -489,6 +520,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Web Knowledge package: blocked_verification_not_ready/);
   assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
   assert.match(bundle.markdown, /Decision review: awaiting_human_input \/ pending 59 \/ missing 56/);
+  assert.match(bundle.markdown, /Reviewer worksheet: ready_for_human_review \/ missing 56 \/ lines 83/);
+  assert.match(bundle.markdown, /operational-hitl-reviewer-worksheet\.md/);
   assert.match(bundle.markdown, /vision_label_conflicts: prepared 4 \/ pending 4 \/ target 4/);
   assert.match(bundle.markdown, /operational-hitl-decision-input-review-packet\.json/);
   assert.match(bundle.markdown, /common-agent-hitl-review-decisions-template\.json/);

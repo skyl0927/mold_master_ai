@@ -1220,6 +1220,13 @@ test('summarizes operational status bundle for one-step Settings handoff display
       decisionReviewSectionCount: 3,
       decisionReviewHumanGatedCommands: 3,
       decisionReviewPacketPath: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json',
+      reviewerWorksheetStatus: 'ready_for_human_review',
+      reviewerWorksheetTargetInputsMissing: 56,
+      reviewerWorksheetFirstQueueCode: 'vision_label_conflicts',
+      reviewerWorksheetSectionCount: 3,
+      reviewerWorksheetMarkdownLineCount: 83,
+      reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
+      reviewerWorksheetMarkdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1350,6 +1357,9 @@ test('summarizes operational status bundle for one-step Settings handoff display
       verificationCommand: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>'
     }
   ]);
+  assert.equal(display.reviewerWorksheetText, 'Reviewer worksheet ready_for_human_review · Missing 56 · Sections 3 · Lines 83');
+  assert.equal(display.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
+  assert.equal(display.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
   assert.equal(display.captureWorkOrderText, 'Capture work orders 7건 · 신규 4건 · 재촬영 10건 · 우선 burn');
