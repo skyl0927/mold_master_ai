@@ -630,6 +630,11 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
   assert.match(bundle.markdown, /Decision review: awaiting_human_input \/ pending 59 \/ missing 56/);
   assert.match(bundle.markdown, /Reviewer worksheet: ready_for_human_review \/ missing 56 \/ lines 83/);
+  assert.match(bundle.markdown, /Reviewer worksheet worktable bridge: 1\/3 matched \/ first conflict-001/);
+  assert.match(bundle.markdown, /Worktable CSV: C:\\repo\\artifacts\\operational-hitl-decision-worktable-export\.csv/);
+  assert.match(bundle.markdown, /Copy fields: newAction=mark_needs_review · reviewComment=Keep isolated pending source verification/);
+  assert.match(bundle.markdown, /Manual fields: selectedLabel · reviewer\.id · decidedAt/);
+  assert.match(bundle.markdown, /autoPopulateAllowed=true 또는 autoApplyAllowed=true 항목은 bridge에서 제외/);
   assert.match(bundle.markdown, /operational-hitl-reviewer-worksheet\.md/);
   assert.match(bundle.markdown, /vision_label_conflicts: prepared 4 \/ pending 4 \/ target 4/);
   assert.match(bundle.markdown, /operational-hitl-decision-input-review-packet\.json/);
