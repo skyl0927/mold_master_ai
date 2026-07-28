@@ -239,6 +239,81 @@ const humanBrief = () => ({
   recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
 });
 
+const reviewSessionProgress = () => ({
+  contractVersion: 'operational-hitl-review-session-progress/v1',
+  status: 'awaiting_human_csv_decisions',
+  serviceWritesPerformed: false,
+  localArtifactsWritten: true,
+  policy: {
+    progressOnly: true,
+    autoApplyAllowed: false,
+    automaticServiceWritesAllowed: false,
+    allowGraphPromotion: false
+  },
+  summary: {
+    totalRows: 59,
+    completedRows: 0,
+    pendingRows: 59,
+    invalidRows: 0,
+    ignoredSimulationOnlyRows: 59,
+    sessionCount: 4,
+    completeSessionCount: 0,
+    blockedSessionCount: 0,
+    packetFiles: 8
+  },
+  sessions: [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 선검토',
+      priority: 1,
+      rowCount: 4,
+      completedRows: 0,
+      pendingRows: 4,
+      invalidRows: 0,
+      highRiskRows: 4,
+      status: 'awaiting_human_csv_decisions',
+      csvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+      markdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      pendingRowPreviews: [
+        {
+          queueCode: 'vision_label_conflicts',
+          decisionId: 'conflict-001',
+          displayLabel: '제팅 | 플로우마크',
+          recommendedNewAction: 'mark_needs_review',
+          recommendationRisk: 'high'
+        }
+      ],
+      invalidRowPreviews: [],
+      completedRowPreviews: []
+    },
+    {
+      code: 'web_knowledge_session',
+      titleKo: '웹 지식 카드 HITL 승인',
+      priority: 4,
+      rowCount: 40,
+      completedRows: 0,
+      pendingRows: 40,
+      invalidRows: 0,
+      highRiskRows: 0,
+      status: 'awaiting_human_csv_decisions',
+      csvPath: 'C:\\repo\\packet\\04-web-knowledge-session.csv',
+      markdownPath: 'C:\\repo\\packet\\04-web-knowledge-session.md',
+      pendingRowPreviews: [
+        {
+          queueCode: 'web_knowledge_hitl',
+          decisionId: 'web-case-001',
+          displayLabel: 'Sink mark',
+          recommendedNewAction: 'mark_needs_changes',
+          recommendationRisk: 'medium'
+        }
+      ],
+      invalidRowPreviews: [],
+      completedRowPreviews: []
+    }
+  ],
+  recommendedAction: '세션 패킷 CSV/Markdown을 보며 원본 worktable CSV의 newAction과 필수 검토 필드를 계속 입력하세요.'
+});
+
 const captureWorkOrderPlan = () => ({
   contractVersion: 'vision-capture-work-order-plan/v1',
   status: 'capture_required',
@@ -504,12 +579,15 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     operationalPreparationRun: operationalPreparationRun(),
     operationalDecisionInputReviewPacket: decisionInputReviewPacket(),
     operationalReviewerWorksheet: reviewerWorksheet(),
+    operationalReviewSessionProgress: reviewSessionProgress(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
       humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
       humanDecisionBriefMarkdown: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.md',
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
+      reviewSessionProgress: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json',
+      reviewSessionProgressMarkdown: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.md',
       labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
       labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
       webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
@@ -637,6 +715,29 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
   assert.equal(bundle.summary.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
+  assert.equal(bundle.summary.reviewSessionProgressStatus, 'awaiting_human_csv_decisions');
+  assert.equal(bundle.summary.reviewSessionProgressTotalRows, 59);
+  assert.equal(bundle.summary.reviewSessionProgressPendingRows, 59);
+  assert.equal(bundle.summary.reviewSessionProgressInvalidRows, 0);
+  assert.equal(bundle.summary.reviewSessionProgressIgnoredSimulationOnlyRows, 59);
+  assert.equal(bundle.summary.reviewSessionProgressNextKind, 'pending');
+  assert.equal(bundle.summary.reviewSessionProgressNextSessionCode, 'label_conflict_session');
+  assert.equal(bundle.summary.reviewSessionProgressNextDecisionId, 'conflict-001');
+  assert.equal(bundle.summary.reviewSessionProgressNextQueueCode, 'vision_label_conflicts');
+  assert.equal(bundle.summary.reviewSessionProgressNextRecommendedAction, 'mark_needs_review');
+  assert.equal(bundle.summary.reviewSessionProgressNextCsvPath, 'C:\\repo\\packet\\01-label-conflict-session.csv');
+  assert.equal(bundle.summary.reviewSessionProgressNextMarkdownPath, 'C:\\repo\\packet\\01-label-conflict-session.md');
+  assert.equal(bundle.summary.reviewSessionProgressPath, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json');
+  assert.equal(bundle.summary.reviewSessionProgressMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.md');
+  assert.deepEqual(bundle.reviewSessionProgressPreviews.map(session => [
+    session.code,
+    session.status,
+    session.pendingRows,
+    session.firstPendingDecisionId
+  ]), [
+    ['label_conflict_session', 'awaiting_human_csv_decisions', 4, 'conflict-001'],
+    ['web_knowledge_session', 'awaiting_human_csv_decisions', 40, 'web-case-001']
+  ]);
   assert.deepEqual(bundle.preparationDecisionTemplateArtifacts, [
     'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
     'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
@@ -699,6 +800,11 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /1\. vision_label_conflicts \/ conflict-001 -> mark_needs_review/);
   assert.match(bundle.markdown, /4\. vision_label_conflicts \/ conflict-004 -> mark_needs_review/);
   assert.doesNotMatch(bundle.markdown, /2\. vision_label_conflicts \/ conflict-002 -> approve_candidate/);
+  assert.match(bundle.markdown, /Session progress: awaiting_human_csv_decisions \/ done 0 \/ pending 59 \/ invalid 0 \/ ignored simulation 59/);
+  assert.match(bundle.markdown, /Session progress next: pending label_conflict_session \/ vision_label_conflicts \/ conflict-001 -> mark_needs_review/);
+  assert.match(bundle.markdown, /Session progress preview/);
+  assert.match(bundle.markdown, /P1 승인 이미지 라벨 충돌 선검토: awaiting_human_csv_decisions \/ pending 4 \/ invalid 0 \/ first pending conflict-001/);
+  assert.match(bundle.markdown, /operational-hitl-review-session-progress\.md/);
   assert.match(bundle.markdown, /operational-hitl-reviewer-worksheet\.md/);
   assert.match(bundle.markdown, /vision_label_conflicts: prepared 4 \/ pending 4 \/ target 4/);
   assert.match(bundle.markdown, /operational-hitl-decision-input-review-packet\.json/);

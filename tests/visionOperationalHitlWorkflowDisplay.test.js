@@ -1243,6 +1243,21 @@ test('summarizes operational status bundle for one-step Settings handoff display
       reviewerWorksheetMarkdownLineCount: 83,
       reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
       reviewerWorksheetMarkdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
+      reviewSessionProgressStatus: 'awaiting_human_csv_decisions',
+      reviewSessionProgressTotalRows: 59,
+      reviewSessionProgressCompletedRows: 0,
+      reviewSessionProgressPendingRows: 59,
+      reviewSessionProgressInvalidRows: 0,
+      reviewSessionProgressIgnoredSimulationOnlyRows: 59,
+      reviewSessionProgressNextKind: 'pending',
+      reviewSessionProgressNextSessionCode: 'label_conflict_session',
+      reviewSessionProgressNextQueueCode: 'vision_label_conflicts',
+      reviewSessionProgressNextDecisionId: 'conflict-001',
+      reviewSessionProgressNextRecommendedAction: 'mark_needs_review',
+      reviewSessionProgressNextCsvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+      reviewSessionProgressNextMarkdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      reviewSessionProgressPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json',
+      reviewSessionProgressMarkdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.md',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1269,6 +1284,21 @@ test('summarizes operational status bundle for one-step Settings handoff display
         worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
         copyableText: 'newAction=mark_needs_review · reviewComment=Second safe row',
         manualText: 'selectedLabel · reviewer.id'
+      }
+    ],
+    reviewSessionProgressPreviews: [
+      {
+        code: 'label_conflict_session',
+        titleKo: '승인 이미지 라벨 충돌 선검토',
+        priority: 1,
+        status: 'awaiting_human_csv_decisions',
+        pendingRows: 4,
+        invalidRows: 0,
+        firstPendingDecisionId: 'conflict-001',
+        firstPendingQueueCode: 'vision_label_conflicts',
+        firstPendingRecommendedAction: 'mark_needs_review',
+        csvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+        markdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md'
       }
     ],
     visionCaptureWorkOrderPreviews: [
@@ -1421,6 +1451,29 @@ test('summarizes operational status bundle for one-step Settings handoff display
     display.reviewerWorksheetWorktableBridgeScopeText,
     'Bridge preview 2/4 matched · full pending 59 · outside preview 55'
   );
+  assert.equal(
+    display.reviewSessionProgressText,
+    'Session progress awaiting_human_csv_decisions · Done 0/59 · Pending 59 · Invalid 0 · Ignored simulation 59'
+  );
+  assert.equal(
+    display.reviewSessionProgressNextText,
+    'Next pending label_conflict_session · vision_label_conflicts · conflict-001 -> mark_needs_review'
+  );
+  assert.equal(display.reviewSessionProgressPath, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json');
+  assert.equal(display.reviewSessionProgressMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.md');
+  assert.deepEqual(display.reviewSessionProgressPreviews, [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 선검토',
+      priority: 1,
+      status: 'awaiting_human_csv_decisions',
+      pendingRows: 4,
+      invalidRows: 0,
+      firstPendingDecisionId: 'conflict-001',
+      firstInvalidDecisionId: '',
+      path: 'C:\\repo\\packet\\01-label-conflict-session.md'
+    }
+  ]);
   assert.deepEqual(display.reviewerWorksheetWorktableBridgePreviews, [
     {
       slipNumber: 1,
