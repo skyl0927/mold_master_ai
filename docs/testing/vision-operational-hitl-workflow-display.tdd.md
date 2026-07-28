@@ -13,6 +13,10 @@ Settings에 등록해 현재 개발 완료 단계, HITL 미입력 수, 추천 �
 도 Settings에서 등록해 사람이 승인할 후보와 위험 행을 빠르게 검토할 수 있어야 한다.
 `operational-hitl-review-session-plan/v1`는 세션별 검토 순서와 복사 후보/사람 확인
 필드를 Settings에서 확인할 수 있어야 한다.
+`operational-hitl-review-session-packet/v1`와
+`operational-hitl-human-decision-brief/v1`도 Settings에서 등록해 실제 판정자가
+열어야 할 세션 파일, 원본 worktable CSV, 다음 decision id, 자동 적용 금지 정책을
+한 화면에서 확인할 수 있어야 한다.
 
 ## RED
 
@@ -67,12 +71,20 @@ Cannot find module '../visionOperationalHitlWorkflowDisplay'
   manualConfirmationFields를 보여준다.
 - Review Session 카드는 `Session-plan only`, `newAction 자동 입력 금지`,
   `자동 적용 금지`, `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
+- `operational-hitl-review-session-packet/v1`는 `HITL Review Session Packet`
+  카드로 표시하고 세션별 CSV/Markdown 파일, 고위험 row, packet directory를
+  보여준다.
+- `operational-hitl-human-decision-brief/v1`는 `HITL Human Decision Brief`
+  카드로 표시하고 현재 단계, 전체/완료/대기/오류/고위험 row 수, 다음 세션,
+  다음 decision id, 원본 worktable CSV, 작업 순서, 다음 입력 row를 보여준다.
+- Human Brief 카드는 `Brief-only`, `newAction 자동 입력 금지`, `자동 적용 금지`,
+  `Graph 승격 금지`, `Model 학습 금지`를 표시한다.
 
 ## 확인 결과
 
 ```text
 npm run test:vision-operational-hitl-display
-PASS 16
+PASS 22
 ```
 
 Settings의 `Vision 운영 작업 목록` 아래에는 `HITL Workflow` 카드가 표시되고,
@@ -93,3 +105,11 @@ Status` 카드가 표시된다. 현재 실제 상태는 소프트웨어 scaffold
 `artifacts/operational-hitl-review-session-plan-*.json`을 등록하면 `HITL Review
 Session Plan` 카드가 표시된다. 이 카드는 세션별 우선 검토 순서와 사람이 확인할
 필드를 보여주지만, 역시 자동 승인이나 CSV 수정을 수행하지 않는다.
+
+`Session Packet 등록` 버튼으로 최신
+`artifacts/operational-hitl-review-session-packet-*.json`을 등록하면 세션별
+CSV/Markdown 경로를 볼 수 있다. `Human Brief 등록` 버튼으로 최신
+`artifacts/operational-hitl-human-decision-brief-*.json`을 등록하면 현재 실제
+상태인 `ready_for_human_entry`, 전체 59건, 완료 0건, 대기 59건, 고위험 9건,
+다음 세션 `label_conflict_session`, 다음 decision `conflict-001`, 원본
+worktable CSV 경로를 Settings에서 확인할 수 있다.

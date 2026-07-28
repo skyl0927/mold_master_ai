@@ -44,7 +44,8 @@ import {
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
-  summarizeOperationalHitlReviewSessionPacketDisplay
+  summarizeOperationalHitlReviewSessionPacketDisplay,
+  summarizeOperationalHitlHumanDecisionBriefDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -101,6 +102,8 @@ const OPERATIONAL_HITL_REVIEW_SESSION_PLAN_STORAGE_KEY =
   'mold-master-ai:operational-hitl-review-session-plan:v1';
 const OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY =
   'mold-master-ai:operational-hitl-review-session-packet:v1';
+const OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY =
+  'mold-master-ai:operational-hitl-human-decision-brief:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -202,6 +205,23 @@ const readOperationalHitlReviewSessionPacket = (): any | null => {
 const saveOperationalHitlReviewSessionPacket = (sessionPacket: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_HITL_REVIEW_SESSION_PACKET_STORAGE_KEY, JSON.stringify(sessionPacket));
+};
+
+const readOperationalHitlHumanDecisionBrief = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-hitl-human-decision-brief/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalHitlHumanDecisionBrief = (brief: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY, JSON.stringify(brief));
 };
 
 const operationalWorklistStatusLabel = (status: string): string => {
@@ -318,6 +338,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlReviewSessionPacket, setOperationalHitlReviewSessionPacket] = useState(
     () => readOperationalHitlReviewSessionPacket()
   );
+  const [operationalHitlHumanDecisionBrief, setOperationalHitlHumanDecisionBrief] = useState(
+    () => readOperationalHitlHumanDecisionBrief()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -335,6 +358,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeOperationalHitlReviewSessionPlanDisplay(operationalHitlReviewSessionPlan);
   const operationalHitlReviewSessionPacketDisplay =
     summarizeOperationalHitlReviewSessionPacketDisplay(operationalHitlReviewSessionPacket);
+  const operationalHitlHumanDecisionBriefDisplay =
+    summarizeOperationalHitlHumanDecisionBriefDisplay(operationalHitlHumanDecisionBrief);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
@@ -342,6 +367,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlWorktableSuggestionImportStatus, setOperationalHitlWorktableSuggestionImportStatus] = useState('');
   const [operationalHitlReviewSessionPlanImportStatus, setOperationalHitlReviewSessionPlanImportStatus] = useState('');
   const [operationalHitlReviewSessionPacketImportStatus, setOperationalHitlReviewSessionPacketImportStatus] = useState('');
+  const [operationalHitlHumanDecisionBriefImportStatus, setOperationalHitlHumanDecisionBriefImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -483,6 +509,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalHitlWorktableSuggestion,
       operationalHitlReviewSessionPlan,
       operationalHitlReviewSessionPacket,
+      operationalHitlHumanDecisionBrief,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -641,6 +668,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setOperationalHitlReviewSessionPacketImportStatus(
         error instanceof Error ? `Session packet 등록 실패: ${error.message}` : 'Session packet 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalHitlHumanDecisionBriefImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const brief = JSON.parse(await file.text());
+      if (brief?.contractVersion !== 'operational-hitl-human-decision-brief/v1') {
+        throw new Error('invalid operational HITL human decision brief');
+      }
+      saveOperationalHitlHumanDecisionBrief(brief);
+      setOperationalHitlHumanDecisionBrief(brief);
+      setOperationalHitlHumanDecisionBriefImportStatus('HITL human decision brief를 등록했습니다.');
+    } catch (error) {
+      setOperationalHitlHumanDecisionBriefImportStatus(
+        error instanceof Error ? `Human brief 등록 실패: ${error.message}` : 'Human brief 등록 실패'
       );
     }
   };
@@ -1004,6 +1052,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalHitlReviewSessionPacketImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-rose-800 px-2 py-1 text-[9px] text-rose-100 hover:bg-rose-700">
+                    Human Brief 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalHitlHumanDecisionBriefImport}
+                    />
+                  </label>
                   {operationalRelease && (
                     <span className="text-[9px] text-gray-500">
                       {new Date(operationalRelease.generatedAt).toLocaleString()}
@@ -1072,6 +1129,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalHitlReviewSessionPacketImportStatus}
+                </p>
+              )}
+              {operationalHitlHumanDecisionBriefImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalHitlHumanDecisionBriefImportStatus.includes('실패')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalHitlHumanDecisionBriefImportStatus}
                 </p>
               )}
               <div className="mt-2 rounded border border-sky-900/60 bg-gray-950/30 p-2 text-[9px] text-gray-300">
@@ -1338,6 +1404,152 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     )}
                     <div className="mt-2 flex flex-wrap gap-1">
                       {operationalHitlReviewSessionPacketDisplay.safetyBadges.map(badge => (
+                        <span
+                          key={badge}
+                          className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {operationalHitlHumanDecisionBriefDisplay && (
+                  <div
+                    aria-label="HITL Human Decision Brief"
+                    className={`mt-2 rounded border p-2 ${
+                      operationalHitlHumanDecisionBriefDisplay.severity === 'danger'
+                        ? 'border-red-800/70 bg-red-950/30'
+                        : operationalHitlHumanDecisionBriefDisplay.severity === 'success'
+                          ? 'border-emerald-800/70 bg-emerald-950/25'
+                          : 'border-rose-800/70 bg-rose-950/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-rose-100">
+                          {operationalHitlHumanDecisionBriefDisplay.title}
+                        </p>
+                        <p className="mt-1 text-rose-200">
+                          {operationalHitlHumanDecisionBriefDisplay.statusLabel}
+                        </p>
+                      </div>
+                      <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                        {operationalHitlHumanDecisionBriefDisplay.status}
+                      </span>
+                    </div>
+                    {operationalHitlHumanDecisionBriefDisplay.stageText && (
+                      <p className="mt-1 break-words text-rose-100">
+                        현재 단계: {operationalHitlHumanDecisionBriefDisplay.stageText}
+                      </p>
+                    )}
+                    <p className="mt-1 break-words text-gray-300">
+                      {operationalHitlHumanDecisionBriefDisplay.summaryText}
+                    </p>
+                    {operationalHitlHumanDecisionBriefDisplay.nextSessionText && (
+                      <p className="mt-1 break-words text-amber-100">
+                        {operationalHitlHumanDecisionBriefDisplay.nextSessionText}
+                      </p>
+                    )}
+                    {operationalHitlHumanDecisionBriefDisplay.worktableCsvPath && (
+                      <p className="mt-1 break-words font-mono text-[8px] text-rose-100">
+                        {operationalHitlHumanDecisionBriefDisplay.worktableCsvPath}
+                      </p>
+                    )}
+                    <p className="mt-1 break-words text-gray-400">
+                      다음: {operationalHitlHumanDecisionBriefDisplay.nextActionKo}
+                    </p>
+                    {operationalHitlHumanDecisionBriefDisplay.nextCommand && (
+                      <p className="mt-1 break-words rounded bg-gray-950/40 px-2 py-1 font-mono text-[8px] text-rose-100">
+                        {operationalHitlHumanDecisionBriefDisplay.nextCommand}
+                      </p>
+                    )}
+                    {operationalHitlHumanDecisionBriefDisplay.operatorStepPreviews.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {operationalHitlHumanDecisionBriefDisplay.operatorStepPreviews.map(step => (
+                          <div
+                            key={`${step.code}:${step.titleKo}`}
+                            className="rounded border border-rose-900/50 bg-gray-950/35 px-2 py-1"
+                          >
+                            <p className="break-words text-[8px] font-bold text-rose-50">
+                              {step.titleKo}
+                            </p>
+                            <p className="mt-1 break-words text-[8px] text-gray-300">
+                              {step.instructionKo}
+                            </p>
+                            {step.command && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-rose-100">
+                                {step.command}
+                              </p>
+                            )}
+                            {step.path && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                {step.path}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {operationalHitlHumanDecisionBriefDisplay.sessionPreviews.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {operationalHitlHumanDecisionBriefDisplay.sessionPreviews.map(session => (
+                          <div
+                            key={session.code}
+                            className="rounded border border-rose-900/50 bg-gray-950/35 px-2 py-1"
+                          >
+                            <p className="break-words text-[8px] font-bold text-rose-50">
+                              P{session.priority} {session.titleKo} · 대기 {session.pendingRows}건
+                              {session.invalidRows > 0 ? ` · 오류 ${session.invalidRows}건` : ''}
+                              {session.highRiskRows > 0 ? ` · 고위험 ${session.highRiskRows}건` : ''}
+                            </p>
+                            <p className="mt-1 break-words text-[8px] text-gray-400">
+                              {session.guidanceKo}
+                            </p>
+                            {session.markdownPath && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                {session.markdownPath}
+                              </p>
+                            )}
+                            {session.nextRows.map(row => (
+                              <div
+                                key={`${session.code}:${row.queueCode}:${row.decisionId}:${row.action}`}
+                                className="mt-1 rounded bg-gray-950/40 px-2 py-1"
+                              >
+                                <p className="break-words text-[8px] font-semibold text-rose-100">
+                                  {row.queueCode} · {row.decisionId} · {row.action} · {row.risk}
+                                </p>
+                                <p className="mt-1 break-words text-[8px] text-gray-300">
+                                  {row.displayLabel}
+                                </p>
+                                {row.reasonKo && (
+                                  <p className="mt-1 break-words text-[8px] text-gray-400">
+                                    {row.reasonKo}
+                                  </p>
+                                )}
+                                {row.requiredHumanChecksKo && (
+                                  <p className="mt-1 break-words text-[8px] text-amber-100">
+                                    확인: {row.requiredHumanChecksKo}
+                                  </p>
+                                )}
+                                {row.copyableText && (
+                                  <p className="mt-1 break-words text-[8px] text-cyan-100">
+                                    {row.copyableText}
+                                  </p>
+                                )}
+                                {row.manualText && (
+                                  <p className="mt-1 break-words text-[8px] text-amber-100">
+                                    {row.manualText}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {operationalHitlHumanDecisionBriefDisplay.safetyBadges.map(badge => (
                         <span
                           key={badge}
                           className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"

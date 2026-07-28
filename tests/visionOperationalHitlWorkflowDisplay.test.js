@@ -8,7 +8,8 @@ const {
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
-  summarizeOperationalHitlReviewSessionPacketDisplay
+  summarizeOperationalHitlReviewSessionPacketDisplay,
+  summarizeOperationalHitlHumanDecisionBriefDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -756,4 +757,154 @@ test('summarizes operational HITL review session packet for Settings UI display'
 test('returns null when no operational HITL review session packet is available to display', () => {
   assert.equal(summarizeOperationalHitlReviewSessionPacketDisplay(null), null);
   assert.equal(summarizeOperationalHitlReviewSessionPacketDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes operational HITL human decision brief for Settings UI display', () => {
+  const display = summarizeOperationalHitlHumanDecisionBriefDisplay({
+    contractVersion: 'operational-hitl-human-decision-brief/v1',
+    status: 'ready_for_human_entry',
+    pipelineStageKo: 'CSV HITL 판정 입력 대기',
+    worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+    summary: {
+      totalRows: 59,
+      completedRows: 0,
+      pendingRows: 59,
+      invalidRows: 0,
+      highRiskRows: 9,
+      sessionCount: 4,
+      nextSessionCode: 'label_conflict_session',
+      nextDecisionId: 'conflict-001'
+    },
+    operatorSteps: [
+      {
+        code: 'open_session_packet',
+        titleKo: '세션 패킷 열기',
+        instructionKo: '먼저 세션 Markdown 파일을 열어 검토 대상과 근거를 확인하세요.',
+        path: 'C:\\repo\\packet\\01-label-conflict-session.md'
+      },
+      {
+        code: 'fill_original_worktable_csv',
+        titleKo: '원본 worktable CSV 입력',
+        instructionKo: '원본 worktable CSV에 사람이 확인한 값만 입력하세요.',
+        path: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv'
+      },
+      {
+        code: 'dry_run_import',
+        titleKo: '입력 dry-run 검증',
+        instructionKo: 'npm run operational:hitl:worktable-import를 실행하세요.',
+        command: 'npm run operational:hitl:worktable-import'
+      }
+    ],
+    sessions: [
+      {
+        code: 'label_conflict_session',
+        titleKo: '승인 이미지 라벨 충돌 선검토',
+        priority: 1,
+        status: 'awaiting_human_csv_decisions',
+        rowCount: 4,
+        completedRows: 0,
+        pendingRows: 4,
+        invalidRows: 0,
+        highRiskRows: 4,
+        markdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+        guidanceKo: '동일 hash 원본 이미지와 후보 라벨 중 실제 지배 결함을 먼저 확인하세요.',
+        nextRows: [
+          {
+            queueCode: 'vision_label_conflicts',
+            decisionId: 'conflict-001',
+            displayLabel: '제팅 | 플로우마크',
+            recommendedNewAction: 'mark_needs_review',
+            recommendationRisk: 'high',
+            recommendationReasonKo: '라벨 충돌은 원본 확인 전까지 needs_review 격리가 안전합니다.',
+            requiredHumanChecksKo: '원본 이미지와 후보 라벨 중 실제 지배 결함을 확인하세요.',
+            copyableFields: [
+              'newAction=mark_needs_review',
+              'reviewComment=라벨 충돌이 있어 원본 확인 전까지 학습 후보에서 격리합니다.'
+            ],
+            manualConfirmationFields: [
+              'selectedLabel',
+              'reviewer.id',
+              'decidedAt'
+            ]
+          }
+        ]
+      }
+    ],
+    recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
+  });
+
+  assert.equal(display.title, 'HITL Human Decision Brief');
+  assert.equal(display.statusLabel, '사람 CSV 입력 대기');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.stageText, 'CSV HITL 판정 입력 대기');
+  assert.equal(
+    display.summaryText,
+    '전체 59건 · 완료 0건 · 대기 59건 · 고위험 9건 · 세션 4건'
+  );
+  assert.equal(display.worktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
+  assert.equal(display.nextSessionText, '다음 세션: label_conflict_session · conflict-001');
+  assert.equal(display.nextCommand, 'npm run operational:hitl:worktable-import');
+  assert.deepEqual(display.operatorStepPreviews, [
+    {
+      code: 'open_session_packet',
+      titleKo: '세션 패킷 열기',
+      instructionKo: '먼저 세션 Markdown 파일을 열어 검토 대상과 근거를 확인하세요.',
+      command: '',
+      path: 'C:\\repo\\packet\\01-label-conflict-session.md'
+    },
+    {
+      code: 'fill_original_worktable_csv',
+      titleKo: '원본 worktable CSV 입력',
+      instructionKo: '원본 worktable CSV에 사람이 확인한 값만 입력하세요.',
+      command: '',
+      path: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv'
+    },
+    {
+      code: 'dry_run_import',
+      titleKo: '입력 dry-run 검증',
+      instructionKo: 'npm run operational:hitl:worktable-import를 실행하세요.',
+      command: 'npm run operational:hitl:worktable-import',
+      path: ''
+    }
+  ]);
+  assert.deepEqual(display.sessionPreviews, [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 선검토',
+      priority: 1,
+      status: 'awaiting_human_csv_decisions',
+      rowCount: 4,
+      completedRows: 0,
+      pendingRows: 4,
+      invalidRows: 0,
+      highRiskRows: 4,
+      markdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      guidanceKo: '동일 hash 원본 이미지와 후보 라벨 중 실제 지배 결함을 먼저 확인하세요.',
+      nextRows: [
+        {
+          queueCode: 'vision_label_conflicts',
+          decisionId: 'conflict-001',
+          displayLabel: '제팅 | 플로우마크',
+          action: 'mark_needs_review',
+          risk: 'high',
+          reasonKo: '라벨 충돌은 원본 확인 전까지 needs_review 격리가 안전합니다.',
+          requiredHumanChecksKo: '원본 이미지와 후보 라벨 중 실제 지배 결함을 확인하세요.',
+          copyableText: '복사 후보: newAction=mark_needs_review · reviewComment=라벨 충돌이 있어 원본 확인 전까지 학습 후보에서 격리합니다.',
+          manualText: '사람 확인: selectedLabel · reviewer.id · decidedAt'
+        }
+      ]
+    }
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Brief-only',
+    'newAction 자동 입력 금지',
+    '자동 적용 금지',
+    'Graph 승격 금지',
+    'Model 학습 금지'
+  ]);
+});
+
+test('returns null when no operational HITL human decision brief is available to display', () => {
+  assert.equal(summarizeOperationalHitlHumanDecisionBriefDisplay(null), null);
+  assert.equal(summarizeOperationalHitlHumanDecisionBriefDisplay({ contractVersion: 'unknown/v1' }), null);
 });

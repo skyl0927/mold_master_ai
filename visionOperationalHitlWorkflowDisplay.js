@@ -188,10 +188,30 @@ const reviewSessionPacketSeverityFor = status => {
   return 'warning';
 };
 
+const humanDecisionBriefStatusLabelFor = status => {
+  if (status === 'ready_for_human_entry') return '사람 CSV 입력 대기';
+  if (status === 'fix_invalid_human_entries') return '사람 입력 오류 수정 필요';
+  if (status === 'ready_for_worktable_apply') return '작업표 반영 승인 대기';
+  if (status === 'missing_evidence') return '브리프 근거 재생성 필요';
+  if (status === 'clear') return '추가 HITL 입력 없음';
+  return compact(status);
+};
+
+const humanDecisionBriefSeverityFor = status => {
+  if (status === 'missing_evidence' || status === 'fix_invalid_human_entries') return 'danger';
+  if (status === 'ready_for_worktable_apply' || status === 'clear') return 'success';
+  return 'warning';
+};
+
 const copyableTextFor = fields => {
   const parts = (Array.isArray(fields) ? fields : [])
     .map(field => `${compact(field?.worktableColumn)}=${compact(field?.value)}`)
     .filter(part => !part.startsWith('=') && !part.endsWith('='));
+  return parts.length > 0 ? `복사 후보: ${parts.join(' · ')}` : '';
+};
+
+const copyableStringTextFor = fields => {
+  const parts = (Array.isArray(fields) ? fields : []).map(compact).filter(Boolean);
   return parts.length > 0 ? `복사 후보: ${parts.join(' · ')}` : '';
 };
 
@@ -534,6 +554,81 @@ const summarizeOperationalHitlReviewSessionPacketDisplay = sessionPacket => {
   };
 };
 
+const summarizeOperationalHitlHumanDecisionBriefDisplay = brief => {
+  if (brief?.contractVersion !== 'operational-hitl-human-decision-brief/v1') {
+    return null;
+  }
+
+  const summary = brief.summary || {};
+  const status = compact(brief.status);
+  const operatorSteps = Array.isArray(brief.operatorSteps) ? brief.operatorSteps : [];
+  const sessions = Array.isArray(brief.sessions) ? brief.sessions : [];
+  const nextSessionCode = compact(summary.nextSessionCode);
+  const nextDecisionId = compact(summary.nextDecisionId);
+  const firstCommandStep = operatorSteps.find(step => compact(step?.command));
+  const summaryParts = [
+    `전체 ${numberValue(summary.totalRows)}건`,
+    `완료 ${numberValue(summary.completedRows)}건`,
+    `대기 ${numberValue(summary.pendingRows)}건`,
+    numberValue(summary.invalidRows) > 0 ? `오류 ${numberValue(summary.invalidRows)}건` : '',
+    numberValue(summary.highRiskRows) > 0 ? `고위험 ${numberValue(summary.highRiskRows)}건` : '',
+    `세션 ${numberValue(summary.sessionCount)}건`
+  ].filter(Boolean);
+
+  return {
+    title: 'HITL Human Decision Brief',
+    status,
+    statusLabel: humanDecisionBriefStatusLabelFor(status),
+    severity: humanDecisionBriefSeverityFor(status),
+    stageText: compact(brief.pipelineStageKo) || compact(brief.pipelineStageCode),
+    summaryText: summaryParts.join(' · '),
+    worktableCsvPath: compact(brief.worktableCsvPath),
+    nextSessionText: nextSessionCode || nextDecisionId
+      ? `다음 세션: ${nextSessionCode || '확인 필요'}${nextDecisionId ? ` · ${nextDecisionId}` : ''}`
+      : '',
+    nextActionKo: compact(brief.recommendedAction),
+    nextCommand: compact(firstCommandStep?.command),
+    operatorStepPreviews: operatorSteps.slice(0, 5).map(step => ({
+      code: compact(step?.code),
+      titleKo: compact(step?.titleKo),
+      instructionKo: compact(step?.instructionKo),
+      command: compact(step?.command),
+      path: compact(step?.path)
+    })),
+    sessionPreviews: sessions.slice(0, 4).map(session => ({
+      code: compact(session?.code),
+      titleKo: compact(session?.titleKo),
+      priority: numberValue(session?.priority),
+      status: compact(session?.status),
+      rowCount: numberValue(session?.rowCount),
+      completedRows: numberValue(session?.completedRows),
+      pendingRows: numberValue(session?.pendingRows),
+      invalidRows: numberValue(session?.invalidRows),
+      highRiskRows: numberValue(session?.highRiskRows),
+      markdownPath: compact(session?.markdownPath) || compact(session?.csvPath),
+      guidanceKo: compact(session?.guidanceKo),
+      nextRows: (Array.isArray(session?.nextRows) ? session.nextRows : []).slice(0, 3).map(row => ({
+        queueCode: compact(row?.queueCode),
+        decisionId: compact(row?.decisionId),
+        displayLabel: compact(row?.displayLabel),
+        action: compact(row?.recommendedNewAction),
+        risk: compact(row?.recommendationRisk),
+        reasonKo: compact(row?.recommendationReasonKo),
+        requiredHumanChecksKo: compact(row?.requiredHumanChecksKo),
+        copyableText: copyableStringTextFor(row?.copyableFields),
+        manualText: manualTextFor(row?.manualConfirmationFields)
+      }))
+    })),
+    safetyBadges: [
+      'Brief-only',
+      'newAction 자동 입력 금지',
+      '자동 적용 금지',
+      'Graph 승격 금지',
+      'Model 학습 금지'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -584,5 +679,6 @@ module.exports = {
   summarizeOperationalHitlPipelineStatusDisplay,
   summarizeOperationalHitlWorktableSuggestionDisplay,
   summarizeOperationalHitlReviewSessionPlanDisplay,
-  summarizeOperationalHitlReviewSessionPacketDisplay
+  summarizeOperationalHitlReviewSessionPacketDisplay,
+  summarizeOperationalHitlHumanDecisionBriefDisplay
 };
