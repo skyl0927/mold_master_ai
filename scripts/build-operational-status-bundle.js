@@ -87,10 +87,15 @@ const jsonOutputPath = path.resolve(`${baseOutput}.json`);
 const markdownOutputPath = path.resolve(`${baseOutput}.md`);
 
 const run = () => {
+  const developmentProgress = readOptionalJson(developmentProgressPath);
+  const pipelineStatus = readOptionalJson(pipelineStatusPath);
+  const humanDecisionBrief = readOptionalJson(humanDecisionBriefPath);
+  const reviewSessionPacket = readOptionalJson(reviewSessionPacketPath);
+  const worktableSuggestion = readOptionalJson(worktableSuggestionPath);
   const bundle = buildOperationalStatusBundle({
-    developmentProgress: readOptionalJson(developmentProgressPath),
-    pipelineStatus: readOptionalJson(pipelineStatusPath),
-    humanDecisionBrief: readOptionalJson(humanDecisionBriefPath),
+    developmentProgress,
+    pipelineStatus,
+    humanDecisionBrief,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -99,6 +104,10 @@ const run = () => {
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
       worktableSuggestion: worktableSuggestionPath
+    },
+    sourceArtifactPayloads: {
+      reviewSessionPacket,
+      worktableSuggestion
     }
   });
 
@@ -122,6 +131,7 @@ const run = () => {
     highRiskRows: bundle.summary.highRiskRows ?? null,
     nextSessionCode: bundle.summary.nextSessionCode ?? null,
     nextDecisionId: bundle.summary.nextDecisionId ?? null,
+    embeddedSnapshotCount: bundle.summary.embeddedSnapshotCount ?? 0,
     settingsImportButtons: bundle.settingsImportChecklist.map(item => item.buttonLabelKo),
     recommendedAction: bundle.recommendedAction
   }, null, 2));

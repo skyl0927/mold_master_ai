@@ -49,6 +49,9 @@ import {
   summarizeMoldMasterDevelopmentProgressDisplay,
   summarizeOperationalStatusBundleDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
+import {
+  extractRestorableStatusBundleArtifacts
+} from '../operationalStatusBundle';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -779,9 +782,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
         throw new Error('invalid operational status bundle');
       }
+      const restored = extractRestorableStatusBundleArtifacts(bundle);
+      if (restored.artifacts.developmentProgress) {
+        saveMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
+        setMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
+      }
+      if (restored.artifacts.pipelineStatus) {
+        saveOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
+        setOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
+      }
+      if (restored.artifacts.humanDecisionBrief) {
+        saveOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
+        setOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
+      }
+      if (restored.artifacts.reviewSessionPacket) {
+        saveOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
+        setOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
+      }
+      if (restored.artifacts.worktableSuggestion) {
+        saveOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
+        setOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
+      }
       saveOperationalStatusBundle(bundle);
       setOperationalStatusBundle(bundle);
-      setOperationalStatusBundleImportStatus('Operational status bundle registered.');
+      setOperationalStatusBundleImportStatus(
+        `Operational status bundle registered. Restored ${restored.restoredKeys.length} embedded artifacts.`
+      );
     } catch (error) {
       setOperationalStatusBundleImportStatus(
         error instanceof Error ? `Status bundle import failed: ${error.message}` : 'Status bundle import failed'

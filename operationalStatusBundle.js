@@ -103,6 +103,66 @@ const sourceArtifactListFor = sourceArtifacts => [
   }
 ].filter(item => item.path);
 
+const restorableArtifactContracts = {
+  developmentProgress: 'mold-master-development-progress-report/v1',
+  pipelineStatus: 'operational-hitl-pipeline-status/v1',
+  humanDecisionBrief: 'operational-hitl-human-decision-brief/v1',
+  reviewSessionPacket: 'operational-hitl-review-session-packet/v1',
+  worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1'
+};
+
+const sourceArtifactSnapshotsFor = ({ generatedAt, sourceArtifacts, sourceArtifactPayloads }) =>
+  Object.entries(restorableArtifactContracts)
+    .map(([key, contractVersion]) => {
+      const payload = sourceArtifactPayloads[key];
+      if (!isContract(payload, contractVersion)) return null;
+      return {
+        key,
+        contractVersion,
+        sourcePath: compact(sourceArtifacts[key]),
+        embeddedAt: generatedAt,
+        payload
+      };
+    })
+    .filter(Boolean);
+
+const extractRestorableStatusBundleArtifacts = bundle => {
+  if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
+    return {
+      artifacts: {},
+      restoredKeys: [],
+      rejectedSnapshots: []
+    };
+  }
+
+  const artifacts = {};
+  const restoredKeys = [];
+  const rejectedSnapshots = [];
+  asArray(bundle.sourceArtifactSnapshots).forEach(snapshot => {
+    const key = compact(snapshot?.key);
+    const expectedContract = restorableArtifactContracts[key];
+    if (
+      !expectedContract
+      || compact(snapshot?.contractVersion) !== expectedContract
+      || !isContract(snapshot?.payload, expectedContract)
+    ) {
+      rejectedSnapshots.push({
+        key,
+        contractVersion: compact(snapshot?.contractVersion)
+      });
+      return;
+    }
+    artifacts[key] = snapshot.payload;
+    restoredKeys.push(key);
+  });
+
+  return {
+    artifacts,
+    restoredKeys,
+    rejectedSnapshots
+  };
+};
+
 const settingsImportChecklistFor = sourceArtifacts => [
   {
     buttonLabelKo: 'Progress 등록',
@@ -271,6 +331,7 @@ const buildOperationalStatusBundle = ({
   pipelineStatus = null,
   humanDecisionBrief = null,
   sourceArtifacts = {},
+  sourceArtifactPayloads = {},
   markdownPath = null
 } = {}) => {
   const missingArtifactNames = requiredMissing({
@@ -291,6 +352,16 @@ const buildOperationalStatusBundle = ({
     developmentProgress,
     pipelineStatus,
     humanDecisionBrief
+  });
+  const sourceArtifactSnapshots = sourceArtifactSnapshotsFor({
+    generatedAt,
+    sourceArtifacts,
+    sourceArtifactPayloads: {
+      developmentProgress,
+      pipelineStatus,
+      humanDecisionBrief,
+      ...sourceArtifactPayloads
+    }
   });
   const progressSummary = developmentProgress.summary || {};
   const humanSummary = humanDecisionBrief.summary || {};
@@ -331,10 +402,12 @@ const buildOperationalStatusBundle = ({
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
       nextDecisionId: compact(humanSummary.nextDecisionId),
-      worktableCsvPath: compact(humanDecisionBrief.worktableCsvPath)
+      worktableCsvPath: compact(humanDecisionBrief.worktableCsvPath),
+      embeddedSnapshotCount: sourceArtifactSnapshots.length
     },
     progressFeedbackKo: asArray(developmentProgress.progressFeedbackKo).map(compact).filter(Boolean),
     sourceArtifacts: sourceArtifactListFor(sourceArtifacts),
+    sourceArtifactSnapshots,
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,
@@ -353,5 +426,6 @@ const buildOperationalStatusBundle = ({
 };
 
 module.exports = {
-  buildOperationalStatusBundle
+  buildOperationalStatusBundle,
+  extractRestorableStatusBundleArtifacts
 };

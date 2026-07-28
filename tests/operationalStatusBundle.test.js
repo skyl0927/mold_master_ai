@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  buildOperationalStatusBundle
+  buildOperationalStatusBundle,
+  extractRestorableStatusBundleArtifacts
 } = require('../operationalStatusBundle');
 
 const progressReport = () => ({
@@ -205,4 +206,101 @@ test('fails closed when required operational status evidence is missing', () => 
   assert.deepEqual(bundle.sessionPointers, []);
   assert.equal(bundle.settingsImportChecklist.length, 0);
   assert.match(bundle.recommendedAction, /operational:progress/);
+});
+
+test('embeds restorable source artifact snapshots for one-file Settings restore', () => {
+  const reviewSessionPacket = {
+    contractVersion: 'operational-hitl-review-session-packet/v1',
+    status: 'ready_for_human_review',
+    summary: {
+      totalRows: 59
+    }
+  };
+  const worktableSuggestion = {
+    contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
+    status: 'ready_for_human_review',
+    rows: [
+      {
+        decisionId: 'conflict-001',
+        recommendedNewAction: 'mark_needs_review'
+      }
+    ]
+  };
+
+  const bundle = buildOperationalStatusBundle({
+    generatedAt: '2026-07-28T04:00:00.000Z',
+    developmentProgress: progressReport(),
+    pipelineStatus: pipelineStatus(),
+    humanDecisionBrief: humanBrief(),
+    sourceArtifacts: {
+      developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
+      pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
+      humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
+      reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
+      worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json'
+    },
+    sourceArtifactPayloads: {
+      reviewSessionPacket,
+      worktableSuggestion
+    }
+  });
+
+  assert.equal(bundle.summary.embeddedSnapshotCount, 5);
+  assert.deepEqual(bundle.sourceArtifactSnapshots.map(snapshot => snapshot.key), [
+    'developmentProgress',
+    'pipelineStatus',
+    'humanDecisionBrief',
+    'reviewSessionPacket',
+    'worktableSuggestion'
+  ]);
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'developmentProgress').payload.summary.visionBlockers,
+    8
+  );
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'worktableSuggestion').payload.rows[0].decisionId,
+    'conflict-001'
+  );
+
+  const restorable = extractRestorableStatusBundleArtifacts(bundle);
+  assert.deepEqual(restorable.restoredKeys, [
+    'developmentProgress',
+    'pipelineStatus',
+    'humanDecisionBrief',
+    'reviewSessionPacket',
+    'worktableSuggestion'
+  ]);
+  assert.equal(restorable.rejectedSnapshots.length, 0);
+  assert.equal(restorable.artifacts.developmentProgress.contractVersion, 'mold-master-development-progress-report/v1');
+  assert.equal(restorable.artifacts.worktableSuggestion.contractVersion, 'operational-hitl-decision-worktable-suggestion/v1');
+});
+
+test('rejects unsupported or contract-mismatched status bundle snapshots', () => {
+  const restorable = extractRestorableStatusBundleArtifacts({
+    contractVersion: 'operational-status-bundle/v1',
+    sourceArtifactSnapshots: [
+      {
+        key: 'developmentProgress',
+        contractVersion: 'wrong/v1',
+        payload: progressReport()
+      },
+      {
+        key: 'humanDecisionBriefMarkdown',
+        contractVersion: 'text/markdown',
+        payload: '# brief'
+      },
+      {
+        key: 'pipelineStatus',
+        contractVersion: 'operational-hitl-pipeline-status/v1',
+        payload: pipelineStatus()
+      }
+    ]
+  });
+
+  assert.deepEqual(restorable.restoredKeys, ['pipelineStatus']);
+  assert.equal(restorable.artifacts.pipelineStatus.contractVersion, 'operational-hitl-pipeline-status/v1');
+  assert.deepEqual(restorable.rejectedSnapshots.map(item => item.key), [
+    'developmentProgress',
+    'humanDecisionBriefMarkdown'
+  ]);
 });
