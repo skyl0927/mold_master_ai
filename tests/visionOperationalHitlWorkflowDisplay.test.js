@@ -1230,13 +1230,14 @@ test('summarizes operational status bundle for one-step Settings handoff display
       reviewerWorksheetNextReviewSlipTitleKo: '다음 HITL 판정: vision_label_conflicts / conflict-001',
       reviewerWorksheetNextReviewSlipFirstInstructionKo: 'source file에서 conflict-001 항목을 찾으세요.',
       reviewerWorksheetNextReviewSlipSafetyNoticeKo: 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.',
-      reviewerWorksheetSlipQueueCount: 3,
-      reviewerWorksheetSlipQueuePreviewText: '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003',
-      reviewerWorksheetWorktableMatchedSlips: 1,
+      reviewerWorksheetSlipQueueCount: 4,
+      reviewerWorksheetSlipQueuePreviewText: '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003 · 4. vision_label_conflicts / conflict-004',
+      reviewerWorksheetWorktableMatchedSlips: 2,
       reviewerWorksheetFirstWorktableDecisionId: 'conflict-001',
       reviewerWorksheetFirstWorktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
       reviewerWorksheetFirstWorktableCopyableText: 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification',
       reviewerWorksheetFirstWorktableManualText: 'selectedLabel · reviewer.id · decidedAt',
+      reviewerWorksheetWorktableBridgePreviewText: '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review',
       reviewerWorksheetSectionCount: 3,
       reviewerWorksheetMarkdownLineCount: 83,
       reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
@@ -1245,6 +1246,30 @@ test('summarizes operational status bundle for one-step Settings handoff display
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
     },
+    reviewerWorksheetWorktableBridgePreviews: [
+      {
+        slipNumber: 1,
+        entryNumber: 1,
+        queueCode: 'vision_label_conflicts',
+        decisionId: 'conflict-001',
+        sessionCode: 'label_conflict_session',
+        recommendedNewAction: 'mark_needs_review',
+        worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+        copyableText: 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification',
+        manualText: 'selectedLabel · reviewer.id · decidedAt'
+      },
+      {
+        slipNumber: 4,
+        entryNumber: 4,
+        queueCode: 'vision_label_conflicts',
+        decisionId: 'conflict-004',
+        sessionCode: 'label_conflict_session',
+        recommendedNewAction: 'mark_needs_review',
+        worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+        copyableText: 'newAction=mark_needs_review · reviewComment=Second safe row',
+        manualText: 'selectedLabel · reviewer.id'
+      }
+    ],
     visionCaptureWorkOrderPreviews: [
       {
         defectClass: 'burn',
@@ -1378,15 +1403,43 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.reviewerWorksheetSlipTitle, '다음 HITL 판정: vision_label_conflicts / conflict-001');
   assert.equal(display.reviewerWorksheetSlipInstruction, 'source file에서 conflict-001 항목을 찾으세요.');
   assert.equal(display.reviewerWorksheetSlipSafetyNotice, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
-  assert.equal(display.reviewerWorksheetSlipQueueText, 'Review slip queue 3건');
+  assert.equal(display.reviewerWorksheetSlipQueueText, 'Review slip queue 4건');
   assert.equal(
     display.reviewerWorksheetSlipQueuePreviewText,
-    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003'
+    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003 · 4. vision_label_conflicts / conflict-004'
   );
-  assert.equal(display.reviewerWorksheetWorktableBridgeText, 'Worktable bridge 1/3 matched · first conflict-001');
+  assert.equal(display.reviewerWorksheetWorktableBridgeText, 'Worktable bridge 2/4 matched · first conflict-001');
   assert.equal(display.reviewerWorksheetWorktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
   assert.equal(display.reviewerWorksheetWorktableCopyableText, 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification');
   assert.equal(display.reviewerWorksheetWorktableManualText, 'selectedLabel · reviewer.id · decidedAt');
+  assert.equal(
+    display.reviewerWorksheetWorktableBridgePreviewText,
+    '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review'
+  );
+  assert.deepEqual(display.reviewerWorksheetWorktableBridgePreviews, [
+    {
+      slipNumber: 1,
+      entryNumber: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      sessionCode: 'label_conflict_session',
+      recommendedNewAction: 'mark_needs_review',
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      copyableText: 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification',
+      manualText: 'selectedLabel · reviewer.id · decidedAt'
+    },
+    {
+      slipNumber: 4,
+      entryNumber: 4,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-004',
+      sessionCode: 'label_conflict_session',
+      recommendedNewAction: 'mark_needs_review',
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      copyableText: 'newAction=mark_needs_review · reviewComment=Second safe row',
+      manualText: 'selectedLabel · reviewer.id'
+    }
+  ]);
   assert.equal(display.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
   assert.equal(display.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');

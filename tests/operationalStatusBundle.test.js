@@ -212,6 +212,28 @@ const humanBrief = () => ({
       requiresHumanReview: true,
       autoPopulateAllowed: false,
       autoApplyAllowed: true
+    },
+    {
+      entryNumber: 4,
+      sessionCode: 'label_conflict_session',
+      sessionPriority: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-004',
+      recommendedNewAction: 'mark_needs_review',
+      copyableFields: [
+        'newAction=mark_needs_review',
+        'reviewComment=Second safe row'
+      ],
+      manualConfirmationFields: [
+        'selectedLabel',
+        'reviewer.id'
+      ],
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      sessionMarkdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      sessionCsvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+      requiresHumanReview: true,
+      autoPopulateAllowed: false,
+      autoApplyAllowed: false
     }
   ],
   recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
@@ -457,6 +479,11 @@ const reviewerWorksheet = () => ({
       slipNumber: 3,
       queueCode: 'vision_label_conflicts',
       decisionId: 'conflict-003'
+    },
+    {
+      slipNumber: 4,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-004'
     }
   ],
   markdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
@@ -564,16 +591,44 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipTitleKo, '다음 HITL 판정: vision_label_conflicts / conflict-001');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipFirstInstructionKo, 'source file에서 conflict-001 항목을 찾으세요.');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipSafetyNoticeKo, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
-  assert.equal(bundle.summary.reviewerWorksheetSlipQueueCount, 3);
+  assert.equal(bundle.summary.reviewerWorksheetSlipQueueCount, 4);
   assert.equal(
     bundle.summary.reviewerWorksheetSlipQueuePreviewText,
-    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003'
+    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003 · 4. vision_label_conflicts / conflict-004'
   );
-  assert.equal(bundle.summary.reviewerWorksheetWorktableMatchedSlips, 1);
+  assert.equal(bundle.summary.reviewerWorksheetWorktableMatchedSlips, 2);
   assert.equal(bundle.summary.reviewerWorksheetFirstWorktableDecisionId, 'conflict-001');
   assert.equal(bundle.summary.reviewerWorksheetFirstWorktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
   assert.equal(bundle.summary.reviewerWorksheetFirstWorktableCopyableText, 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification');
   assert.equal(bundle.summary.reviewerWorksheetFirstWorktableManualText, 'selectedLabel · reviewer.id · decidedAt');
+  assert.equal(
+    bundle.summary.reviewerWorksheetWorktableBridgePreviewText,
+    '1. vision_label_conflicts / conflict-001 -> mark_needs_review · 4. vision_label_conflicts / conflict-004 -> mark_needs_review'
+  );
+  assert.deepEqual(bundle.reviewerWorksheetWorktableBridgePreviews, [
+    {
+      slipNumber: 1,
+      entryNumber: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      sessionCode: 'label_conflict_session',
+      recommendedNewAction: 'mark_needs_review',
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      copyableText: 'newAction=mark_needs_review · reviewComment=Keep isolated pending source verification',
+      manualText: 'selectedLabel · reviewer.id · decidedAt'
+    },
+    {
+      slipNumber: 4,
+      entryNumber: 4,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-004',
+      sessionCode: 'label_conflict_session',
+      recommendedNewAction: 'mark_needs_review',
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      copyableText: 'newAction=mark_needs_review · reviewComment=Second safe row',
+      manualText: 'selectedLabel · reviewer.id'
+    }
+  ]);
   assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
@@ -630,11 +685,15 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
   assert.match(bundle.markdown, /Decision review: awaiting_human_input \/ pending 59 \/ missing 56/);
   assert.match(bundle.markdown, /Reviewer worksheet: ready_for_human_review \/ missing 56 \/ lines 83/);
-  assert.match(bundle.markdown, /Reviewer worksheet worktable bridge: 1\/3 matched \/ first conflict-001/);
+  assert.match(bundle.markdown, /Reviewer worksheet worktable bridge: 2\/4 matched \/ first conflict-001/);
   assert.match(bundle.markdown, /Worktable CSV: C:\\repo\\artifacts\\operational-hitl-decision-worktable-export\.csv/);
   assert.match(bundle.markdown, /Copy fields: newAction=mark_needs_review · reviewComment=Keep isolated pending source verification/);
   assert.match(bundle.markdown, /Manual fields: selectedLabel · reviewer\.id · decidedAt/);
   assert.match(bundle.markdown, /autoPopulateAllowed=true 또는 autoApplyAllowed=true 항목은 bridge에서 제외/);
+  assert.match(bundle.markdown, /Reviewer worksheet worktable bridge preview/);
+  assert.match(bundle.markdown, /1\. vision_label_conflicts \/ conflict-001 -> mark_needs_review/);
+  assert.match(bundle.markdown, /4\. vision_label_conflicts \/ conflict-004 -> mark_needs_review/);
+  assert.doesNotMatch(bundle.markdown, /2\. vision_label_conflicts \/ conflict-002 -> approve_candidate/);
   assert.match(bundle.markdown, /operational-hitl-reviewer-worksheet\.md/);
   assert.match(bundle.markdown, /vision_label_conflicts: prepared 4 \/ pending 4 \/ target 4/);
   assert.match(bundle.markdown, /operational-hitl-decision-input-review-packet\.json/);
