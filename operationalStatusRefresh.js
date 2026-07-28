@@ -7,6 +7,8 @@ const DEFAULT_REFRESH_COMMANDS = [
   'npm run vision:capture:work-orders:status',
   'npm run operational:progress',
   'npm run operational:hitl:human-brief',
+  'npm run operational:hitl:decision-review-packet',
+  'npm run operational:hitl:reviewer-worksheet',
   'npm run operational:status-bundle'
 ];
 

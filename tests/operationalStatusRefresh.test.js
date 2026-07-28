@@ -59,15 +59,10 @@ test('executes only the allowlisted refresh sequence when execute is explicit', 
   assert.equal(report.summary.failedCommands, 0);
   assert.equal(executed[0].script, 'operational:hitl:worktable-import');
   assert.equal(executed.at(-1).script, 'operational:status-bundle');
-  assert.deepEqual(executed.map(command => command.args), [
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    []
-  ]);
+  assert.deepEqual(
+    executed.map(command => command.args),
+    Array.from({ length: DEFAULT_REFRESH_COMMANDS.length }, () => [])
+  );
 });
 
 test('rejects apply, verify, and malformed commands before execution', () => {
