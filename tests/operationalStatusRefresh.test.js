@@ -46,7 +46,25 @@ test('executes only the allowlisted refresh sequence when execute is explicit', 
       executed.push(command);
       return {
         exitCode: 0,
-        stdout: `ok ${command.script}`,
+        stdout: command.script === 'operational:hitl:session-progress'
+          ? [
+            `ok ${command.script}`,
+            '{',
+            '  "outputPath": "C:\\\\repo\\\\artifacts\\\\operational-hitl-review-session-progress.json",',
+            '  "markdownPath": "C:\\\\repo\\\\artifacts\\\\operational-hitl-review-session-progress.md",',
+            '  "status": "awaiting_human_csv_decisions"',
+            '}'
+          ].join('\n')
+          : command.script === 'operational:status-bundle'
+            ? [
+              `ok ${command.script}`,
+              '{',
+              '  "outputPath": "C:\\\\repo\\\\artifacts\\\\operational-status-bundle.json",',
+              '  "markdownPath": "C:\\\\repo\\\\artifacts\\\\operational-status-bundle.md",',
+              '  "status": "awaiting_human_hitl"',
+              '}'
+            ].join('\n')
+            : `ok ${command.script}`,
         stderr: ''
       };
     }
@@ -63,6 +81,23 @@ test('executes only the allowlisted refresh sequence when execute is explicit', 
     executed.map(command => command.args),
     Array.from({ length: DEFAULT_REFRESH_COMMANDS.length }, () => [])
   );
+  assert.equal(report.summary.generatedArtifactReports, 2);
+  assert.equal(report.summary.latestStatusBundlePath, 'C:\\repo\\artifacts\\operational-status-bundle.json');
+  assert.equal(report.summary.latestStatusBundleMarkdownPath, 'C:\\repo\\artifacts\\operational-status-bundle.md');
+  assert.deepEqual(report.generatedArtifacts, [
+    {
+      script: 'operational:hitl:session-progress',
+      status: 'awaiting_human_csv_decisions',
+      outputPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.json',
+      markdownPath: 'C:\\repo\\artifacts\\operational-hitl-review-session-progress.md'
+    },
+    {
+      script: 'operational:status-bundle',
+      status: 'awaiting_human_hitl',
+      outputPath: 'C:\\repo\\artifacts\\operational-status-bundle.json',
+      markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
+    }
+  ]);
 });
 
 test('rejects apply, verify, and malformed commands before execution', () => {
