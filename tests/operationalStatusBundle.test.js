@@ -249,6 +249,46 @@ const webKnowledgeCommonAgentPackage = (overrides = {}) => ({
   ...overrides
 });
 
+const operationalPreparationRun = () => ({
+  contractVersion: 'operational-hitl-preparation-run/v1',
+  status: 'completed',
+  serviceWritesPerformed: false,
+  summary: {
+    executedCommands: 6,
+    failedCommands: 0,
+    skippedHumanGatedCommands: 4,
+    generatedArtifactCount: 9
+  },
+  generatedArtifacts: [
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
+    'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
+    'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json',
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.json',
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+  ],
+  executedCommands: [
+    {
+      command: 'npm run knowledge:web:hitl:review-guide',
+      script: 'knowledge:web:hitl:review-guide',
+      status: 'completed',
+      outputPath: 'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.json',
+      companionOutputPaths: [
+        'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+        'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+      ]
+    }
+  ],
+  skippedCommands: [
+    {
+      command: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
+      reason: 'human_decision_required'
+    }
+  ],
+  recommendedAction: '준비 artifact 생성이 끝났습니다. 사람이 decision file을 채운 뒤 verify-decisions로 검증하세요.'
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
@@ -257,6 +297,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     humanDecisionBrief: humanBrief(),
     labelConflictReviewGuide: labelConflictReviewGuide(),
     webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackage(),
+    operationalPreparationRun: operationalPreparationRun(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
@@ -265,7 +306,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
       labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
       labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
-      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
+      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
+      operationalPreparationRun: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json'
     },
     markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
   });
@@ -314,6 +356,15 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     bundle.summary.webKnowledgePackagePath,
     'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
   );
+  assert.equal(bundle.summary.preparationRunStatus, 'completed');
+  assert.equal(bundle.summary.preparationGeneratedArtifacts, 9);
+  assert.equal(bundle.summary.preparationWorksheetArtifacts, 2);
+  assert.equal(bundle.summary.preparationSkippedHumanGatedCommands, 4);
+  assert.equal(bundle.summary.preparationRunPath, 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json');
+  assert.deepEqual(bundle.preparationWorksheetArtifacts, [
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+  ]);
   assert.deepEqual(bundle.settingsImportChecklist.map(item => item.buttonLabelKo), [
     'Progress 등록',
     'Pipeline Status 등록',
@@ -323,6 +374,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   ]);
   assert.deepEqual(bundle.nextOperatorActions.map(action => action.code), [
     'register_status_artifacts_in_settings',
+    'open_preparation_run_outputs',
     'open_label_conflict_review_guide',
     'open_web_knowledge_common_agent_package',
     'open_next_human_brief',
@@ -336,6 +388,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Web cases: 43\/40/);
   assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
   assert.match(bundle.markdown, /Web Knowledge package: blocked_verification_not_ready/);
+  assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
+  assert.match(bundle.markdown, /web-knowledge-hitl-review-guide\.csv/);
   assert.match(bundle.markdown, /web-knowledge-common-agent-learning-package\.json/);
   assert.match(bundle.markdown, /vision-approved-label-conflict-review-guide\.md/);
   assert.match(bundle.markdown, /Progress 등록/);

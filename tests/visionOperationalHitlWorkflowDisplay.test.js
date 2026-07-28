@@ -1202,6 +1202,12 @@ test('summarizes operational status bundle for one-step Settings handoff display
       webKnowledgeReadyForGraphRoundtrip: false,
       webKnowledgeCommonAgentRequestedAction: 'complete_web_knowledge_hitl_gates',
       webKnowledgePackagePath: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
+      preparationRunStatus: 'completed',
+      preparationGeneratedArtifacts: 9,
+      preparationWorksheetArtifacts: 2,
+      preparationSkippedHumanGatedCommands: 4,
+      preparationFirstWorksheetArtifactPath: 'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+      preparationRunPath: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1215,6 +1221,10 @@ test('summarizes operational status bundle for one-step Settings handoff display
         recaptureSampleCount: 0,
         requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
       }
+    ],
+    preparationWorksheetArtifacts: [
+      'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+      'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
     ],
     settingsImportChecklist: [
       { buttonLabelKo: 'Progress 등록', artifactKey: 'developmentProgress' },
@@ -1260,6 +1270,12 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.webKnowledgePackageText, 'Web package blocked_verification_not_ready · Approved rows 0 · Items 0 · Graph cases 0');
   assert.equal(display.webKnowledgePackageActionText, 'Common Agent action complete_web_knowledge_hitl_gates · Manual import blocked · Graph roundtrip blocked');
   assert.equal(display.webKnowledgePackagePath, 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json');
+  assert.equal(display.preparationRunText, 'Preparation completed · Generated 9 · Worksheets 2 · Human-gated 4');
+  assert.equal(display.preparationRunPath, 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json');
+  assert.deepEqual(display.preparationWorksheetPaths, [
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.md',
+    'C:\\repo\\artifacts\\web-knowledge-hitl-review-guide.csv'
+  ]);
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
   assert.equal(display.captureWorkOrderText, 'Capture work orders 7건 · 신규 4건 · 재촬영 10건 · 우선 burn');
