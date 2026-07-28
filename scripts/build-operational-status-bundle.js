@@ -109,6 +109,12 @@ const operationalPreparationRunPath = resolveOptionalPath(
   latestFile('operational-hitl-preparation-run-', '.json')
 );
 
+const operationalDecisionInputReviewPacketPath = resolveOptionalPath(
+  valueAfter('--decision-review-packet'),
+  process.env.OPERATIONAL_HITL_DECISION_INPUT_REVIEW_PACKET,
+  latestFile('operational-hitl-decision-input-review-packet-', '.json')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -126,6 +132,7 @@ const run = () => {
   const labelConflictReviewGuide = readOptionalJson(labelConflictReviewGuidePath);
   const webKnowledgeCommonAgentPackage = readOptionalJson(webKnowledgeCommonAgentPackagePath);
   const operationalPreparationRun = readOptionalJson(operationalPreparationRunPath);
+  const operationalDecisionInputReviewPacket = readOptionalJson(operationalDecisionInputReviewPacketPath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
@@ -134,6 +141,7 @@ const run = () => {
     labelConflictReviewGuide,
     webKnowledgeCommonAgentPackage,
     operationalPreparationRun,
+    operationalDecisionInputReviewPacket,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -146,7 +154,8 @@ const run = () => {
       labelConflictReviewGuide: labelConflictReviewGuidePath,
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
       webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
-      operationalPreparationRun: operationalPreparationRunPath
+      operationalPreparationRun: operationalPreparationRunPath,
+      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
@@ -154,7 +163,8 @@ const run = () => {
       visionCaptureWorkOrderPlan,
       labelConflictReviewGuide,
       webKnowledgeCommonAgentPackage,
-      operationalPreparationRun
+      operationalPreparationRun,
+      operationalDecisionInputReviewPacket
     }
   });
 
@@ -199,6 +209,12 @@ const run = () => {
     preparationFirstDecisionTemplatePath: bundle.summary.preparationFirstDecisionTemplatePath ?? null,
     preparationFirstHumanGatedCommand: bundle.summary.preparationFirstHumanGatedCommand ?? null,
     preparationRunPath: bundle.summary.preparationRunPath ?? null,
+    decisionReviewPacketStatus: bundle.summary.decisionReviewPacketStatus ?? null,
+    decisionReviewTotalTemplateItems: bundle.summary.decisionReviewTotalTemplateItems ?? null,
+    decisionReviewTotalPendingActions: bundle.summary.decisionReviewTotalPendingActions ?? null,
+    decisionReviewTargetInputsMissing: bundle.summary.decisionReviewTargetInputsMissing ?? null,
+    decisionReviewFirstQueueCode: bundle.summary.decisionReviewFirstQueueCode ?? null,
+    decisionReviewPacketPath: bundle.summary.decisionReviewPacketPath ?? null,
     postImportValidationCases: bundle.summary.postImportValidationCases ?? null,
     postImportValidationObservationStatus: bundle.summary.postImportValidationObservationStatus ?? null,
     postImportGraphCapturedCases: bundle.summary.postImportGraphCapturedCases ?? null,
@@ -231,7 +247,8 @@ try {
       labelConflictReviewGuide: labelConflictReviewGuidePath,
       labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
       webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath,
-      operationalPreparationRun: operationalPreparationRunPath
+      operationalPreparationRun: operationalPreparationRunPath,
+      operationalDecisionInputReviewPacket: operationalDecisionInputReviewPacketPath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);

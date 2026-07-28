@@ -1521,6 +1521,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       )}
                     </div>
                   )}
+                  {operationalStatusBundleDisplay.decisionReviewText && (
+                    <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 px-2 py-1">
+                      <p className="break-words text-[8px] font-bold text-amber-50">
+                        {operationalStatusBundleDisplay.decisionReviewText}
+                      </p>
+                      {operationalStatusBundleDisplay.decisionReviewPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.decisionReviewPath}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.decisionReviewSectionPreviews.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {operationalStatusBundleDisplay.decisionReviewSectionPreviews.map(section => (
+                            <div
+                              key={section.queueCode}
+                              className="rounded border border-amber-900/40 bg-gray-950/30 px-2 py-1"
+                            >
+                              <p className="break-words text-[8px] font-bold text-amber-50">
+                                {section.queueCode} · prepared {section.preparedDecisionItems} · pending {section.pendingActions} · target {section.targetPending}
+                              </p>
+                              {section.verificationCommand && (
+                                <p className="mt-1 break-words font-mono text-[8px] text-amber-100">
+                                  {section.verificationCommand}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.accuracyText}

@@ -853,6 +853,15 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
   const preparationHumanGatedCommandTexts = asArray(bundle.preparationHumanGatedCommands)
     .map(item => compact(item?.command || item))
     .filter(Boolean);
+  const decisionReviewStatus = compact(summary.decisionReviewPacketStatus);
+  const decisionReviewText = decisionReviewStatus
+    ? [
+      `Decision review ${decisionReviewStatus}`,
+      `Pending ${numberValue(summary.decisionReviewTotalPendingActions)}/${numberValue(summary.decisionReviewTotalTemplateItems)}`,
+      `Missing ${numberValue(summary.decisionReviewTargetInputsMissing)}`,
+      `Sections ${numberValue(summary.decisionReviewSectionCount)}`
+    ].join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -897,6 +906,18 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     preparationWorksheetPaths,
     preparationDecisionTemplatePaths,
     preparationHumanGatedCommandTexts,
+    decisionReviewText,
+    decisionReviewPath: compact(summary.decisionReviewPacketPath),
+    decisionReviewSectionPreviews: asArray(bundle.decisionReviewSectionPreviews)
+      .slice(0, 4)
+      .map(section => ({
+        queueCode: compact(section?.queueCode),
+        titleKo: compact(section?.titleKo),
+        preparedDecisionItems: numberValue(section?.preparedDecisionItems),
+        pendingActions: numberValue(section?.pendingActions),
+        targetPending: numberValue(section?.targetPending),
+        verificationCommand: compact(section?.verificationCommand)
+      })),
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
     labelConflictGuideText,

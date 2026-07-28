@@ -22,6 +22,9 @@ const isWebKnowledgeCommonAgentPackage = artifact =>
 const isOperationalPreparationRun = artifact =>
   isContract(artifact, 'operational-hitl-preparation-run/v1');
 
+const isOperationalDecisionInputReviewPacket = artifact =>
+  isContract(artifact, 'operational-hitl-decision-input-review-packet/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -142,6 +145,12 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: 'Operational HITL preparation run',
     contractVersion: 'operational-hitl-preparation-run/v1',
     path: compact(sourceArtifacts.operationalPreparationRun)
+  },
+  {
+    key: 'operationalDecisionInputReviewPacket',
+    labelKo: 'Operational HITL decision input review packet',
+    contractVersion: 'operational-hitl-decision-input-review-packet/v1',
+    path: compact(sourceArtifacts.operationalDecisionInputReviewPacket)
   }
 ].filter(item => item.path);
 
@@ -434,6 +443,41 @@ const preparationRunSummaryFor = ({
   };
 };
 
+const decisionReviewPacketSummaryFor = ({ operationalDecisionInputReviewPacket, sourceArtifacts }) => {
+  if (!isOperationalDecisionInputReviewPacket(operationalDecisionInputReviewPacket)) return null;
+
+  const summary = operationalDecisionInputReviewPacket.summary || {};
+  const humanGatedCommands = asArray(operationalDecisionInputReviewPacket.humanGatedCommands)
+    .map(command => compact(command?.command || command))
+    .filter(Boolean);
+
+  return {
+    decisionReviewPacketStatus: compact(operationalDecisionInputReviewPacket.status),
+    decisionReviewTotalTemplateItems: numberValue(summary.totalTemplateItems),
+    decisionReviewTotalPendingActions: numberValue(summary.totalPendingActions),
+    decisionReviewTargetInputsMissing: numberValue(summary.targetDecisionInputsMissing),
+    decisionReviewFirstQueueCode: compact(summary.firstQueueCode),
+    decisionReviewSectionCount: numberValue(summary.sectionCount || asArray(operationalDecisionInputReviewPacket.sections).length),
+    decisionReviewHumanGatedCommands: humanGatedCommands.length,
+    decisionReviewFirstHumanGatedCommand: humanGatedCommands[0] || '',
+    decisionReviewPacketPath: compact(sourceArtifacts.operationalDecisionInputReviewPacket)
+  };
+};
+
+const decisionReviewSectionPreviewsFor = operationalDecisionInputReviewPacket =>
+  isOperationalDecisionInputReviewPacket(operationalDecisionInputReviewPacket)
+    ? asArray(operationalDecisionInputReviewPacket.sections).slice(0, 5).map(section => ({
+      queueCode: compact(section?.queueCode),
+      titleKo: compact(section?.titleKo),
+      owner: compact(section?.owner),
+      preparedDecisionItems: numberValue(section?.preparedDecisionItems),
+      pendingActions: numberValue(section?.pendingActions),
+      targetPending: numberValue(section?.targetPending),
+      verificationCommand: compact(section?.verificationCommand),
+      sourceArtifact: compact(section?.sourceArtifact)
+    }))
+    : [];
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -560,6 +604,8 @@ const markdownFor = bundle => {
     `- Web cases: ${bundle.summary.webCards || 0}/${bundle.summary.webTargetCards || 0} / Common Agent ${bundle.summary.webCommonAgentValidationPassed || 0} / HITL missing ${bundle.summary.webHitlApprovalsMissing || 0} / central missing ${bundle.summary.webCentralApprovalsMissing || 0}`,
     `- Web Knowledge package: ${bundle.summary.webKnowledgePackageStatus || 'not_started'} / approved rows ${bundle.summary.webKnowledgePackageApprovedRows || 0} / items ${bundle.summary.webKnowledgePackageItems || 0} / graph cases ${bundle.summary.webKnowledgeGraphRoundtripCases || 0}`,
     `- Preparation run: ${bundle.summary.preparationRunStatus || 'not_started'} / generated ${bundle.summary.preparationGeneratedArtifacts || 0} / worksheets ${bundle.summary.preparationWorksheetArtifacts || 0}`,
+    `- Decision review: ${bundle.summary.decisionReviewPacketStatus || 'not_started'} / pending ${bundle.summary.decisionReviewTotalPendingActions || 0} / missing ${bundle.summary.decisionReviewTargetInputsMissing || 0}`,
+    `- Decision review packet: ${bundle.summary.decisionReviewPacketPath || 'not_started'}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
@@ -618,6 +664,15 @@ const markdownFor = bundle => {
     });
   }
 
+  if (asArray(bundle.decisionReviewSectionPreviews).length > 0) {
+    lines.push('', '## Decision review input status', '');
+    bundle.decisionReviewSectionPreviews.forEach(section => {
+      lines.push(`- ${section.queueCode}: prepared ${section.preparedDecisionItems} / pending ${section.pendingActions} / target ${section.targetPending}`);
+      if (section.verificationCommand) lines.push(`  - Verify: ${section.verificationCommand}`);
+      if (section.sourceArtifact) lines.push(`  - Template: ${section.sourceArtifact}`);
+    });
+  }
+
   if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
     lines.push('', '## Vision capture work orders', '');
     bundle.visionCaptureWorkOrderPreviews.forEach(order => {
@@ -650,6 +705,7 @@ const buildOperationalStatusBundle = ({
   labelConflictReviewGuide = null,
   webKnowledgeCommonAgentPackage = null,
   operationalPreparationRun = null,
+  operationalDecisionInputReviewPacket = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -707,6 +763,10 @@ const buildOperationalStatusBundle = ({
     decisionTemplateArtifacts: preparationDecisionTemplateArtifacts,
     humanGatedCommands: preparationHumanGatedCommands
   });
+  const decisionReviewPacketSummary = decisionReviewPacketSummaryFor({
+    operationalDecisionInputReviewPacket,
+    sourceArtifacts
+  });
   const bundle = {
     schemaVersion: 1,
     contractVersion: 'operational-status-bundle/v1',
@@ -748,6 +808,7 @@ const buildOperationalStatusBundle = ({
       ...(labelConflictGuideSummary || {}),
       ...(webKnowledgePackageSummary || {}),
       ...(preparationRunSummary || {}),
+      ...(decisionReviewPacketSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
@@ -762,6 +823,7 @@ const buildOperationalStatusBundle = ({
     preparationWorksheetArtifacts,
     preparationDecisionTemplateArtifacts,
     preparationHumanGatedCommands,
+    decisionReviewSectionPreviews: decisionReviewSectionPreviewsFor(operationalDecisionInputReviewPacket),
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,
