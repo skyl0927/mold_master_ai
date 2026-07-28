@@ -152,6 +152,12 @@ const postImportValidationPath = resolveOptionalPath(
   latestArtifact('operational-hitl-post-import-validation-plan-')
 );
 
+const postImportValidationResultPath = resolveOptionalPath(
+  valueAfter('--post-import-validation-result'),
+  process.env.OPERATIONAL_HITL_POST_IMPORT_VALIDATION_RESULT,
+  latestArtifact('operational-hitl-post-import-validation-result-')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_HITL_PIPELINE_STATUS_OUTPUT_BASE
   || path.join(artifactRoot, `operational-hitl-pipeline-status-${timestamp()}`);
@@ -175,6 +181,7 @@ const run = () => {
     verificationRun: readOptionalJson(verificationRunPath),
     commonAgentImportPackage: readOptionalJson(commonAgentImportPath),
     postImportValidationPlan: readOptionalJson(postImportValidationPath),
+    postImportValidationResult: readOptionalJson(postImportValidationResultPath),
     sourceArtifacts: {
       intakeStatus: intakeStatusPath,
       workspaceManifest: workspaceManifestPath,
@@ -190,7 +197,8 @@ const run = () => {
       preflightReport: preflightPath,
       verificationRun: verificationRunPath,
       commonAgentImportPackage: commonAgentImportPath,
-      postImportValidationPlan: postImportValidationPath
+      postImportValidationPlan: postImportValidationPath,
+      postImportValidationResult: postImportValidationResultPath
     }
   });
 
@@ -232,6 +240,11 @@ const run = () => {
     verificationCommandsExecuted: report.summary.verificationCommandsExecuted,
     commonAgentApprovedPayloads: report.summary.commonAgentApprovedPayloads,
     postImportValidationCases: report.summary.postImportValidationCases,
+    postImportValidationResultStatus: report.summary.postImportValidationResultStatus,
+    postImportValidationPassedCases: report.summary.postImportValidationPassedCases,
+    postImportValidationFailedCases: report.summary.postImportValidationFailedCases,
+    postImportValidationMissingEvidenceCases: report.summary.postImportValidationMissingEvidenceCases,
+    postImportValidationPassRate: report.summary.postImportValidationPassRate,
     recommendedAction: report.recommendedAction
   }, null, 2));
 };

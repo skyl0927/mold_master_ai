@@ -139,7 +139,12 @@ const missingEvidenceStatus = ({ generatedAt, missingArtifactNames, sourceArtifa
     preflightPendingDecisions: 0,
     verificationCommandsExecuted: 0,
     commonAgentApprovedPayloads: 0,
-    postImportValidationCases: 0
+    postImportValidationCases: 0,
+    postImportValidationResultStatus: 'not_started',
+    postImportValidationPassedCases: 0,
+    postImportValidationFailedCases: 0,
+    postImportValidationMissingEvidenceCases: 0,
+    postImportValidationPassRate: 0
   },
   nextActions: [
     action({
@@ -174,7 +179,8 @@ const sourceMap = sourceArtifacts => ({
   preflightReport: sourceArtifacts.preflightReport || null,
   verificationRun: sourceArtifacts.verificationRun || null,
   commonAgentImportPackage: sourceArtifacts.commonAgentImportPackage || null,
-  postImportValidationPlan: sourceArtifacts.postImportValidationPlan || null
+  postImportValidationPlan: sourceArtifacts.postImportValidationPlan || null,
+  postImportValidationResult: sourceArtifacts.postImportValidationResult || null
 });
 
 const stageTrailFor = ({
@@ -191,7 +197,8 @@ const stageTrailFor = ({
   preflightReport,
   verificationRun,
   commonAgentImportPackage,
-  postImportValidationPlan
+  postImportValidationPlan,
+  postImportValidationResult
 }) => [
   {
     code: 'intake_status',
@@ -262,6 +269,11 @@ const stageTrailFor = ({
     code: 'post_import_validation_plan',
     titleKo: 'Post-import validation plan',
     status: compact(postImportValidationPlan?.status) || 'not_started'
+  },
+  {
+    code: 'post_import_validation_result',
+    titleKo: 'Post-import validation result',
+    status: compact(postImportValidationResult?.status) || 'not_started'
   }
 ];
 
@@ -295,6 +307,7 @@ const pipelineDecision = ({
   verificationRun,
   commonAgentImportPackage,
   postImportValidationPlan,
+  postImportValidationResult,
   sourceArtifacts
 }) => {
   if (dryRunRoundtrip?.status === 'simulated_roundtrip_invalid') {
@@ -344,6 +357,84 @@ const pipelineDecision = ({
             'npm run operational:hitl:worktable-suggest'
           ],
           owner: 'system_operator'
+        })
+      ]
+    };
+  }
+
+  if (postImportValidationResult?.status === 'validation_passed') {
+    return {
+      status: 'ready_for_post_import_release_validation',
+      currentStage: stage({
+        code: 'operator_release_validation',
+        titleKo: 'Post-import release validation',
+        status: 'ready',
+        feedbackKo: 'Common Agent 반영 후 Mold Master AI 재검증이 통과했습니다. 운영자 최종 릴리즈 검토만 남았습니다.'
+      }),
+      nextActions: [
+        action({
+          code: 'operator_release_validation',
+          titleKo: '운영 릴리즈 최종 검토',
+          instructionKo: '검증 결과와 graph 근거를 운영자가 확인한 뒤 배포/학습 반영 여부를 수동 승인하세요.',
+          commands: [
+            'npm run operational:hitl:pipeline-status',
+            'npm run eval:graph'
+          ],
+          owner: 'quality_lead'
+        })
+      ]
+    };
+  }
+
+  if ([
+    'validation_failed',
+    'unsafe_validation_evidence',
+    'invalid_validation_evidence',
+    'blocked_no_validation_cases'
+  ].includes(compact(postImportValidationResult?.status))) {
+    return {
+      status: 'action_required',
+      currentStage: stage({
+        code: 'fix_post_import_validation',
+        titleKo: 'Post-import validation 보정',
+        status: 'action_required',
+        feedbackKo: 'Common Agent 반영 후 Mold Master AI 재검증이 통과하지 못했습니다. 실패 case의 graph 근거, HITL 승인값, 응답 grounding을 보정해야 합니다.'
+      }),
+      nextActions: [
+        action({
+          code: 'fix_post_import_validation',
+          titleKo: 'Post-import validation 실패 case 보정',
+          instructionKo: '실패한 caseResults를 기준으로 Common Agent/Graph 데이터와 Mold Master 응답 grounding을 보정한 뒤 검증 결과를 다시 생성하세요.',
+          commands: [
+            'npm run operational:hitl:post-import-validation-result',
+            'npm run operational:hitl:post-import-validation-plan',
+            'npm run eval:graph'
+          ],
+          owner: 'common_agent_operator'
+        })
+      ]
+    };
+  }
+
+  if (postImportValidationResult?.status === 'awaiting_validation_evidence') {
+    return {
+      status: 'action_required',
+      currentStage: stage({
+        code: 'execute_post_import_validation',
+        titleKo: 'Post-import validation evidence 생성',
+        status: 'awaiting_validation_evidence',
+        feedbackKo: '검증 계획은 준비됐지만 Common Agent/Mold Master 재응답 evidence가 아직 없습니다.'
+      }),
+      nextActions: [
+        action({
+          code: 'execute_post_import_validation',
+          titleKo: '검증 case 실행 및 evidence 작성',
+          instructionKo: '계획된 case를 Common Agent와 Mold Master AI에 실행하고 graph citation/reasoning path가 포함된 evidence artifact를 생성하세요.',
+          commands: [
+            'npm run operational:hitl:post-import-validation-result',
+            'npm run eval:graph'
+          ],
+          owner: 'common_agent_operator'
         })
       ]
     };
@@ -553,7 +644,8 @@ const summaryFor = ({
   preflightReport,
   verificationRun,
   commonAgentImportPackage,
-  postImportValidationPlan
+  postImportValidationPlan,
+  postImportValidationResult
 }) => ({
   missingArtifacts: missingArtifactNames.length,
   missingArtifactNames,
@@ -601,7 +693,12 @@ const summaryFor = ({
   commonAgentApprovedPayloads: numberFrom(commonAgentImportPackage?.summary?.totalApprovedPayloads),
   commonAgentBlockingReports: numberFrom(commonAgentImportPackage?.summary?.blockingReports),
   postImportValidationCases: numberFrom(postImportValidationPlan?.summary?.totalTestCases),
-  postImportGraphRagCases: numberFrom(postImportValidationPlan?.summary?.graphRagCases)
+  postImportGraphRagCases: numberFrom(postImportValidationPlan?.summary?.graphRagCases),
+  postImportValidationResultStatus: compact(postImportValidationResult?.status) || 'not_started',
+  postImportValidationPassedCases: numberFrom(postImportValidationResult?.summary?.passedCases),
+  postImportValidationFailedCases: numberFrom(postImportValidationResult?.summary?.failedCases),
+  postImportValidationMissingEvidenceCases: numberFrom(postImportValidationResult?.summary?.missingEvidenceCases),
+  postImportValidationPassRate: numberFrom(postImportValidationResult?.summary?.passRate)
 });
 
 const markdownFor = report => {
@@ -633,6 +730,10 @@ const markdownFor = report => {
     `- 추천값 preflight 필수필드 누락: ${report.summary.worktableSimulatedPreflightMissingRequiredFields}`,
     `- 작업표 계획 update: ${report.summary.worktablePlannedUpdates}`,
     `- post-import validation case: ${report.summary.postImportValidationCases}`,
+    `- post-import validation result: ${report.summary.postImportValidationResultStatus}`,
+    `- post-import validation pass: ${report.summary.postImportValidationPassedCases}/${report.summary.postImportValidationCases}`,
+    `- post-import validation failed: ${report.summary.postImportValidationFailedCases}`,
+    `- post-import validation passRate: ${report.summary.postImportValidationPassRate}%`,
     '- 안전 정책: 자동 쓰기 금지, Graph/Reference/Model 승격 금지',
     '',
     '## 다음 작업',
@@ -666,6 +767,7 @@ const buildOperationalHitlPipelineStatus = ({
   verificationRun = null,
   commonAgentImportPackage = null,
   postImportValidationPlan = null,
+  postImportValidationResult = null,
   sourceArtifacts = {}
 } = {}) => {
   const missingArtifactNames = requiredMissing({
@@ -704,6 +806,7 @@ const buildOperationalHitlPipelineStatus = ({
     verificationRun,
     commonAgentImportPackage,
     postImportValidationPlan,
+    postImportValidationResult,
     sourceArtifacts
   });
   const stageTrail = stageTrailFor({
@@ -720,7 +823,8 @@ const buildOperationalHitlPipelineStatus = ({
     preflightReport,
     verificationRun,
     commonAgentImportPackage,
-    postImportValidationPlan
+    postImportValidationPlan,
+    postImportValidationResult
   });
   const report = {
     schemaVersion: 1,
@@ -748,7 +852,8 @@ const buildOperationalHitlPipelineStatus = ({
       preflightReport,
       verificationRun,
       commonAgentImportPackage,
-      postImportValidationPlan
+      postImportValidationPlan,
+      postImportValidationResult
     }),
     nextActions: decision.nextActions,
     stageTrail,

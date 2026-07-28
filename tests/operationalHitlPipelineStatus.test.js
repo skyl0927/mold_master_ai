@@ -231,6 +231,21 @@ const postImportValidationPlan = status => ({
   }
 });
 
+const postImportValidationResult = status => ({
+  contractVersion: 'operational-hitl-post-import-validation-result/v1',
+  status,
+  readyForOperationalReleaseValidation: status === 'validation_passed',
+  serviceWritesPerformed: false,
+  summary: {
+    totalCases: 44,
+    passedCases: status === 'validation_passed' ? 44 : status === 'validation_failed' ? 41 : 0,
+    failedCases: status === 'validation_failed' ? 3 : 0,
+    missingEvidenceCases: status === 'awaiting_validation_evidence' ? 44 : 0,
+    passRate: status === 'validation_passed' ? 100 : status === 'validation_failed' ? 93.2 : 0,
+    minimumPassRate: 85
+  }
+});
+
 test('reports the real current bottleneck as waiting for human CSV decisions', () => {
   const status = buildOperationalHitlPipelineStatus({
     generatedAt: '2026-07-27T14:50:00.000Z',
@@ -514,6 +529,82 @@ test('routes ready import packages to Common Agent manual review and post-import
   assert.equal(status.nextActions[0].code, 'common_agent_manual_import_review');
   assert.equal(status.summary.postImportValidationCases, 44);
   assert.match(status.recommendedAction, /Common Agent/);
+});
+
+test('routes awaiting post-import evidence to validation execution', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    intakeStatus: intakeStatus(0),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableImport: worktableImport('applied'),
+    preflightReport: preflight('ready_for_verification'),
+    verificationRun: verificationRun('executed'),
+    commonAgentImportPackage: commonAgentImportPackage('ready_for_common_agent_review'),
+    postImportValidationPlan: postImportValidationPlan('ready_for_post_import_validation'),
+    postImportValidationResult: postImportValidationResult('awaiting_validation_evidence'),
+    sourceArtifacts: {
+      postImportValidationResult: 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-result.json'
+    }
+  });
+
+  assert.equal(status.status, 'action_required');
+  assert.equal(status.currentStage.code, 'execute_post_import_validation');
+  assert.equal(status.summary.postImportValidationResultStatus, 'awaiting_validation_evidence');
+  assert.equal(status.summary.postImportValidationMissingEvidenceCases, 44);
+  assert.equal(status.sources.postImportValidationResult, 'C:\\repo\\artifacts\\operational-hitl-post-import-validation-result.json');
+  assert.deepEqual(
+    status.stageTrail.find(item => item.code === 'post_import_validation_result'),
+    {
+      code: 'post_import_validation_result',
+      titleKo: 'Post-import validation result',
+      status: 'awaiting_validation_evidence'
+    }
+  );
+  assert.equal(status.nextActions[0].code, 'execute_post_import_validation');
+});
+
+test('blocks release when post-import validation fails after Common Agent import', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    intakeStatus: intakeStatus(0),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableImport: worktableImport('applied'),
+    preflightReport: preflight('ready_for_verification'),
+    verificationRun: verificationRun('executed'),
+    commonAgentImportPackage: commonAgentImportPackage('ready_for_common_agent_review'),
+    postImportValidationPlan: postImportValidationPlan('ready_for_post_import_validation'),
+    postImportValidationResult: postImportValidationResult('validation_failed')
+  });
+
+  assert.equal(status.status, 'action_required');
+  assert.equal(status.currentStage.code, 'fix_post_import_validation');
+  assert.equal(status.summary.postImportValidationPassedCases, 41);
+  assert.equal(status.summary.postImportValidationFailedCases, 3);
+  assert.equal(status.summary.postImportValidationPassRate, 93.2);
+  assert.equal(status.nextActions[0].code, 'fix_post_import_validation');
+  assert.match(status.currentStage.feedbackKo, /재검증/);
+});
+
+test('routes passed post-import validation to operator release validation', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    intakeStatus: intakeStatus(0),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableImport: worktableImport('applied'),
+    preflightReport: preflight('ready_for_verification'),
+    verificationRun: verificationRun('executed'),
+    commonAgentImportPackage: commonAgentImportPackage('ready_for_common_agent_review'),
+    postImportValidationPlan: postImportValidationPlan('ready_for_post_import_validation'),
+    postImportValidationResult: postImportValidationResult('validation_passed')
+  });
+
+  assert.equal(status.status, 'ready_for_post_import_release_validation');
+  assert.equal(status.currentStage.code, 'operator_release_validation');
+  assert.equal(status.summary.postImportValidationResultStatus, 'validation_passed');
+  assert.equal(status.summary.postImportValidationPassedCases, 44);
+  assert.equal(status.summary.postImportValidationFailedCases, 0);
+  assert.equal(status.nextActions[0].code, 'operator_release_validation');
+  assert.match(status.markdown, /post-import validation result: validation_passed/);
 });
 
 test('fails closed when required pipeline evidence is missing', () => {
