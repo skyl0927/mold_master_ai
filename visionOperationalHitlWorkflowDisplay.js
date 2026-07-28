@@ -903,6 +903,23 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     compact(summary.reviewerWorksheetWorktableBridgePreviewText);
   const reviewerWorksheetWorktableBridgeScopeText =
     compact(summary.reviewerWorksheetWorktableBridgeScopeText);
+  const reviewSessionProgressStatus = compact(summary.reviewSessionProgressStatus);
+  const reviewSessionProgressText = reviewSessionProgressStatus
+    ? [
+      `Session progress ${reviewSessionProgressStatus}`,
+      `Done ${numberValue(summary.reviewSessionProgressCompletedRows)}/${numberValue(summary.reviewSessionProgressTotalRows)}`,
+      `Pending ${numberValue(summary.reviewSessionProgressPendingRows)}`,
+      `Invalid ${numberValue(summary.reviewSessionProgressInvalidRows)}`,
+      `Ignored simulation ${numberValue(summary.reviewSessionProgressIgnoredSimulationOnlyRows)}`
+    ].join(' · ')
+    : '';
+  const reviewSessionProgressNextText = compact(summary.reviewSessionProgressNextDecisionId)
+    ? [
+      `Next ${compact(summary.reviewSessionProgressNextKind) || 'pending'} ${compact(summary.reviewSessionProgressNextSessionCode) || 'review_required'}`,
+      compact(summary.reviewSessionProgressNextQueueCode),
+      `${compact(summary.reviewSessionProgressNextDecisionId)} -> ${compact(summary.reviewSessionProgressNextRecommendedAction) || 'human_review_required'}`
+    ].filter(Boolean).join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -966,6 +983,23 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     reviewerWorksheetWorktableManualText: compact(summary.reviewerWorksheetFirstWorktableManualText),
     reviewerWorksheetWorktableBridgePreviewText,
     reviewerWorksheetWorktableBridgeScopeText,
+    reviewSessionProgressText,
+    reviewSessionProgressNextText,
+    reviewSessionProgressPath: compact(summary.reviewSessionProgressPath),
+    reviewSessionProgressMarkdownPath: compact(summary.reviewSessionProgressMarkdownPath),
+    reviewSessionProgressPreviews: asArray(bundle.reviewSessionProgressPreviews)
+      .slice(0, 5)
+      .map(session => ({
+        code: compact(session?.code),
+        titleKo: compact(session?.titleKo),
+        priority: numberValue(session?.priority),
+        status: compact(session?.status),
+        pendingRows: numberValue(session?.pendingRows),
+        invalidRows: numberValue(session?.invalidRows),
+        firstPendingDecisionId: compact(session?.firstPendingDecisionId),
+        firstInvalidDecisionId: compact(session?.firstInvalidDecisionId),
+        path: compact(session?.markdownPath) || compact(session?.csvPath)
+      })),
     reviewerWorksheetWorktableBridgePreviews: asArray(bundle.reviewerWorksheetWorktableBridgePreviews)
       .slice(0, 5)
       .map(item => ({

@@ -1663,6 +1663,55 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       )}
                     </div>
                   )}
+                  {operationalStatusBundleDisplay.reviewSessionProgressText && (
+                    <div className="mt-2 rounded border border-sky-900/50 bg-sky-950/20 px-2 py-1">
+                      <p className="break-words text-[8px] font-bold text-sky-50">
+                        {operationalStatusBundleDisplay.reviewSessionProgressText}
+                      </p>
+                      {operationalStatusBundleDisplay.reviewSessionProgressNextText && (
+                        <p className="mt-1 break-words text-[8px] font-bold text-amber-100">
+                          {operationalStatusBundleDisplay.reviewSessionProgressNextText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewSessionProgressMarkdownPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-sky-100">
+                          {operationalStatusBundleDisplay.reviewSessionProgressMarkdownPath}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.reviewSessionProgressPreviews.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {operationalStatusBundleDisplay.reviewSessionProgressPreviews.map(session => (
+                            <div
+                              key={`${session.code}:${session.firstPendingDecisionId || session.firstInvalidDecisionId}`}
+                              className="rounded border border-sky-900/40 bg-gray-950/30 px-2 py-1"
+                            >
+                              <p className="break-words text-[8px] font-bold text-sky-50">
+                                P{session.priority} {session.titleKo} · {session.status}
+                              </p>
+                              <p className="mt-1 break-words text-[8px] text-sky-100">
+                                pending {session.pendingRows}건 · invalid {session.invalidRows}건
+                              </p>
+                              {(session.firstInvalidDecisionId || session.firstPendingDecisionId) && (
+                                <p className="mt-1 break-words text-[8px] text-amber-100">
+                                  first: {session.firstInvalidDecisionId || session.firstPendingDecisionId}
+                                </p>
+                              )}
+                              {session.path && (
+                                <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                  {session.path}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {operationalStatusBundleDisplay.reviewSessionProgressPath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.reviewSessionProgressPath}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.accuracyText}

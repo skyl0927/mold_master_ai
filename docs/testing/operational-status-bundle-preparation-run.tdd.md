@@ -18,6 +18,7 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 - As an operator, I want the bridge information visible in the Markdown and CLI handoff, so that a new login session or Common Agent collaborator can see the matched worktable row without opening the JSON internals.
 - As an operator, I want several matched bridge entries visible as a preview list, so that I can batch the next HITL rows without losing the safety filter.
 - As an operator, I want the bridge preview scope to show full pending and outside-preview counts, so that `10/10 matched` cannot be misread as all HITL work being complete.
+- As an operator, I want the session progress artifact visible in the bundle and Settings display, so that I can see the next pending/invalid session row without hunting through separate progress files.
 - As a developer, I want the CLI bundle builder to automatically include the latest preparation-run artifact, so that new handoff bundles preserve the same context.
 
 ## RED Evidence
@@ -46,8 +47,10 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgePreviewText` was `undefined` instead of the multi-row bridge preview. |
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetWorktableBridgeScopeText` was `undefined` instead of `Bridge preview 2/4 matched · full pending 59 · outside preview 55`. |
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgeScopeText` was `undefined` instead of the same preview scope text. |
+| `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewSessionProgressStatus` was `undefined` instead of `awaiting_human_csv_decisions`. |
+| `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewSessionProgressText` was `undefined` instead of the session progress handoff text. |
 
-The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, `e50839c test: require HITL worktable bridge`, `d50bd8f test: require HITL bridge markdown handoff`, `3524e53 test: require HITL bridge entry previews`, and `4775d19 test: require HITL bridge scope text`.
+The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, `e50839c test: require HITL worktable bridge`, `d50bd8f test: require HITL bridge markdown handoff`, `3524e53 test: require HITL bridge entry previews`, `4775d19 test: require HITL bridge scope text`, and `e8925c6 test: require HITL session progress handoff`.
 
 ## GREEN Evidence
 
@@ -79,6 +82,8 @@ The RED checkpoint commits are `708f9fa test: add preparation run status bundle 
 | `npm run operational:status-bundle` | PASS | The live CLI output now surfaces `reviewerWorksheetWorktableBridgePreviewText` and `reviewerWorksheetWorktableBridgePreviewCount=10`. |
 | `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle computes bridge scope text from matched preview rows, review-slip preview count, and full pending HITL rows. |
 | `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the bridge scope text so preview-only matches are not confused with full completion. |
+| `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle summarizes session progress status, next pending/invalid row, JSON/Markdown path, and session previews without service writes. |
+| `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose session progress text, next row text, artifact paths, and preview cards. |
 
 ## Known Gaps
 

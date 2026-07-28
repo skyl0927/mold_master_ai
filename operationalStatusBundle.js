@@ -28,6 +28,9 @@ const isOperationalDecisionInputReviewPacket = artifact =>
 const isOperationalReviewerWorksheet = artifact =>
   isContract(artifact, 'operational-hitl-reviewer-worksheet/v1');
 
+const isOperationalReviewSessionProgress = artifact =>
+  isContract(artifact, 'operational-hitl-review-session-progress/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -114,6 +117,18 @@ const sourceArtifactListFor = sourceArtifacts => [
     path: compact(sourceArtifacts.reviewSessionPacket)
   },
   {
+    key: 'reviewSessionProgress',
+    labelKo: '세션 검토 진행률',
+    contractVersion: 'operational-hitl-review-session-progress/v1',
+    path: compact(sourceArtifacts.reviewSessionProgress)
+  },
+  {
+    key: 'reviewSessionProgressMarkdown',
+    labelKo: '세션 검토 진행률 Markdown',
+    contractVersion: 'text/markdown',
+    path: compact(sourceArtifacts.reviewSessionProgressMarkdown)
+  },
+  {
     key: 'worktableSuggestion',
     labelKo: '작업표 추천',
     contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
@@ -174,6 +189,7 @@ const restorableArtifactContracts = {
   pipelineStatus: 'operational-hitl-pipeline-status/v1',
   humanDecisionBrief: 'operational-hitl-human-decision-brief/v1',
   reviewSessionPacket: 'operational-hitl-review-session-packet/v1',
+  reviewSessionProgress: 'operational-hitl-review-session-progress/v1',
   worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1',
   visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1',
   labelConflictReviewGuide: 'vision-approved-label-conflict-review-guide/v1',
@@ -618,6 +634,99 @@ const reviewerWorksheetSummaryFor = ({ operationalReviewerWorksheet, humanDecisi
   };
 };
 
+const firstReviewSessionProgressItemFor = sessions => {
+  const actionableSessions = asArray(sessions);
+  const invalidSession = actionableSessions.find(session =>
+    numberValue(session?.invalidRows) > 0
+    && asArray(session?.invalidRowPreviews).length > 0
+  );
+  if (invalidSession) {
+    return {
+      kind: 'invalid',
+      session: invalidSession,
+      row: asArray(invalidSession.invalidRowPreviews)[0]
+    };
+  }
+
+  const pendingSession = actionableSessions.find(session =>
+    numberValue(session?.pendingRows) > 0
+    && asArray(session?.pendingRowPreviews).length > 0
+  );
+  if (pendingSession) {
+    return {
+      kind: 'pending',
+      session: pendingSession,
+      row: asArray(pendingSession.pendingRowPreviews)[0]
+    };
+  }
+
+  return {
+    kind: '',
+    session: null,
+    row: null
+  };
+};
+
+const reviewSessionProgressPreviewsFor = operationalReviewSessionProgress =>
+  isOperationalReviewSessionProgress(operationalReviewSessionProgress)
+    ? asArray(operationalReviewSessionProgress.sessions).slice(0, 5).map(session => {
+      const firstPending = asArray(session?.pendingRowPreviews)[0] || {};
+      const firstInvalid = asArray(session?.invalidRowPreviews)[0] || {};
+      return {
+        code: compact(session?.code),
+        titleKo: compact(session?.titleKo),
+        priority: numberValue(session?.priority),
+        status: compact(session?.status),
+        rowCount: numberValue(session?.rowCount),
+        completedRows: numberValue(session?.completedRows),
+        pendingRows: numberValue(session?.pendingRows),
+        invalidRows: numberValue(session?.invalidRows),
+        highRiskRows: numberValue(session?.highRiskRows),
+        csvPath: compact(session?.csvPath),
+        markdownPath: compact(session?.markdownPath),
+        firstPendingQueueCode: compact(firstPending.queueCode),
+        firstPendingDecisionId: compact(firstPending.decisionId),
+        firstPendingRecommendedAction: compact(firstPending.recommendedNewAction),
+        firstInvalidQueueCode: compact(firstInvalid.queueCode),
+        firstInvalidDecisionId: compact(firstInvalid.decisionId),
+        firstInvalidAction: compact(firstInvalid.action)
+      };
+    })
+    : [];
+
+const reviewSessionProgressSummaryFor = ({ operationalReviewSessionProgress, sourceArtifacts }) => {
+  if (!isOperationalReviewSessionProgress(operationalReviewSessionProgress)) return null;
+
+  const summary = operationalReviewSessionProgress.summary || {};
+  const nextItem = firstReviewSessionProgressItemFor(operationalReviewSessionProgress.sessions);
+  const nextSession = nextItem.session || {};
+  const nextRow = nextItem.row || {};
+
+  return {
+    reviewSessionProgressStatus: compact(operationalReviewSessionProgress.status),
+    reviewSessionProgressTotalRows: numberValue(summary.totalRows),
+    reviewSessionProgressCompletedRows: numberValue(summary.completedRows),
+    reviewSessionProgressPendingRows: numberValue(summary.pendingRows),
+    reviewSessionProgressInvalidRows: numberValue(summary.invalidRows),
+    reviewSessionProgressIgnoredSimulationOnlyRows: numberValue(summary.ignoredSimulationOnlyRows),
+    reviewSessionProgressSessionCount: numberValue(summary.sessionCount),
+    reviewSessionProgressCompleteSessionCount: numberValue(summary.completeSessionCount),
+    reviewSessionProgressBlockedSessionCount: numberValue(summary.blockedSessionCount),
+    reviewSessionProgressPacketFiles: numberValue(summary.packetFiles),
+    reviewSessionProgressNextKind: compact(nextItem.kind),
+    reviewSessionProgressNextSessionCode: compact(nextSession.code),
+    reviewSessionProgressNextSessionTitleKo: compact(nextSession.titleKo),
+    reviewSessionProgressNextQueueCode: compact(nextRow.queueCode),
+    reviewSessionProgressNextDecisionId: compact(nextRow.decisionId),
+    reviewSessionProgressNextRecommendedAction: compact(nextRow.recommendedNewAction || nextRow.action),
+    reviewSessionProgressNextRisk: compact(nextRow.recommendationRisk),
+    reviewSessionProgressNextCsvPath: compact(nextSession.csvPath),
+    reviewSessionProgressNextMarkdownPath: compact(nextSession.markdownPath),
+    reviewSessionProgressPath: compact(sourceArtifacts.reviewSessionProgress),
+    reviewSessionProgressMarkdownPath: compact(sourceArtifacts.reviewSessionProgressMarkdown)
+  };
+};
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -766,6 +875,11 @@ const markdownFor = bundle => {
     `- Reviewer worksheet: ${bundle.summary.reviewerWorksheetStatus || 'not_started'} / missing ${bundle.summary.reviewerWorksheetTargetInputsMissing || 0} / lines ${bundle.summary.reviewerWorksheetMarkdownLineCount || 0}`,
     `- Reviewer worksheet Markdown: ${bundle.summary.reviewerWorksheetMarkdownPath || 'not_started'}`,
     ...reviewerWorksheetWorktableBridgeLines,
+    ...(bundle.summary.reviewSessionProgressStatus ? [
+      `- Session progress: ${bundle.summary.reviewSessionProgressStatus} / done ${bundle.summary.reviewSessionProgressCompletedRows || 0} / pending ${bundle.summary.reviewSessionProgressPendingRows || 0} / invalid ${bundle.summary.reviewSessionProgressInvalidRows || 0} / ignored simulation ${bundle.summary.reviewSessionProgressIgnoredSimulationOnlyRows || 0}`,
+      `- Session progress next: ${bundle.summary.reviewSessionProgressNextKind || 'none'} ${bundle.summary.reviewSessionProgressNextSessionCode || 'none'} / ${bundle.summary.reviewSessionProgressNextQueueCode || 'none'} / ${bundle.summary.reviewSessionProgressNextDecisionId || 'none'} -> ${bundle.summary.reviewSessionProgressNextRecommendedAction || 'human_review_required'}`,
+      `- Session progress Markdown: ${bundle.summary.reviewSessionProgressMarkdownPath || bundle.summary.reviewSessionProgressPath || '확인 필요'}`
+    ] : []),
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
@@ -843,6 +957,18 @@ const markdownFor = bundle => {
     });
   }
 
+  if (asArray(bundle.reviewSessionProgressPreviews).length > 0) {
+    lines.push('', '## Session progress preview', '');
+    bundle.reviewSessionProgressPreviews.forEach(session => {
+      lines.push(`- P${session.priority} ${session.titleKo}: ${session.status} / pending ${session.pendingRows} / invalid ${session.invalidRows} / first pending ${session.firstPendingDecisionId || 'none'}`);
+      if (session.firstInvalidDecisionId) {
+        lines.push(`  - First invalid: ${session.firstInvalidQueueCode || 'review_required'} / ${session.firstInvalidDecisionId} -> ${session.firstInvalidAction || 'fix_required'}`);
+      }
+      if (session.markdownPath) lines.push(`  - MD: ${session.markdownPath}`);
+      if (session.csvPath) lines.push(`  - CSV: ${session.csvPath}`);
+    });
+  }
+
   if (asArray(bundle.visionCaptureWorkOrderPreviews).length > 0) {
     lines.push('', '## Vision capture work orders', '');
     bundle.visionCaptureWorkOrderPreviews.forEach(order => {
@@ -877,6 +1003,7 @@ const buildOperationalStatusBundle = ({
   operationalPreparationRun = null,
   operationalDecisionInputReviewPacket = null,
   operationalReviewerWorksheet = null,
+  operationalReviewSessionProgress = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -907,9 +1034,13 @@ const buildOperationalStatusBundle = ({
       developmentProgress,
       pipelineStatus,
       humanDecisionBrief,
+      reviewSessionProgress: operationalReviewSessionProgress,
       visionCaptureWorkOrderPlan,
       labelConflictReviewGuide,
       webKnowledgeCommonAgentPackage,
+      operationalPreparationRun,
+      operationalDecisionInputReviewPacket,
+      operationalReviewerWorksheet,
       ...sourceArtifactPayloads
     }
   });
@@ -941,6 +1072,10 @@ const buildOperationalStatusBundle = ({
   const reviewerWorksheetSummary = reviewerWorksheetSummaryFor({
     operationalReviewerWorksheet,
     humanDecisionBrief,
+    sourceArtifacts
+  });
+  const reviewSessionProgressSummary = reviewSessionProgressSummaryFor({
+    operationalReviewSessionProgress,
     sourceArtifacts
   });
   const bundle = {
@@ -986,6 +1121,7 @@ const buildOperationalStatusBundle = ({
       ...(preparationRunSummary || {}),
       ...(decisionReviewPacketSummary || {}),
       ...(reviewerWorksheetSummary || {}),
+      ...(reviewSessionProgressSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),
@@ -1003,6 +1139,7 @@ const buildOperationalStatusBundle = ({
     decisionReviewSectionPreviews: decisionReviewSectionPreviewsFor(operationalDecisionInputReviewPacket),
     reviewerWorksheetWorktableBridgePreviews:
       reviewerWorksheetSummary?.reviewerWorksheetWorktableBridgePreviews || [],
+    reviewSessionProgressPreviews: reviewSessionProgressPreviewsFor(operationalReviewSessionProgress),
     settingsImportChecklist: settingsImportChecklistFor(sourceArtifacts),
     nextOperatorActions: nextOperatorActionsFor({
       sourceArtifacts,

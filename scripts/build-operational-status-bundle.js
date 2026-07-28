@@ -73,6 +73,18 @@ const reviewSessionPacketPath = resolveOptionalPath(
   latestFile('operational-hitl-review-session-packet-', '.json')
 );
 
+const reviewSessionProgressPath = resolveOptionalPath(
+  valueAfter('--review-session-progress'),
+  process.env.OPERATIONAL_HITL_REVIEW_SESSION_PROGRESS,
+  latestFile('operational-hitl-review-session-progress-', '.json')
+);
+
+const reviewSessionProgressMarkdownPath = resolveOptionalPath(
+  valueAfter('--review-session-progress-md'),
+  process.env.OPERATIONAL_HITL_REVIEW_SESSION_PROGRESS_MARKDOWN,
+  latestFile('operational-hitl-review-session-progress-', '.md')
+);
+
 const worktableSuggestionPath = resolveOptionalPath(
   valueAfter('--worktable-suggestion'),
   process.env.OPERATIONAL_HITL_DECISION_WORKTABLE_SUGGESTION,
@@ -139,6 +151,7 @@ const run = () => {
   const pipelineStatus = readOptionalJson(pipelineStatusPath);
   const humanDecisionBrief = readOptionalJson(humanDecisionBriefPath);
   const reviewSessionPacket = readOptionalJson(reviewSessionPacketPath);
+  const reviewSessionProgress = readOptionalJson(reviewSessionProgressPath);
   const worktableSuggestion = readOptionalJson(worktableSuggestionPath);
   const visionCaptureWorkOrderPlan = readOptionalJson(visionCaptureWorkOrderPlanPath);
   const labelConflictReviewGuide = readOptionalJson(labelConflictReviewGuidePath);
@@ -156,6 +169,7 @@ const run = () => {
     operationalPreparationRun,
     operationalDecisionInputReviewPacket,
     operationalReviewerWorksheet,
+    operationalReviewSessionProgress: reviewSessionProgress,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -163,6 +177,8 @@ const run = () => {
       humanDecisionBrief: humanDecisionBriefPath,
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
+      reviewSessionProgress: reviewSessionProgressPath,
+      reviewSessionProgressMarkdown: reviewSessionProgressMarkdownPath,
       worktableSuggestion: worktableSuggestionPath,
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
@@ -175,6 +191,7 @@ const run = () => {
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
+      reviewSessionProgress,
       worktableSuggestion,
       visionCaptureWorkOrderPlan,
       labelConflictReviewGuide,
@@ -244,6 +261,13 @@ const run = () => {
     reviewerWorksheetWorktableBridgePreviewText: bundle.summary.reviewerWorksheetWorktableBridgePreviewText ?? null,
     reviewerWorksheetWorktableBridgeScopeText: bundle.summary.reviewerWorksheetWorktableBridgeScopeText ?? null,
     reviewerWorksheetWorktableBridgePreviewCount: bundle.reviewerWorksheetWorktableBridgePreviews?.length ?? 0,
+    reviewSessionProgressStatus: bundle.summary.reviewSessionProgressStatus ?? null,
+    reviewSessionProgressPendingRows: bundle.summary.reviewSessionProgressPendingRows ?? null,
+    reviewSessionProgressInvalidRows: bundle.summary.reviewSessionProgressInvalidRows ?? null,
+    reviewSessionProgressNextSessionCode: bundle.summary.reviewSessionProgressNextSessionCode ?? null,
+    reviewSessionProgressNextDecisionId: bundle.summary.reviewSessionProgressNextDecisionId ?? null,
+    reviewSessionProgressNextRecommendedAction: bundle.summary.reviewSessionProgressNextRecommendedAction ?? null,
+    reviewSessionProgressPath: bundle.summary.reviewSessionProgressPath ?? null,
     reviewerWorksheetMarkdownLineCount: bundle.summary.reviewerWorksheetMarkdownLineCount ?? null,
     reviewerWorksheetPath: bundle.summary.reviewerWorksheetPath ?? null,
     reviewerWorksheetMarkdownPath: bundle.summary.reviewerWorksheetMarkdownPath ?? null,
@@ -274,6 +298,8 @@ try {
       humanDecisionBrief: humanDecisionBriefPath,
       humanDecisionBriefMarkdown: humanDecisionBriefMarkdownPath,
       reviewSessionPacket: reviewSessionPacketPath,
+      reviewSessionProgress: reviewSessionProgressPath,
+      reviewSessionProgressMarkdown: reviewSessionProgressMarkdownPath,
       worktableSuggestion: worktableSuggestionPath,
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
