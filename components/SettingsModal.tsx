@@ -111,6 +111,8 @@ const OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY =
   'mold-master-ai:operational-hitl-human-decision-brief:v1';
 const OPERATIONAL_LABEL_CONFLICT_REVIEW_GUIDE_STORAGE_KEY =
   'mold-master-ai:vision-approved-label-conflict-review-guide:v1';
+const OPERATIONAL_WEB_KNOWLEDGE_COMMON_AGENT_PACKAGE_STORAGE_KEY =
+  'mold-master-ai:web-knowledge-common-agent-learning-package:v1';
 const MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY =
   'mold-master-ai:development-progress:v1';
 const OPERATIONAL_STATUS_BUNDLE_STORAGE_KEY =
@@ -238,6 +240,28 @@ const saveOperationalHitlHumanDecisionBrief = (brief: any): void => {
 const saveOperationalLabelConflictReviewGuide = (guide: any): void => {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem(OPERATIONAL_LABEL_CONFLICT_REVIEW_GUIDE_STORAGE_KEY, JSON.stringify(guide));
+};
+
+const readOperationalWebKnowledgeCommonAgentPackage = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_WEB_KNOWLEDGE_COMMON_AGENT_PACKAGE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'web-knowledge-common-agent-learning-package/v1'
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalWebKnowledgeCommonAgentPackage = (learningPackage: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(
+    OPERATIONAL_WEB_KNOWLEDGE_COMMON_AGENT_PACKAGE_STORAGE_KEY,
+    JSON.stringify(learningPackage)
+  );
 };
 
 const readMoldMasterDevelopmentProgress = (): any | null => {
@@ -391,6 +415,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlHumanDecisionBrief, setOperationalHitlHumanDecisionBrief] = useState(
     () => readOperationalHitlHumanDecisionBrief()
   );
+  const [operationalWebKnowledgeCommonAgentPackage, setOperationalWebKnowledgeCommonAgentPackage] = useState(
+    () => readOperationalWebKnowledgeCommonAgentPackage()
+  );
   const [moldMasterDevelopmentProgress, setMoldMasterDevelopmentProgress] = useState(
     () => readMoldMasterDevelopmentProgress()
   );
@@ -420,6 +447,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeMoldMasterDevelopmentProgressDisplay(moldMasterDevelopmentProgress);
   const operationalStatusBundleDisplay =
     summarizeOperationalStatusBundleDisplay(operationalStatusBundle);
+  const operationalWebKnowledgeCommonAgentPackageSummary =
+    operationalWebKnowledgeCommonAgentPackage?.summary || {};
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
@@ -428,6 +457,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlReviewSessionPlanImportStatus, setOperationalHitlReviewSessionPlanImportStatus] = useState('');
   const [operationalHitlReviewSessionPacketImportStatus, setOperationalHitlReviewSessionPacketImportStatus] = useState('');
   const [operationalHitlHumanDecisionBriefImportStatus, setOperationalHitlHumanDecisionBriefImportStatus] = useState('');
+  const [operationalWebKnowledgeCommonAgentPackageImportStatus, setOperationalWebKnowledgeCommonAgentPackageImportStatus] = useState('');
   const [moldMasterDevelopmentProgressImportStatus, setMoldMasterDevelopmentProgressImportStatus] = useState('');
   const [operationalStatusBundleImportStatus, setOperationalStatusBundleImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
@@ -757,6 +787,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     }
   };
 
+  const handleOperationalWebKnowledgeCommonAgentPackageImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const learningPackage = JSON.parse(await file.text());
+      if (learningPackage?.contractVersion !== 'web-knowledge-common-agent-learning-package/v1') {
+        throw new Error('invalid web knowledge common agent learning package');
+      }
+      saveOperationalWebKnowledgeCommonAgentPackage(learningPackage);
+      setOperationalWebKnowledgeCommonAgentPackage(learningPackage);
+      setOperationalWebKnowledgeCommonAgentPackageImportStatus('Web Knowledge package registered.');
+    } catch (error) {
+      setOperationalWebKnowledgeCommonAgentPackageImportStatus(
+        error instanceof Error ? `Web Knowledge package import failed: ${error.message}` : 'Web Knowledge package import failed'
+      );
+    }
+  };
+
   const handleMoldMasterDevelopmentProgressImport = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -812,6 +863,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       }
       if (restored.artifacts.labelConflictReviewGuide) {
         saveOperationalLabelConflictReviewGuide(restored.artifacts.labelConflictReviewGuide);
+      }
+      if (restored.artifacts.webKnowledgeCommonAgentPackage) {
+        saveOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
+        setOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
       }
       saveOperationalStatusBundle(bundle);
       setOperationalStatusBundle(bundle);
@@ -1157,6 +1212,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalStatusBundleImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-emerald-800 px-2 py-1 text-[9px] text-emerald-100 hover:bg-emerald-700">
+                    Web Package import
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalWebKnowledgeCommonAgentPackageImport}
+                    />
+                  </label>
                   <label className="cursor-pointer rounded bg-cyan-800 px-2 py-1 text-[9px] text-cyan-100 hover:bg-cyan-700">
                     HITL Pack 등록
                     <input
@@ -1252,6 +1316,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     : 'text-emerald-300'
                 }`}>
                   {operationalStatusBundleImportStatus}
+                </p>
+              )}
+              {operationalWebKnowledgeCommonAgentPackageImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalWebKnowledgeCommonAgentPackageImportStatus.includes('failed')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalWebKnowledgeCommonAgentPackageImportStatus}
+                </p>
+              )}
+              {operationalWebKnowledgeCommonAgentPackage && (
+                <p className="mt-2 break-words text-[9px] text-emerald-100">
+                  Local Web package: {operationalWebKnowledgeCommonAgentPackage.status || 'unknown'}
+                  {' / items '}
+                  {operationalWebKnowledgeCommonAgentPackageSummary.packagedKnowledgeItems ?? 0}
+                  {' / graph cases '}
+                  {operationalWebKnowledgeCommonAgentPackageSummary.graphRoundtripCases ?? 0}
                 </p>
               )}
               {operationalHitlActionPackImportStatus && (
@@ -1380,6 +1462,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     <p className="mt-1 break-words text-cyan-100">
                       {operationalStatusBundleDisplay.webKnowledgeText}
                     </p>
+                  )}
+                  {operationalStatusBundleDisplay.webKnowledgePackageText && (
+                    <div className="mt-2 rounded border border-emerald-900/50 bg-emerald-950/20 px-2 py-1">
+                      <p className="break-words text-[8px] font-bold text-emerald-50">
+                        {operationalStatusBundleDisplay.webKnowledgePackageText}
+                      </p>
+                      {operationalStatusBundleDisplay.webKnowledgePackageActionText && (
+                        <p className="mt-1 break-words text-[8px] text-emerald-100">
+                          {operationalStatusBundleDisplay.webKnowledgePackageActionText}
+                        </p>
+                      )}
+                      {operationalStatusBundleDisplay.webKnowledgePackagePath && (
+                        <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                          {operationalStatusBundleDisplay.webKnowledgePackagePath}
+                        </p>
+                      )}
+                    </div>
                   )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">

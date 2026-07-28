@@ -819,6 +819,22 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
       `중앙 승인대기 ${numberValue(summary.webCentralApprovalsMissing)}건`
     ].join(' · ')
     : '';
+  const webKnowledgePackageStatus = compact(summary.webKnowledgePackageStatus);
+  const webKnowledgePackageText = webKnowledgePackageStatus
+    ? [
+      `Web package ${webKnowledgePackageStatus}`,
+      `Approved rows ${numberValue(summary.webKnowledgePackageApprovedRows)}`,
+      `Items ${numberValue(summary.webKnowledgePackageItems)}`,
+      `Graph cases ${numberValue(summary.webKnowledgeGraphRoundtripCases)}`
+    ].join(' · ')
+    : '';
+  const webKnowledgePackageActionText = webKnowledgePackageStatus
+    ? [
+      `Common Agent action ${compact(summary.webKnowledgeCommonAgentRequestedAction) || 'not_ready'}`,
+      summary.webKnowledgeManualImportAllowed === true ? 'Manual import allowed' : 'Manual import blocked',
+      summary.webKnowledgeReadyForGraphRoundtrip === true ? 'Graph roundtrip ready' : 'Graph roundtrip blocked'
+    ].join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -855,6 +871,9 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     pipelineStageText: compact(summary.currentPipelineStageKo) || compact(summary.currentPipelineStageCode),
     summaryText: summaryParts.join(' · '),
     webKnowledgeText,
+    webKnowledgePackageText,
+    webKnowledgePackageActionText,
+    webKnowledgePackagePath: compact(summary.webKnowledgePackagePath),
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
     labelConflictGuideText,

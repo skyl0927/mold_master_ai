@@ -16,6 +16,9 @@ const isVisionCaptureWorkOrderPlan = artifact =>
 const isLabelConflictReviewGuide = artifact =>
   isContract(artifact, 'vision-approved-label-conflict-review-guide/v1');
 
+const isWebKnowledgeCommonAgentPackage = artifact =>
+  isContract(artifact, 'web-knowledge-common-agent-learning-package/v1');
+
 const policy = () => ({
   requiresHumanReview: true,
   artifactOnly: true,
@@ -124,6 +127,12 @@ const sourceArtifactListFor = sourceArtifacts => [
     labelKo: 'Label conflict HITL review guide Markdown',
     contractVersion: 'text/markdown',
     path: compact(sourceArtifacts.labelConflictReviewGuideMarkdown)
+  },
+  {
+    key: 'webKnowledgeCommonAgentPackage',
+    labelKo: 'Web Knowledge Common Agent package',
+    contractVersion: 'web-knowledge-common-agent-learning-package/v1',
+    path: compact(sourceArtifacts.webKnowledgeCommonAgentPackage)
   }
 ].filter(item => item.path);
 
@@ -134,7 +143,8 @@ const restorableArtifactContracts = {
   reviewSessionPacket: 'operational-hitl-review-session-packet/v1',
   worktableSuggestion: 'operational-hitl-decision-worktable-suggestion/v1',
   visionCaptureWorkOrderPlan: 'vision-capture-work-order-plan/v1',
-  labelConflictReviewGuide: 'vision-approved-label-conflict-review-guide/v1'
+  labelConflictReviewGuide: 'vision-approved-label-conflict-review-guide/v1',
+  webKnowledgeCommonAgentPackage: 'web-knowledge-common-agent-learning-package/v1'
 };
 
 const sourceArtifactSnapshotsFor = ({ generatedAt, sourceArtifacts, sourceArtifactPayloads }) =>
@@ -225,6 +235,12 @@ const settingsImportChecklistFor = sourceArtifacts => [
     artifactKey: 'visionCaptureWorkOrderPlan',
     artifactPath: compact(sourceArtifacts.visionCaptureWorkOrderPlan),
     contractVersion: 'vision-capture-work-order-plan/v1'
+  },
+  {
+    buttonLabelKo: 'Web Knowledge Package 등록',
+    artifactKey: 'webKnowledgeCommonAgentPackage',
+    artifactPath: compact(sourceArtifacts.webKnowledgeCommonAgentPackage),
+    contractVersion: 'web-knowledge-common-agent-learning-package/v1'
   }
 ].filter(item => item.artifactPath);
 
@@ -286,6 +302,23 @@ const labelConflictGuideSummaryFor = ({ labelConflictReviewGuide, sourceArtifact
   };
 };
 
+const webKnowledgePackageSummaryFor = ({ webKnowledgeCommonAgentPackage, sourceArtifacts }) => {
+  if (!isWebKnowledgeCommonAgentPackage(webKnowledgeCommonAgentPackage)) return null;
+  const summary = webKnowledgeCommonAgentPackage.summary || {};
+  return {
+    webKnowledgePackageStatus: compact(webKnowledgeCommonAgentPackage.status),
+    webKnowledgePackageApprovedRows: numberValue(summary.approvedSourceRows),
+    webKnowledgePackageNonApprovedRows: numberValue(summary.nonApprovedRows),
+    webKnowledgePackageItems: numberValue(summary.packagedKnowledgeItems),
+    webKnowledgeGraphRoundtripCases: numberValue(summary.graphRoundtripCases),
+    webKnowledgeManualImportAllowed: webKnowledgeCommonAgentPackage.manualImportAllowed === true,
+    webKnowledgeReadyForGraphRoundtrip: webKnowledgeCommonAgentPackage.readyForGraphRoundtripValidation === true,
+    webKnowledgeCommonAgentRequestedAction: compact(webKnowledgeCommonAgentPackage.commonAgentReviewRequest?.requestedAction),
+    webKnowledgePackageRecommendedAction: compact(webKnowledgeCommonAgentPackage.recommendedAction),
+    webKnowledgePackagePath: compact(sourceArtifacts.webKnowledgeCommonAgentPackage)
+  };
+};
+
 const postImportValidationSummaryFor = pipelineStatus => {
   const summary = pipelineStatus?.summary || {};
   return {
@@ -319,6 +352,12 @@ const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief }) => [
     titleKo: 'Label conflict HITL guide 확인',
     instructionKo: '라벨 충돌 HITL guide에서 후보 라벨별 근거와 위험 플래그를 확인한 뒤 사람이 decision-template을 채우세요.',
     path: compact(sourceArtifacts.labelConflictReviewGuideMarkdown || sourceArtifacts.labelConflictReviewGuide)
+  }] : []),
+  ...(compact(sourceArtifacts.webKnowledgeCommonAgentPackage) ? [{
+    code: 'open_web_knowledge_common_agent_package',
+    titleKo: 'Web Knowledge Common Agent package 확인',
+    instructionKo: '승인된 Web Case가 Common Agent 수동 import 후보로 준비됐는지 확인하고 blocked 상태면 Web HITL decision 검증을 먼저 완료하세요.',
+    path: compact(sourceArtifacts.webKnowledgeCommonAgentPackage)
   }] : []),
   {
     code: 'open_next_human_brief',
@@ -398,6 +437,7 @@ const markdownFor = bundle => {
     `- 대기 row: ${bundle.summary.pendingRows}건 / 고위험 row: ${bundle.summary.highRiskRows}건`,
     `- Web 승인대기: ${bundle.summary.webHitlApprovalsMissing}건`,
     `- Web cases: ${bundle.summary.webCards || 0}/${bundle.summary.webTargetCards || 0} / Common Agent ${bundle.summary.webCommonAgentValidationPassed || 0} / HITL missing ${bundle.summary.webHitlApprovalsMissing || 0} / central missing ${bundle.summary.webCentralApprovalsMissing || 0}`,
+    `- Web Knowledge package: ${bundle.summary.webKnowledgePackageStatus || 'not_started'} / approved rows ${bundle.summary.webKnowledgePackageApprovedRows || 0} / items ${bundle.summary.webKnowledgePackageItems || 0} / graph cases ${bundle.summary.webKnowledgeGraphRoundtripCases || 0}`,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,
@@ -464,6 +504,7 @@ const buildOperationalStatusBundle = ({
   humanDecisionBrief = null,
   visionCaptureWorkOrderPlan = null,
   labelConflictReviewGuide = null,
+  webKnowledgeCommonAgentPackage = null,
   sourceArtifacts = {},
   sourceArtifactPayloads = {},
   markdownPath = null
@@ -496,6 +537,7 @@ const buildOperationalStatusBundle = ({
       humanDecisionBrief,
       visionCaptureWorkOrderPlan,
       labelConflictReviewGuide,
+      webKnowledgeCommonAgentPackage,
       ...sourceArtifactPayloads
     }
   });
@@ -504,6 +546,10 @@ const buildOperationalStatusBundle = ({
   const captureWorkOrderSummary = captureWorkOrderSummaryFor(visionCaptureWorkOrderPlan);
   const labelConflictGuideSummary = labelConflictGuideSummaryFor({
     labelConflictReviewGuide,
+    sourceArtifacts
+  });
+  const webKnowledgePackageSummary = webKnowledgePackageSummaryFor({
+    webKnowledgeCommonAgentPackage,
     sourceArtifacts
   });
   const bundle = {
@@ -545,6 +591,7 @@ const buildOperationalStatusBundle = ({
       visionAccuracyFirstTrackCode: compact(progressSummary.visionAccuracyFirstTrackCode),
       ...(captureWorkOrderSummary || {}),
       ...(labelConflictGuideSummary || {}),
+      ...(webKnowledgePackageSummary || {}),
       ...postImportValidationSummaryFor(pipelineStatus),
       topPriorityTaskCode: compact(progressSummary.topPriorityTaskCode),
       nextSessionCode: compact(humanSummary.nextSessionCode),

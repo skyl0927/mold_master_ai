@@ -97,6 +97,12 @@ const labelConflictReviewGuideMarkdownPath = resolveOptionalPath(
   latestFile('vision-approved-label-conflict-review-guide-', '.md')
 );
 
+const webKnowledgeCommonAgentPackagePath = resolveOptionalPath(
+  valueAfter('--web-knowledge-common-agent-package'),
+  process.env.WEB_KNOWLEDGE_COMMON_AGENT_LEARNING_PACKAGE,
+  latestFile('web-knowledge-common-agent-learning-package-', '.json')
+);
+
 const baseOutput = valueAfter('--output-base')
   || process.env.OPERATIONAL_STATUS_BUNDLE_OUTPUT_BASE
   || path.join(artifactRoot, `operational-status-bundle-${timestamp()}`);
@@ -112,12 +118,14 @@ const run = () => {
   const worktableSuggestion = readOptionalJson(worktableSuggestionPath);
   const visionCaptureWorkOrderPlan = readOptionalJson(visionCaptureWorkOrderPlanPath);
   const labelConflictReviewGuide = readOptionalJson(labelConflictReviewGuidePath);
+  const webKnowledgeCommonAgentPackage = readOptionalJson(webKnowledgeCommonAgentPackagePath);
   const bundle = buildOperationalStatusBundle({
     developmentProgress,
     pipelineStatus,
     humanDecisionBrief,
     visionCaptureWorkOrderPlan,
     labelConflictReviewGuide,
+    webKnowledgeCommonAgentPackage,
     markdownPath: markdownOutputPath,
     sourceArtifacts: {
       developmentProgress: developmentProgressPath,
@@ -128,13 +136,15 @@ const run = () => {
       worktableSuggestion: worktableSuggestionPath,
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
-      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath
+      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
+      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
       worktableSuggestion,
       visionCaptureWorkOrderPlan,
-      labelConflictReviewGuide
+      labelConflictReviewGuide,
+      webKnowledgeCommonAgentPackage
     }
   });
 
@@ -165,6 +175,11 @@ const run = () => {
     labelConflictGuideConflicts: bundle.summary.labelConflictGuideConflicts ?? null,
     labelConflictGuideFirstConflictId: bundle.summary.labelConflictGuideFirstConflictId ?? null,
     labelConflictGuideMarkdownPath: bundle.summary.labelConflictGuideMarkdownPath ?? null,
+    webKnowledgePackageStatus: bundle.summary.webKnowledgePackageStatus ?? null,
+    webKnowledgePackageItems: bundle.summary.webKnowledgePackageItems ?? null,
+    webKnowledgeGraphRoundtripCases: bundle.summary.webKnowledgeGraphRoundtripCases ?? null,
+    webKnowledgeCommonAgentRequestedAction: bundle.summary.webKnowledgeCommonAgentRequestedAction ?? null,
+    webKnowledgePackagePath: bundle.summary.webKnowledgePackagePath ?? null,
     postImportValidationCases: bundle.summary.postImportValidationCases ?? null,
     postImportValidationObservationStatus: bundle.summary.postImportValidationObservationStatus ?? null,
     postImportGraphCapturedCases: bundle.summary.postImportGraphCapturedCases ?? null,
@@ -195,7 +210,8 @@ try {
       worktableSuggestion: worktableSuggestionPath,
       visionCaptureWorkOrderPlan: visionCaptureWorkOrderPlanPath,
       labelConflictReviewGuide: labelConflictReviewGuidePath,
-      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath
+      labelConflictReviewGuideMarkdown: labelConflictReviewGuideMarkdownPath,
+      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackagePath
     }
   });
   bundle.summary.error = error instanceof Error ? error.message : String(error);
