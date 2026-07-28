@@ -1,5 +1,9 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const {
   buildWebKnowledgeHitlReviewGuide
@@ -110,6 +114,71 @@ test('builds a no-write Web Knowledge HITL review guide from the decision templa
   ]);
   assert.equal(second.reviewFocusKo, '보완 필요 후보: 누락된 문제/현상/원인/점검/대책 필드를 보강하거나 reject_card를 검토하세요.');
   assert.equal(guide.sources.decisionTemplate, 'artifacts/common-agent-web-knowledge-hitl-decisions-template.json');
+});
+
+test('builds Markdown and CSV reviewer worksheets for Web Knowledge HITL decisions', () => {
+  const guide = buildWebKnowledgeHitlReviewGuide({
+    generatedAt: '2026-07-27T15:20:00.000Z',
+    decisionTemplate,
+    sourceArtifacts: {
+      decisionTemplate: 'artifacts/common-agent-web-knowledge-hitl-decisions-template.json'
+    }
+  });
+
+  assert.equal(guide.reviewWorksheet.status, 'ready');
+  assert.equal(guide.reviewWorksheet.rows.length, 2);
+  assert.equal(guide.reviewWorksheet.rows[0].caseId, 'web-basf-04-weld-line');
+  assert.equal(guide.reviewWorksheet.rows[0].recommendedAction, 'approve_card');
+  assert.equal(guide.reviewWorksheet.rows[0].copyrightUse, 'citation_only');
+  assert.equal(guide.reviewWorksheet.rows[1].recommendedAction, 'mark_needs_changes');
+  assert.deepEqual(guide.reviewWorksheet.rows[0].requiredDecisionFields, [
+    'action',
+    'reviewerId',
+    'decidedAt',
+    'reviewComment',
+    'confirmed',
+    'reviewedDefectName',
+    'reviewedProblem',
+    'reviewedPhenomenon',
+    'causeCandidates',
+    'causeLabels',
+    'checkItems',
+    'actions'
+  ]);
+  assert.match(guide.reviewWorksheet.markdown, /# Web Knowledge HITL Review Worksheet/);
+  assert.match(guide.reviewWorksheet.markdown, /web-basf-04-weld-line/);
+  assert.match(guide.reviewWorksheet.markdown, /Recommended action: approve_card/);
+  assert.match(guide.reviewWorksheet.csvText, /caseId,defectClass,sourceKind,recommendedAction,copyrightUse/);
+  assert.match(guide.reviewWorksheet.csvText, /web-basf-04-weld-line,weld_line,technical_guide,approve_card,citation_only/);
+});
+
+test('CLI writes companion Markdown and CSV reviewer worksheet artifacts', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'web-knowledge-review-guide-'));
+  const templatePath = path.join(tempDir, 'decision-template.json');
+  const outputPath = path.join(tempDir, 'review-guide.json');
+  fs.writeFileSync(templatePath, `${JSON.stringify(decisionTemplate, null, 2)}\n`, 'utf8');
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      'scripts/build-web-knowledge-hitl-review-guide.js',
+      '--decision-template',
+      templatePath,
+      '--output',
+      outputPath
+    ],
+    {
+      cwd: path.resolve(__dirname, '..'),
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const guide = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.equal(fs.existsSync(guide.outputs.markdownWorksheetPath), true);
+  assert.equal(fs.existsSync(guide.outputs.csvWorksheetPath), true);
+  assert.match(fs.readFileSync(guide.outputs.markdownWorksheetPath, 'utf8'), /Web Knowledge HITL Review Worksheet/);
+  assert.match(fs.readFileSync(guide.outputs.csvWorksheetPath, 'utf8'), /web-basf-04-weld-line,weld_line/);
 });
 
 test('fails closed when Web Knowledge HITL decision template is missing', () => {
