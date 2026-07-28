@@ -56,6 +56,31 @@ const worktableImport = status => ({
   }
 });
 
+const simulationOnlyWorktableImport = () => ({
+  contractVersion: 'operational-hitl-decision-worktable-import/v1',
+  status: 'invalid_worktable',
+  applyRequested: true,
+  serviceWritesPerformed: false,
+  localEditableWritesPerformed: false,
+  summary: {
+    totalRows: 59,
+    plannedUpdates: 0,
+    appliedUpdates: 0,
+    invalidRows: 59,
+    simulationOnlyRows: 59,
+    filesToUpdate: 0
+  },
+  plannedUpdates: [],
+  invalidRows: [
+    {
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      action: 'mark_needs_review',
+      code: 'simulation_only_csv'
+    }
+  ]
+});
+
 const worktableSuggestion = () => ({
   contractVersion: 'operational-hitl-decision-worktable-suggestion/v1',
   status: 'ready_for_human_review',
@@ -355,6 +380,39 @@ test('surfaces worktable suggestion metrics while awaiting human CSV decisions',
   assert.match(status.markdown, /세션 완료 row: 0/);
   assert.match(status.markdown, /세션 대기 row: 59/);
   assert.match(status.markdown, /재촬영 추천: 5/);
+});
+
+test('ignores simulation-only safety smoke imports when reporting the operational HITL bottleneck', () => {
+  const status = buildOperationalHitlPipelineStatus({
+    generatedAt: '2026-07-28T03:00:00.000Z',
+    intakeStatus: intakeStatus(),
+    workspaceManifest: workspaceManifest(),
+    worktableExport: worktableExport(),
+    worktableSuggestion: worktableSuggestion(),
+    dryRunRoundtrip: dryRunRoundtrip(),
+    simulatedPreflight: simulatedPreflight(),
+    reviewSessionPlan: reviewSessionPlan(),
+    reviewSessionPacket: reviewSessionPacket(),
+    reviewSessionProgress: reviewSessionProgress(),
+    worktableImport: simulationOnlyWorktableImport(),
+    preflightReport: preflight('needs_human_input'),
+    sourceArtifacts: {
+      worktableCsv: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      worktableImport: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-import-smoke.json'
+    }
+  });
+
+  assert.equal(status.status, 'action_required');
+  assert.equal(status.currentStage.code, 'awaiting_human_csv_decisions');
+  assert.equal(status.summary.worktablePlannedUpdates, 0);
+  assert.equal(status.summary.worktableInvalidRows, 0);
+  assert.equal(status.summary.worktableIgnoredSimulationOnlyRows, 59);
+  assert.equal(
+    status.stageTrail.find(item => item.code === 'worktable_import').status,
+    'ignored_simulation_only'
+  );
+  assert.equal(status.nextActions[0].code, 'fill_worktable_csv');
+  assert.match(status.markdown, /무시된 simulation-only import row: 59/);
 });
 
 test('surfaces simulated preflight blockers before human CSV entry', () => {

@@ -216,6 +216,9 @@ Graph/Reference/Model 승격을 수행하지 않는다.
 `worktable-import`는 기본적으로 이런 simulation-only CSV를 `invalid_worktable`로
 거부하며, 내부 시뮬레이션 빌더만 dry-run 검증 목적으로 명시 허용한다. 이 허용도
 `apply=true`에서는 차단된다.
+이 차단 스모크 결과 artifact는 감사 증거로 보존되지만, `session-progress`와
+`pipeline-status`에서는 실제 사람 판정 진행률이나 운영 오류로 집계하지 않고
+`ignoredSimulationOnlyRows` 또는 `worktableIgnoredSimulationOnlyRows`로만 표시한다.
 
 `operational:hitl:simulated-preflight`는 위 simulation-only CSV를 다시 기존
 `worktable-import` dry-run에 통과시킨 뒤, 계획된 update를 메모리 안의 editable

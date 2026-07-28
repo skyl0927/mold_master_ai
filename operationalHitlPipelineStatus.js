@@ -19,6 +19,36 @@ const policy = () => ({
   allowModelTraining: false
 });
 
+const simulationOnlyImportRows = worktableImport => {
+  const invalidRows = numberFrom(worktableImport?.summary?.invalidRows);
+  const simulationOnlyRows = numberFrom(worktableImport?.summary?.simulationOnlyRows);
+  return invalidRows > 0
+    && simulationOnlyRows > 0
+    && simulationOnlyRows >= invalidRows
+    && numberFrom(worktableImport?.summary?.plannedUpdates) === 0
+    && worktableImport?.localEditableWritesPerformed !== true
+    ? simulationOnlyRows
+    : 0;
+};
+
+const normalizeOperationalWorktableImport = worktableImport => {
+  const ignoredSimulationOnlyRows = simulationOnlyImportRows(worktableImport);
+  if (ignoredSimulationOnlyRows === 0) return worktableImport;
+  return {
+    ...worktableImport,
+    status: 'ignored_simulation_only',
+    summary: {
+      ...worktableImport.summary,
+      plannedUpdates: 0,
+      appliedUpdates: 0,
+      invalidRows: 0,
+      ignoredSimulationOnlyRows
+    },
+    plannedUpdates: [],
+    invalidRows: []
+  };
+};
+
 const requiredMissing = ({
   intakeStatus,
   workspaceManifest,
@@ -80,6 +110,8 @@ const missingEvidenceStatus = ({ generatedAt, missingArtifactNames, sourceArtifa
     missingArtifactNames,
     totalDecisionInputsMissing: 0,
     worktableRows: 0,
+    worktableInvalidRows: 0,
+    worktableIgnoredSimulationOnlyRows: 0,
     worktableSuggestionRows: 0,
     worktableRecaptureSuggestions: 0,
     worktableApproveCandidateSuggestions: 0,
@@ -533,6 +565,8 @@ const summaryFor = ({
   webHitlMissing: numberFrom(intakeStatus?.summary?.webHitlMissing),
   workspaceFileCount: numberFrom(workspaceManifest?.summary?.workspaceFileCount),
   worktableRows: numberFrom(worktableExport?.summary?.decisionRowCount, worktableImport?.summary?.totalRows),
+  worktableInvalidRows: numberFrom(worktableImport?.summary?.invalidRows),
+  worktableIgnoredSimulationOnlyRows: numberFrom(worktableImport?.summary?.ignoredSimulationOnlyRows),
   worktableSuggestionRows: numberFrom(worktableSuggestion?.summary?.suggestionRows),
   worktableRecaptureSuggestions: numberFrom(worktableSuggestion?.summary?.recaptureSuggestions),
   worktableApproveCandidateSuggestions: numberFrom(worktableSuggestion?.summary?.approveCandidateSuggestions),
@@ -577,6 +611,8 @@ const markdownFor = report => {
     `- 현재 단계: ${report.currentStage.titleKo}`,
     `- 남은 입력: ${report.summary.totalDecisionInputsMissing}`,
     `- 작업표 row: ${report.summary.worktableRows}`,
+    `- 작업표 오류 row: ${report.summary.worktableInvalidRows}`,
+    `- 무시된 simulation-only import row: ${report.summary.worktableIgnoredSimulationOnlyRows}`,
     `- 추천 row: ${report.summary.worktableSuggestionRows}`,
     `- 검토 세션: ${report.summary.worktableReviewSessionCount}`,
     `- 검토 세션 고위험 row: ${report.summary.worktableReviewSessionHighRiskRows}`,
@@ -650,6 +686,7 @@ const buildOperationalHitlPipelineStatus = ({
     };
   }
 
+  const normalizedWorktableImport = normalizeOperationalWorktableImport(worktableImport);
   const decision = pipelineDecision({
     intakeStatus,
     workspaceManifest,
@@ -660,7 +697,7 @@ const buildOperationalHitlPipelineStatus = ({
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
-    worktableImport,
+    worktableImport: normalizedWorktableImport,
     preflightReport,
     verificationRun,
     commonAgentImportPackage,
@@ -677,7 +714,7 @@ const buildOperationalHitlPipelineStatus = ({
     reviewSessionPlan,
     reviewSessionPacket,
     reviewSessionProgress,
-    worktableImport,
+    worktableImport: normalizedWorktableImport,
     preflightReport,
     verificationRun,
     commonAgentImportPackage,
@@ -705,7 +742,7 @@ const buildOperationalHitlPipelineStatus = ({
       reviewSessionPlan,
       reviewSessionPacket,
       reviewSessionProgress,
-      worktableImport,
+      worktableImport: normalizedWorktableImport,
       preflightReport,
       verificationRun,
       commonAgentImportPackage,

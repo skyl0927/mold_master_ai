@@ -96,6 +96,7 @@ const run = () => {
     completedRows: report.summary.completedRows,
     pendingRows: report.summary.pendingRows,
     invalidRows: report.summary.invalidRows,
+    ignoredSimulationOnlyRows: report.summary.ignoredSimulationOnlyRows,
     sessionCount: report.summary.sessionCount,
     completeSessionCount: report.summary.completeSessionCount,
     blockedSessionCount: report.summary.blockedSessionCount,

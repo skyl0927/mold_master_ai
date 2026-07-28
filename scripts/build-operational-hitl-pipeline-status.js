@@ -209,6 +209,8 @@ const run = () => {
     serviceWritesPerformed: report.serviceWritesPerformed,
     totalDecisionInputsMissing: report.summary.totalDecisionInputsMissing,
     worktableRows: report.summary.worktableRows,
+    worktableInvalidRows: report.summary.worktableInvalidRows,
+    worktableIgnoredSimulationOnlyRows: report.summary.worktableIgnoredSimulationOnlyRows,
     worktableSuggestionRows: report.summary.worktableSuggestionRows,
     worktableReviewSessionCount: report.summary.worktableReviewSessionCount,
     worktableReviewSessionHighRiskRows: report.summary.worktableReviewSessionHighRiskRows,

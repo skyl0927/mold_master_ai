@@ -38,6 +38,9 @@ node --test tests\operationalHitlPipelineStatus.test.js
   Markdown에 표시한다.
 - simulated preflight가 blocked이면 사람 CSV 입력 전에 추천 규칙, worktable
   필드, editable template 보완 단계로 우선 라우팅한다.
+- simulation-only CSV 차단 스모크처럼 의도적으로 실패한 worktable-import
+  artifact는 운영 HITL 입력 증거로 취급하지 않고, 무시된 row 수만 summary와
+  Markdown에 남긴다.
 
 ## GREEN
 
@@ -45,7 +48,16 @@ node --test tests\operationalHitlPipelineStatus.test.js
 node --test tests\operationalHitlPipelineStatus.test.js
 ```
 
-결과: 8개 테스트 통과.
+결과: 9개 테스트 통과.
+
+추가 RED/GREEN:
+
+- RED: `npm run test:operational-hitl-pipeline-status`가 실패했다. 최신
+  `simulation-only` worktable-import 안전 스모크 artifact를 실제 운영 import
+  오류로 읽어 `fix_invalid_worktable_csv` 단계가 반환됐기 때문이다.
+- GREEN: 같은 테스트가 통과했다. 이제 simulation-only import artifact는
+  `ignored_simulation_only` stage로 표시되고, 현재 단계는 실제 병목인
+  `awaiting_human_csv_decisions`로 유지된다.
 
 ## 운영 검증
 
@@ -63,6 +75,8 @@ Graph 승격과 외부 서비스 쓰기는 계속 금지한다.
 - 현재 단계: `awaiting_human_csv_decisions`
 - 남은 HITL 입력: 56
 - 작업표 row: 59
+- 작업표 오류 row: 0
+- 무시된 simulation-only import row: 59
 - 추천 row: 59
 - 검토 세션: 4
 - 검토 세션 고위험 row: 9

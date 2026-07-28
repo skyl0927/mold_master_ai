@@ -26,6 +26,36 @@ const policy = () => ({
 const isContract = (artifact, contractVersion) =>
   artifact?.contractVersion === contractVersion;
 
+const simulationOnlyImportRows = worktableImport => {
+  const invalidRows = numberValue(worktableImport?.summary?.invalidRows);
+  const simulationOnlyRows = numberValue(worktableImport?.summary?.simulationOnlyRows);
+  return invalidRows > 0
+    && simulationOnlyRows > 0
+    && simulationOnlyRows >= invalidRows
+    && numberValue(worktableImport?.summary?.plannedUpdates) === 0
+    && worktableImport?.localEditableWritesPerformed !== true
+    ? simulationOnlyRows
+    : 0;
+};
+
+const normalizeProgressWorktableImport = worktableImport => {
+  const ignoredSimulationOnlyRows = simulationOnlyImportRows(worktableImport);
+  if (ignoredSimulationOnlyRows === 0) return worktableImport;
+  return {
+    ...worktableImport,
+    status: 'ignored_simulation_only',
+    summary: {
+      ...worktableImport.summary,
+      plannedUpdates: 0,
+      appliedUpdates: 0,
+      invalidRows: 0,
+      ignoredSimulationOnlyRows
+    },
+    plannedUpdates: [],
+    invalidRows: []
+  };
+};
+
 const missingEvidenceReport = ({ generatedAt, sourceArtifacts, missingArtifactNames }) => ({
   schemaVersion: 1,
   contractVersion: 'operational-hitl-review-session-progress/v1',
@@ -43,6 +73,7 @@ const missingEvidenceReport = ({ generatedAt, sourceArtifacts, missingArtifactNa
     completedRows: 0,
     pendingRows: 0,
     invalidRows: 0,
+    ignoredSimulationOnlyRows: 0,
     sessionCount: 0,
     completeSessionCount: 0,
     blockedSessionCount: 0,
@@ -215,6 +246,7 @@ const markdownFor = report => {
     `- 완료 row: ${report.summary.completedRows}`,
     `- 대기 row: ${report.summary.pendingRows}`,
     `- 오류 row: ${report.summary.invalidRows}`,
+    `- 무시된 simulation-only import row: ${report.summary.ignoredSimulationOnlyRows}`,
     `- 완료 세션: ${report.summary.completeSessionCount}`,
     `- 차단 세션: ${report.summary.blockedSessionCount}`,
     '- 안전 정책: 진행률 전용, 자동 적용 금지, Graph/Reference/Model 승격 금지',
@@ -261,9 +293,10 @@ const buildOperationalHitlReviewSessionProgress = ({
     return missingEvidenceReport({ generatedAt, sourceArtifacts, missingArtifactNames });
   }
 
+  const normalizedWorktableImport = normalizeProgressWorktableImport(worktableImport);
   const packetIndex = packetIndexFor(reviewSessionPacket);
-  const importIndex = importIndexFor(worktableImport);
-  const worktableImportStatus = compact(worktableImport.status);
+  const importIndex = importIndexFor(normalizedWorktableImport);
+  const worktableImportStatus = compact(normalizedWorktableImport.status);
   const sessions = asArray(reviewSessionPlan.sessions).map(session =>
     sessionProgressFor({
       session,
@@ -305,6 +338,7 @@ const buildOperationalHitlReviewSessionProgress = ({
       completedRows,
       pendingRows,
       invalidRows,
+      ignoredSimulationOnlyRows: numberValue(normalizedWorktableImport?.summary?.ignoredSimulationOnlyRows),
       sessionCount: sessions.length,
       completeSessionCount,
       blockedSessionCount,

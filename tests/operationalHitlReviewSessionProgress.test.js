@@ -131,6 +131,41 @@ const worktableImport = status => ({
     : []
 });
 
+const simulationOnlyWorktableImport = () => ({
+  contractVersion: 'operational-hitl-decision-worktable-import/v1',
+  status: 'invalid_worktable',
+  serviceWritesPerformed: false,
+  localEditableWritesPerformed: false,
+  summary: {
+    totalRows: 3,
+    plannedUpdates: 0,
+    invalidRows: 3,
+    simulationOnlyRows: 3,
+    appliedUpdates: 0
+  },
+  plannedUpdates: [],
+  invalidRows: [
+    {
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      action: 'mark_needs_review',
+      code: 'simulation_only_csv'
+    },
+    {
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-002',
+      action: 'mark_needs_review',
+      code: 'simulation_only_csv'
+    },
+    {
+      queueCode: 'vision_pending_hitl',
+      decisionId: 'pending-hitl-001',
+      action: 'request_recapture',
+      code: 'simulation_only_csv'
+    }
+  ]
+});
+
 test('summarizes per-session HITL CSV completion and invalid rows without writes', () => {
   const progress = buildOperationalHitlReviewSessionProgress({
     generatedAt: '2026-07-27T17:20:00.000Z',
@@ -174,6 +209,32 @@ test('summarizes per-session HITL CSV completion and invalid rows without writes
   assert.equal(progress.sessions[1].pendingRows, 1);
   assert.match(progress.recommendedAction, /오류/);
   assert.equal(progress.sources.reviewSessionPacket, 'C:\\repo\\artifacts\\review-session-packet.json');
+});
+
+test('treats simulation-only safety smoke imports as ignored evidence instead of invalid human progress', () => {
+  const progress = buildOperationalHitlReviewSessionProgress({
+    generatedAt: '2026-07-28T03:05:00.000Z',
+    reviewSessionPlan: reviewSessionPlan(),
+    reviewSessionPacket: reviewSessionPacket(),
+    worktableImport: simulationOnlyWorktableImport(),
+    sourceArtifacts: {
+      worktableImport: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-import-smoke.json'
+    }
+  });
+
+  assert.equal(progress.status, 'awaiting_human_csv_decisions');
+  assert.equal(progress.summary.totalRows, 3);
+  assert.equal(progress.summary.completedRows, 0);
+  assert.equal(progress.summary.pendingRows, 3);
+  assert.equal(progress.summary.invalidRows, 0);
+  assert.equal(progress.summary.ignoredSimulationOnlyRows, 3);
+  assert.equal(progress.summary.blockedSessionCount, 0);
+  assert.deepEqual(progress.sessions.map(session => session.status), [
+    'awaiting_human_csv_decisions',
+    'awaiting_human_csv_decisions'
+  ]);
+  assert.equal(progress.sessions[0].invalidRowPreviews.length, 0);
+  assert.match(progress.markdown, /무시된 simulation-only import row: 3/);
 });
 
 test('reports ready for explicit worktable apply when every session row is valid', () => {
