@@ -217,6 +217,21 @@ const developmentProgressSeverityFor = status => {
   return 'warning';
 };
 
+const operationalStatusBundleStatusLabelFor = (status, statusLabelKo) => {
+  if (compact(statusLabelKo)) return compact(statusLabelKo);
+  if (status === 'awaiting_human_hitl') return '사람 HITL 판정 입력 대기';
+  if (status === 'missing_evidence') return '필수 운영 증거 등록 필요';
+  if (status === 'ready_for_common_agent') return 'Common Agent 전달 준비';
+  if (status === 'complete' || status === 'clear') return '완료';
+  return compact(status);
+};
+
+const operationalStatusBundleSeverityFor = status => {
+  if (status === 'missing_evidence') return 'danger';
+  if (status === 'ready_for_common_agent' || status === 'complete' || status === 'clear') return 'success';
+  return 'warning';
+};
+
 const copyableTextFor = fields => {
   const parts = (Array.isArray(fields) ? fields : [])
     .map(field => `${compact(field?.worktableColumn)}=${compact(field?.value)}`)
@@ -712,6 +727,80 @@ const summarizeMoldMasterDevelopmentProgressDisplay = report => {
   };
 };
 
+const summarizeOperationalStatusBundleDisplay = bundle => {
+  if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
+    return null;
+  }
+
+  const summary = bundle.summary || {};
+  const status = compact(bundle.status);
+  const nextSessionCode = compact(summary.nextSessionCode);
+  const nextDecisionId = compact(summary.nextDecisionId);
+  const summaryParts = [
+    `Software ${numberValue(summary.softwareScaffoldPercent)}%`,
+    `Operational ${numberValue(summary.operationalProgressPercent)}%`,
+    `Vision blocker ${numberValue(summary.visionBlockers)}건`,
+    `HITL missing ${numberValue(summary.hitlDecisionInputsMissing)}건`,
+    `Pending ${numberValue(summary.pendingRows)}건`,
+    numberValue(summary.invalidRows) > 0 ? `Invalid ${numberValue(summary.invalidRows)}건` : '',
+    numberValue(summary.highRiskRows) > 0 ? `High risk ${numberValue(summary.highRiskRows)}건` : '',
+    `Web approval ${numberValue(summary.webHitlApprovalsMissing)}건`
+  ].filter(Boolean);
+  const accuracyParts = [
+    `Vision Top-1 ${numberValue(summary.visionTop1Accuracy)}%`,
+    `Top-3 ${numberValue(summary.visionTop3Accuracy)}%`
+  ];
+
+  return {
+    title: 'Operational Status Bundle',
+    status,
+    statusLabel: operationalStatusBundleStatusLabelFor(status, bundle.statusLabelKo),
+    severity: operationalStatusBundleSeverityFor(status),
+    phaseText: compact(summary.currentPhaseKo) || compact(summary.currentPhaseCode),
+    pipelineStageText: compact(summary.currentPipelineStageKo) || compact(summary.currentPipelineStageCode),
+    summaryText: summaryParts.join(' · '),
+    accuracyText: accuracyParts.join(' · '),
+    nextSessionText: nextSessionCode || nextDecisionId
+      ? `Next session: ${nextSessionCode || 'review_required'}${nextDecisionId ? ` · ${nextDecisionId}` : ''}`
+      : '',
+    worktableCsvPath: compact(summary.worktableCsvPath),
+    settingsImportButtons: (Array.isArray(bundle.settingsImportChecklist) ? bundle.settingsImportChecklist : [])
+      .map(item => compact(item?.buttonLabelKo))
+      .filter(Boolean),
+    sessionPreviews: (Array.isArray(bundle.sessionPointers) ? bundle.sessionPointers : [])
+      .slice(0, 4)
+      .map(session => ({
+        code: compact(session?.code),
+        titleKo: compact(session?.titleKo),
+        priority: numberValue(session?.priority),
+        pendingRows: numberValue(session?.pendingRows),
+        highRiskRows: numberValue(session?.highRiskRows),
+        firstDecisionId: compact(session?.firstDecisionId),
+        path: compact(session?.markdownPath) || compact(session?.csvPath)
+      })),
+    actionPreviews: (Array.isArray(bundle.nextOperatorActions) ? bundle.nextOperatorActions : [])
+      .slice(0, 4)
+      .map(action => ({
+        code: compact(action?.code),
+        titleKo: compact(action?.titleKo),
+        instructionKo: compact(action?.instructionKo),
+        path: compact(action?.path)
+      })),
+    feedbackPreviews: (Array.isArray(bundle.progressFeedbackKo) ? bundle.progressFeedbackKo : [])
+      .slice(0, 5)
+      .map(compact)
+      .filter(Boolean),
+    nextActionKo: compact(bundle.recommendedAction),
+    safetyBadges: [
+      'Bundle-only',
+      'Auto apply blocked',
+      'Graph promotion blocked',
+      'Reference learning blocked',
+      'Model training blocked'
+    ]
+  };
+};
+
 const summarizeVisionOperationalLabelConflictWorkflowDisplay = worklist => {
   const workflow = labelConflictWorkflowFrom(worklist);
   if (!workflow) return null;
@@ -764,5 +853,6 @@ module.exports = {
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
   summarizeOperationalHitlHumanDecisionBriefDisplay,
-  summarizeMoldMasterDevelopmentProgressDisplay
+  summarizeMoldMasterDevelopmentProgressDisplay,
+  summarizeOperationalStatusBundleDisplay
 };

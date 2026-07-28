@@ -46,7 +46,8 @@ import {
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
   summarizeOperationalHitlHumanDecisionBriefDisplay,
-  summarizeMoldMasterDevelopmentProgressDisplay
+  summarizeMoldMasterDevelopmentProgressDisplay,
+  summarizeOperationalStatusBundleDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 
 interface SettingsModalProps {
@@ -107,6 +108,8 @@ const OPERATIONAL_HITL_HUMAN_DECISION_BRIEF_STORAGE_KEY =
   'mold-master-ai:operational-hitl-human-decision-brief:v1';
 const MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY =
   'mold-master-ai:development-progress:v1';
+const OPERATIONAL_STATUS_BUNDLE_STORAGE_KEY =
+  'mold-master-ai:operational-status-bundle:v1';
 
 const readOperationalReadinessAudit = (): any | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -244,6 +247,23 @@ const saveMoldMasterDevelopmentProgress = (report: any): void => {
   localStorage.setItem(MOLD_MASTER_DEVELOPMENT_PROGRESS_STORAGE_KEY, JSON.stringify(report));
 };
 
+const readOperationalStatusBundle = (): any | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OPERATIONAL_STATUS_BUNDLE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.contractVersion === 'operational-status-bundle/v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveOperationalStatusBundle = (bundle: any): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(OPERATIONAL_STATUS_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
+};
+
 const operationalWorklistStatusLabel = (status: string): string => {
   if (status === 'ready') return '수동 활성화 준비 완료';
   if (status === 'waiting_for_operator') return '운영 담당자 승인 대기';
@@ -364,6 +384,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [moldMasterDevelopmentProgress, setMoldMasterDevelopmentProgress] = useState(
     () => readMoldMasterDevelopmentProgress()
   );
+  const [operationalStatusBundle, setOperationalStatusBundle] = useState(
+    () => readOperationalStatusBundle()
+  );
   const operationalBlockerWorklist = buildVisionOperationalBlockerWorklist({
     readinessAudit: operationalReadinessAudit
   });
@@ -385,6 +408,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     summarizeOperationalHitlHumanDecisionBriefDisplay(operationalHitlHumanDecisionBrief);
   const moldMasterDevelopmentProgressDisplay =
     summarizeMoldMasterDevelopmentProgressDisplay(moldMasterDevelopmentProgress);
+  const operationalStatusBundleDisplay =
+    summarizeOperationalStatusBundleDisplay(operationalStatusBundle);
   const [releaseImportStatus, setReleaseImportStatus] = useState('');
   const [operationalAuditImportStatus, setOperationalAuditImportStatus] = useState('');
   const [operationalHitlActionPackImportStatus, setOperationalHitlActionPackImportStatus] = useState('');
@@ -394,6 +419,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalHitlReviewSessionPacketImportStatus, setOperationalHitlReviewSessionPacketImportStatus] = useState('');
   const [operationalHitlHumanDecisionBriefImportStatus, setOperationalHitlHumanDecisionBriefImportStatus] = useState('');
   const [moldMasterDevelopmentProgressImportStatus, setMoldMasterDevelopmentProgressImportStatus] = useState('');
+  const [operationalStatusBundleImportStatus, setOperationalStatusBundleImportStatus] = useState('');
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -537,6 +563,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
       operationalHitlReviewSessionPacket,
       operationalHitlHumanDecisionBrief,
       moldMasterDevelopmentProgress,
+      operationalStatusBundle,
       records
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -737,6 +764,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     } catch (error) {
       setMoldMasterDevelopmentProgressImportStatus(
         error instanceof Error ? `진행률 리포트 등록 실패: ${error.message}` : '진행률 리포트 등록 실패'
+      );
+    }
+  };
+
+  const handleOperationalStatusBundleImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const bundle = JSON.parse(await file.text());
+      if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
+        throw new Error('invalid operational status bundle');
+      }
+      saveOperationalStatusBundle(bundle);
+      setOperationalStatusBundle(bundle);
+      setOperationalStatusBundleImportStatus('Operational status bundle registered.');
+    } catch (error) {
+      setOperationalStatusBundleImportStatus(
+        error instanceof Error ? `Status bundle import failed: ${error.message}` : 'Status bundle import failed'
       );
     }
   };
@@ -1064,6 +1112,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleMoldMasterDevelopmentProgressImport}
                     />
                   </label>
+                  <label className="cursor-pointer rounded bg-blue-800 px-2 py-1 text-[9px] text-blue-100 hover:bg-blue-700">
+                    Status Bundle 등록
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={handleOperationalStatusBundleImport}
+                    />
+                  </label>
                   <label className="cursor-pointer rounded bg-cyan-800 px-2 py-1 text-[9px] text-cyan-100 hover:bg-cyan-700">
                     HITL Pack 등록
                     <input
@@ -1152,6 +1209,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   {moldMasterDevelopmentProgressImportStatus}
                 </p>
               )}
+              {operationalStatusBundleImportStatus && (
+                <p className={`mt-2 text-[9px] ${
+                  operationalStatusBundleImportStatus.includes('failed')
+                    ? 'text-red-300'
+                    : 'text-emerald-300'
+                }`}>
+                  {operationalStatusBundleImportStatus}
+                </p>
+              )}
               {operationalHitlActionPackImportStatus && (
                 <p className={`mt-2 text-[9px] ${
                   operationalHitlActionPackImportStatus.includes('실패')
@@ -1237,6 +1303,137 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   {operationalReleaseTrend.narrative}
                 </p>
               </div>
+              {operationalStatusBundleDisplay && (
+                <div
+                  aria-label="Operational Status Bundle"
+                  className={`mt-2 rounded border p-2 text-[9px] text-gray-300 ${
+                    operationalStatusBundleDisplay.severity === 'danger'
+                      ? 'border-red-800/70 bg-red-950/30'
+                      : operationalStatusBundleDisplay.severity === 'success'
+                        ? 'border-emerald-800/70 bg-emerald-950/25'
+                        : 'border-blue-800/70 bg-blue-950/25'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-blue-100">
+                        {operationalStatusBundleDisplay.title}
+                      </p>
+                      <p className="mt-1 text-blue-200">
+                        {operationalStatusBundleDisplay.statusLabel}
+                      </p>
+                    </div>
+                    <span className="rounded bg-gray-950/50 px-2 py-1 text-[8px] text-gray-300">
+                      {operationalStatusBundleDisplay.status}
+                    </span>
+                  </div>
+                  {operationalStatusBundleDisplay.phaseText && (
+                    <p className="mt-1 break-words text-blue-100">
+                      Phase: {operationalStatusBundleDisplay.phaseText}
+                    </p>
+                  )}
+                  {operationalStatusBundleDisplay.pipelineStageText && (
+                    <p className="mt-1 break-words text-blue-100">
+                      Pipeline: {operationalStatusBundleDisplay.pipelineStageText}
+                    </p>
+                  )}
+                  <p className="mt-1 break-words text-gray-300">
+                    {operationalStatusBundleDisplay.summaryText}
+                  </p>
+                  {operationalStatusBundleDisplay.accuracyText && (
+                    <p className="mt-1 break-words text-amber-100">
+                      {operationalStatusBundleDisplay.accuracyText}
+                    </p>
+                  )}
+                  {operationalStatusBundleDisplay.nextSessionText && (
+                    <p className="mt-1 break-words text-amber-100">
+                      {operationalStatusBundleDisplay.nextSessionText}
+                    </p>
+                  )}
+                  {operationalStatusBundleDisplay.worktableCsvPath && (
+                    <p className="mt-1 break-words font-mono text-[8px] text-blue-100">
+                      {operationalStatusBundleDisplay.worktableCsvPath}
+                    </p>
+                  )}
+                  <p className="mt-1 break-words text-gray-400">
+                    Next: {operationalStatusBundleDisplay.nextActionKo}
+                  </p>
+                  {operationalStatusBundleDisplay.settingsImportButtons.length > 0 && (
+                    <div className="mt-2 rounded border border-blue-900/50 bg-gray-950/35 px-2 py-1">
+                      <p className="font-bold text-blue-50">Settings import order</p>
+                      <p className="mt-1 break-words text-[8px] text-blue-100">
+                        {operationalStatusBundleDisplay.settingsImportButtons.join(' -> ')}
+                      </p>
+                    </div>
+                  )}
+                  {operationalStatusBundleDisplay.sessionPreviews.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {operationalStatusBundleDisplay.sessionPreviews.map(session => (
+                        <div
+                          key={session.code}
+                          className="rounded border border-blue-900/50 bg-gray-950/35 px-2 py-1"
+                        >
+                          <p className="break-words text-[8px] font-bold text-blue-50">
+                            P{session.priority} {session.titleKo} · pending {session.pendingRows}건
+                            {session.highRiskRows > 0 ? ` · high risk ${session.highRiskRows}건` : ''}
+                          </p>
+                          {session.firstDecisionId && (
+                            <p className="mt-1 break-words text-[8px] text-amber-100">
+                              first decision: {session.firstDecisionId}
+                            </p>
+                          )}
+                          {session.path && (
+                            <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                              {session.path}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {operationalStatusBundleDisplay.actionPreviews.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {operationalStatusBundleDisplay.actionPreviews.map(action => (
+                        <div
+                          key={action.code}
+                          className="rounded bg-gray-950/40 px-2 py-1"
+                        >
+                          <p className="break-words text-[8px] font-bold text-blue-50">
+                            {action.titleKo || action.code}
+                          </p>
+                          <p className="mt-1 break-words text-[8px] text-gray-300">
+                            {action.instructionKo}
+                          </p>
+                          {action.path && (
+                            <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                              {action.path}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {operationalStatusBundleDisplay.feedbackPreviews.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {operationalStatusBundleDisplay.feedbackPreviews.map(feedback => (
+                        <p key={feedback} className="break-words text-[8px] text-gray-300">
+                          {feedback}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {operationalStatusBundleDisplay.safetyBadges.map(badge => (
+                      <span
+                        key={badge}
+                        className="rounded bg-gray-900/80 px-2 py-1 text-[8px] text-gray-200"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {moldMasterDevelopmentProgressDisplay && (
                 <div
                   aria-label="Mold Master Development Progress"

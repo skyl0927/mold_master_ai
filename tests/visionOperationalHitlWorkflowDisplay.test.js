@@ -10,7 +10,8 @@ const {
   summarizeOperationalHitlReviewSessionPlanDisplay,
   summarizeOperationalHitlReviewSessionPacketDisplay,
   summarizeOperationalHitlHumanDecisionBriefDisplay,
-  summarizeMoldMasterDevelopmentProgressDisplay
+  summarizeMoldMasterDevelopmentProgressDisplay,
+  summarizeOperationalStatusBundleDisplay
 } = require('../visionOperationalHitlWorkflowDisplay');
 
 test('summarizes awaiting HITL workflow for Settings UI display', () => {
@@ -1030,4 +1031,113 @@ test('summarizes Mold Master development progress for Settings UI display', () =
 test('returns null when no Mold Master development progress report is available to display', () => {
   assert.equal(summarizeMoldMasterDevelopmentProgressDisplay(null), null);
   assert.equal(summarizeMoldMasterDevelopmentProgressDisplay({ contractVersion: 'unknown/v1' }), null);
+});
+
+test('summarizes operational status bundle for one-step Settings handoff display', () => {
+  const display = summarizeOperationalStatusBundleDisplay({
+    contractVersion: 'operational-status-bundle/v1',
+    status: 'awaiting_human_hitl',
+    statusLabelKo: '사람 HITL 판정 입력 대기',
+    summary: {
+      currentPhaseKo: '운영 전환 및 데이터 HITL 게이트 종료 단계',
+      currentPipelineStageKo: 'CSV HITL 판정 입력 대기',
+      softwareScaffoldPercent: 100,
+      operationalProgressPercent: 0,
+      visionBlockers: 8,
+      visionTasks: 5,
+      hitlDecisionInputsMissing: 56,
+      pendingRows: 59,
+      completedRows: 0,
+      invalidRows: 0,
+      highRiskRows: 9,
+      webHitlApprovalsMissing: 40,
+      visionTop1Accuracy: 46.2,
+      visionTop3Accuracy: 53.8,
+      nextSessionCode: 'label_conflict_session',
+      nextDecisionId: 'conflict-001',
+      worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
+    },
+    settingsImportChecklist: [
+      { buttonLabelKo: 'Progress 등록', artifactKey: 'developmentProgress' },
+      { buttonLabelKo: 'Pipeline Status 등록', artifactKey: 'pipelineStatus' },
+      { buttonLabelKo: 'Human Brief 등록', artifactKey: 'humanDecisionBrief' },
+      { buttonLabelKo: 'Session Packet 등록', artifactKey: 'reviewSessionPacket' }
+    ],
+    sessionPointers: [
+      {
+        code: 'label_conflict_session',
+        titleKo: '승인 이미지 라벨 충돌 확인',
+        priority: 1,
+        pendingRows: 4,
+        highRiskRows: 4,
+        firstDecisionId: 'conflict-001',
+        markdownPath: 'C:\\repo\\artifacts\\session.md',
+        csvPath: 'C:\\repo\\artifacts\\session.csv'
+      }
+    ],
+    nextOperatorActions: [
+      {
+        code: 'fill_original_worktable_csv',
+        titleKo: '원본 worktable CSV 입력',
+        instructionKo: '사람이 확인한 값만 입력하세요.',
+        path: 'C:\\repo\\artifacts\\worktable.csv'
+      }
+    ],
+    progressFeedbackKo: [
+      '개발 단계: 운영 전환 및 데이터 HITL 게이트 종료 단계입니다.',
+      '자동 Graph 반영, Reference 학습, 모델 학습은 금지됩니다.'
+    ],
+    recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
+  });
+
+  assert.equal(display.title, 'Operational Status Bundle');
+  assert.equal(display.statusLabel, '사람 HITL 판정 입력 대기');
+  assert.equal(display.severity, 'warning');
+  assert.equal(display.phaseText, '운영 전환 및 데이터 HITL 게이트 종료 단계');
+  assert.equal(display.pipelineStageText, 'CSV HITL 판정 입력 대기');
+  assert.equal(display.summaryText, 'Software 100% · Operational 0% · Vision blocker 8건 · HITL missing 56건 · Pending 59건 · High risk 9건 · Web approval 40건');
+  assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
+  assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
+  assert.equal(display.worktableCsvPath, 'C:\\repo\\artifacts\\worktable.csv');
+  assert.deepEqual(display.settingsImportButtons, [
+    'Progress 등록',
+    'Pipeline Status 등록',
+    'Human Brief 등록',
+    'Session Packet 등록'
+  ]);
+  assert.deepEqual(display.sessionPreviews, [
+    {
+      code: 'label_conflict_session',
+      titleKo: '승인 이미지 라벨 충돌 확인',
+      priority: 1,
+      pendingRows: 4,
+      highRiskRows: 4,
+      firstDecisionId: 'conflict-001',
+      path: 'C:\\repo\\artifacts\\session.md'
+    }
+  ]);
+  assert.deepEqual(display.actionPreviews, [
+    {
+      code: 'fill_original_worktable_csv',
+      titleKo: '원본 worktable CSV 입력',
+      instructionKo: '사람이 확인한 값만 입력하세요.',
+      path: 'C:\\repo\\artifacts\\worktable.csv'
+    }
+  ]);
+  assert.deepEqual(display.feedbackPreviews, [
+    '개발 단계: 운영 전환 및 데이터 HITL 게이트 종료 단계입니다.',
+    '자동 Graph 반영, Reference 학습, 모델 학습은 금지됩니다.'
+  ]);
+  assert.deepEqual(display.safetyBadges, [
+    'Bundle-only',
+    'Auto apply blocked',
+    'Graph promotion blocked',
+    'Reference learning blocked',
+    'Model training blocked'
+  ]);
+});
+
+test('returns null when no operational status bundle is available to display', () => {
+  assert.equal(summarizeOperationalStatusBundleDisplay(null), null);
+  assert.equal(summarizeOperationalStatusBundleDisplay({ contractVersion: 'unknown/v1' }), null);
 });
