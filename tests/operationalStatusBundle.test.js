@@ -303,6 +303,57 @@ const operationalPreparationRun = () => ({
   recommendedAction: '준비 artifact 생성이 끝났습니다. 사람이 decision file을 채운 뒤 verify-decisions로 검증하세요.'
 });
 
+const decisionInputReviewPacket = () => ({
+  contractVersion: 'operational-hitl-decision-input-review-packet/v1',
+  status: 'awaiting_human_input',
+  serviceWritesPerformed: false,
+  summary: {
+    totalTemplateItems: 59,
+    totalPendingActions: 59,
+    targetDecisionInputsMissing: 56,
+    firstQueueCode: 'vision_label_conflicts',
+    sectionCount: 3
+  },
+  sections: [
+    {
+      queueCode: 'vision_label_conflicts',
+      titleKo: '라벨 충돌 판정',
+      owner: 'quality_hitl',
+      preparedDecisionItems: 4,
+      targetPending: 4,
+      pendingActions: 4,
+      verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+      sourceArtifact: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json'
+    },
+    {
+      queueCode: 'vision_pending_hitl',
+      titleKo: 'Vision pending HITL 판정',
+      owner: 'quality_hitl',
+      preparedDecisionItems: 12,
+      targetPending: 12,
+      pendingActions: 12,
+      verificationCommand: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+      sourceArtifact: 'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json'
+    },
+    {
+      queueCode: 'web_knowledge_hitl',
+      titleKo: 'Web Knowledge HITL 승인',
+      owner: 'knowledge_owner',
+      preparedDecisionItems: 43,
+      targetPending: 40,
+      pendingActions: 43,
+      verificationCommand: 'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-web-knowledge-hitl-decisions.json>',
+      sourceArtifact: 'C:\\repo\\artifacts\\common-agent-web-knowledge-hitl-decisions-template.json'
+    }
+  ],
+  humanGatedCommands: [
+    'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>',
+    'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>',
+    'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled-web-knowledge-hitl-decisions.json>'
+  ],
+  recommendedAction: 'vision_label_conflicts부터 decision file을 채우고 검증하세요.'
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
@@ -312,6 +363,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     labelConflictReviewGuide: labelConflictReviewGuide(),
     webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackage(),
     operationalPreparationRun: operationalPreparationRun(),
+    operationalDecisionInputReviewPacket: decisionInputReviewPacket(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
@@ -321,7 +373,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
       labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
       labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
       webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
-      operationalPreparationRun: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json'
+      operationalPreparationRun: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json',
+      operationalDecisionInputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json'
     },
     markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
   });
@@ -378,6 +431,14 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.preparationSkippedHumanGatedCommands, 4);
   assert.equal(bundle.summary.preparationFirstHumanGatedCommand, 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>');
   assert.equal(bundle.summary.preparationRunPath, 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json');
+  assert.equal(bundle.summary.decisionReviewPacketStatus, 'awaiting_human_input');
+  assert.equal(bundle.summary.decisionReviewTotalTemplateItems, 59);
+  assert.equal(bundle.summary.decisionReviewTotalPendingActions, 59);
+  assert.equal(bundle.summary.decisionReviewTargetInputsMissing, 56);
+  assert.equal(bundle.summary.decisionReviewFirstQueueCode, 'vision_label_conflicts');
+  assert.equal(bundle.summary.decisionReviewSectionCount, 3);
+  assert.equal(bundle.summary.decisionReviewHumanGatedCommands, 3);
+  assert.equal(bundle.summary.decisionReviewPacketPath, 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json');
   assert.deepEqual(bundle.preparationDecisionTemplateArtifacts, [
     'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
     'C:\\repo\\artifacts\\common-agent-hitl-review-decisions-template.json',
@@ -392,6 +453,16 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     'npm run vision:hitl:verify-decisions -- --decisions <filled.json>',
     'npm run knowledge:web:hitl:verify-decisions -- --decisions <filled.json>',
     'npm run knowledge:web:hitl:apply -- --decisions <verified.json> --apply'
+  ]);
+  assert.deepEqual(bundle.decisionReviewSectionPreviews.map(section => [
+    section.queueCode,
+    section.preparedDecisionItems,
+    section.pendingActions,
+    section.targetPending
+  ]), [
+    ['vision_label_conflicts', 4, 4, 4],
+    ['vision_pending_hitl', 12, 12, 12],
+    ['web_knowledge_hitl', 43, 43, 40]
   ]);
   assert.deepEqual(bundle.settingsImportChecklist.map(item => item.buttonLabelKo), [
     'Progress 등록',
@@ -417,6 +488,9 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
   assert.match(bundle.markdown, /Web Knowledge package: blocked_verification_not_ready/);
   assert.match(bundle.markdown, /Preparation run: completed \/ generated 9 \/ worksheets 2/);
+  assert.match(bundle.markdown, /Decision review: awaiting_human_input \/ pending 59 \/ missing 56/);
+  assert.match(bundle.markdown, /vision_label_conflicts: prepared 4 \/ pending 4 \/ target 4/);
+  assert.match(bundle.markdown, /operational-hitl-decision-input-review-packet\.json/);
   assert.match(bundle.markdown, /common-agent-hitl-review-decisions-template\.json/);
   assert.match(bundle.markdown, /knowledge:web:hitl:verify-decisions/);
   assert.match(bundle.markdown, /web-knowledge-hitl-review-guide\.csv/);

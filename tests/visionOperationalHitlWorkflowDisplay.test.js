@@ -1212,6 +1212,14 @@ test('summarizes operational status bundle for one-step Settings handoff display
       preparationFirstDecisionTemplatePath: 'C:\\repo\\artifacts\\vision-approved-label-conflict-decisions-template.json',
       preparationFirstHumanGatedCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
       preparationRunPath: 'C:\\repo\\artifacts\\operational-hitl-preparation-run.json',
+      decisionReviewPacketStatus: 'awaiting_human_input',
+      decisionReviewTotalTemplateItems: 59,
+      decisionReviewTotalPendingActions: 59,
+      decisionReviewTargetInputsMissing: 56,
+      decisionReviewFirstQueueCode: 'vision_label_conflicts',
+      decisionReviewSectionCount: 3,
+      decisionReviewHumanGatedCommands: 3,
+      decisionReviewPacketPath: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1243,6 +1251,24 @@ test('summarizes operational status bundle for one-step Settings handoff display
       {
         command: 'npm run vision:hitl:verify-decisions -- --decisions <filled.json>',
         reason: 'human_decision_required'
+      }
+    ],
+    decisionReviewSectionPreviews: [
+      {
+        queueCode: 'vision_label_conflicts',
+        titleKo: '라벨 충돌 판정',
+        preparedDecisionItems: 4,
+        pendingActions: 4,
+        targetPending: 4,
+        verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+      },
+      {
+        queueCode: 'vision_pending_hitl',
+        titleKo: 'Vision pending HITL 판정',
+        preparedDecisionItems: 12,
+        pendingActions: 12,
+        targetPending: 12,
+        verificationCommand: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>'
       }
     ],
     settingsImportChecklist: [
@@ -1303,6 +1329,26 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.deepEqual(display.preparationHumanGatedCommandTexts, [
     'npm run vision:label-conflicts:verify-decisions -- --decisions <filled.json>',
     'npm run vision:hitl:verify-decisions -- --decisions <filled.json>'
+  ]);
+  assert.equal(display.decisionReviewText, 'Decision review awaiting_human_input · Pending 59/59 · Missing 56 · Sections 3');
+  assert.equal(display.decisionReviewPath, 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json');
+  assert.deepEqual(display.decisionReviewSectionPreviews, [
+    {
+      queueCode: 'vision_label_conflicts',
+      titleKo: '라벨 충돌 판정',
+      preparedDecisionItems: 4,
+      pendingActions: 4,
+      targetPending: 4,
+      verificationCommand: 'npm run vision:label-conflicts:verify-decisions -- --decisions <filled-vision-label-conflict-decisions.json>'
+    },
+    {
+      queueCode: 'vision_pending_hitl',
+      titleKo: 'Vision pending HITL 판정',
+      preparedDecisionItems: 12,
+      pendingActions: 12,
+      targetPending: 12,
+      verificationCommand: 'npm run vision:hitl:verify-decisions -- --decisions <filled-common-agent-hitl-decisions.json>'
+    }
   ]);
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
