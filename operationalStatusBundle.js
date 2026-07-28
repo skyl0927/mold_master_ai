@@ -700,6 +700,16 @@ const missingEvidenceBundle = ({ generatedAt, sourceArtifacts, missingArtifactNa
 });
 
 const markdownFor = bundle => {
+  const reviewerWorksheetWorktableBridgeLines =
+    bundle.summary.reviewerWorksheetWorktableMatchedSlips > 0
+      ? [
+        `- Reviewer worksheet worktable bridge: ${bundle.summary.reviewerWorksheetWorktableMatchedSlips}/${bundle.summary.reviewerWorksheetSlipQueueCount || 0} matched / first ${bundle.summary.reviewerWorksheetFirstWorktableDecisionId || 'none'}`,
+        `- Worktable CSV: ${bundle.summary.reviewerWorksheetFirstWorktableCsvPath || bundle.summary.worktableCsvPath || '확인 필요'}`,
+        `- Copy fields: ${bundle.summary.reviewerWorksheetFirstWorktableCopyableText || 'none'}`,
+        `- Manual fields: ${bundle.summary.reviewerWorksheetFirstWorktableManualText || 'none'}`,
+        '- Bridge safety: requiresHumanReview=true 항목만 안내하며 autoPopulateAllowed=true 또는 autoApplyAllowed=true 항목은 bridge에서 제외'
+      ]
+      : [];
   const lines = [
     '# Operational Status Bundle',
     '',
@@ -718,6 +728,7 @@ const markdownFor = bundle => {
     `- Decision review packet: ${bundle.summary.decisionReviewPacketPath || 'not_started'}`,
     `- Reviewer worksheet: ${bundle.summary.reviewerWorksheetStatus || 'not_started'} / missing ${bundle.summary.reviewerWorksheetTargetInputsMissing || 0} / lines ${bundle.summary.reviewerWorksheetMarkdownLineCount || 0}`,
     `- Reviewer worksheet Markdown: ${bundle.summary.reviewerWorksheetMarkdownPath || 'not_started'}`,
+    ...reviewerWorksheetWorktableBridgeLines,
     `- Vision: Top-1 ${bundle.summary.visionTop1Accuracy}% / Top-3 ${bundle.summary.visionTop3Accuracy}%`,
     `- Vision capture work orders: ${bundle.summary.visionCaptureWorkOrders || 0} / new ${bundle.summary.visionCaptureMissingApprovedSamples || 0} / recapture ${bundle.summary.visionCaptureRecaptureSamples || 0} / priority ${bundle.summary.visionCaptureTopPriorityDefectClass || 'none'}`,
     `- Label conflict guide: ${bundle.summary.labelConflictGuideConflicts || 0} conflicts / evidence ${bundle.summary.labelConflictGuideEvidenceCases || 0} / capture risk ${bundle.summary.labelConflictGuideCaptureProtocolRiskCases || 0}`,

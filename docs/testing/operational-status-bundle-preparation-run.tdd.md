@@ -15,6 +15,7 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 - As an operator, I want the next-review slip visible in the bundle and Settings display, so that I can see the first decision title, first instruction, and safety notice without opening every artifact.
 - As an operator, I want a review-slip queue preview visible in the bundle and Settings display, so that I can batch the first several HITL decisions without losing the no-write safety boundary.
 - As an operator, I want the review-slip queue connected to the human decision worktable entry queue, so that I can see the exact CSV path and copy/manual fields for the first matched HITL item without allowing automatic writes.
+- As an operator, I want the bridge information visible in the Markdown and CLI handoff, so that a new login session or Common Agent collaborator can see the matched worktable row without opening the JSON internals.
 - As a developer, I want the CLI bundle builder to automatically include the latest preparation-run artifact, so that new handoff bundles preserve the same context.
 
 ## RED Evidence
@@ -38,8 +39,9 @@ Derived during the operational handoff closure work on 2026-07-28. The user need
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.summary.reviewerWorksheetWorktableMatchedSlips` was `undefined` instead of `1`. |
 | `npm run test:vision-operational-hitl-display` | FAIL, 27/28 pass | `display.reviewerWorksheetWorktableBridgeText` was `undefined` instead of `Worktable bridge 1/3 matched · first conflict-001`. |
 | `npm run test:operational-status-bundle` | FAIL, 5/6 pass | Unsafe worktable entries with `autoPopulateAllowed=true` or `autoApplyAllowed=true` were counted as matched slips (`3 !== 1`). |
+| `npm run test:operational-status-bundle` | FAIL, 5/6 pass | `bundle.markdown` did not include the reviewer worksheet worktable bridge count, first decision, CSV path, copy fields, manual fields, or bridge safety notice. |
 
-The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, and `e50839c test: require HITL worktable bridge`.
+The RED checkpoint commits are `708f9fa test: add preparation run status bundle coverage`, `b0a789b test: cover preparation handoff templates`, `9e94a4b test: cover decision review packet handoff`, `703479f test: cover reviewer worksheet handoff`, `fe87c16 test: require next HITL review cursor`, `799555f test: require next HITL review slip`, `b51920a test: require HITL review slip queue`, `e50839c test: require HITL worktable bridge`, and `d50bd8f test: require HITL bridge markdown handoff`.
 
 ## GREEN Evidence
 
@@ -64,6 +66,8 @@ The RED checkpoint commits are `708f9fa test: add preparation run status bundle 
 | `npm run test:operational-status-bundle` | PASS, 6/6 | The bundle matches reviewer worksheet slips to human decision worktable entries by `queueCode` and `decisionId`, exposing the first CSV path plus copy/manual fields without executing writes. |
 | `npm run test:vision-operational-hitl-display` | PASS, 28/28 | Settings display summaries expose the worktable bridge text, first worktable CSV path, copyable fields, and manual confirmation fields. |
 | `npm run test:operational-status-bundle` | PASS, 6/6 | The bridge only counts human-review worktable entries when `requiresHumanReview=true` and both `autoPopulateAllowed`/`autoApplyAllowed` are not true. |
+| `npm run test:operational-status-bundle` | PASS, 6/6 | The Markdown handoff now includes the bridge count, first matched decision, worktable CSV path, copy fields, manual fields, and safety notice. |
+| `npm run operational:status-bundle` | PASS | The CLI output now surfaces `reviewerWorksheetSlipQueueCount=10`, `reviewerWorksheetWorktableMatchedSlips=10`, first decision `conflict-001`, and first worktable field hints for the live artifact. |
 
 ## Known Gaps
 
