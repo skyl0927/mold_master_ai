@@ -676,6 +676,7 @@ const buildMoldMasterDevelopmentProgressReport = ({
     webKnowledgeStatus: compact(webKnowledgeReadiness?.status) || null,
     webCards: numberFrom(webSummary.cardCount),
     webTargetCards: numberFrom(webSummary.targetCardCount),
+    webCommonAgentValidationPassed: numberFrom(webSummary.commonAgentValidationPassed),
     webHitlApprovalsMissing: numberFrom(webSummary.hitlApprovalsMissing),
     webCentralApprovalsMissing: numberFrom(webSummary.centralApprovalsMissing),
     ...(accuracySummary ? {

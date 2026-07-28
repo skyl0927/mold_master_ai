@@ -21,6 +21,9 @@ const progressReport = () => ({
   summary: {
     visionBlockers: 8,
     visionTasks: 5,
+    webCards: 43,
+    webTargetCards: 40,
+    webCommonAgentValidationPassed: 43,
     webHitlApprovalsMissing: 40,
     webCentralApprovalsMissing: 40,
     operationalHitlDecisionInputsMissing: 56,
@@ -197,7 +200,11 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.hitlDecisionInputsMissing, 56);
   assert.equal(bundle.summary.pendingRows, 59);
   assert.equal(bundle.summary.highRiskRows, 9);
+  assert.equal(bundle.summary.webCards, 43);
+  assert.equal(bundle.summary.webTargetCards, 40);
+  assert.equal(bundle.summary.webCommonAgentValidationPassed, 43);
   assert.equal(bundle.summary.webHitlApprovalsMissing, 40);
+  assert.equal(bundle.summary.webCentralApprovalsMissing, 40);
   assert.equal(bundle.summary.visionTop1Accuracy, 46.2);
   assert.equal(bundle.summary.nextSessionCode, 'label_conflict_session');
   assert.equal(bundle.summary.nextDecisionId, 'conflict-001');
@@ -218,6 +225,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.sessionPointers[0].firstDecisionId, 'conflict-001');
   assert.match(bundle.markdown, /Operational Status Bundle/);
   assert.match(bundle.markdown, /소프트웨어 100%/);
+  assert.match(bundle.markdown, /Web cases: 43\/40/);
   assert.match(bundle.markdown, /Progress 등록/);
   assert.match(bundle.markdown, /Graph\/Reference\/Model 승격 금지/);
   assert.equal(bundle.markdownPath, 'C:\\repo\\artifacts\\operational-status-bundle.md');

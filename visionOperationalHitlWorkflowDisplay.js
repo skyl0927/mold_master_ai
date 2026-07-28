@@ -752,6 +752,16 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     `Vision Top-1 ${numberValue(summary.visionTop1Accuracy)}%`,
     `Top-3 ${numberValue(summary.visionTop3Accuracy)}%`
   ];
+  const webCards = numberValue(summary.webCards);
+  const webTargetCards = numberValue(summary.webTargetCards);
+  const webKnowledgeText = webCards > 0 || webTargetCards > 0
+    ? [
+      `Web cases ${webCards}/${webTargetCards}`,
+      `Common Agent ${numberValue(summary.webCommonAgentValidationPassed)}건`,
+      `HITL 승인대기 ${numberValue(summary.webHitlApprovalsMissing)}건`,
+      `중앙 승인대기 ${numberValue(summary.webCentralApprovalsMissing)}건`
+    ].join(' · ')
+    : '';
   const captureWorkOrders = numberValue(summary.visionCaptureWorkOrders);
   const captureWorkOrderText = captureWorkOrders > 0
     ? [
@@ -772,6 +782,7 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     phaseText: compact(summary.currentPhaseKo) || compact(summary.currentPhaseCode),
     pipelineStageText: compact(summary.currentPipelineStageKo) || compact(summary.currentPipelineStageCode),
     summaryText: summaryParts.join(' · '),
+    webKnowledgeText,
     accuracyText: accuracyParts.join(' · '),
     captureWorkOrderText,
     captureWorkOrderPreviews: asArray(bundle.visionCaptureWorkOrderPreviews)

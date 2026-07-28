@@ -265,7 +265,11 @@ test('summarizes the current development phase and remaining operational blocker
   assert.equal(report.policy.allowGraphPromotion, false);
   assert.equal(report.summary.visionBlockers, 5);
   assert.equal(report.summary.visionTasks, 5);
+  assert.equal(report.summary.webCards, 43);
+  assert.equal(report.summary.webTargetCards, 40);
+  assert.equal(report.summary.webCommonAgentValidationPassed, 43);
   assert.equal(report.summary.webHitlApprovalsMissing, 40);
+  assert.equal(report.summary.webCentralApprovalsMissing, 40);
   assert.equal(report.summary.topPriorityTaskCode, 'resolve_label_conflicts');
   assert.equal(report.nextActions[0].code, 'resolve_label_conflicts');
   assert.deepEqual(report.nextActions[0].commands, [

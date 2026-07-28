@@ -1366,6 +1366,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   <p className="mt-1 break-words text-gray-300">
                     {operationalStatusBundleDisplay.summaryText}
                   </p>
+                  {operationalStatusBundleDisplay.webKnowledgeText && (
+                    <p className="mt-1 break-words text-cyan-100">
+                      {operationalStatusBundleDisplay.webKnowledgeText}
+                    </p>
+                  )}
                   {operationalStatusBundleDisplay.accuracyText && (
                     <p className="mt-1 break-words text-amber-100">
                       {operationalStatusBundleDisplay.accuracyText}

@@ -50,6 +50,19 @@ npm run test:operational-status-bundle
 PASS 2
 ```
 
+Follow-up regression for Web/Vision progress feedback:
+
+```powershell
+node --test tests\moldMasterDevelopmentProgressReport.test.js tests\operationalStatusBundle.test.js tests\visionOperationalHitlWorkflowDisplay.test.js
+```
+
+Result:
+
+```text
+pass 37
+fail 0
+```
+
 ## 실제 실행
 
 ```powershell
@@ -65,8 +78,18 @@ operationalProgressPercent=0
 hitlDecisionInputsMissing=56
 pendingRows=59
 highRiskRows=9
+webCards=43
+webTargetCards=40
+webCommonAgentValidationPassed=43
+webCentralApprovalsMissing=40
 nextSessionCode=label_conflict_session
 nextDecisionId=conflict-001
+```
+
+The Settings display summary now distinguishes collection readiness from approval blockers:
+
+```text
+Web cases 43/40 · Common Agent 43건 · HITL 승인대기 40건 · 중앙 승인대기 40건
 ```
 
 생성 파일:
