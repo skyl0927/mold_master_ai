@@ -219,6 +219,36 @@ const labelConflictReviewGuide = () => ({
   ]
 });
 
+const webKnowledgeCommonAgentPackage = (overrides = {}) => ({
+  contractVersion: 'web-knowledge-common-agent-learning-package/v1',
+  status: 'blocked_verification_not_ready',
+  manualImportAllowed: false,
+  readyForGraphRoundtripValidation: false,
+  serviceWritesPerformed: false,
+  summary: {
+    approvedSourceRows: 0,
+    nonApprovedRows: 0,
+    packagedKnowledgeItems: 0,
+    graphRoundtripCases: 0,
+    targetCardCount: 40,
+    approvedHitlCards: 0,
+    centralIngestedCandidates: 0,
+    centralApprovedDocuments: 0,
+    ...(overrides.summary || {})
+  },
+  commonAgentReviewRequest: {
+    requestedAction: 'complete_web_knowledge_hitl_gates',
+    itemCount: 0,
+    requiresHumanReview: true,
+    allowGraphPromotion: false,
+    allowReferenceLearning: false,
+    allowModelTraining: false,
+    ...(overrides.commonAgentReviewRequest || {})
+  },
+  recommendedAction: 'Complete Web HITL verification before Common Agent import.',
+  ...overrides
+});
+
 test('builds an artifact-only operational status bundle for handoff and Settings import', () => {
   const bundle = buildOperationalStatusBundle({
     generatedAt: '2026-07-28T04:00:00.000Z',
@@ -226,6 +256,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     pipelineStatus: pipelineStatus(),
     humanDecisionBrief: humanBrief(),
     labelConflictReviewGuide: labelConflictReviewGuide(),
+    webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackage(),
     sourceArtifacts: {
       developmentProgress: 'C:\\repo\\artifacts\\mold-master-development-progress-report.json',
       pipelineStatus: 'C:\\repo\\artifacts\\operational-hitl-pipeline-status.json',
@@ -233,7 +264,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
       humanDecisionBriefMarkdown: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.md',
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
       labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
-      labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md'
+      labelConflictReviewGuideMarkdown: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
+      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
     },
     markdownPath: 'C:\\repo\\artifacts\\operational-status-bundle.md'
   });
@@ -271,15 +303,28 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     bundle.summary.labelConflictGuideMarkdownPath,
     'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md'
   );
+  assert.equal(bundle.summary.webKnowledgePackageStatus, 'blocked_verification_not_ready');
+  assert.equal(bundle.summary.webKnowledgePackageApprovedRows, 0);
+  assert.equal(bundle.summary.webKnowledgePackageItems, 0);
+  assert.equal(bundle.summary.webKnowledgeGraphRoundtripCases, 0);
+  assert.equal(bundle.summary.webKnowledgeManualImportAllowed, false);
+  assert.equal(bundle.summary.webKnowledgeReadyForGraphRoundtrip, false);
+  assert.equal(bundle.summary.webKnowledgeCommonAgentRequestedAction, 'complete_web_knowledge_hitl_gates');
+  assert.equal(
+    bundle.summary.webKnowledgePackagePath,
+    'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
+  );
   assert.deepEqual(bundle.settingsImportChecklist.map(item => item.buttonLabelKo), [
     'Progress 등록',
     'Pipeline Status 등록',
     'Human Brief 등록',
-    'Session Packet 등록'
+    'Session Packet 등록',
+    'Web Knowledge Package 등록'
   ]);
   assert.deepEqual(bundle.nextOperatorActions.map(action => action.code), [
     'register_status_artifacts_in_settings',
     'open_label_conflict_review_guide',
+    'open_web_knowledge_common_agent_package',
     'open_next_human_brief',
     'fill_original_worktable_csv',
     'dry_run_import_and_refresh_status'
@@ -290,6 +335,8 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.match(bundle.markdown, /소프트웨어 100%/);
   assert.match(bundle.markdown, /Web cases: 43\/40/);
   assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
+  assert.match(bundle.markdown, /Web Knowledge package: blocked_verification_not_ready/);
+  assert.match(bundle.markdown, /web-knowledge-common-agent-learning-package\.json/);
   assert.match(bundle.markdown, /vision-approved-label-conflict-review-guide\.md/);
   assert.match(bundle.markdown, /Progress 등록/);
   assert.match(bundle.markdown, /Graph\/Reference\/Model 승격 금지/);
@@ -345,23 +392,39 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
       humanDecisionBrief: 'C:\\repo\\artifacts\\operational-hitl-human-decision-brief.json',
       reviewSessionPacket: 'C:\\repo\\artifacts\\operational-hitl-review-session-packet.json',
       worktableSuggestion: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-suggestion.json',
-      labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json'
+      labelConflictReviewGuide: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.json',
+      webKnowledgeCommonAgentPackage: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json'
     },
     sourceArtifactPayloads: {
       reviewSessionPacket,
       worktableSuggestion,
-      labelConflictReviewGuide: labelConflictReviewGuide()
+      labelConflictReviewGuide: labelConflictReviewGuide(),
+      webKnowledgeCommonAgentPackage: webKnowledgeCommonAgentPackage({
+        status: 'ready_for_common_agent_manual_import',
+        manualImportAllowed: true,
+        summary: {
+          approvedSourceRows: 40,
+          nonApprovedRows: 3,
+          packagedKnowledgeItems: 40,
+          graphRoundtripCases: 40
+        },
+        commonAgentReviewRequest: {
+          requestedAction: 'manual_candidate_import_review',
+          itemCount: 40
+        }
+      })
     }
   });
 
-  assert.equal(bundle.summary.embeddedSnapshotCount, 6);
+  assert.equal(bundle.summary.embeddedSnapshotCount, 7);
   assert.deepEqual(bundle.sourceArtifactSnapshots.map(snapshot => snapshot.key), [
     'developmentProgress',
     'pipelineStatus',
     'humanDecisionBrief',
     'reviewSessionPacket',
     'worktableSuggestion',
-    'labelConflictReviewGuide'
+    'labelConflictReviewGuide',
+    'webKnowledgeCommonAgentPackage'
   ]);
   assert.equal(
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'developmentProgress').payload.summary.visionBlockers,
@@ -375,6 +438,10 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'labelConflictReviewGuide').payload.summary.conflicts,
     4
   );
+  assert.equal(
+    bundle.sourceArtifactSnapshots.find(snapshot => snapshot.key === 'webKnowledgeCommonAgentPackage').payload.summary.packagedKnowledgeItems,
+    40
+  );
 
   const restorable = extractRestorableStatusBundleArtifacts(bundle);
   assert.deepEqual(restorable.restoredKeys, [
@@ -383,12 +450,14 @@ test('embeds restorable source artifact snapshots for one-file Settings restore'
     'humanDecisionBrief',
     'reviewSessionPacket',
     'worktableSuggestion',
-    'labelConflictReviewGuide'
+    'labelConflictReviewGuide',
+    'webKnowledgeCommonAgentPackage'
   ]);
   assert.equal(restorable.rejectedSnapshots.length, 0);
   assert.equal(restorable.artifacts.developmentProgress.contractVersion, 'mold-master-development-progress-report/v1');
   assert.equal(restorable.artifacts.worktableSuggestion.contractVersion, 'operational-hitl-decision-worktable-suggestion/v1');
   assert.equal(restorable.artifacts.labelConflictReviewGuide.contractVersion, 'vision-approved-label-conflict-review-guide/v1');
+  assert.equal(restorable.artifacts.webKnowledgeCommonAgentPackage.contractVersion, 'web-knowledge-common-agent-learning-package/v1');
 });
 
 test('embeds Vision capture work orders in the status bundle handoff', () => {

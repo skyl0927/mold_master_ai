@@ -1193,6 +1193,15 @@ test('summarizes operational status bundle for one-step Settings handoff display
         'capture_protocol_incomplete'
       ],
       labelConflictGuideMarkdownPath: 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md',
+      webKnowledgePackageStatus: 'blocked_verification_not_ready',
+      webKnowledgePackageApprovedRows: 0,
+      webKnowledgePackageNonApprovedRows: 0,
+      webKnowledgePackageItems: 0,
+      webKnowledgeGraphRoundtripCases: 0,
+      webKnowledgeManualImportAllowed: false,
+      webKnowledgeReadyForGraphRoundtrip: false,
+      webKnowledgeCommonAgentRequestedAction: 'complete_web_knowledge_hitl_gates',
+      webKnowledgePackagePath: 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json',
       nextSessionCode: 'label_conflict_session',
       nextDecisionId: 'conflict-001',
       worktableCsvPath: 'C:\\repo\\artifacts\\worktable.csv'
@@ -1211,7 +1220,8 @@ test('summarizes operational status bundle for one-step Settings handoff display
       { buttonLabelKo: 'Progress 등록', artifactKey: 'developmentProgress' },
       { buttonLabelKo: 'Pipeline Status 등록', artifactKey: 'pipelineStatus' },
       { buttonLabelKo: 'Human Brief 등록', artifactKey: 'humanDecisionBrief' },
-      { buttonLabelKo: 'Session Packet 등록', artifactKey: 'reviewSessionPacket' }
+      { buttonLabelKo: 'Session Packet 등록', artifactKey: 'reviewSessionPacket' },
+      { buttonLabelKo: 'Web Knowledge Package 등록', artifactKey: 'webKnowledgeCommonAgentPackage' }
     ],
     sessionPointers: [
       {
@@ -1247,6 +1257,9 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.pipelineStageText, 'CSV HITL 판정 입력 대기');
   assert.equal(display.summaryText, 'Software 100% · Operational 0% · Vision blocker 8건 · HITL missing 56건 · Pending 59건 · High risk 9건 · Web approval 40건');
   assert.equal(display.webKnowledgeText, 'Web cases 43/40 · Common Agent 43건 · HITL 승인대기 40건 · 중앙 승인대기 40건');
+  assert.equal(display.webKnowledgePackageText, 'Web package blocked_verification_not_ready · Approved rows 0 · Items 0 · Graph cases 0');
+  assert.equal(display.webKnowledgePackageActionText, 'Common Agent action complete_web_knowledge_hitl_gates · Manual import blocked · Graph roundtrip blocked');
+  assert.equal(display.webKnowledgePackagePath, 'C:\\repo\\artifacts\\web-knowledge-common-agent-learning-package.json');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
   assert.equal(display.nextSessionText, 'Next session: label_conflict_session · conflict-001');
   assert.equal(display.captureWorkOrderText, 'Capture work orders 7건 · 신규 4건 · 재촬영 10건 · 우선 burn');
@@ -1268,7 +1281,8 @@ test('summarizes operational status bundle for one-step Settings handoff display
     'Progress 등록',
     'Pipeline Status 등록',
     'Human Brief 등록',
-    'Session Packet 등록'
+    'Session Packet 등록',
+    'Web Knowledge Package 등록'
   ]);
   assert.deepEqual(display.sessionPreviews, [
     {
