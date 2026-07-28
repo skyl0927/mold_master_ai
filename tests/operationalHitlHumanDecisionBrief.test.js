@@ -207,6 +207,7 @@ test('builds a no-write human decision brief for the next HITL session', () => {
   assert.equal(brief.summary.pendingRows, 3);
   assert.equal(brief.summary.invalidRows, 0);
   assert.equal(brief.summary.highRiskRows, 2);
+  assert.equal(brief.summary.decisionEntryQueueRows, 3);
   assert.equal(brief.summary.nextSessionCode, 'label_conflict_session');
   assert.equal(brief.summary.nextDecisionId, 'conflict-001');
   assert.equal(brief.worktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
@@ -232,7 +233,30 @@ test('builds a no-write human decision brief for the next HITL session', () => {
     'decidedAt',
     'requestedViews'
   ]);
+  assert.deepEqual(brief.decisionEntryQueue.map(item => item.decisionId), [
+    'conflict-001',
+    'conflict-002',
+    'web-basf-04-weld-line'
+  ]);
+  assert.equal(brief.decisionEntryQueue[0].entryNumber, 1);
+  assert.equal(brief.decisionEntryQueue[0].sessionCode, 'label_conflict_session');
+  assert.equal(brief.decisionEntryQueue[0].sessionPriority, 1);
+  assert.equal(brief.decisionEntryQueue[0].decisionId, 'conflict-001');
+  assert.equal(brief.decisionEntryQueue[0].recommendedNewAction, 'mark_needs_review');
+  assert.deepEqual(brief.decisionEntryQueue[0].copyableFields, [
+    'newAction=mark_needs_review',
+    'reviewComment=라벨 충돌이 있어 원본 확인 전까지 학습 후보에서 격리합니다.'
+  ]);
+  assert.equal(brief.decisionEntryQueue[0].worktableCsvPath, 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv');
+  assert.equal(brief.decisionEntryQueue[0].sessionMarkdownPath, 'C:\\repo\\packet\\01-label-conflict-session.md');
+  assert.equal(brief.decisionEntryQueue[0].sessionCsvPath, 'C:\\repo\\packet\\01-label-conflict-session.csv');
+  assert.equal(brief.decisionEntryQueue[0].requiresHumanReview, true);
+  assert.equal(brief.decisionEntryQueue[0].autoPopulateAllowed, false);
+  assert.equal(brief.decisionEntryQueue[0].autoApplyAllowed, false);
   assert.match(brief.markdown, /Operational HITL Human Decision Brief/);
+  assert.match(brief.markdown, /Quick Entry Queue/);
+  assert.match(brief.markdown, /conflict-001/);
+  assert.match(brief.markdown, /newAction=mark_needs_review/);
   assert.match(brief.markdown, /다음 세션: 승인 이미지 라벨 충돌 선검토/);
   assert.match(brief.markdown, /원본 worktable CSV/);
   assert.match(brief.markdown, /세션 패킷에서 전체 확인/);

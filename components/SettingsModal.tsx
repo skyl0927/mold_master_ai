@@ -1911,6 +1911,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                         ))}
                       </div>
                     )}
+                    {operationalHitlHumanDecisionBriefDisplay.entryQueuePreviews.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-[8px] font-bold uppercase tracking-wide text-cyan-100">
+                          Quick Entry Queue
+                        </p>
+                        {operationalHitlHumanDecisionBriefDisplay.entryQueuePreviews.map(entry => (
+                          <div
+                            key={`${entry.entryNumber}:${entry.sessionCode}:${entry.decisionId}`}
+                            className="rounded border border-cyan-900/50 bg-cyan-950/20 px-2 py-1"
+                          >
+                            <p className="break-words text-[8px] font-bold text-cyan-50">
+                              #{entry.entryNumber} P{entry.sessionPriority} {entry.sessionCode} · {entry.decisionId} · {entry.action} · {entry.risk}
+                            </p>
+                            <p className="mt-1 break-words text-[8px] text-gray-300">
+                              {entry.displayLabel}
+                            </p>
+                            {entry.copyableText && (
+                              <p className="mt-1 break-words text-[8px] text-cyan-100">
+                                {entry.copyableText}
+                              </p>
+                            )}
+                            {entry.manualText && (
+                              <p className="mt-1 break-words text-[8px] text-amber-100">
+                                {entry.manualText}
+                              </p>
+                            )}
+                            {entry.sessionPath && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                {entry.sessionPath}
+                              </p>
+                            )}
+                            {entry.worktableCsvPath && (
+                              <p className="mt-1 break-words font-mono text-[8px] text-gray-500">
+                                {entry.worktableCsvPath}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {operationalHitlHumanDecisionBriefDisplay.sessionPreviews.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {operationalHitlHumanDecisionBriefDisplay.sessionPreviews.map(session => (

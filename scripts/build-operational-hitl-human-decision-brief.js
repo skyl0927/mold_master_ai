@@ -108,8 +108,14 @@ const run = () => {
     pendingRows: report.summary.pendingRows,
     invalidRows: report.summary.invalidRows,
     highRiskRows: report.summary.highRiskRows,
+    decisionEntryQueueRows: report.summary.decisionEntryQueueRows,
     nextSessionCode: report.summary.nextSessionCode,
     nextDecisionId: report.summary.nextDecisionId,
+    nextEntryCopyableFields: report.decisionEntryQueue?.[0]?.copyableFields || [],
+    nextEntryManualConfirmationFields: report.decisionEntryQueue?.[0]?.manualConfirmationFields || [],
+    nextEntrySessionPath: report.decisionEntryQueue?.[0]?.sessionMarkdownPath
+      || report.decisionEntryQueue?.[0]?.sessionCsvPath
+      || null,
     recommendedAction: report.recommendedAction
   }, null, 2));
 };

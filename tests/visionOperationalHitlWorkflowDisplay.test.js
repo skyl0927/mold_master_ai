@@ -906,6 +906,34 @@ test('summarizes operational HITL human decision brief for Settings UI display',
         ]
       }
     ],
+    decisionEntryQueue: [
+      {
+        entryNumber: 1,
+        sessionCode: 'label_conflict_session',
+        sessionTitleKo: 'Label conflict session',
+        sessionPriority: 1,
+        queueCode: 'vision_label_conflicts',
+        decisionId: 'conflict-001',
+        displayLabel: 'setting | flow mark',
+        recommendedNewAction: 'mark_needs_review',
+        recommendationRisk: 'high',
+        copyableFields: [
+          'newAction=mark_needs_review',
+          'reviewComment=Hold learning until the source image label conflict is checked.'
+        ],
+        manualConfirmationFields: [
+          'selectedLabel',
+          'reviewer.id',
+          'decidedAt'
+        ],
+        worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+        sessionMarkdownPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+        sessionCsvPath: 'C:\\repo\\packet\\01-label-conflict-session.csv',
+        requiresHumanReview: true,
+        autoPopulateAllowed: false,
+        autoApplyAllowed: false
+      }
+    ],
     recommendedAction: '다음 세션 패킷을 열고 원본 worktable CSV에 사람이 확인한 값만 입력하세요.'
   });
 
@@ -969,6 +997,26 @@ test('summarizes operational HITL human decision brief for Settings UI display',
           manualText: '사람 확인: selectedLabel · reviewer.id · decidedAt'
         }
       ]
+    }
+  ]);
+  assert.deepEqual(display.entryQueuePreviews, [
+    {
+      entryNumber: 1,
+      sessionCode: 'label_conflict_session',
+      sessionTitleKo: 'Label conflict session',
+      sessionPriority: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001',
+      displayLabel: 'setting | flow mark',
+      action: 'mark_needs_review',
+      risk: 'high',
+      copyableText: '복사 후보: newAction=mark_needs_review · reviewComment=Hold learning until the source image label conflict is checked.',
+      manualText: '사람 확인: selectedLabel · reviewer.id · decidedAt',
+      worktableCsvPath: 'C:\\repo\\artifacts\\operational-hitl-decision-worktable-export.csv',
+      sessionPath: 'C:\\repo\\packet\\01-label-conflict-session.md',
+      requiresHumanReview: true,
+      autoPopulateAllowed: false,
+      autoApplyAllowed: false
     }
   ]);
   assert.deepEqual(display.safetyBadges, [

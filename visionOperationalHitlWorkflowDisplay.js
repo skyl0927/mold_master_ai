@@ -629,6 +629,7 @@ const summarizeOperationalHitlHumanDecisionBriefDisplay = brief => {
   const status = compact(brief.status);
   const operatorSteps = Array.isArray(brief.operatorSteps) ? brief.operatorSteps : [];
   const sessions = Array.isArray(brief.sessions) ? brief.sessions : [];
+  const entryQueue = Array.isArray(brief.decisionEntryQueue) ? brief.decisionEntryQueue : [];
   const nextSessionCode = compact(summary.nextSessionCode);
   const nextDecisionId = compact(summary.nextDecisionId);
   const firstCommandStep = operatorSteps.find(step => compact(step?.command));
@@ -636,6 +637,9 @@ const summarizeOperationalHitlHumanDecisionBriefDisplay = brief => {
     `전체 ${numberValue(summary.totalRows)}건`,
     `완료 ${numberValue(summary.completedRows)}건`,
     `대기 ${numberValue(summary.pendingRows)}건`,
+    numberValue(summary.decisionEntryQueueRows) > 0
+      ? `입력큐 ${numberValue(summary.decisionEntryQueueRows)}건`
+      : '',
     numberValue(summary.invalidRows) > 0 ? `오류 ${numberValue(summary.invalidRows)}건` : '',
     numberValue(summary.highRiskRows) > 0 ? `고위험 ${numberValue(summary.highRiskRows)}건` : '',
     `세션 ${numberValue(summary.sessionCount)}건`
@@ -660,6 +664,24 @@ const summarizeOperationalHitlHumanDecisionBriefDisplay = brief => {
       instructionKo: compact(step?.instructionKo),
       command: compact(step?.command),
       path: compact(step?.path)
+    })),
+    entryQueuePreviews: entryQueue.slice(0, 5).map(entry => ({
+      entryNumber: numberValue(entry?.entryNumber),
+      sessionCode: compact(entry?.sessionCode),
+      sessionTitleKo: compact(entry?.sessionTitleKo),
+      sessionPriority: numberValue(entry?.sessionPriority),
+      queueCode: compact(entry?.queueCode),
+      decisionId: compact(entry?.decisionId),
+      displayLabel: compact(entry?.displayLabel),
+      action: compact(entry?.recommendedNewAction),
+      risk: compact(entry?.recommendationRisk),
+      copyableText: copyableStringTextFor(entry?.copyableFields),
+      manualText: manualTextFor(entry?.manualConfirmationFields),
+      worktableCsvPath: compact(entry?.worktableCsvPath),
+      sessionPath: compact(entry?.sessionMarkdownPath) || compact(entry?.sessionCsvPath),
+      requiresHumanReview: entry?.requiresHumanReview === true,
+      autoPopulateAllowed: entry?.autoPopulateAllowed === true,
+      autoApplyAllowed: entry?.autoApplyAllowed === true
     })),
     sessionPreviews: sessions.slice(0, 4).map(session => ({
       code: compact(session?.code),

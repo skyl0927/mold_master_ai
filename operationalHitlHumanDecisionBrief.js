@@ -103,6 +103,36 @@ const chooseNextSession = sessions =>
   || sessions.find(session => session.rowCount > 0)
   || null;
 
+const decisionEntryQueueFor = ({ sessions, worktableCsvPath }) => sessions
+  .filter(session => session.invalidRows > 0 || session.pendingRows > 0 || session.rowCount > 0)
+  .flatMap(session => session.nextRows.map(row => ({
+    sessionCode: session.code,
+    sessionTitleKo: session.titleKo,
+    sessionPriority: session.priority,
+    sessionStatus: session.status,
+    queueCode: row.queueCode,
+    decisionId: row.decisionId,
+    displayLabel: row.displayLabel,
+    recommendedNewAction: row.recommendedNewAction,
+    recommendationRisk: row.recommendationRisk,
+    recommendationReasonKo: row.recommendationReasonKo,
+    requiredHumanChecksKo: row.requiredHumanChecksKo,
+    copyableFields: row.copyableFields,
+    manualConfirmationFields: row.manualConfirmationFields,
+    copyToWorktableInstructionKo: row.copyToWorktableInstructionKo,
+    worktableCsvPath,
+    sessionMarkdownPath: session.markdownPath || null,
+    sessionCsvPath: session.csvPath || null,
+    verificationCommand: row.verificationCommand,
+    requiresHumanReview: true,
+    autoPopulateAllowed: false,
+    autoApplyAllowed: false
+  })))
+  .map((entry, index) => ({
+    entryNumber: index + 1,
+    ...entry
+  }));
+
 const statusFor = ({ missingArtifactNames, totalRows, pendingRows, invalidRows }) => {
   if (missingArtifactNames.length > 0) return 'missing_evidence';
   if (invalidRows > 0) return 'fix_invalid_human_entries';
@@ -175,11 +205,13 @@ const missingEvidenceBrief = ({ generatedAt, sourceArtifacts, missingArtifactNam
     highRiskRows: 0,
     sessionCount: 0,
     nextSessionCode: null,
-    nextDecisionId: null
+    nextDecisionId: null,
+    decisionEntryQueueRows: 0
   },
   worktableCsvPath: null,
   operatorSteps: [],
   sessions: [],
+  decisionEntryQueue: [],
   markdown: '',
   sources: {
     pipelineStatus: sourceArtifacts.pipelineStatus || null,
@@ -216,6 +248,29 @@ const markdownFor = report => {
 
   report.operatorSteps.forEach((step, index) => {
     lines.push(`${index + 1}. ${step.titleKo}: ${step.instructionKo}`);
+  });
+
+  lines.push('', '## Quick Entry Queue', '');
+  lines.push('| # | Session | Decision ID | Action | Risk | Copyable | Manual confirmation |');
+  lines.push('|---|---|---|---|---|---|---|');
+  report.decisionEntryQueue.forEach(entry => {
+    lines.push([
+      '|',
+      entry.entryNumber,
+      '|',
+      entry.sessionCode,
+      '|',
+      entry.decisionId,
+      '|',
+      entry.recommendedNewAction,
+      '|',
+      entry.recommendationRisk,
+      '|',
+      entry.copyableFields.map(briefCellText).join('<br>').replace(/\|/g, '/'),
+      '|',
+      entry.manualConfirmationFields.join('<br>').replace(/\|/g, '/'),
+      '|'
+    ].join(' '));
   });
 
   lines.push('', '## 세션별 입력 요약', '');
@@ -301,6 +356,10 @@ const buildOperationalHitlHumanDecisionBrief = ({
     invalidRows
   });
   const worktableCsvPath = worktableCsvPathFor(pipelineStatus);
+  const decisionEntryQueue = decisionEntryQueueFor({
+    sessions,
+    worktableCsvPath
+  });
 
   const report = {
     schemaVersion: 1,
@@ -325,13 +384,15 @@ const buildOperationalHitlHumanDecisionBrief = ({
       highRiskRows: numberValue(reviewSessionPlan?.summary?.highRiskRows),
       sessionCount: sessions.length,
       nextSessionCode: nextSession?.code || null,
-      nextDecisionId: nextSession?.nextRows?.[0]?.decisionId || null
+      nextDecisionId: nextSession?.nextRows?.[0]?.decisionId || null,
+      decisionEntryQueueRows: decisionEntryQueue.length
     },
     operatorSteps: operatorStepsFor({
       nextSession,
       worktableCsvPath
     }),
     sessions,
+    decisionEntryQueue,
     sources: {
       pipelineStatus: sourceArtifacts.pipelineStatus || null,
       reviewSessionPlan: sourceArtifacts.reviewSessionPlan || null,
