@@ -139,6 +139,52 @@ const buildVisionDiagnosticReliabilityDisplayModel = card => {
   };
 };
 
+const OPEN_REVIEW_ACTIONS = new Set([
+  'save_correction',
+  'request_recapture',
+  'reject_candidate',
+  'submit_hitl'
+]);
+
+const readyGate = (action, message) => ({
+  action,
+  allowed: true,
+  message
+});
+
+const blockedGate = (action, card, purpose) => ({
+  action,
+  allowed: false,
+  message: `${STATUS_LABELS[compact(card?.status)] || 'Vision 신뢰도 검토 필요'} 상태입니다. ${purpose} 전에 신뢰도 카드의 다음 액션을 먼저 처리하세요.`
+});
+
+const buildVisionDiagnosticReliabilityActionGate = (card, action) => {
+  if (!isCompatibleCard(card)) {
+    return readyGate(action, 'Reliability card unavailable; using legacy action policy.');
+  }
+
+  if (OPEN_REVIEW_ACTIONS.has(action)) {
+    return readyGate(action, 'HITL/교정/재촬영 액션은 신뢰도 보류 상태에서도 허용됩니다.');
+  }
+
+  if (action === 'copy_final_report') {
+    if (card.status === 'auto_report_ready' && card.automaticReportAllowed === true && card.causeCountermeasureAllowed === true) {
+      return readyGate(action, 'Graph 근거가 승인되어 최종 보고서 복사가 가능합니다.');
+    }
+    return blockedGate(action, card, '최종 보고서 복사');
+  }
+
+  if (action === 'approve_graph_promotion') {
+    if (card.status === 'auto_report_ready' && card.automaticReportAllowed === true && card.causeCountermeasureAllowed === true) {
+      return readyGate(action, 'Vision/Graph 신뢰도 조건을 만족해 승인 저장이 가능합니다.');
+    }
+    return blockedGate(action, card, 'Graph 승격 승인');
+  }
+
+  return readyGate(action, 'No reliability restriction for this action.');
+};
+
 module.exports = {
+  buildVisionDiagnosticReliabilityActionGate,
   buildVisionDiagnosticReliabilityDisplayModel
 };

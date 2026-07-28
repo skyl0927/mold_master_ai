@@ -17,6 +17,7 @@ import {
     VisionBboxReviewSubmission
 } from '../visionBboxAnnotation';
 import {
+    buildVisionDiagnosticReliabilityActionGate,
     buildVisionDiagnosticReliabilityDisplayModel
 } from '../visionDiagnosticReliabilityDisplay';
 
@@ -285,6 +286,15 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     const handleCopyReport = () => {
         const data = editableData || image?.analysis;
         if (data) {
+            const copyGate = buildVisionDiagnosticReliabilityActionGate(
+                data.visionSummary?.diagnosticReliabilityCard,
+                'copy_final_report'
+            );
+            if (!copyGate.allowed) {
+                setCopySuccess(copyGate.message);
+                setTimeout(() => setCopySuccess(''), 3000);
+                return;
+            }
             const report = `
 [사출 불량 개선 시방서]
 1. 불량 유형: ${data.defectType} (${data.severity})
@@ -307,6 +317,14 @@ ${data.countermeasures}
             const promotionGuard = canPromoteVisionAnalysisToGraph(editableData);
             if (status === 'approved' && !promotionGuard.allowed) {
                 setTrainStatus(promotionGuard.message);
+                return;
+            }
+            const reliabilityApprovalGate = buildVisionDiagnosticReliabilityActionGate(
+                editableData.visionSummary?.diagnosticReliabilityCard,
+                'approve_graph_promotion'
+            );
+            if (status === 'approved' && !reliabilityApprovalGate.allowed) {
+                setTrainStatus(reliabilityApprovalGate.message);
                 return;
             }
             setTrainStatus(status === 'approved' ? '저장 중...' : '제출 중...');
@@ -521,6 +539,10 @@ ${data.countermeasures}
     const bboxOverlays = bboxReviewModel.items;
     const reliabilityDisplay = buildVisionDiagnosticReliabilityDisplayModel(
         editableData?.visionSummary?.diagnosticReliabilityCard
+    );
+    const finalReportCopyGate = buildVisionDiagnosticReliabilityActionGate(
+        editableData?.visionSummary?.diagnosticReliabilityCard,
+        'copy_final_report'
     );
 
     return (
@@ -1425,19 +1447,27 @@ ${data.countermeasures}
                         <div className="flex flex-wrap justify-end gap-2">
                             {isAdmin && (() => {
                                 const promotionGuard = canPromoteVisionAnalysisToGraph(editableData);
+                                const reliabilityPromotionGate = buildVisionDiagnosticReliabilityActionGate(
+                                    editableData.visionSummary?.diagnosticReliabilityCard,
+                                    'approve_graph_promotion'
+                                );
+                                const promotionAllowed = promotionGuard.allowed && reliabilityPromotionGate.allowed;
+                                const promotionMessage = promotionGuard.allowed
+                                    ? reliabilityPromotionGate.message
+                                    : promotionGuard.message;
                                 return (
                                     <button
                                         onClick={() => handleTrain('approved')}
-                                        disabled={!promotionGuard.allowed}
-                                        title={promotionGuard.message}
+                                        disabled={!promotionAllowed}
+                                        title={promotionMessage}
                                         className={`flex items-center gap-2 font-bold py-2 px-4 rounded-md transition-colors shadow-lg ${
-                                            promotionGuard.allowed
+                                            promotionAllowed
                                                 ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
                                                 : 'cursor-not-allowed bg-gray-700 text-gray-400 border border-red-800/60'
                                         }`}
                                     >
                                         <SaveIcon className="w-4 h-4"/>
-                                        {promotionGuard.allowed ? '승인·Graph 승격' : 'Graph 승격 차단'}
+                                        {promotionAllowed ? '승인·Graph 승격' : 'Graph 승격 차단'}
                                     </button>
                                 );
                             })()}
@@ -1456,7 +1486,16 @@ ${data.countermeasures}
                                 </button>
                             )}
 
-                            <button onClick={handleCopyReport} className="flex items-center gap-2 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-md transition-colors shadow-lg">
+                            <button
+                                onClick={handleCopyReport}
+                                disabled={!finalReportCopyGate.allowed}
+                                title={finalReportCopyGate.message}
+                                className={`flex items-center gap-2 font-bold py-2 px-4 rounded-md transition-colors shadow-lg ${
+                                    finalReportCopyGate.allowed
+                                        ? 'bg-indigo-700 hover:bg-indigo-600 text-white'
+                                        : 'cursor-not-allowed bg-gray-700 text-gray-400 border border-amber-800/60'
+                                }`}
+                            >
                                 <ClipboardIcon className="w-4 h-4"/> 보고서 복사
                             </button>
                         </div>

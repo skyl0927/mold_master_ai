@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  buildVisionDiagnosticReliabilityActionGate,
   buildVisionDiagnosticReliabilityDisplayModel
 } = require('../visionDiagnosticReliabilityDisplay');
 
@@ -143,4 +144,57 @@ test('formats blocked cards as recapture-first and hides candidate trust', () =>
 test('returns null for missing or incompatible cards', () => {
   assert.equal(buildVisionDiagnosticReliabilityDisplayModel(null), null);
   assert.equal(buildVisionDiagnosticReliabilityDisplayModel({ status: 'auto_report_ready' }), null);
+});
+
+test('allows final report copy and graph promotion only for auto-report-ready cards', () => {
+  const ready = baseCard();
+  const crossCheck = {
+    ...baseCard(),
+    status: 'graph_cross_check_required',
+    automaticReportAllowed: false,
+    causeCountermeasureAllowed: false,
+    humanReviewRequired: true
+  };
+
+  assert.deepEqual(buildVisionDiagnosticReliabilityActionGate(ready, 'copy_final_report'), {
+    action: 'copy_final_report',
+    allowed: true,
+    message: 'Graph 근거가 승인되어 최종 보고서 복사가 가능합니다.'
+  });
+  assert.deepEqual(buildVisionDiagnosticReliabilityActionGate(ready, 'approve_graph_promotion'), {
+    action: 'approve_graph_promotion',
+    allowed: true,
+    message: 'Vision/Graph 신뢰도 조건을 만족해 승인 저장이 가능합니다.'
+  });
+
+  const blockedCopy = buildVisionDiagnosticReliabilityActionGate(crossCheck, 'copy_final_report');
+  assert.equal(blockedCopy.allowed, false);
+  assert.match(blockedCopy.message, /Graph 교차검증 필요/);
+
+  const blockedPromotion = buildVisionDiagnosticReliabilityActionGate(crossCheck, 'approve_graph_promotion');
+  assert.equal(blockedPromotion.allowed, false);
+  assert.match(blockedPromotion.message, /Graph 교차검증 필요/);
+});
+
+test('keeps HITL and recapture actions open when reliability is not ready', () => {
+  const blocked = {
+    ...baseCard(),
+    status: 'blocked',
+    automaticReportAllowed: false,
+    graphRetrievalAllowed: false,
+    causeCountermeasureAllowed: false,
+    humanReviewRequired: true
+  };
+
+  assert.equal(buildVisionDiagnosticReliabilityActionGate(blocked, 'save_correction').allowed, true);
+  assert.equal(buildVisionDiagnosticReliabilityActionGate(blocked, 'request_recapture').allowed, true);
+  assert.equal(buildVisionDiagnosticReliabilityActionGate(blocked, 'submit_hitl').allowed, true);
+});
+
+test('preserves legacy actions when no reliability card exists yet', () => {
+  assert.deepEqual(buildVisionDiagnosticReliabilityActionGate(null, 'copy_final_report'), {
+    action: 'copy_final_report',
+    allowed: true,
+    message: 'Reliability card unavailable; using legacy action policy.'
+  });
 });

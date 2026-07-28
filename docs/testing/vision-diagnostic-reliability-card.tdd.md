@@ -120,3 +120,50 @@ UI integration:
 
 - `components/AnalysisModal.tsx` renders the display model near the top of the Vision section.
 - The card shows status, contamination risk, confidence score, allowed/blocked actions, Top-K candidate lines, risk reasons, next actions, and policy/evidence badges.
+
+## Action Gate Follow-up
+
+Additional user journey:
+
+5. As an operator, I want final report copy and Graph promotion approval blocked unless the reliability card is `auto_report_ready`, so that uncertain Vision output cannot become a formal report or learning signal by accident.
+
+RED command:
+
+```powershell
+node --test tests\visionDiagnosticReliabilityDisplay.test.js
+```
+
+Initial failure after adding action policy tests:
+
+```text
+TypeError: buildVisionDiagnosticReliabilityActionGate is not a function
+```
+
+GREEN command:
+
+```powershell
+npm run test:vision-diagnostic-reliability-display
+```
+
+Result:
+
+```text
+tests 7
+pass 7
+fail 0
+```
+
+New guarantees:
+
+| # | Guarantee | Test file or command | Result |
+|---|-----------|----------------------|--------|
+| 11 | Final report copy is allowed only when the reliability card is auto-report-ready. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 12 | Graph promotion approval is allowed only when the reliability card is auto-report-ready. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 13 | HITL, correction, recapture, and rejection actions remain available even when reliability is not ready. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+| 14 | Missing legacy reliability cards keep existing actions available for backward compatibility. | `tests/visionDiagnosticReliabilityDisplay.test.js` | PASS |
+
+UI action integration:
+
+- `handleCopyReport` now fail-closes through `buildVisionDiagnosticReliabilityActionGate(..., 'copy_final_report')`.
+- Admin Graph promotion approval now combines the existing Vision promotion guard with `approve_graph_promotion` reliability gating.
+- The final report copy button is disabled with a tooltip when the reliability card is not ready.
