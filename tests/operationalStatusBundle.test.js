@@ -389,6 +389,23 @@ const reviewerWorksheet = () => ({
     ],
     safetyNoticeKo: 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.'
   },
+  reviewSlipQueue: [
+    {
+      slipNumber: 1,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-001'
+    },
+    {
+      slipNumber: 2,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-002'
+    },
+    {
+      slipNumber: 3,
+      queueCode: 'vision_label_conflicts',
+      decisionId: 'conflict-003'
+    }
+  ],
   markdownPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md',
   sources: {
     inputReviewPacket: 'C:\\repo\\artifacts\\operational-hitl-decision-input-review-packet.json'
@@ -494,6 +511,11 @@ test('builds an artifact-only operational status bundle for handoff and Settings
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipTitleKo, '다음 HITL 판정: vision_label_conflicts / conflict-001');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipFirstInstructionKo, 'source file에서 conflict-001 항목을 찾으세요.');
   assert.equal(bundle.summary.reviewerWorksheetNextReviewSlipSafetyNoticeKo, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
+  assert.equal(bundle.summary.reviewerWorksheetSlipQueueCount, 3);
+  assert.equal(
+    bundle.summary.reviewerWorksheetSlipQueuePreviewText,
+    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003'
+  );
   assert.equal(bundle.summary.reviewerWorksheetSectionCount, 3);
   assert.equal(bundle.summary.reviewerWorksheetMarkdownLineCount, 83);
   assert.equal(bundle.summary.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');

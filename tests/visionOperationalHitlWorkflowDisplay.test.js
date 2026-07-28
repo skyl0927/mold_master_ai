@@ -1230,6 +1230,8 @@ test('summarizes operational status bundle for one-step Settings handoff display
       reviewerWorksheetNextReviewSlipTitleKo: '다음 HITL 판정: vision_label_conflicts / conflict-001',
       reviewerWorksheetNextReviewSlipFirstInstructionKo: 'source file에서 conflict-001 항목을 찾으세요.',
       reviewerWorksheetNextReviewSlipSafetyNoticeKo: 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.',
+      reviewerWorksheetSlipQueueCount: 3,
+      reviewerWorksheetSlipQueuePreviewText: '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003',
       reviewerWorksheetSectionCount: 3,
       reviewerWorksheetMarkdownLineCount: 83,
       reviewerWorksheetPath: 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json',
@@ -1371,6 +1373,11 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.reviewerWorksheetSlipTitle, '다음 HITL 판정: vision_label_conflicts / conflict-001');
   assert.equal(display.reviewerWorksheetSlipInstruction, 'source file에서 conflict-001 항목을 찾으세요.');
   assert.equal(display.reviewerWorksheetSlipSafetyNotice, 'Artifact-only 안내입니다. 자동 적용, Graph 승격, Reference 학습, Model 학습은 모두 금지됩니다.');
+  assert.equal(display.reviewerWorksheetSlipQueueText, 'Review slip queue 3건');
+  assert.equal(
+    display.reviewerWorksheetSlipQueuePreviewText,
+    '1. vision_label_conflicts / conflict-001 · 2. vision_label_conflicts / conflict-002 · 3. vision_label_conflicts / conflict-003'
+  );
   assert.equal(display.reviewerWorksheetPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.json');
   assert.equal(display.reviewerWorksheetMarkdownPath, 'C:\\repo\\artifacts\\operational-hitl-reviewer-worksheet.md');
   assert.equal(display.accuracyText, 'Vision Top-1 46.2% · Top-3 53.8%');
