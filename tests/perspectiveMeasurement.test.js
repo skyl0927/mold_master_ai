@@ -4,7 +4,8 @@ const test = require('node:test');
 const {
   applyPerspectiveTransform,
   createPerspectiveCalibration,
-  measurePerspectiveDistance
+  measurePerspectiveDistance,
+  translatePerspectiveCalibration
 } = require('../perspectiveMeasurement');
 const { applyCalibrationToDimension } = require('../dimensionMeasurement');
 const { initializeDimensionDocument, upsertPerspectiveCalibration } = require('../dimensionEditorState');
@@ -90,6 +91,21 @@ test('rejects degenerate or incorrectly ordered quadrilaterals', () => {
     knownHeight: 20,
     unit: 'mm'
   }), /convex|ordered/i);
+});
+
+test('rebuilds the planar transform when an image crop shifts source coordinates', () => {
+  const calibration = createPerspectiveCalibration({
+    id: 'perspective-1',
+    sourceQuad,
+    knownWidth: 10,
+    knownHeight: 20,
+    unit: 'mm'
+  });
+  const shifted = translatePerspectiveCalibration(calibration, { x: -20, y: -10 });
+
+  assert.deepEqual(shifted.sourceQuad[0], { x: -20, y: -10 });
+  assert.ok(Math.abs(measurePerspectiveDistance(shifted.sourceQuad[3], shifted.sourceQuad[2], shifted) - 10) < 1e-8);
+  assert.equal(shifted.id, calibration.id);
 });
 
 test('editor activates a planar calibration and recalculates existing dimensions', () => {
