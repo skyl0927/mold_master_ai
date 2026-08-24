@@ -93,7 +93,7 @@
     "test:contracts": "node scripts/run-contract-tests.js",
     "test:capture": "node --test tests/captureGeometry.test.js tests/captureFrameCache.test.js",
     "test:capture-session": "node --test tests/captureSessionProtocol.test.js",
-    "test:dimension": "node --test tests/dimensionMeasurement.test.js tests/dimensionEvidence.test.js tests/dimensionEditorState.test.js",
+    "test:dimension": "node --test tests/dimensionMeasurement.test.js tests/dimensionEvidence.test.js tests/dimensionEditorState.test.js tests/perspectiveMeasurement.test.js",
     "test:translation": "node --test tests/translationRequest.test.js",
     "test:benchmark": "node --test tests/multimodalBenchmark.test.js tests/visionCaptureProtocol.test.js tests/retryAsync.test.js",
     "test:vision-structured-output": "node --test tests/visionStructuredOutputSchema.test.js",
