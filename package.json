@@ -169,6 +169,7 @@
     "test:electron": "npm run build && node scripts/electron-smoke.js",
     "test:electron:capture-fresh-frame": "npm run build && node scripts/electron-capture-fresh-frame-smoke.js",
     "test:electron:capture-session": "npm run build && node scripts/electron-capture-session-smoke.js",
+    "test:electron:dimension": "npm run build && node scripts/electron-calibrated-dimension-smoke.js",
     "test:electron:chat": "npm run build && node scripts/electron-common-agent-chat-smoke.js",
     "test:electron:migrate": "npm run build && node scripts/electron-process-knowledge-migration-smoke.js",
     "test:electron:transition": "npm run build && node scripts/electron-transition-report-smoke.js",
