@@ -5,6 +5,26 @@ export interface Point {
   y: number;
 }
 
+export type ImageCoordinateSpaceVersion = 'image/v1';
+export type DimensionUnit = 'mm' | 'cm' | 'in';
+export type DimensionReviewStatus = 'candidate' | 'approved' | 'rejected';
+export type MeasurementConfidence = 'reference' | 'perspective_corrected' | 'estimated';
+
+export interface DimensionCalibration {
+  id: string;
+  protocolVersion: 'dimension-calibration/v1';
+  coordinateSpaceVersion: ImageCoordinateSpaceVersion;
+  start: Point;
+  end: Point;
+  pixelLength: number;
+  knownLength: number;
+  unit: DimensionUnit;
+  unitPerPixel: number;
+  planeLabel: string;
+  confidence: MeasurementConfidence;
+  createdAt: string;
+}
+
 export interface TextAnnotation {
   id: string;
   text: string;
@@ -13,6 +33,7 @@ export interface TextAnnotation {
   fontFamily: string;
   textColor: string;
   backgroundColor?: string;  // 주석 배경색 (선택적, 기본값: 검정 반투명)
+  coordinateSpaceVersion?: ImageCoordinateSpaceVersion;
   // Arrow removed from TextAnnotation as it is now a Shape
   arrow?: {
     start: Point;
@@ -42,6 +63,21 @@ export interface Shape {
   lineStyle?: 'solid' | 'dashed' | 'dotted' | 'dash-dot'; // Added for line dash styles
   imageUrl?: string; // For 'image' tool — base64 data URL of the inserted image
   rotation?: number; // radians
+  coordinateSpaceVersion?: ImageCoordinateSpaceVersion;
+  labelOffset?: Point;
+  backgroundColor?: string;
+  backgroundAlpha?: number;
+  measuredValue?: number;
+  displayValue?: number;
+  unit?: DimensionUnit | 'px';
+  precision?: number;
+  calibrationId?: string;
+  manualOverride?: boolean;
+  legacyDimension?: boolean;
+  measurementConfidence?: MeasurementConfidence;
+  measurementReviewStatus?: DimensionReviewStatus;
+  measurementSource?: 'manual_calibration' | 'source_image_pixels' | 'perspective_calibration';
+  dimensionText?: string;
 }
 
 export type VisionDecisionStatus = 'probable' | 'needs_review' | 'unclassifiable';
@@ -428,6 +464,9 @@ export interface CapturedImage {
   baseImageUrl: string;
   annotations: TextAnnotation[];
   shapes?: Shape[];
+  dimensionCalibrations?: DimensionCalibration[];
+  activeDimensionCalibrationId?: string;
+  coordinateSpaceVersion?: ImageCoordinateSpaceVersion;
   phenomenonDescription?: string;
   ocrText?: string;
   analysis?: DefectAnalysis;

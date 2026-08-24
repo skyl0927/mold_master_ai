@@ -63,8 +63,12 @@ import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatu
 interface EditingState {
     id?: string;
     baseImageUrl: string;
+    renderedImageUrl?: string;
     annotations: TextAnnotation[];
     shapes?: Shape[];
+    dimensionCalibrations?: CapturedImage['dimensionCalibrations'];
+    activeDimensionCalibrationId?: string;
+    coordinateSpaceVersion?: CapturedImage['coordinateSpaceVersion'];
     captureSessionId?: string;
     captureViewTag?: CaptureViewTag;
     captureImageKind?: CaptureImageKind;
@@ -473,6 +477,9 @@ const App: React.FC = () => {
                         dataUrl: savedData.dataUrl,
                         annotations: savedData.annotations,
                         shapes: savedData.shapes,
+                        dimensionCalibrations: savedData.dimensionCalibrations,
+                        activeDimensionCalibrationId: savedData.activeDimensionCalibrationId,
+                        coordinateSpaceVersion: savedData.coordinateSpaceVersion,
                         analysis: undefined,
                         analysisError: undefined,
                         visionQuality: undefined,
@@ -491,6 +498,9 @@ const App: React.FC = () => {
                 dataUrl: savedData.dataUrl,
                 annotations: savedData.annotations,
                 shapes: savedData.shapes,
+                dimensionCalibrations: savedData.dimensionCalibrations,
+                activeDimensionCalibrationId: savedData.activeDimensionCalibrationId,
+                coordinateSpaceVersion: savedData.coordinateSpaceVersion,
                 captureSessionId: editingState?.captureSessionId || activeCaptureSessionIdRef.current,
                 captureViewTag: editingState?.captureViewTag || screenCaptureViewTagRef.current,
                 captureImageKind: editingState?.captureImageKind || 'physical_product',
@@ -2049,8 +2059,12 @@ const App: React.FC = () => {
                                                 <button onClick={() => setEditingState({
                                                     id: image.id,
                                                     baseImageUrl: image.baseImageUrl,
+                                                    renderedImageUrl: image.dataUrl,
                                                     annotations: image.annotations,
                                                     shapes: image.shapes,
+                                                    dimensionCalibrations: image.dimensionCalibrations,
+                                                    activeDimensionCalibrationId: image.activeDimensionCalibrationId,
+                                                    coordinateSpaceVersion: image.coordinateSpaceVersion,
                                                     captureSessionId: image.captureSessionId,
                                                     captureViewTag: image.captureViewTag,
                                                     captureImageKind: image.captureImageKind,

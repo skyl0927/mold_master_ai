@@ -1,23 +1,14 @@
-import type { Point, Shape, TextAnnotation } from './types';
+import type {
+  DimensionCalibration,
+  DimensionReviewStatus,
+  DimensionUnit,
+  MeasurementConfidence,
+  Point,
+  Shape,
+  TextAnnotation
+} from './types';
 
-export type DimensionUnit = 'mm' | 'cm' | 'in';
-export type DimensionReviewStatus = 'candidate' | 'approved' | 'rejected';
-export type MeasurementConfidence = 'reference' | 'perspective_corrected' | 'estimated';
-
-export interface DimensionCalibration {
-  id: string;
-  protocolVersion: 'dimension-calibration/v1';
-  coordinateSpaceVersion: 'image/v1';
-  start: Point;
-  end: Point;
-  pixelLength: number;
-  knownLength: number;
-  unit: DimensionUnit;
-  unitPerPixel: number;
-  planeLabel: string;
-  confidence: MeasurementConfidence;
-  createdAt: string;
-}
+export type { DimensionCalibration, DimensionReviewStatus, DimensionUnit, MeasurementConfidence } from './types';
 
 export interface Size {
   width: number;

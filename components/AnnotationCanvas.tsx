@@ -1,8 +1,27 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Point, TextAnnotation, Shape, ShapeTool } from '../types';
+import { DimensionCalibration, DimensionUnit, Point, TextAnnotation, Shape, ShapeTool } from '../types';
 import { SaveIcon, TextIcon, PenIcon, RectangleIcon, CircleIcon, BlurIcon, NumberIcon, CursorArrowIcon, RulerIcon, TrashIcon, ScissorIcon, CopyIcon, EyeDropperIcon, PaletteIcon, SquareOutlineIcon, SquareFillIcon, LineSolidIcon, LineDashedIcon, DiagonalLineIcon, CalloutIcon } from './Icons';
 import { translateText } from '../services/aiService';
+import {
+    applyCalibrationToDimension,
+    createCalibration,
+    formatMeasurement,
+    moveDimension,
+    snapPointToAxes
+} from '../dimensionMeasurement';
+import {
+    addMeasuredDimension,
+    commitEditorHistory,
+    createEditorHistory,
+    initializeDimensionDocument,
+    redoEditorHistory,
+    setDimensionReviewStatus,
+    undoEditorHistory,
+    updateDimensionManualDisplay,
+    upsertCalibration
+} from '../dimensionEditorState';
+import type { DimensionEditorDocument } from '../dimensionEditorState';
 
 // Add type definition for the experimental EyeDropper API
 declare global {
@@ -16,18 +35,31 @@ declare global {
 interface EditingImage {
     id?: string;
     baseImageUrl: string;
+    renderedImageUrl?: string;
     annotations: TextAnnotation[];
     shapes?: Shape[];
+    dimensionCalibrations?: DimensionCalibration[];
+    activeDimensionCalibrationId?: string;
+    coordinateSpaceVersion?: 'image/v1';
 }
 
 interface AnnotationCanvasProps {
     editingImage: EditingImage;
-    onSave: (savedData: { id?: string; baseImageUrl: string; dataUrl: string; annotations: TextAnnotation[], shapes: Shape[] }) => void;
+    onSave: (savedData: {
+        id?: string;
+        baseImageUrl: string;
+        dataUrl: string;
+        annotations: TextAnnotation[];
+        shapes: Shape[];
+        dimensionCalibrations: DimensionCalibration[];
+        activeDimensionCalibrationId?: string;
+        coordinateSpaceVersion: 'image/v1';
+    }) => void;
     onCancel: () => void;
 }
 
 // Arrow is now handled as a ShapeTool inside 'arrow'
-type Tool = 'select' | 'text' | ShapeTool | 'circle' | 'crop';
+type Tool = 'select' | 'text' | ShapeTool | 'circle' | 'crop' | 'calibration';
 
 // Inline Input State Interface
 interface EditTextState {
@@ -92,6 +124,16 @@ function hitTestHandle(point: Point, p0: Point, p1: Point): ResizeHandle | null 
     return null;
 }
 
+function getDimensionLabelPoint(shape: Shape): Point {
+    const start = shape.points[0];
+    const end = shape.points[shape.points.length - 1];
+    const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+    if (shape.labelOffset) {
+        return { x: midpoint.x + shape.labelOffset.x, y: midpoint.y + shape.labelOffset.y };
+    }
+    return shape.textPos || { x: midpoint.x, y: midpoint.y - 15 };
+}
+
 const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSave, onCancel }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
@@ -101,6 +143,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     // Data State
     const [annotations, setAnnotations] = useState<TextAnnotation[]>(editingImage.annotations);
     const [shapes, setShapes] = useState<Shape[]>(editingImage.shapes || []);
+    const [dimensionCalibrations, setDimensionCalibrations] = useState<DimensionCalibration[]>(editingImage.dimensionCalibrations || []);
+    const [activeDimensionCalibrationId, setActiveDimensionCalibrationId] = useState<string | undefined>(editingImage.activeDimensionCalibrationId);
+    const [coordinateSpaceVersion, setCoordinateSpaceVersion] = useState<'image/v1' | undefined>(editingImage.coordinateSpaceVersion);
+    const [documentReady, setDocumentReady] = useState(false);
 
     // UI State
     const [tool, setTool] = useState<Tool>('select');
@@ -112,6 +158,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [nextStepNumber, setNextStepNumber] = useState(1);
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
+    const [calibrationLengthInput, setCalibrationLengthInput] = useState('');
+    const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>('mm');
+    const [dimensionPrecision, setDimensionPrecision] = useState(2);
 
     // Selection & Dragging
     const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
@@ -122,6 +171,14 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     // Image resize handle state
     const [resizingHandle, setResizingHandle] = useState<ResizeHandle | null>(null);
     const dragStartShapeRef = useRef<Shape | null>(null);
+    const migrationCompletedRef = useRef(false);
+    const historyRef = useRef<ReturnType<typeof createEditorHistory> | null>(null);
+    const historyTransactionRef = useRef(false);
+    const historyRestoreRef = useRef(false);
+    const shapesRef = useRef(shapes);
+    const annotationsRef = useRef(annotations);
+    const calibrationsRef = useRef(dimensionCalibrations);
+    const activeCalibrationIdRef = useRef(activeDimensionCalibrationId);
 
     // In-Place Editing State
     const [editTextState, setEditTextState] = useState<EditTextState | null>(null);
@@ -138,6 +195,60 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [lineStyle, setLineStyle] = useState<LineStyle>('solid');
     const [arrowHeadStyle, setArrowHeadStyle] = useState<'arrow' | 'circle' | 'none'>('arrow');
     const [paletteColors, setPaletteColors] = useState<string[]>(DEFAULT_PALETTE);
+
+    shapesRef.current = shapes;
+    annotationsRef.current = annotations;
+    calibrationsRef.current = dimensionCalibrations;
+    activeCalibrationIdRef.current = activeDimensionCalibrationId;
+
+    const activeDimensionCalibration = dimensionCalibrations.find(
+        calibration => calibration.id === activeDimensionCalibrationId
+    );
+    const selectedDimension = shapes.find(
+        shape => shape.id === selectedShapeId && shape.tool === 'dimension'
+    );
+    const inspectionDimension = selectedDimension || [...shapes].reverse().find(
+        shape => shape.tool === 'dimension' && shape.unit !== 'px'
+    );
+
+    const buildCurrentDocument = useCallback((): DimensionEditorDocument => ({
+        shapes: shapesRef.current,
+        annotations: annotationsRef.current,
+        dimensionCalibrations: calibrationsRef.current,
+        activeDimensionCalibrationId: activeCalibrationIdRef.current,
+        coordinateSpaceVersion: 'image/v1'
+    }), []);
+
+    const applyDocument = useCallback((document: DimensionEditorDocument) => {
+        shapesRef.current = document.shapes;
+        annotationsRef.current = document.annotations;
+        calibrationsRef.current = document.dimensionCalibrations;
+        activeCalibrationIdRef.current = document.activeDimensionCalibrationId;
+        setShapes(document.shapes);
+        setAnnotations(document.annotations);
+        setDimensionCalibrations(document.dimensionCalibrations);
+        setActiveDimensionCalibrationId(document.activeDimensionCalibrationId);
+        setCoordinateSpaceVersion('image/v1');
+    }, []);
+
+    useEffect(() => {
+        if (!documentReady || historyTransactionRef.current) return;
+        if (historyRestoreRef.current) {
+            historyRestoreRef.current = false;
+            return;
+        }
+        const document = buildCurrentDocument();
+        historyRef.current = historyRef.current
+            ? commitEditorHistory(historyRef.current, document)
+            : createEditorHistory(document);
+    }, [
+        activeDimensionCalibrationId,
+        annotations,
+        buildCurrentDocument,
+        dimensionCalibrations,
+        documentReady,
+        shapes
+    ]);
 
     useEffect(() => {
         const savedPalette = localStorage.getItem('moldMasterPalette');
@@ -223,11 +334,16 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             const maxWidth = window.innerWidth * 0.9;
             const maxHeight = window.innerHeight * 0.7;
             const displayRatio = Math.min(1, maxWidth / width, maxHeight / height);
-            canvas.width = width * displayRatio;
-            canvas.height = height * displayRatio;
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = `${Math.max(1, Math.round(width * displayRatio))}px`;
+            canvas.style.height = `${Math.max(1, Math.round(height * displayRatio))}px`;
             // Clear existing shapes and annotations for fresh whiteboard
             setShapes([]);
             setAnnotations([]);
+            setDimensionCalibrations([]);
+            setActiveDimensionCalibrationId(undefined);
+            setCoordinateSpaceVersion('image/v1');
             const ctx = canvas.getContext('2d');
             if (ctx) {
                 ctx.fillStyle = '#FFFFFF';
@@ -315,7 +431,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         style: fillStyle,
                         fontSize: fontSize,
                         lineStyle: lineStyle,
-                        textColor: textColor
+                        textColor: textColor,
+                        backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
+                        backgroundAlpha: opacity
                     };
                 }
                 return s;
@@ -334,7 +452,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 return a;
             }));
         }
-    }, [color, bgColor, textColor, lineWidth, fillStyle, lineStyle, fontSize, selectedShapeId, selectedAnnotationId]);
+    }, [color, bgColor, textColor, lineWidth, fillStyle, lineStyle, fontSize, opacity, selectedShapeId, selectedAnnotationId]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -346,7 +464,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 return;
             }
 
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+                e.preventDefault();
+                handleRedo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 handleUndo();
             }
@@ -377,18 +498,29 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     };
 
     const handleUndo = () => {
-        if (shapes.length > 0) {
-            const lastShape = shapes[shapes.length - 1];
-            if (lastShape.tool === 'step') {
-                setNextStepNumber(prev => Math.max(1, prev - 1));
-            }
-            setShapes(prev => prev.slice(0, -1));
-        } else if (annotations.length > 0) {
-            setAnnotations(prev => prev.slice(0, -1));
-        } else {
+        if (!historyRef.current || historyRef.current.past.length === 0) {
             setErrorMessage("더 이상 실행 취소할 작업이 없습니다.");
             setTimeout(() => setErrorMessage(''), 2000);
+            return;
         }
+        historyRestoreRef.current = true;
+        historyRef.current = undoEditorHistory(historyRef.current);
+        applyDocument(historyRef.current.present);
+        setSelectedShapeId(null);
+        setSelectedAnnotationId(null);
+    };
+
+    const handleRedo = () => {
+        if (!historyRef.current || historyRef.current.future.length === 0) {
+            setErrorMessage("다시 실행할 작업이 없습니다.");
+            setTimeout(() => setErrorMessage(''), 2000);
+            return;
+        }
+        historyRestoreRef.current = true;
+        historyRef.current = redoEditorHistory(historyRef.current);
+        applyDocument(historyRef.current.present);
+        setSelectedShapeId(null);
+        setSelectedAnnotationId(null);
     };
 
     const getDistanceToLineSegment = (p: Point, v: Point, w: Point) => {
@@ -399,6 +531,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         const projectionX = v.x + t * (w.x - v.x);
         const projectionY = v.y + t * (w.y - v.y);
         return Math.sqrt((p.x - projectionX) ** 2 + (p.y - projectionY) ** 2);
+    };
+
+    const isPointInDimensionLabel = (point: Point, shape: Shape): boolean => {
+        if (shape.tool !== 'dimension' || !shape.text || shape.points.length < 2) return false;
+        const labelPoint = getDimensionLabelPoint(shape);
+        const textSize = shape.fontSize || 16;
+        const halfWidth = Math.max(40, shape.text.length * textSize * 0.35 + 8);
+        return Math.abs(point.x - labelPoint.x) <= halfWidth
+            && Math.abs(point.y - labelPoint.y) <= textSize / 2 + 8;
     };
 
     const handleEyedropper = async () => {
@@ -516,8 +657,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.lineTo(end.x + capLen * Math.cos(angle - Math.PI / 2), end.y + capLen * Math.sin(angle - Math.PI / 2));
         ctx.stroke();
 
-        let tx = shape.textPos ? shape.textPos.x : (start.x + end.x) / 2;
-        let ty = shape.textPos ? shape.textPos.y : (start.y + end.y) / 2 - 15;
+        const labelPoint = getDimensionLabelPoint(shape);
+        const tx = labelPoint.x;
+        const ty = labelPoint.y;
 
         if (shape.text && editTextState?.id !== shape.id) {
             const textSize = shape.fontSize || 16;
@@ -531,13 +673,16 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             const bw = metrics.width + padding * 2;
             const bh = textSize + padding * 2;
 
-            ctx.fillStyle = 'white';
+            const backgroundAlpha = Math.max(0, Math.min(1, shape.backgroundAlpha ?? 0.92));
+            ctx.globalAlpha = backgroundAlpha;
+            ctx.fillStyle = shape.backgroundColor || '#FFFFFF';
             ctx.fillRect(bx, by, bw, bh);
-            ctx.strokeStyle = 'black';
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = shape.color || '#000000';
             ctx.lineWidth = 1;
             ctx.strokeRect(bx, by, bw, bh);
 
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = shape.textColor || '#111827';
             ctx.fillText(shape.text, tx, ty);
 
             if (isSelected && draggingPart === 'text' && !isSaving) {
@@ -548,6 +693,38 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
         ctx.restore();
     }, [editTextState, draggingPart]);
+
+    const drawCalibration = useCallback((
+        ctx: CanvasRenderingContext2D,
+        calibration: DimensionCalibration,
+        isActive: boolean
+    ) => {
+        ctx.save();
+        ctx.strokeStyle = isActive ? '#06B6D4' : '#64748B';
+        ctx.fillStyle = isActive ? '#083344' : '#1E293B';
+        ctx.lineWidth = isActive ? 3 : 2;
+        ctx.setLineDash([10, 6]);
+        ctx.beginPath();
+        ctx.moveTo(calibration.start.x, calibration.start.y);
+        ctx.lineTo(calibration.end.x, calibration.end.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const midpoint = {
+            x: (calibration.start.x + calibration.end.x) / 2,
+            y: (calibration.start.y + calibration.end.y) / 2 - 26
+        };
+        const label = `REF ${formatMeasurement(calibration.knownLength, calibration.unit, dimensionPrecision)}`;
+        const labelFontSize = Math.max(16, fontSize * 0.75);
+        ctx.font = `bold ${labelFontSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const width = ctx.measureText(label).width + 16;
+        ctx.fillRect(midpoint.x - width / 2, midpoint.y - labelFontSize / 2 - 5, width, labelFontSize + 10);
+        ctx.fillStyle = '#ECFEFF';
+        ctx.fillText(label, midpoint.x, midpoint.y);
+        ctx.restore();
+    }, [dimensionPrecision, fontSize]);
 
     const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isSaving: boolean) => {
         ctx.save();
@@ -849,6 +1026,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.globalAlpha = 1;
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+        dimensionCalibrations.forEach(calibration => {
+            drawCalibration(ctx, calibration, calibration.id === activeDimensionCalibrationId);
+        });
+
         shapes.forEach(shape => {
             const isSelected = selectedShapeId === shape.id;
             drawShape(ctx, shape, isSelected, isSaving);
@@ -920,6 +1101,23 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
         // Draw Preview
         if (isDrawing && currentPoints.length > 0) {
+            if (tool === 'calibration') {
+                const knownLength = Number(calibrationLengthInput);
+                if (currentPoints.length >= 2 && knownLength > 0) {
+                    try {
+                        drawCalibration(ctx, createCalibration({
+                            id: 'preview-calibration',
+                            start: currentPoints[0],
+                            end: currentPoints[currentPoints.length - 1],
+                            knownLength,
+                            unit: dimensionUnit
+                        }), true);
+                    } catch {
+                        // A zero-length drag has no calibration preview.
+                    }
+                }
+                return;
+            }
             const previewShape: Shape = {
                 id: 'preview',
                 tool: tool === 'circle' ? 'ellipse' : (tool as ShapeTool),
@@ -929,13 +1127,28 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 opacity,
                 style: fillStyle,
                 lineStyle: lineStyle,
-                text: tool === 'dimension' ? '0px' : undefined,
-                fontSize: fontSize
+                text: tool === 'dimension' ? '0 px' : undefined,
+                fontSize: fontSize,
+                textColor,
+                backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
+                backgroundAlpha: opacity,
+                coordinateSpaceVersion: 'image/v1'
             };
 
             if (tool === 'dimension' && currentPoints.length >= 2) {
-                const dist = Math.sqrt((currentPoints[1].x - currentPoints[0].x) ** 2 + (currentPoints[1].y - currentPoints[0].y) ** 2);
-                previewShape.text = `${Math.round(dist)}px`;
+                const dist = Math.hypot(
+                    currentPoints[currentPoints.length - 1].x - currentPoints[0].x,
+                    currentPoints[currentPoints.length - 1].y - currentPoints[0].y
+                );
+                if (activeDimensionCalibration && dist > 0) {
+                    Object.assign(previewShape, applyCalibrationToDimension(
+                        previewShape,
+                        activeDimensionCalibration,
+                        { precision: dimensionPrecision }
+                    ));
+                } else {
+                    previewShape.text = `${Math.round(dist)} px`;
+                }
             }
             if (tool === 'arrow' && currentPoints.length >= 2) {
                 // Arrow preview uses start and current mouse pos
@@ -1025,29 +1238,97 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             ctx.restore();
         }
 
-    }, [annotations, shapes, drawArrowShape, color, lineWidth, lineStyle, arrowHeadStyle, tool, isDrawing, currentPoints, drawShape, opacity, fillStyle, selectedAnnotationId, selectedShapeId, draggingPart, editTextState, fontSize]);
+    }, [
+        activeDimensionCalibration,
+        activeDimensionCalibrationId,
+        annotations,
+        arrowHeadStyle,
+        bgColor,
+        calibrationLengthInput,
+        color,
+        currentPoints,
+        dimensionCalibrations,
+        dimensionPrecision,
+        dimensionUnit,
+        draggingPart,
+        drawCalibration,
+        drawShape,
+        editTextState,
+        fillStyle,
+        fontSize,
+        isDrawing,
+        lineStyle,
+        lineWidth,
+        opacity,
+        selectedAnnotationId,
+        selectedShapeId,
+        shapes,
+        textColor,
+        tool
+    ]);
 
     // Initial Load & Resize
     useEffect(() => {
+        let cancelled = false;
         const image = new Image();
         image.src = editingImage.baseImageUrl;
-        image.onload = () => {
+        image.onload = async () => {
             const canvas = canvasRef.current;
-            if (canvas) {
-                const maxWidth = window.innerWidth * 0.9;
-                const maxHeight = window.innerHeight * 0.7;
-                let { width, height } = image;
-                // Never upscale beyond original resolution (Math.min with 1)
-                const ratio = Math.min(1, maxWidth / width, maxHeight / height);
-                canvas.width = width * ratio;
-                canvas.height = height * ratio;
-                imageRef.current = image;
+            if (!canvas || cancelled) return;
+            const width = image.naturalWidth || image.width;
+            const height = image.naturalHeight || image.height;
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.7;
+            const displayRatio = Math.min(1, maxWidth / width, maxHeight / height);
 
-                const ctx = canvas.getContext('2d');
-                if (ctx) draw(ctx, false);
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = `${Math.max(1, Math.round(width * displayRatio))}px`;
+            canvas.style.height = `${Math.max(1, Math.round(height * displayRatio))}px`;
+            imageRef.current = image;
+
+            if (!migrationCompletedRef.current) {
+                let legacyCanvasSize = { width, height };
+                if (!editingImage.coordinateSpaceVersion && editingImage.renderedImageUrl) {
+                    legacyCanvasSize = await new Promise(resolve => {
+                        const renderedImage = new Image();
+                        renderedImage.onload = () => resolve({
+                            width: renderedImage.naturalWidth || renderedImage.width,
+                            height: renderedImage.naturalHeight || renderedImage.height
+                        });
+                        renderedImage.onerror = () => resolve({ width, height });
+                        renderedImage.src = editingImage.renderedImageUrl!;
+                    });
+                }
+                if (cancelled) return;
+                const document = initializeDimensionDocument({
+                    shapes: editingImage.shapes || [],
+                    annotations: editingImage.annotations,
+                    dimensionCalibrations: editingImage.dimensionCalibrations || [],
+                    activeDimensionCalibrationId: editingImage.activeDimensionCalibrationId,
+                    coordinateSpaceVersion: editingImage.coordinateSpaceVersion,
+                    legacyCanvasSize,
+                    imageSize: { width, height }
+                });
+                applyDocument(document);
+                historyRef.current = createEditorHistory(document);
+                migrationCompletedRef.current = true;
+                setDocumentReady(true);
             }
         };
-    }, [editingImage.baseImageUrl]);
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        applyDocument,
+        editingImage.activeDimensionCalibrationId,
+        editingImage.annotations,
+        editingImage.baseImageUrl,
+        editingImage.coordinateSpaceVersion,
+        editingImage.dimensionCalibrations,
+        editingImage.renderedImageUrl,
+        editingImage.shapes
+    ]);
 
     // Redraw Loop
     useEffect(() => {
@@ -1064,7 +1345,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
         const rect = canvas.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        return {
+            x: (e.clientX - rect.left) * canvas.width / Math.max(1, rect.width),
+            y: (e.clientY - rect.top) * canvas.height / Math.max(1, rect.height)
+        };
     };
 
     const isPointInText = (p: Point, ann: TextAnnotation): boolean => {
@@ -1111,13 +1395,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 const dist = getDistanceToLineSegment(testPoint, shape.points[0], shape.points[lastIdx]);
                 if (dist < 10) return true;
             }
-            if (shape.text && shape.points.length >= 2) {
-                const start = shape.points[0];
-                const end = shape.points[lastIdx];
-                let tx = shape.textPos ? shape.textPos.x : (start.x + end.x) / 2;
-                let ty = shape.textPos ? shape.textPos.y : (start.y + end.y) / 2 - 15;
-                if (Math.abs(testPoint.x - tx) < 40 && Math.abs(testPoint.y - ty) < 20) return true;
-            }
+            if (isPointInDimensionLabel(testPoint, shape)) return true;
             return false;
         }
         if (shape.tool === 'image' || shape.tool === 'rect' || shape.tool === 'ellipse' || shape.tool === 'callout') {
@@ -1155,13 +1433,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         const point = getCanvasPoint(e);
         const clickedDim = shapes.find(s => s.tool === 'dimension' && s.text && isPointInShape(point, s));
         if (clickedDim && clickedDim.text) {
-            const start = clickedDim.points[0];
-            const lastIdx = clickedDim.points.length - 1;
-            const end = clickedDim.points[lastIdx];
-            let tx = clickedDim.textPos ? clickedDim.textPos.x : (start.x + end.x) / 2;
-            let ty = clickedDim.textPos ? clickedDim.textPos.y : (start.y + end.y) / 2 - 15;
-            if (Math.abs(point.x - tx) < 40 && Math.abs(point.y - ty) < 20) {
-                setEditTextState({ id: clickedDim.id, type: 'dimension', text: clickedDim.text, x: tx, y: ty });
+            const labelPoint = getDimensionLabelPoint(clickedDim);
+            if (isPointInDimensionLabel(point, clickedDim)) {
+                setEditTextState({
+                    id: clickedDim.id,
+                    type: 'dimension',
+                    text: clickedDim.text,
+                    x: labelPoint.x,
+                    y: labelPoint.y
+                });
                 return;
             }
         }
@@ -1179,7 +1459,23 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             }
         } else {
             if (editTextState.type === 'dimension') {
-                setShapes(prev => prev.map(s => s.id === editTextState.id ? { ...s, text: editTextState.text } : s));
+                const target = shapesRef.current.find(shape => shape.id === editTextState.id);
+                if (target?.calibrationId && target.unit !== 'px') {
+                    try {
+                        applyDocument(updateDimensionManualDisplay(
+                            buildCurrentDocument(),
+                            editTextState.id,
+                            editTextState.text
+                        ));
+                    } catch (error) {
+                        setErrorMessage(error instanceof Error ? error.message : '치수 값을 확인해 주세요.');
+                        return;
+                    }
+                } else {
+                    setShapes(prev => prev.map(s => s.id === editTextState.id
+                        ? { ...s, text: editTextState.text, manualOverride: true }
+                        : s));
+                }
             } else {
                 setAnnotations(prev => prev.map(a => a.id === editTextState.id ? { ...a, text: editTextState.text } : a));
             }
@@ -1242,7 +1538,11 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (editTextState) return;
         const point = getCanvasPoint(e);
-        if (e.button === 1) { setIsErasing(true); return; }
+        if (e.button === 1) {
+            historyTransactionRef.current = true;
+            setIsErasing(true);
+            return;
+        }
 
         if (tool === 'text') return;
 
@@ -1261,6 +1561,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     }
                     const handle = hitTestHandle(testPoint, selShape.points[0], selShape.points[lastIdx]);
                     if (handle) {
+                        historyTransactionRef.current = true;
                         setResizingHandle(handle);
                         setDragStartPos(point);
                         dragStartShapeRef.current = selShape;
@@ -1273,6 +1574,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             if (e.ctrlKey || e.metaKey) {
                 const hitAnn = annotations.find(a => isPointInText(point, a));
                 if (hitAnn) {
+                    historyTransactionRef.current = true;
                     const newId = Date.now().toString();
                     const clone = { ...hitAnn, id: newId };
                     setAnnotations(prev => [...prev, clone]);
@@ -1285,16 +1587,16 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
                 const hitShape = shapes.find(s => isPointInShape(point, s));
                 if (hitShape) {
+                    historyTransactionRef.current = true;
                     const newId = Date.now().toString();
                     const clone = { ...hitShape, id: newId };
                     setShapes(prev => [...prev, clone]);
                     setSelectedShapeId(newId);
                     setSelectedAnnotationId(null);
-                    let part: 'body' | 'text' = 'body';
-                    if (hitShape.tool === 'dimension' && hitShape.text) {
-                        // Dimension text hit test simplified
-                        part = 'body';
-                    }
+                    const part: 'body' | 'text' = hitShape.tool === 'dimension'
+                        && isPointInDimensionLabel(point, hitShape)
+                        ? 'text'
+                        : 'body';
                     setDraggingPart(part);
                     setDragStartPos(point);
                     return;
@@ -1303,6 +1605,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
             for (let i = annotations.length - 1; i >= 0; i--) {
                 if (isPointInText(point, annotations[i])) {
+                    historyTransactionRef.current = true;
                     setSelectedAnnotationId(annotations[i].id);
                     setSelectedShapeId(null);
                     setDraggingPart('text');
@@ -1312,7 +1615,16 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             }
             for (let i = shapes.length - 1; i >= 0; i--) {
                 if (isPointInShape(point, shapes[i])) {
-                    setSelectedShapeId(shapes[i].id); setSelectedAnnotationId(null); setDraggingPart('body'); setDragStartPos(point); return;
+                    historyTransactionRef.current = true;
+                    const part: 'body' | 'text' = shapes[i].tool === 'dimension'
+                        && isPointInDimensionLabel(point, shapes[i])
+                        ? 'text'
+                        : 'body';
+                    setSelectedShapeId(shapes[i].id);
+                    setSelectedAnnotationId(null);
+                    setDraggingPart(part);
+                    setDragStartPos(point);
+                    return;
                 }
             }
             setSelectedShapeId(null); setSelectedAnnotationId(null); setDraggingPart(null);
@@ -1320,6 +1632,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
 
         if (tool === 'step' || tool === 'image') return;
+        historyTransactionRef.current = true;
         setIsDrawing(true); setCurrentPoints([point]);
     };
 
@@ -1467,6 +1780,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             } else if (selectedShapeId) {
                 setShapes(prev => prev.map(s => {
                     if (s.id !== selectedShapeId) return s;
+                    if (s.tool === 'dimension') {
+                        return moveDimension(s, { x: dx, y: dy }, draggingPart === 'text' ? 'label' : 'body');
+                    }
                     const newPoints = s.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
                     const newTextPos = s.textPos ? { x: s.textPos.x + dx, y: s.textPos.y + dy } : undefined;
                     return { ...s, points: newPoints, textPos: newTextPos };
@@ -1477,7 +1793,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
         if (!isDrawing) return;
 
-        if (e.shiftKey && (tool === 'dimension' || tool === 'line' || tool === 'arrow') && currentPoints.length > 0) {
+        if ((tool === 'dimension' || tool === 'calibration') && currentPoints.length > 0) {
+            point = snapPointToAxes(currentPoints[0], point, 12).point;
+        } else if (e.shiftKey && (tool === 'line' || tool === 'arrow') && currentPoints.length > 0) {
             const start = currentPoints[0];
             const dx = Math.abs(point.x - start.x);
             const dy = Math.abs(point.y - start.y);
@@ -1489,10 +1807,44 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     };
 
     const handleMouseUp = () => {
+        historyTransactionRef.current = false;
+        window.setTimeout(() => {
+            if (!historyRef.current || historyRestoreRef.current) return;
+            historyRef.current = commitEditorHistory(historyRef.current, buildCurrentDocument());
+        }, 0);
         setIsDrawing(false); setIsErasing(false); setDraggingPart(null); setDragStartPos(null);
         setResizingHandle(null);
         dragStartShapeRef.current = null;
         if (currentPoints.length > 0) {
+            if (tool === 'calibration' && currentPoints.length >= 2) {
+                const knownLength = Number(calibrationLengthInput);
+                if (!Number.isFinite(knownLength) || knownLength <= 0) {
+                    setErrorMessage('기준 실제 길이는 0보다 커야 합니다.');
+                } else {
+                    try {
+                        const calibrationId = `cal-${Date.now()}`;
+                        const document = upsertCalibration(buildCurrentDocument(), {
+                            id: calibrationId,
+                            start: currentPoints[0],
+                            end: currentPoints[currentPoints.length - 1],
+                            knownLength,
+                            unit: dimensionUnit
+                        }, {
+                            precision: dimensionPrecision,
+                            applyToAllDimensions: true,
+                            preserveManualOverrides: true
+                        });
+                        applyDocument(document);
+                        setErrorMessage('');
+                        setSelectedShapeId(null);
+                    } catch (error) {
+                        setErrorMessage(error instanceof Error ? error.message : '기준 치수를 설정할 수 없습니다.');
+                    }
+                }
+                setCurrentPoints([]);
+                setTool('select');
+                return;
+            }
             if (tool === 'crop') {
                 // Crop Logic ...
                 const start = currentPoints[0];
@@ -1572,6 +1924,11 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 ...a,
                                 textPos: { x: a.textPos.x - x, y: a.textPos.y - y }
                             })));
+                            setDimensionCalibrations(prev => prev.map(calibration => ({
+                                ...calibration,
+                                start: { x: calibration.start.x - x, y: calibration.start.y - y },
+                                end: { x: calibration.end.x - x, y: calibration.end.y - y }
+                            })));
 
                             const newImg = new Image();
                             newImg.src = newBase;
@@ -1579,12 +1936,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 imageRef.current = newImg;
                                 const cvs = canvasRef.current;
                                 if (cvs) {
-                                    // Set canvas to display size (may be scaled down)
                                     const maxWidth = window.innerWidth * 0.9;
                                     const maxHeight = window.innerHeight * 0.7;
                                     const displayRatio = Math.min(1, maxWidth / origW, maxHeight / origH);
-                                    cvs.width = origW * displayRatio;
-                                    cvs.height = origH * displayRatio;
+                                    cvs.width = origW;
+                                    cvs.height = origH;
+                                    cvs.style.width = `${Math.max(1, Math.round(origW * displayRatio))}px`;
+                                    cvs.style.height = `${Math.max(1, Math.round(origH * displayRatio))}px`;
                                     draw(cvs.getContext('2d')!, false);
                                 }
                             };
@@ -1597,12 +1955,25 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             }
 
             if (tool === 'dimension' && currentPoints.length >= 2) {
-                const start = currentPoints[0]; const end = currentPoints[currentPoints.length - 1];
-                const dist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
-                setShapes(prev => [...prev, {
-                    id: Date.now().toString(), tool: 'dimension', color, lineWidth, points: [start, end], opacity: 1, style: 'outline',
-                    text: `${Math.round(dist)}px`, fontSize, lineStyle: 'solid'
-                }]);
+                const id = `dim-${Date.now()}`;
+                const document = addMeasuredDimension(buildCurrentDocument(), {
+                    id,
+                    tool: 'dimension',
+                    color,
+                    lineWidth,
+                    points: [currentPoints[0], currentPoints[currentPoints.length - 1]],
+                    opacity: 1,
+                    style: 'outline',
+                    fontSize,
+                    lineStyle,
+                    textColor,
+                    backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
+                    backgroundAlpha: opacity,
+                    coordinateSpaceVersion: 'image/v1'
+                }, { precision: dimensionPrecision });
+                applyDocument(document);
+                setSelectedShapeId(id);
+                setSelectedAnnotationId(null);
             } else if (tool === 'arrow' && currentPoints.length >= 2) {
                 // Arrow creation logic - now a Shape
                 const start = currentPoints[0];
@@ -1715,6 +2086,19 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         setIsTranslating(false);
     };
 
+    const handleDimensionReview = (status: 'approved' | 'rejected') => {
+        if (!inspectionDimension) return;
+        try {
+            applyDocument(setDimensionReviewStatus(
+                buildCurrentDocument(),
+                inspectionDimension.id,
+                status
+            ));
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : '치수 판정을 저장할 수 없습니다.');
+        }
+    };
+
     const handleSave = () => {
         if (editTextState) handleInputCommit();
         const canvas = canvasRef.current;
@@ -1725,10 +2109,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 const dataUrl = canvas.toDataURL('image/png');
                 onSave({
                     id: editingImage.id,
-                    baseImageUrl: editingImage.baseImageUrl,
+                    baseImageUrl: imageRef.current?.src || editingImage.baseImageUrl,
                     dataUrl: dataUrl,
                     annotations: annotations,
-                    shapes: shapes
+                    shapes: shapes,
+                    dimensionCalibrations,
+                    activeDimensionCalibrationId,
+                    coordinateSpaceVersion: coordinateSpaceVersion || 'image/v1'
                 });
             }
         }
@@ -1796,7 +2183,85 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
                         <button onClick={handleEyedropper} className="p-1.5 rounded hover:bg-blue-700/50" title="색상 추출"><EyeDropperIcon /></button>
                         <button onClick={handleUndo} className="p-1.5 rounded hover:bg-blue-700/50" title="실행 취소">↺</button>
+                        <button onClick={handleRedo} className="p-1.5 rounded hover:bg-blue-700/50" title="다시 실행">↻</button>
                     </div>
+                </div>
+
+                <div className="flex min-w-[290px] flex-col justify-center gap-1 border-r border-blue-800/50 px-4">
+                    <div className="text-xs font-bold text-cyan-200">실치수 보정</div>
+                    <div className="flex items-end gap-1">
+                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                            기준 실제 길이
+                            <input
+                                aria-label="기준 실제 길이"
+                                type="number"
+                                min="0.000001"
+                                step="any"
+                                value={calibrationLengthInput}
+                                onChange={event => setCalibrationLengthInput(event.target.value)}
+                                className="w-24 rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white outline-none focus:border-cyan-400"
+                                placeholder="예: 10"
+                            />
+                        </label>
+                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                            치수 단위
+                            <select
+                                aria-label="치수 단위"
+                                value={dimensionUnit}
+                                onChange={event => setDimensionUnit(event.target.value as DimensionUnit)}
+                                className="rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white"
+                            >
+                                <option value="mm">mm</option>
+                                <option value="cm">cm</option>
+                                <option value="in">inch</option>
+                            </select>
+                        </label>
+                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                            소수점
+                            <select
+                                aria-label="치수 소수점"
+                                value={dimensionPrecision}
+                                onChange={event => setDimensionPrecision(Number(event.target.value))}
+                                className="rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white"
+                            >
+                                {[0, 1, 2, 3].map(value => <option key={value} value={value}>{value}</option>)}
+                            </select>
+                        </label>
+                        <button
+                            type="button"
+                            title="기준 치수"
+                            onClick={() => {
+                                if (!(Number(calibrationLengthInput) > 0)) {
+                                    setErrorMessage('기준 실제 길이를 먼저 입력해 주세요.');
+                                    return;
+                                }
+                                setErrorMessage('');
+                                setTool('calibration');
+                            }}
+                            className={`rounded px-3 py-1.5 text-xs font-bold ${tool === 'calibration' ? 'bg-cyan-500 text-slate-950 ring-2 ring-cyan-200' : 'bg-cyan-700 text-white hover:bg-cyan-600'}`}
+                        >
+                            기준 치수
+                        </button>
+                    </div>
+                    <div
+                        data-testid="dimension-calibration-status"
+                        className={`rounded px-2 py-1 text-[10px] ${activeDimensionCalibration ? 'bg-emerald-950/70 text-emerald-300' : 'bg-slate-900/70 text-slate-400'}`}
+                    >
+                        {activeDimensionCalibration
+                            ? `축척 활성 · ${activeDimensionCalibration.unitPerPixel.toPrecision(5)} ${activeDimensionCalibration.unit}/px`
+                            : '축척 미설정 · 치수는 원본 px로 표시'}
+                    </div>
+                    {inspectionDimension && inspectionDimension.unit !== 'px' ? (
+                        <div data-testid="dimension-measurement-summary" className="flex items-center gap-2 rounded bg-blue-950/80 px-2 py-1 text-[10px] text-blue-100">
+                            <strong className="text-cyan-200">{inspectionDimension.text}</strong>
+                            <span>{inspectionDimension.manualOverride ? '수동 보정' : '자동 측정'}</span>
+                            <span className={inspectionDimension.measurementReviewStatus === 'approved' ? 'text-emerald-300' : inspectionDimension.measurementReviewStatus === 'rejected' ? 'text-red-300' : 'text-amber-300'}>
+                                {inspectionDimension.measurementReviewStatus === 'approved' ? '승인됨' : inspectionDimension.measurementReviewStatus === 'rejected' ? '거절됨' : '검토 대기'}
+                            </span>
+                            <button type="button" onClick={() => handleDimensionReview('approved')} className="rounded bg-emerald-700 px-2 py-0.5 font-bold text-white hover:bg-emerald-600">치수 승인</button>
+                            <button type="button" onClick={() => handleDimensionReview('rejected')} className="rounded bg-red-800 px-2 py-0.5 font-bold text-white hover:bg-red-700">치수 거절</button>
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">

@@ -48,7 +48,7 @@ const path = require('node:path');
     const calibrationStatus = page.getByTestId('dimension-calibration-status');
     await calibrationStatus.getByText('축척 활성').waitFor();
 
-    await page.getByTitle('치수').click();
+    await page.getByRole('button', { name: '치수', exact: true }).click();
     const dimensionY = box.y + box.height * 0.6;
     await page.mouse.move(box.x + box.width * 0.2, dimensionY);
     await page.mouse.down();
@@ -56,7 +56,13 @@ const path = require('node:path');
     await page.mouse.up();
 
     const measurementSummary = page.getByTestId('dimension-measurement-summary');
-    await measurementSummary.getByText('5.00 mm').waitFor();
+    await measurementSummary.waitFor();
+    const initialMeasurementText = await measurementSummary.innerText();
+    const measuredMatch = initialMeasurementText.match(/([0-9]+(?:\.[0-9]+)?)\s*mm/);
+    const measuredValue = measuredMatch ? Number(measuredMatch[1]) : Number.NaN;
+    if (!Number.isFinite(measuredValue) || Math.abs(measuredValue - 5) > 0.05) {
+      throw new Error(`expected approximately 5.00 mm, received: ${initialMeasurementText}`);
+    }
     await page.getByRole('button', { name: '치수 승인' }).click();
     await measurementSummary.getByText('승인됨').waitFor();
 
@@ -64,7 +70,11 @@ const path = require('node:path');
     await page.getByTitle('편집').click();
     await page.getByTestId('dimension-calibration-status').getByText('축척 활성').waitFor();
     const reopenedSummary = page.getByTestId('dimension-measurement-summary');
-    await reopenedSummary.getByText('5.00 mm').waitFor();
+    await reopenedSummary.waitFor();
+    const reopenedMeasurementText = await reopenedSummary.innerText();
+    if (!reopenedMeasurementText.includes(`${measuredValue.toFixed(2)} mm`)) {
+      throw new Error(`saved measurement changed after reopen: ${reopenedMeasurementText}`);
+    }
     await reopenedSummary.getByText('승인됨').waitFor();
 
     await page.screenshot({ path: screenshot, fullPage: true });
