@@ -35,6 +35,22 @@ export function upsertCalibration(
   },
   options?: { precision?: number; applyToAllDimensions?: boolean; preserveManualOverrides?: boolean }
 ): DimensionEditorDocument;
+export function upsertPerspectiveCalibration(
+  document: DimensionEditorDocument,
+  calibration: {
+    id?: string;
+    sourceQuad: [
+      { x: number; y: number },
+      { x: number; y: number },
+      { x: number; y: number },
+      { x: number; y: number }
+    ];
+    knownWidth: number;
+    knownHeight: number;
+    unit: DimensionUnit;
+  },
+  options?: { precision?: number; applyToAllDimensions?: boolean; preserveManualOverrides?: boolean }
+): DimensionEditorDocument;
 export function setActiveCalibration(document: DimensionEditorDocument, calibrationId: string): DimensionEditorDocument;
 export function addMeasuredDimension(
   document: DimensionEditorDocument,

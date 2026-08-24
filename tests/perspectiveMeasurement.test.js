@@ -119,7 +119,8 @@ test('editor activates a planar calibration and recalculates existing dimensions
       opacity: 1,
       style: 'outline'
     }],
-    annotations: []
+    annotations: [],
+    coordinateSpaceVersion: 'image/v1'
   });
   const calibrated = upsertPerspectiveCalibration(document, {
     id: 'perspective-1',

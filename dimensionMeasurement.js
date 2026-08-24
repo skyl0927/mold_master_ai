@@ -1,6 +1,7 @@
 const SUPPORTED_UNITS = Object.freeze(['mm', 'cm', 'in']);
 const MM_PER_UNIT = Object.freeze({ mm: 1, cm: 10, in: 25.4 });
 const IMAGE_COORDINATE_SPACE = 'image/v1';
+const { measurePerspectiveDistance } = require('./perspectiveMeasurement');
 
 function assertFinitePoint(point, name) {
   if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
@@ -57,6 +58,7 @@ function createCalibration({
     id,
     protocolVersion: 'dimension-calibration/v1',
     coordinateSpaceVersion: IMAGE_COORDINATE_SPACE,
+    mode: 'linear',
     start: { ...start },
     end: { ...end },
     pixelLength: roundTo(pixelLength),
@@ -93,9 +95,9 @@ function applyCalibrationToDimension(shape, calibration, options = {}) {
     throw new TypeError('a valid dimension calibration is required');
   }
   const precision = clampPrecision(options.precision ?? shape.precision ?? 2);
-  const measuredValue = roundTo(
-    distanceBetween(shape.points[0], shape.points[shape.points.length - 1]) * calibration.unitPerPixel
-  );
+  const measuredValue = roundTo(calibration.mode === 'planar'
+    ? measurePerspectiveDistance(shape.points[0], shape.points[shape.points.length - 1], calibration)
+    : distanceBetween(shape.points[0], shape.points[shape.points.length - 1]) * calibration.unitPerPixel);
 
   return {
     ...shape,
@@ -111,7 +113,7 @@ function applyCalibrationToDimension(shape, calibration, options = {}) {
     coordinateSpaceVersion: IMAGE_COORDINATE_SPACE,
     measurementConfidence: calibration.confidence || 'reference',
     measurementReviewStatus: 'candidate',
-    measurementSource: 'manual_calibration'
+    measurementSource: calibration.mode === 'planar' ? 'perspective_calibration' : 'manual_calibration'
   };
 }
 

@@ -10,6 +10,7 @@ const {
   parseDimensionDisplayInput,
   recalculateDimensions
 } = require('./dimensionMeasurement');
+const { createPerspectiveCalibration } = require('./perspectiveMeasurement');
 
 function cloneDocument(document) {
   return {
@@ -27,7 +28,11 @@ function cloneDocument(document) {
     dimensionCalibrations: (document.dimensionCalibrations || []).map(calibration => ({
       ...calibration,
       start: { ...calibration.start },
-      end: { ...calibration.end }
+      end: { ...calibration.end },
+      ...(calibration.sourceQuad
+        ? { sourceQuad: calibration.sourceQuad.map(point => ({ ...point })) }
+        : {}),
+      ...(calibration.homography ? { homography: [...calibration.homography] } : {})
     }))
   };
 }
@@ -80,6 +85,26 @@ function upsertCalibration(document, calibrationInput, options = {}) {
           preserveManualOverrides: options.preserveManualOverrides !== false
         })
       : document.shapes || []
+  };
+}
+
+function upsertPerspectiveCalibration(document, calibrationInput, options = {}) {
+  const calibration = createPerspectiveCalibration(calibrationInput);
+  const dimensionCalibrations = [
+    ...(document.dimensionCalibrations || []).filter(item => item.id !== calibration.id),
+    calibration
+  ];
+  return {
+    ...document,
+    dimensionCalibrations,
+    activeDimensionCalibrationId: calibration.id,
+    coordinateSpaceVersion: IMAGE_COORDINATE_SPACE,
+    shapes: options.applyToAllDimensions === false
+      ? document.shapes || []
+      : recalculateDimensions(document.shapes || [], calibration, {
+          precision: options.precision,
+          preserveManualOverrides: options.preserveManualOverrides !== false
+        })
   };
 }
 
@@ -205,5 +230,6 @@ module.exports = {
   setDimensionReviewStatus,
   undoEditorHistory,
   updateDimensionManualDisplay,
-  upsertCalibration
+  upsertCalibration,
+  upsertPerspectiveCalibration
 };

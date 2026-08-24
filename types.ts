@@ -12,8 +12,9 @@ export type MeasurementConfidence = 'reference' | 'perspective_corrected' | 'est
 
 export interface DimensionCalibration {
   id: string;
-  protocolVersion: 'dimension-calibration/v1';
+  protocolVersion: 'dimension-calibration/v1' | 'dimension-calibration/v2';
   coordinateSpaceVersion: ImageCoordinateSpaceVersion;
+  mode?: 'linear' | 'planar';
   start: Point;
   end: Point;
   pixelLength: number;
@@ -23,6 +24,10 @@ export interface DimensionCalibration {
   planeLabel: string;
   confidence: MeasurementConfidence;
   createdAt: string;
+  sourceQuad?: [Point, Point, Point, Point];
+  knownWidth?: number;
+  knownHeight?: number;
+  homography?: number[];
 }
 
 export interface TextAnnotation {
