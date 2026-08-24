@@ -21,9 +21,11 @@ const path = require('node:path');
     app = await electron.launch({ args: ['.', `--user-data-dir=${profilePath}`], cwd: root });
     const page = await app.firstWindow();
     const consoleErrors = [];
+    const pageErrors = [];
     page.on('console', message => {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
+    page.on('pageerror', error => pageErrors.push(error.message));
 
     await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixturePath);
     await page.getByTitle('편집').click();
@@ -49,14 +51,31 @@ const path = require('node:path');
     const status = page.getByTestId('dimension-calibration-status');
     await status.getByText('원근 보정 활성').waitFor();
     await page.getByRole('button', { name: '치수', exact: true }).click();
-    const bottomY = box.y + box.height * 0.80;
-    await page.mouse.move(box.x + box.width * 0.30, bottomY);
+    const measurementBox = await canvas.boundingBox();
+    if (!measurementBox) throw new Error('annotation canvas moved out of view');
+    const bottomY = measurementBox.y + measurementBox.height * 0.80;
+    await page.mouse.move(measurementBox.x + measurementBox.width * 0.30, bottomY);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.70, bottomY);
+    await page.mouse.move(measurementBox.x + measurementBox.width * 0.70, bottomY);
     await page.mouse.up();
 
     const summary = page.getByTestId('dimension-measurement-summary');
-    await summary.waitFor();
+    try {
+      await summary.waitFor({ timeout: 5000 });
+    } catch (error) {
+      const debugScreenshot = path.join(root, 'artifacts', 'electron-perspective-dimension-failure.png');
+      await page.screenshot({ path: debugScreenshot, fullPage: true });
+      console.error(JSON.stringify({
+        box,
+        measurementBox,
+        status: await status.innerText(),
+        body: (await page.locator('body').innerText()).slice(0, 4000),
+        consoleErrors,
+        pageErrors,
+        debugScreenshot
+      }, null, 2));
+      throw error;
+    }
     const summaryText = await summary.innerText();
     if (!/10\.0{2}\s*mm/.test(summaryText) || !summaryText.includes('원근 보정')) {
       throw new Error(`expected 10.00 mm perspective measurement, received: ${summaryText}`);
@@ -74,9 +93,10 @@ const path = require('node:path');
       calibrationStatus: await page.getByTestId('dimension-calibration-status').innerText(),
       measurementSummary: await page.getByTestId('dimension-measurement-summary').innerText(),
       screenshot,
-      consoleErrors
+      consoleErrors,
+      pageErrors
     }, null, 2));
-    if (consoleErrors.length > 0) process.exitCode = 1;
+    if (consoleErrors.length > 0 || pageErrors.length > 0) process.exitCode = 1;
   } finally {
     if (app) await app.close();
   }

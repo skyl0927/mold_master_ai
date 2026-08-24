@@ -19,9 +19,11 @@ import {
     setDimensionReviewStatus,
     undoEditorHistory,
     updateDimensionManualDisplay,
-    upsertCalibration
+    upsertCalibration,
+    upsertPerspectiveCalibration
 } from '../dimensionEditorState';
 import type { DimensionEditorDocument } from '../dimensionEditorState';
+import { translatePerspectiveCalibration } from '../perspectiveMeasurement';
 
 // Add type definition for the experimental EyeDropper API
 declare global {
@@ -59,7 +61,7 @@ interface AnnotationCanvasProps {
 }
 
 // Arrow is now handled as a ShapeTool inside 'arrow'
-type Tool = 'select' | 'text' | ShapeTool | 'circle' | 'crop' | 'calibration';
+type Tool = 'select' | 'text' | ShapeTool | 'circle' | 'crop' | 'calibration' | 'perspective-calibration';
 
 // Inline Input State Interface
 interface EditTextState {
@@ -159,6 +161,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
     const [calibrationLengthInput, setCalibrationLengthInput] = useState('');
+    const [perspectiveWidthInput, setPerspectiveWidthInput] = useState('');
+    const [perspectiveHeightInput, setPerspectiveHeightInput] = useState('');
     const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>('mm');
     const [dimensionPrecision, setDimensionPrecision] = useState(2);
 
@@ -705,16 +709,29 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.lineWidth = isActive ? 3 : 2;
         ctx.setLineDash([10, 6]);
         ctx.beginPath();
-        ctx.moveTo(calibration.start.x, calibration.start.y);
-        ctx.lineTo(calibration.end.x, calibration.end.y);
+        if (calibration.mode === 'planar' && calibration.sourceQuad?.length === 4) {
+            ctx.moveTo(calibration.sourceQuad[0].x, calibration.sourceQuad[0].y);
+            calibration.sourceQuad.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+            ctx.closePath();
+        } else {
+            ctx.moveTo(calibration.start.x, calibration.start.y);
+            ctx.lineTo(calibration.end.x, calibration.end.y);
+        }
         ctx.stroke();
         ctx.setLineDash([]);
 
-        const midpoint = {
-            x: (calibration.start.x + calibration.end.x) / 2,
-            y: (calibration.start.y + calibration.end.y) / 2 - 26
-        };
-        const label = `REF ${formatMeasurement(calibration.knownLength, calibration.unit, dimensionPrecision)}`;
+        const midpoint = calibration.mode === 'planar' && calibration.sourceQuad?.length === 4
+            ? {
+                x: calibration.sourceQuad.reduce((sum, point) => sum + point.x, 0) / 4,
+                y: calibration.sourceQuad.reduce((sum, point) => sum + point.y, 0) / 4
+            }
+            : {
+                x: (calibration.start.x + calibration.end.x) / 2,
+                y: (calibration.start.y + calibration.end.y) / 2 - 26
+            };
+        const label = calibration.mode === 'planar'
+            ? `PLANE ${formatMeasurement(calibration.knownWidth || calibration.knownLength, calibration.unit, dimensionPrecision)} × ${formatMeasurement(calibration.knownHeight || 0, calibration.unit, dimensionPrecision)}`
+            : `REF ${formatMeasurement(calibration.knownLength, calibration.unit, dimensionPrecision)}`;
         const labelFontSize = Math.max(16, fontSize * 0.75);
         ctx.font = `bold ${labelFontSize}px Arial`;
         ctx.textAlign = 'center';
@@ -1030,6 +1047,32 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             drawCalibration(ctx, calibration, calibration.id === activeDimensionCalibrationId);
         });
 
+        if (tool === 'perspective-calibration' && currentPoints.length > 0) {
+            ctx.save();
+            ctx.strokeStyle = '#22D3EE';
+            ctx.fillStyle = '#ECFEFF';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 5]);
+            ctx.beginPath();
+            ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+            currentPoints.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+            if (mousePos && currentPoints.length < 4) ctx.lineTo(mousePos.x, mousePos.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            currentPoints.forEach((point, index) => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#083344';
+                ctx.font = 'bold 11px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(index + 1), point.x, point.y);
+                ctx.fillStyle = '#ECFEFF';
+            });
+            ctx.restore();
+        }
+
         shapes.forEach(shape => {
             const isSelected = selectedShapeId === shape.id;
             drawShape(ctx, shape, isSelected, isSaving);
@@ -1259,6 +1302,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         isDrawing,
         lineStyle,
         lineWidth,
+        mousePos,
         opacity,
         selectedAnnotationId,
         selectedShapeId,
@@ -1546,6 +1590,41 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
         if (tool === 'text') return;
 
+        if (tool === 'perspective-calibration') {
+            const knownWidth = Number(perspectiveWidthInput);
+            const knownHeight = Number(perspectiveHeightInput);
+            if (!(knownWidth > 0) || !(knownHeight > 0)) {
+                setErrorMessage('평면 기준 폭과 높이는 0보다 커야 합니다.');
+                return;
+            }
+            const nextPoints = [...currentPoints, point].slice(0, 4);
+            setCurrentPoints(nextPoints);
+            if (nextPoints.length === 4) {
+                try {
+                    const document = upsertPerspectiveCalibration(buildCurrentDocument(), {
+                        id: `perspective-${Date.now()}`,
+                        sourceQuad: nextPoints as [Point, Point, Point, Point],
+                        knownWidth,
+                        knownHeight,
+                        unit: dimensionUnit
+                    }, {
+                        precision: dimensionPrecision,
+                        applyToAllDimensions: true,
+                        preserveManualOverrides: true
+                    });
+                    applyDocument(document);
+                    setErrorMessage('');
+                    setSelectedShapeId(null);
+                    setTool('select');
+                } catch (error) {
+                    setErrorMessage(error instanceof Error ? error.message : '원근 평면을 설정할 수 없습니다.');
+                } finally {
+                    setCurrentPoints([]);
+                }
+            }
+            return;
+        }
+
         if (tool === 'select') {
             // --- Check resize handles on selected image shapes FIRST ---
             if (selectedShapeId) {
@@ -1781,7 +1860,12 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 setShapes(prev => prev.map(s => {
                     if (s.id !== selectedShapeId) return s;
                     if (s.tool === 'dimension') {
-                        return moveDimension(s, { x: dx, y: dy }, draggingPart === 'text' ? 'label' : 'body');
+                        const part = draggingPart === 'text' ? 'label' : 'body';
+                        const moved = moveDimension(s, { x: dx, y: dy }, part);
+                        if (part === 'body' && activeDimensionCalibration?.mode === 'planar') {
+                            return applyCalibrationToDimension(moved, activeDimensionCalibration, { precision: dimensionPrecision });
+                        }
+                        return moved;
                     }
                     const newPoints = s.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
                     const newTextPos = s.textPos ? { x: s.textPos.x + dx, y: s.textPos.y + dy } : undefined;
@@ -1793,7 +1877,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
         if (!isDrawing) return;
 
-        if ((tool === 'dimension' || tool === 'calibration') && currentPoints.length > 0) {
+        if ((tool === 'calibration'
+            || (tool === 'dimension' && activeDimensionCalibration?.mode !== 'planar'))
+            && currentPoints.length > 0) {
             point = snapPointToAxes(currentPoints[0], point, 12).point;
         } else if (e.shiftKey && (tool === 'line' || tool === 'arrow') && currentPoints.length > 0) {
             const start = currentPoints[0];
@@ -1815,6 +1901,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         setIsDrawing(false); setIsErasing(false); setDraggingPart(null); setDragStartPos(null);
         setResizingHandle(null);
         dragStartShapeRef.current = null;
+        if (tool === 'perspective-calibration') return;
         if (currentPoints.length > 0) {
             if (tool === 'calibration' && currentPoints.length >= 2) {
                 const knownLength = Number(calibrationLengthInput);
@@ -1925,9 +2012,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 textPos: { x: a.textPos.x - x, y: a.textPos.y - y }
                             })));
                             setDimensionCalibrations(prev => prev.map(calibration => ({
-                                ...calibration,
-                                start: { x: calibration.start.x - x, y: calibration.start.y - y },
-                                end: { x: calibration.end.x - x, y: calibration.end.y - y }
+                                ...(calibration.mode === 'planar'
+                                    ? translatePerspectiveCalibration(calibration, { x: -x, y: -y })
+                                    : {
+                                        ...calibration,
+                                        start: { x: calibration.start.x - x, y: calibration.start.y - y },
+                                        end: { x: calibration.end.x - x, y: calibration.end.y - y }
+                                    })
                             })));
 
                             const newImg = new Image();
@@ -2123,7 +2214,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
     return (
         <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col overflow-hidden">
-            <div style={{ background: 'linear-gradient(135deg, #0D1B3E 0%, #162D5A 50%, #1B3F8B 100%)' }} className="border-b border-blue-900/50 shadow-lg flex items-center select-none h-auto min-h-[4rem] px-4 py-2 gap-2 overflow-x-auto flex-nowrap min-w-fit">
+            <div style={{ background: 'linear-gradient(135deg, #0D1B3E 0%, #162D5A 50%, #1B3F8B 100%)' }} className="flex h-auto min-h-[4rem] w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-blue-900/50 px-4 py-2 shadow-lg select-none">
 
                 {/* Atech Logo */}
                 <div className="flex items-center gap-2 px-3 border-r border-blue-800/50 min-w-max">
@@ -2187,10 +2278,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     </div>
                 </div>
 
-                <div className="flex min-w-[290px] flex-col justify-center gap-1 border-r border-blue-800/50 px-4">
+                <div className="flex min-w-[650px] shrink-0 flex-col justify-center gap-1 border-r border-blue-800/50 px-4">
                     <div className="text-xs font-bold text-cyan-200">실치수 보정</div>
                     <div className="flex items-end gap-1">
-                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
                             기준 실제 길이
                             <input
                                 aria-label="기준 실제 길이"
@@ -2203,7 +2294,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 placeholder="예: 10"
                             />
                         </label>
-                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
                             치수 단위
                             <select
                                 aria-label="치수 단위"
@@ -2216,7 +2307,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 <option value="in">inch</option>
                             </select>
                         </label>
-                        <label className="flex flex-col gap-0.5 text-[10px] text-blue-200">
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
                             소수점
                             <select
                                 aria-label="치수 소수점"
@@ -2238,16 +2329,61 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 setErrorMessage('');
                                 setTool('calibration');
                             }}
-                            className={`rounded px-3 py-1.5 text-xs font-bold ${tool === 'calibration' ? 'bg-cyan-500 text-slate-950 ring-2 ring-cyan-200' : 'bg-cyan-700 text-white hover:bg-cyan-600'}`}
+                            className={`shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-xs font-bold ${tool === 'calibration' ? 'bg-cyan-500 text-slate-950 ring-2 ring-cyan-200' : 'bg-cyan-700 text-white hover:bg-cyan-600'}`}
                         >
                             기준 치수
+                        </button>
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
+                            평면 폭
+                            <input
+                                aria-label="평면 기준 폭"
+                                type="number"
+                                min="0.000001"
+                                step="any"
+                                value={perspectiveWidthInput}
+                                onChange={event => setPerspectiveWidthInput(event.target.value)}
+                                className="w-20 rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white outline-none focus:border-cyan-400"
+                                placeholder="폭"
+                            />
+                        </label>
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
+                            평면 높이
+                            <input
+                                aria-label="평면 기준 높이"
+                                type="number"
+                                min="0.000001"
+                                step="any"
+                                value={perspectiveHeightInput}
+                                onChange={event => setPerspectiveHeightInput(event.target.value)}
+                                className="w-20 rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white outline-none focus:border-cyan-400"
+                                placeholder="높이"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!(Number(perspectiveWidthInput) > 0) || !(Number(perspectiveHeightInput) > 0)) {
+                                    setErrorMessage('평면 기준 폭과 높이를 먼저 입력해 주세요.');
+                                    return;
+                                }
+                                setErrorMessage('');
+                                setCurrentPoints([]);
+                                setTool('perspective-calibration');
+                            }}
+                            className={`shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-xs font-bold ${tool === 'perspective-calibration' ? 'bg-amber-300 text-slate-950 ring-2 ring-amber-100' : 'bg-amber-700 text-white hover:bg-amber-600'}`}
+                        >
+                            원근 4점
                         </button>
                     </div>
                     <div
                         data-testid="dimension-calibration-status"
                         className={`rounded px-2 py-1 text-[10px] ${activeDimensionCalibration ? 'bg-emerald-950/70 text-emerald-300' : 'bg-slate-900/70 text-slate-400'}`}
                     >
-                        {activeDimensionCalibration
+                        {tool === 'perspective-calibration'
+                            ? `원근 점 선택 ${currentPoints.length}/4 · 좌상 → 우상 → 우하 → 좌하`
+                            : activeDimensionCalibration?.mode === 'planar'
+                                ? `원근 보정 활성 · ${formatMeasurement(activeDimensionCalibration.knownWidth || activeDimensionCalibration.knownLength, activeDimensionCalibration.unit, dimensionPrecision)} × ${formatMeasurement(activeDimensionCalibration.knownHeight || 0, activeDimensionCalibration.unit, dimensionPrecision)}`
+                                : activeDimensionCalibration
                             ? `축척 활성 · ${activeDimensionCalibration.unitPerPixel.toPrecision(5)} ${activeDimensionCalibration.unit}/px`
                             : '축척 미설정 · 치수는 원본 px로 표시'}
                     </div>
@@ -2255,6 +2391,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         <div data-testid="dimension-measurement-summary" className="flex items-center gap-2 rounded bg-blue-950/80 px-2 py-1 text-[10px] text-blue-100">
                             <strong className="text-cyan-200">{inspectionDimension.text}</strong>
                             <span>{inspectionDimension.manualOverride ? '수동 보정' : '자동 측정'}</span>
+                            {inspectionDimension.measurementConfidence === 'perspective_corrected' ? <span className="text-amber-200">원근 보정</span> : null}
                             <span className={inspectionDimension.measurementReviewStatus === 'approved' ? 'text-emerald-300' : inspectionDimension.measurementReviewStatus === 'rejected' ? 'text-red-300' : 'text-amber-300'}>
                                 {inspectionDimension.measurementReviewStatus === 'approved' ? '승인됨' : inspectionDimension.measurementReviewStatus === 'rejected' ? '거절됨' : '검토 대기'}
                             </span>
