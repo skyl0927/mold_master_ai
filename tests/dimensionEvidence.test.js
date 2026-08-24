@@ -3,7 +3,8 @@ const test = require('node:test');
 
 const {
   buildDimensionEvidence,
-  formatDimensionEvidenceForPrompt
+  formatDimensionEvidenceForPrompt,
+  formatDimensionEvidenceForReport
 } = require('../dimensionEvidence');
 
 const automaticDimension = {
@@ -88,4 +89,19 @@ test('ignores legacy px dimensions as real-world measurement evidence', () => {
   assert.equal(evidence.measurementCount, 0);
   assert.equal(evidence.graphPromotionAllowed, false);
   assert.match(evidence.summary, /실단위 치수 증거 없음/);
+});
+
+test('formats approved measurements for report exports without exposing reasoning traces', () => {
+  const evidence = buildDimensionEvidence([{
+    ...automaticDimension,
+    displayValue: 5.2,
+    text: '5.20 mm',
+    manualOverride: true,
+    measurementReviewStatus: 'approved'
+  }]);
+
+  assert.equal(
+    formatDimensionEvidenceForReport(evidence),
+    '5.20 mm (자동 5.50 mm, 수동 보정, 승인)'
+  );
 });

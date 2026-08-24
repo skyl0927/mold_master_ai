@@ -1165,6 +1165,46 @@ test('multimodal diagnosis context combines field notes, annotations, OCR, and R
     assert.deepEqual(context.metadata.capture_view_tags, ['defect_closeup']);
 });
 
+test('multimodal diagnosis context forwards approved calibrated dimensions as governed evidence', () => {
+    const context = buildMultimodalDiagnosisContext({
+        phenomenonDescription: '리브 폭이 기준보다 넓어 보임',
+        ocrText: '',
+        annotations: [],
+        shapes: [{
+            id: 'dim-1',
+            tool: 'dimension',
+            color: '#ff0000',
+            lineWidth: 2,
+            points: [{ x: 0, y: 0 }, { x: 55, y: 0 }],
+            opacity: 1,
+            style: 'outline',
+            text: '5.20 mm',
+            measuredValue: 5.5,
+            displayValue: 5.2,
+            unit: 'mm',
+            precision: 2,
+            calibrationId: 'cal-1',
+            manualOverride: true,
+            legacyDimension: false,
+            measurementConfidence: 'reference',
+            measurementReviewStatus: 'approved',
+            measurementSource: 'manual_calibration',
+            coordinateSpaceVersion: 'image/v1'
+        }]
+    });
+
+    assert.match(context.question, /사용자 보정 치수 증거/);
+    assert.match(context.question, /표시 5\.20 mm/);
+    assert.match(context.question, /자동 5\.50 mm/);
+    assert.match(context.question, /수동 보정/);
+    assert.match(context.question, /검토 승인/);
+    assert.match(context.question, /승인된 치수만 Graph 근거/);
+    assert.equal(context.metadata.dimension_measurement_count, 1);
+    assert.equal(context.metadata.dimension_approved_count, 1);
+    assert.equal(context.metadata.dimension_graph_promotion_allowed, true);
+    assert.equal(context.metadata.dimension_evidence?.[0]?.id, 'dim-1');
+});
+
 test('image gateway forwards multimodal question and telemetry to Common Agent', async () => {
     (globalThis as any).window = {
         electronAPI: {
