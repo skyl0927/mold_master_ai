@@ -79,4 +79,24 @@ function formatDimensionEvidenceForPrompt(evidence) {
   return ['사용자 보정 치수 증거:', ...lines].join('\n');
 }
 
-module.exports = { buildDimensionEvidence, formatDimensionEvidenceForPrompt };
+function formatDimensionEvidenceForReport(evidence) {
+  if (!evidence || evidence.measurementCount === 0) return '';
+  return evidence.measurements.map(item => {
+    const precision = String(item.label).match(/\.(\d+)/)?.[1]?.length ?? 2;
+    const display = formatMeasurement(item.displayValue, item.unit, precision);
+    const automatic = formatMeasurement(item.measuredValue, item.unit, precision);
+    const details = item.manualOverride
+      ? [`자동 ${automatic}`, '수동 보정']
+      : ['자동 측정'];
+    details.push(item.reviewStatus === 'approved'
+      ? '승인'
+      : item.reviewStatus === 'rejected' ? '거절' : '검토 대기');
+    return `${display} (${details.join(', ')})`;
+  }).join('\n');
+}
+
+module.exports = {
+  buildDimensionEvidence,
+  formatDimensionEvidenceForPrompt,
+  formatDimensionEvidenceForReport
+};

@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { CapturedImage } from '../types';
 import { buildReportExportReliabilityGate } from '../reportExportReliabilityGate';
+import { buildDimensionEvidence, formatDimensionEvidenceForReport } from '../dimensionEvidence';
 
 const getFormattedDate = () => {
   const today = new Date();
@@ -19,6 +20,18 @@ const FONT_FACE = "Malgun Gothic";
 const TABLE_HEADER_BG = "E6F0FF"; // 연한 파랑
 const TABLE_BORDER_COLOR = "0F4C81";
 const TEXT_COLOR = "000000";
+
+const summarizeImageDimensions = (images: CapturedImage[]): string => images
+  .map(image => formatDimensionEvidenceForReport(buildDimensionEvidence(image.shapes || [])))
+  .filter(Boolean)
+  .join('\n');
+
+const appendDimensionSummary = (text: string, images: CapturedImage[]): string => {
+  const summary = summarizeImageDimensions(images);
+  if (!summary) return text;
+  const base = text && text !== '-' ? text : '';
+  return [base, `[측정 치수]\n${summary}`].filter(Boolean).join('\n\n');
+};
 
 // ReportWizard와 동일한 구조
 export interface ReportItem {
@@ -436,7 +449,7 @@ function renderItem(slide: PptxGenJS.Slide, pptx: PptxGenJS, item: ReportItem, i
   const centerOpts: any = { ...bodyOpts, align: 'center', valign: 'middle' };
 
   // 텍스트 내용 준비
-  const problemText = (item.analysis.problem || "-").replace(/\\\\n/g, '\n');
+  const problemText = appendDimensionSummary(item.analysis.problem || "-", item.images).replace(/\\\\n/g, '\n');
   const causeText = (item.analysis.cause || "-").replace(/\\\\n/g, '\n');
   const counterText = (item.analysis.countermeasures || "-").replace(/\\\\n/g, '\n');
 
@@ -649,7 +662,7 @@ function renderFeasibilityItem(slide: PptxGenJS.Slide, pptx: PptxGenJS, item: Re
       [{ text: "문제점 및 원인", options: { fill: HEADER_FILL, fontSize: 10, bold: true, fontFace: FONT_FACE, border: borderOpt, align: 'center', valign: 'middle' } }],
       [{ text: "", options: { border: borderOpt, valign: 'middle', align: 'center' } }], // 이미지 영역
       [{ text: "문제점", options: { fill: HEADER_FILL, fontSize: 10, bold: true, fontFace: FONT_FACE, border: borderOpt, align: 'center', valign: 'middle' } }],
-      [{ text: ((item.analysis?.problem || '') + (item.analysis?.cause ? '\n\n[원인]\n' + item.analysis.cause : '')).replace(/\\\\n/g, '\n').trim() || '', options: { border: borderOpt, fontSize: 10, fontFace: FONT_FACE, align: 'left', valign: 'top', breakLine: true } }]
+      [{ text: (appendDimensionSummary(item.analysis?.problem || '', item.images) + (item.analysis?.cause ? '\n\n[원인]\n' + item.analysis.cause : '')).replace(/\\\\n/g, '\n').trim() || '', options: { border: borderOpt, fontSize: 10, fontFace: FONT_FACE, align: 'left', valign: 'top', breakLine: true } }]
     ];
 
     slide.addTable(leftRows, {
@@ -764,6 +777,7 @@ export const generateXlsxReport = async (images: CapturedImage[]): Promise<void>
   worksheet.columns = [
     { header: 'ID', key: 'id', width: 10 },
     { header: 'Capture', key: 'image', width: 80 },
+    { header: 'Measurements', key: 'measurements', width: 42 },
   ];
 
   const getImageDimensions = (dataUrl: string): Promise<{ width: number; height: number }> => {
@@ -790,7 +804,10 @@ export const generateXlsxReport = async (images: CapturedImage[]): Promise<void>
       extension: 'png',
     });
 
-    const row = worksheet.addRow({ id: index + 1 });
+    const row = worksheet.addRow({
+      id: index + 1,
+      measurements: summarizeImageDimensions([image])
+    });
     row.height = ROW_HEIGHT_POINTS;
 
     worksheet.addImage(imageId, {

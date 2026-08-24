@@ -29,3 +29,4 @@ export interface DimensionEvidence {
 
 export function buildDimensionEvidence(shapes?: Shape[]): DimensionEvidence;
 export function formatDimensionEvidenceForPrompt(evidence: DimensionEvidence): string;
+export function formatDimensionEvidenceForReport(evidence: DimensionEvidence): string;

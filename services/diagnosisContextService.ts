@@ -1,5 +1,10 @@
 import { CapturedImage, Shape } from '../types';
 import { CAPTURE_VIEW_OPTIONS, CaptureMetadata } from '../captureSessionProtocol';
+import {
+    buildDimensionEvidence,
+    DimensionEvidenceMeasurement,
+    formatDimensionEvidenceForPrompt
+} from '../dimensionEvidence';
 
 const MAX_FIELD_TEXT = 1200;
 const MAX_OCR_TEXT = 800;
@@ -65,6 +70,10 @@ export interface MultimodalDiagnosisContext {
         capture_protocol_ready?: boolean;
         capture_available_views?: string[];
         capture_missing_views?: string[];
+        dimension_measurement_count: number;
+        dimension_approved_count: number;
+        dimension_graph_promotion_allowed: boolean;
+        dimension_evidence: DimensionEvidenceMeasurement[];
     };
 }
 
@@ -78,7 +87,11 @@ export const buildMultimodalDiagnosisContext = (
         .map(annotation => compact(annotation.text, 160))
         .filter(Boolean);
     const annotationText = compact(annotations.join(' / '), MAX_ANNOTATION_TEXT);
-    const roiSummary = (image.shapes || [])
+    const shapes = image.shapes || [];
+    const dimensionEvidence = buildDimensionEvidence(shapes);
+    const dimensionSummary = formatDimensionEvidenceForPrompt(dimensionEvidence);
+    const roiSummary = shapes
+        .filter(shape => shape.tool !== 'dimension')
         .slice(0, MAX_ROI_ITEMS)
         .map(summarizeShape)
         .join('\n');
@@ -103,6 +116,7 @@ export const buildMultimodalDiagnosisContext = (
         annotationText ? `이미지 주석:\n${annotationText}` : '',
         ocrText ? `이미지 OCR 텍스트:\n${ocrText}` : '',
         roiSummary ? `사용자 지정 ROI:\n${roiSummary}` : '',
+        dimensionSummary,
         captureSummary ? `촬영 프로토콜:\n${captureSummary}` : ''
     ].filter(Boolean);
 
@@ -118,6 +132,7 @@ export const buildMultimodalDiagnosisContext = (
         '- 관찰된 사실과 추론을 구분하고, 판별 불가능한 내용은 추측하지 마세요.',
         '- 가장 가능성 높은 불량명, 발생 위치와 외관, 원인 후보, 확인 항목을 제시하세요.',
         '- 원인과 대책은 승인된 Graph DB 근거를 우선 사용하고 부족한 부분만 LLM 지식으로 보조하세요.',
+        '- 승인된 치수만 Graph 근거로 사용하세요. 검토 대기 또는 거절 치수는 관찰 후보로만 취급하고, 공차 기준이 없으면 합격·불합격을 판정하지 마세요.',
         '- 시방서에 바로 사용할 수 있도록 문제점은 관찰 사실 1문장, 원인과 대책은 각각 핵심 3개 이내로 간결하게 작성하세요.',
         '- 추론 과정, Graph 경로, 검색 과정, 근거 설명과 중복 문장은 문제점·원인·대책 본문에 포함하지 마세요.'
     ].join('\n\n');
@@ -130,6 +145,10 @@ export const buildMultimodalDiagnosisContext = (
             annotation_count: annotations.length,
             roi_count: image.shapes?.length || 0,
             ocr_provided: Boolean(ocrText),
+            dimension_measurement_count: dimensionEvidence.measurementCount,
+            dimension_approved_count: dimensionEvidence.approvedCount,
+            dimension_graph_promotion_allowed: dimensionEvidence.graphPromotionAllowed,
+            dimension_evidence: dimensionEvidence.measurements,
             ...captureMetadata
         }
     };
