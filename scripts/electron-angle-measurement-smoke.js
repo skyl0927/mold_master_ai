@@ -49,37 +49,43 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
     await canvas.waitFor();
     const box = await canvas.boundingBox();
     if (!box) throw new Error('annotation canvas has no bounding box');
-    const referencePixelBefore = await readPixel(page, 0.4, 0.35);
+    const referencePixelBefore = await readPixel(page, 0.4, 0.15);
 
     await page.getByLabel('기준 실제 길이').fill('10');
     await page.getByRole('button', { name: '기준 치수' }).click();
-    const referenceY = box.y + box.height * 0.35;
+    const referenceY = box.y + box.height * 0.15;
     await page.mouse.move(box.x + box.width * 0.2, referenceY);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.6, referenceY);
     await page.mouse.up();
     await page.getByTestId('dimension-calibration-status').getByText('축척 활성').waitFor();
-    const referencePixelAfter = await readPixel(page, 0.4, 0.35);
+    const referencePixelAfter = await readPixel(page, 0.4, 0.15);
 
     await page.getByRole('button', { name: '각도', exact: true }).click();
-    await page.mouse.click(box.x + box.width * 0.35, box.y + box.height * 0.65);
-    await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.65);
-    await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
+    await canvas.click({ position: { x: 260, y: 260 } });
+    await page.getByTestId('dimension-calibration-status').getByText('각도 점 선택 1/3').waitFor();
+    await canvas.click({ position: { x: 500, y: 260 } });
+    await page.getByTestId('dimension-calibration-status').getByText('각도 점 선택 2/3').waitFor();
+    await canvas.click({ position: { x: 500, y: 100 } });
 
     const summary = page.getByTestId('angle-measurement-summary');
-    await summary.getByText('90.0°').waitFor();
+    await summary.waitFor();
+    const automaticAngle = await summary.locator('strong').innerText();
+    if (automaticAngle !== '90.00°') {
+      throw new Error(`expected automatic 90.00° angle, received ${automaticAngle}`);
+    }
     await page.getByRole('button', { name: '각도 값 편집' }).click();
     const editor = page.locator('textarea[aria-label="측정값 편집"]');
     await editor.fill('92.5°');
     await editor.press('Enter');
-    await summary.getByText('92.5°').waitFor();
+    await summary.getByText('92.50°').waitFor();
     await summary.getByText('수동 보정').waitFor();
 
     await page.getByRole('button', { name: '저장' }).click();
     await page.getByTitle('편집').click();
     await page.getByRole('tab', { name: '측정' }).click();
     const reopenedSummary = page.getByTestId('angle-measurement-summary');
-    await reopenedSummary.getByText('92.5°').waitFor();
+    await reopenedSummary.getByText('92.50°').waitFor();
 
     await page.screenshot({ path: screenshot, fullPage: true });
     const output = {

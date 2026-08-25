@@ -29,6 +29,7 @@ const path = require('node:path');
 
     await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixturePath);
     await page.getByTitle('편집').click();
+    await page.getByRole('tab', { name: '측정' }).click();
     await page.getByLabel('평면 기준 폭').fill('10');
     await page.getByLabel('평면 기준 높이').fill('20');
     await page.getByLabel('치수 단위').selectOption('mm');
@@ -85,6 +86,7 @@ const path = require('node:path');
 
     await page.getByRole('button', { name: '저장' }).click();
     await page.getByTitle('편집').click();
+    await page.getByRole('tab', { name: '측정' }).click();
     await page.getByTestId('dimension-calibration-status').getByText('원근 보정 활성').waitFor();
     await page.getByTestId('dimension-measurement-summary').getByText('10.00 mm').waitFor();
     await page.screenshot({ path: screenshot, fullPage: true });

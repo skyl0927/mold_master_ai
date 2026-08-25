@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   createAngleMeasurement,
   formatAngleMeasurement,
+  getAngleLabelPoint,
   measureAngleDegrees,
   moveAngleMeasurement,
   parseAngleDisplayInput,
@@ -82,4 +83,22 @@ test('moves the two angle segments together or only the label', () => {
   const movedLabel = moveAngleMeasurement(measured, { x: 5, y: -2 }, 'label');
   assert.deepEqual(movedLabel.points, measured.points);
   assert.deepEqual(movedLabel.labelOffset, { x: 5, y: -42 });
+});
+
+test('rejects malformed angle geometry and unsupported movement modes', () => {
+  assert.throws(
+    () => measureAngleDegrees({ x: Number.NaN, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }),
+    /finite x and y/i
+  );
+  assert.throws(
+    () => createAngleMeasurement({ ...angleShape(), tool: 'line' }),
+    /angle shape/i
+  );
+
+  const measured = createAngleMeasurement(angleShape());
+  assert.deepEqual(getAngleLabelPoint(measured), { x: 0, y: -40 });
+  assert.throws(
+    () => moveAngleMeasurement(measured, { x: 1, y: 1 }, 'vertex'),
+    /unsupported angle move part/i
+  );
 });

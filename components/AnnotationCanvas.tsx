@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DimensionCalibration, DimensionUnit, Point, TextAnnotation, Shape, ShapeTool } from '../types';
-import { SaveIcon, TextIcon, PenIcon, RectangleIcon, CircleIcon, BlurIcon, NumberIcon, CursorArrowIcon, RulerIcon, TrashIcon, ScissorIcon, CopyIcon, EyeDropperIcon, PaletteIcon, SquareOutlineIcon, SquareFillIcon, LineSolidIcon, LineDashedIcon, DiagonalLineIcon, CalloutIcon } from './Icons';
+import { SaveIcon, TextIcon, PenIcon, RectangleIcon, CircleIcon, BlurIcon, NumberIcon, CursorArrowIcon, RulerIcon, CloseIcon, ScissorIcon, CopyIcon, EyeDropperIcon, PaletteIcon, SquareOutlineIcon, SquareFillIcon, LineSolidIcon, LineDashedIcon, DiagonalLineIcon, CalloutIcon, ImageIcon, ArrowIcon, EllipseIcon, AngleIcon, UndoIcon, RedoIcon, TranslateIcon } from './Icons';
 import { translateText } from '../services/aiService';
 import {
     applyCalibrationToDimension,
@@ -11,6 +11,7 @@ import {
     snapPointToAxes
 } from '../dimensionMeasurement';
 import {
+    addMeasuredAngle,
     addMeasuredDimension,
     commitEditorHistory,
     createEditorHistory,
@@ -18,12 +19,22 @@ import {
     redoEditorHistory,
     setDimensionReviewStatus,
     undoEditorHistory,
+    updateAngleManualDisplay,
     updateDimensionManualDisplay,
     upsertCalibration,
     upsertPerspectiveCalibration
 } from '../dimensionEditorState';
 import type { DimensionEditorDocument } from '../dimensionEditorState';
 import { translatePerspectiveCalibration } from '../perspectiveMeasurement';
+import {
+    getAngleLabelPoint,
+    moveAngleMeasurement
+} from '../angleMeasurement';
+import {
+    ANNOTATION_RIBBON_TABS
+} from '../annotationRibbon';
+import type { AnnotationRibbonTabId } from '../annotationRibbon';
+import { shouldRenderCalibrationGuide } from '../calibrationOverlayPolicy';
 
 // Add type definition for the experimental EyeDropper API
 declare global {
@@ -66,7 +77,7 @@ type Tool = 'select' | 'text' | ShapeTool | 'circle' | 'crop' | 'calibration' | 
 // Inline Input State Interface
 interface EditTextState {
     id: string; // Shape ID or Annotation ID
-    type: 'annotation' | 'dimension';
+    type: 'annotation' | 'dimension' | 'angle';
     text: string;
     x: number;
     y: number;
@@ -165,6 +176,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [perspectiveHeightInput, setPerspectiveHeightInput] = useState('');
     const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>('mm');
     const [dimensionPrecision, setDimensionPrecision] = useState(2);
+    const [ribbonTab, setRibbonTab] = useState<AnnotationRibbonTabId>('home');
 
     // Selection & Dragging
     const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
@@ -213,6 +225,12 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     );
     const inspectionDimension = selectedDimension || [...shapes].reverse().find(
         shape => shape.tool === 'dimension' && shape.unit !== 'px'
+    );
+    const selectedAngle = shapes.find(
+        shape => shape.id === selectedShapeId && shape.tool === 'angle'
+    );
+    const inspectionAngle = selectedAngle || [...shapes].reverse().find(
+        shape => shape.tool === 'angle'
     );
 
     const buildCurrentDocument = useCallback((): DimensionEditorDocument => ({
@@ -546,6 +564,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             && Math.abs(point.y - labelPoint.y) <= textSize / 2 + 8;
     };
 
+    const isPointInAngleLabel = (point: Point, shape: Shape): boolean => {
+        if (shape.tool !== 'angle' || !shape.text || shape.points.length !== 3) return false;
+        const labelPoint = getAngleLabelPoint(shape);
+        const textSize = shape.fontSize || 16;
+        const halfWidth = Math.max(34, shape.text.length * textSize * 0.35 + 8);
+        return Math.abs(point.x - labelPoint.x) <= halfWidth
+            && Math.abs(point.y - labelPoint.y) <= textSize / 2 + 8;
+    };
+
     const handleEyedropper = async () => {
         if (!window.EyeDropper) {
             alert('이 브라우저는 스포이드 기능을 지원하지 않습니다.');
@@ -698,6 +725,81 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.restore();
     }, [editTextState, draggingPart]);
 
+    const drawAngle = useCallback((ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isSaving: boolean) => {
+        if (shape.points.length !== 3) return;
+        const [firstEnd, vertex, secondEnd] = shape.points;
+        const firstLength = Math.hypot(firstEnd.x - vertex.x, firstEnd.y - vertex.y);
+        const secondLength = Math.hypot(secondEnd.x - vertex.x, secondEnd.y - vertex.y);
+        if (firstLength <= 0 || secondLength <= 0) return;
+
+        ctx.save();
+        ctx.strokeStyle = shape.color;
+        ctx.fillStyle = shape.color;
+        ctx.lineWidth = shape.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        setCtxLineStyle(ctx, shape.lineStyle || 'solid');
+        ctx.beginPath();
+        ctx.moveTo(firstEnd.x, firstEnd.y);
+        ctx.lineTo(vertex.x, vertex.y);
+        ctx.lineTo(secondEnd.x, secondEnd.y);
+        ctx.stroke();
+
+        const firstAngle = Math.atan2(firstEnd.y - vertex.y, firstEnd.x - vertex.x);
+        const secondAngle = Math.atan2(secondEnd.y - vertex.y, secondEnd.x - vertex.x);
+        let sweep = secondAngle - firstAngle;
+        while (sweep <= -Math.PI) sweep += Math.PI * 2;
+        while (sweep > Math.PI) sweep -= Math.PI * 2;
+        const radius = Math.max(18, Math.min(48, Math.min(firstLength, secondLength) * 0.28));
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(vertex.x, vertex.y, radius, firstAngle, firstAngle + sweep, sweep < 0);
+        ctx.stroke();
+
+        const labelPoint = getAngleLabelPoint(shape);
+        if (shape.text && editTextState?.id !== shape.id) {
+            const textSize = shape.fontSize || 16;
+            ctx.font = `bold ${textSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const metrics = ctx.measureText(shape.text);
+            const padding = 4;
+            const bounds = {
+                x: labelPoint.x - metrics.width / 2 - padding,
+                y: labelPoint.y - textSize / 2 - padding,
+                width: metrics.width + padding * 2,
+                height: textSize + padding * 2
+            };
+            ctx.globalAlpha = Math.max(0, Math.min(1, shape.backgroundAlpha ?? 0.92));
+            ctx.fillStyle = shape.backgroundColor || '#FFFFFF';
+            ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            ctx.fillStyle = shape.textColor || '#111827';
+            ctx.fillText(shape.text, labelPoint.x, labelPoint.y);
+            if (isSelected && draggingPart === 'text' && !isSaving) {
+                ctx.strokeStyle = '#22D3EE';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            }
+        }
+
+        if (isSelected && !isSaving) {
+            [firstEnd, vertex, secondEnd].forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ECFEFF';
+                ctx.fill();
+                ctx.strokeStyle = '#0891B2';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+        ctx.restore();
+    }, [draggingPart, editTextState]);
+
     const drawCalibration = useCallback((
         ctx: CanvasRenderingContext2D,
         calibration: DimensionCalibration,
@@ -822,6 +924,12 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
         if (shape.tool === 'dimension') {
             drawDimension(ctx, shape, isSelected, isSaving);
+            ctx.restore();
+            return;
+        }
+
+        if (shape.tool === 'angle') {
+            drawAngle(ctx, shape, isSelected, isSaving);
             ctx.restore();
             return;
         }
@@ -1030,7 +1138,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
 
         ctx.restore();
-    }, [draggingPart, drawDimension, drawArrowShape]);
+    }, [draggingPart, drawAngle, drawDimension, drawArrowShape]);
 
     // Main Draw Function
     const draw = useCallback((ctx: CanvasRenderingContext2D, isSaving: boolean = false) => {
@@ -1043,9 +1151,14 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.globalAlpha = 1;
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        dimensionCalibrations.forEach(calibration => {
-            drawCalibration(ctx, calibration, calibration.id === activeDimensionCalibrationId);
-        });
+        if (shouldRenderCalibrationGuide({
+            phase: isSaving ? 'export' : 'editing',
+            showStoredGuides: false
+        })) {
+            dimensionCalibrations.forEach(calibration => {
+                drawCalibration(ctx, calibration, calibration.id === activeDimensionCalibrationId);
+            });
+        }
 
         if (tool === 'perspective-calibration' && currentPoints.length > 0) {
             ctx.save();
@@ -1065,6 +1178,36 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 ctx.fill();
                 ctx.fillStyle = '#083344';
                 ctx.font = 'bold 11px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(index + 1), point.x, point.y);
+                ctx.fillStyle = '#ECFEFF';
+            });
+            ctx.restore();
+        }
+
+        if (tool === 'angle' && currentPoints.length > 0) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = '#ECFEFF';
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash([8, 5]);
+            ctx.beginPath();
+            ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+            if (currentPoints.length >= 2) {
+                ctx.lineTo(currentPoints[1].x, currentPoints[1].y);
+                if (mousePos) ctx.lineTo(mousePos.x, mousePos.y);
+            } else if (mousePos) {
+                ctx.lineTo(mousePos.x, mousePos.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            currentPoints.forEach((point, index) => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#083344';
+                ctx.font = 'bold 10px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(String(index + 1), point.x, point.y);
@@ -1148,13 +1291,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 const knownLength = Number(calibrationLengthInput);
                 if (currentPoints.length >= 2 && knownLength > 0) {
                     try {
-                        drawCalibration(ctx, createCalibration({
-                            id: 'preview-calibration',
-                            start: currentPoints[0],
-                            end: currentPoints[currentPoints.length - 1],
-                            knownLength,
-                            unit: dimensionUnit
-                        }), true);
+                        if (shouldRenderCalibrationGuide({ phase: 'draft' })) {
+                            drawCalibration(ctx, createCalibration({
+                                id: 'preview-calibration',
+                                start: currentPoints[0],
+                                end: currentPoints[currentPoints.length - 1],
+                                knownLength,
+                                unit: dimensionUnit
+                            }), true);
+                        }
                     } catch {
                         // A zero-length drag has no calibration preview.
                     }
@@ -1442,6 +1587,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             if (isPointInDimensionLabel(testPoint, shape)) return true;
             return false;
         }
+        if (shape.tool === 'angle' && shape.points.length === 3) {
+            const firstSegment = getDistanceToLineSegment(testPoint, shape.points[0], shape.points[1]);
+            const secondSegment = getDistanceToLineSegment(testPoint, shape.points[1], shape.points[2]);
+            return firstSegment < shape.lineWidth + 10
+                || secondSegment < shape.lineWidth + 10
+                || isPointInAngleLabel(testPoint, shape);
+        }
         if (shape.tool === 'image' || shape.tool === 'rect' || shape.tool === 'ellipse' || shape.tool === 'callout') {
             if (shape.points.length < 2) return false;
             const start = shape.points[0];
@@ -1475,6 +1627,20 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
     const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const point = getCanvasPoint(e);
+        const clickedAngle = shapes.find(shape =>
+            shape.tool === 'angle' && shape.text && isPointInAngleLabel(point, shape)
+        );
+        if (clickedAngle?.text) {
+            const labelPoint = getAngleLabelPoint(clickedAngle);
+            setEditTextState({
+                id: clickedAngle.id,
+                type: 'angle',
+                text: clickedAngle.text,
+                x: labelPoint.x,
+                y: labelPoint.y
+            });
+            return;
+        }
         const clickedDim = shapes.find(s => s.tool === 'dimension' && s.text && isPointInShape(point, s));
         if (clickedDim && clickedDim.text) {
             const labelPoint = getDimensionLabelPoint(clickedDim);
@@ -1520,6 +1686,17 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         ? { ...s, text: editTextState.text, manualOverride: true }
                         : s));
                 }
+            } else if (editTextState.type === 'angle') {
+                try {
+                    applyDocument(updateAngleManualDisplay(
+                        buildCurrentDocument(),
+                        editTextState.id,
+                        editTextState.text
+                    ));
+                } catch (error) {
+                    setErrorMessage(error instanceof Error ? error.message : '각도 값을 확인해 주세요.');
+                    return;
+                }
             } else {
                 setAnnotations(prev => prev.map(a => a.id === editTextState.id ? { ...a, text: editTextState.text } : a));
             }
@@ -1538,6 +1715,43 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
         const point = getCanvasPoint(e);
         if (tool === 'select') return;
+
+        if (tool === 'angle') {
+            const nextPoints = [...currentPoints, point].slice(0, 3);
+            if (nextPoints.length < 3) {
+                setCurrentPoints(nextPoints);
+                setErrorMessage('');
+                return;
+            }
+            try {
+                const id = `angle-${Date.now()}`;
+                const document = addMeasuredAngle(buildCurrentDocument(), {
+                    id,
+                    tool: 'angle',
+                    color,
+                    lineWidth,
+                    points: nextPoints,
+                    opacity,
+                    style: 'outline',
+                    fontSize,
+                    lineStyle,
+                    textColor,
+                    backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
+                    backgroundAlpha: opacity,
+                    coordinateSpaceVersion: 'image/v1'
+                }, { precision: dimensionPrecision });
+                applyDocument(document);
+                setSelectedShapeId(id);
+                setSelectedAnnotationId(null);
+                setCurrentPoints([]);
+                setTool('select');
+                setErrorMessage('');
+            } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : '각도를 측정할 수 없습니다.');
+                setCurrentPoints([]);
+            }
+            return;
+        }
 
         if (tool === 'step') {
             const newShape: Shape = {
@@ -1589,6 +1803,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
 
         if (tool === 'text') return;
+        if (tool === 'angle') return;
 
         if (tool === 'perspective-calibration') {
             const knownWidth = Number(perspectiveWidthInput);
@@ -1672,8 +1887,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     setShapes(prev => [...prev, clone]);
                     setSelectedShapeId(newId);
                     setSelectedAnnotationId(null);
-                    const part: 'body' | 'text' = hitShape.tool === 'dimension'
-                        && isPointInDimensionLabel(point, hitShape)
+                    const part: 'body' | 'text' = (hitShape.tool === 'dimension'
+                        && isPointInDimensionLabel(point, hitShape))
+                        || (hitShape.tool === 'angle' && isPointInAngleLabel(point, hitShape))
                         ? 'text'
                         : 'body';
                     setDraggingPart(part);
@@ -1695,8 +1911,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             for (let i = shapes.length - 1; i >= 0; i--) {
                 if (isPointInShape(point, shapes[i])) {
                     historyTransactionRef.current = true;
-                    const part: 'body' | 'text' = shapes[i].tool === 'dimension'
-                        && isPointInDimensionLabel(point, shapes[i])
+                    const part: 'body' | 'text' = (shapes[i].tool === 'dimension'
+                        && isPointInDimensionLabel(point, shapes[i]))
+                        || (shapes[i].tool === 'angle' && isPointInAngleLabel(point, shapes[i]))
                         ? 'text'
                         : 'body';
                     setSelectedShapeId(shapes[i].id);
@@ -1867,6 +2084,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         }
                         return moved;
                     }
+                    if (s.tool === 'angle') {
+                        return moveAngleMeasurement(
+                            s,
+                            { x: dx, y: dy },
+                            draggingPart === 'text' ? 'label' : 'body'
+                        );
+                    }
                     const newPoints = s.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
                     const newTextPos = s.textPos ? { x: s.textPos.x + dx, y: s.textPos.y + dy } : undefined;
                     return { ...s, points: newPoints, textPos: newTextPos };
@@ -1902,6 +2126,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         setResizingHandle(null);
         dragStartShapeRef.current = null;
         if (tool === 'perspective-calibration') return;
+        if (tool === 'angle') return;
         if (currentPoints.length > 0) {
             if (tool === 'calibration' && currentPoints.length >= 2) {
                 const knownLength = Number(calibrationLengthInput);
@@ -2190,6 +2415,18 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
     };
 
+    const handleAngleValueEdit = () => {
+        if (!inspectionAngle?.text) return;
+        const labelPoint = getAngleLabelPoint(inspectionAngle);
+        setEditTextState({
+            id: inspectionAngle.id,
+            type: 'angle',
+            text: inspectionAngle.text,
+            x: labelPoint.x,
+            y: labelPoint.y
+        });
+    };
+
     const handleSave = () => {
         if (editTextState) handleInputCommit();
         const canvas = canvasRef.current;
@@ -2214,7 +2451,24 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
     return (
         <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col overflow-hidden">
-            <div style={{ background: 'linear-gradient(135deg, #0D1B3E 0%, #162D5A 50%, #1B3F8B 100%)' }} className="flex h-auto min-h-[4rem] w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-blue-900/50 px-4 py-2 shadow-lg select-none">
+            <div style={{ background: 'linear-gradient(135deg, #0D1B3E 0%, #162D5A 50%, #1B3F8B 100%)' }} className="w-full min-w-0 shrink-0 border-b border-blue-900/50 shadow-lg select-none">
+                <div role="tablist" aria-label="주석 편집 기능" className="flex h-9 items-end gap-1 border-b border-blue-800/70 bg-slate-950/35 px-4 pt-1">
+                    {ANNOTATION_RIBBON_TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={ribbonTab === tab.id}
+                            onClick={() => setRibbonTab(tab.id)}
+                            className={`h-8 min-w-20 rounded-t-md border-x border-t px-4 text-xs font-bold transition-colors ${ribbonTab === tab.id
+                                ? 'border-blue-400/60 bg-blue-700/70 text-white'
+                                : 'border-transparent text-blue-200/75 hover:bg-blue-800/40 hover:text-white'}`}
+                        >
+                            {tab.labelKo}
+                        </button>
+                    ))}
+                </div>
+                <div className="flex min-h-[7rem] w-full min-w-0 flex-nowrap items-stretch gap-2 overflow-x-hidden px-4 py-2">
 
                 {/* Atech Logo */}
                 <div className="flex items-center gap-2 px-3 border-r border-blue-800/50 min-w-max">
@@ -2232,12 +2486,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             <span className="text-xs mt-1">저장</span>
                         </button>
                         <button onClick={onCancel} className="flex flex-col items-center p-2 rounded hover:bg-blue-700/50 text-gray-200" title="취소">
-                            <TrashIcon className="w-6 h-6" />
+                            <CloseIcon className="w-6 h-6" />
                             <span className="text-xs mt-1">취소</span>
                         </button>
                     </div>
                 </div>
 
+                {ribbonTab === 'home' ? (
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">이미지</div>
                     <div className="flex gap-2">
@@ -2250,17 +2505,35 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             <span className="text-xs">자르기</span>
                         </button>
                         <button onClick={() => fileInputRef.current?.click()} className={`flex flex-col items-center p-2 rounded w-16 hover:bg-blue-700/50 text-gray-200`} title="이미지 삽입 (Ctrl+V 또는 파일 선택)">
-                            <span className="text-lg mb-1">🖼️</span>
+                            <ImageIcon className="w-6 h-6 mb-1" />
                             <span className="text-xs">삽입</span>
                         </button>
                         <button onClick={() => createWhiteBoard()} className={`flex flex-col items-center p-2 rounded w-16 hover:bg-blue-700/50 text-gray-200`} title="빈 화이트보드 배경 생성 (A4 기준 2900x1800)">
-                            <span className="text-lg mb-1">📝</span>
+                            <RectangleIcon className="w-6 h-6 mb-1" />
                             <span className="text-xs">WhiteBoard</span>
                         </button>
                         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileSelect} />
                     </div>
                 </div>
+                ) : null}
 
+                {ribbonTab === 'home' ? (
+                <div className="flex min-w-max flex-col items-center justify-center gap-1 border-r border-blue-800/50 px-4">
+                    <div className="mb-1 text-xs font-bold text-blue-300/80">작업 이력</div>
+                    <div className="flex gap-2">
+                        <button onClick={handleUndo} className="flex w-16 flex-col items-center rounded p-2 text-gray-200 hover:bg-blue-700/50" title="실행 취소">
+                            <UndoIcon className="mb-1 h-6 w-6" />
+                            <span className="text-xs">실행 취소</span>
+                        </button>
+                        <button onClick={handleRedo} className="flex w-16 flex-col items-center rounded p-2 text-gray-200 hover:bg-blue-700/50" title="다시 실행">
+                            <RedoIcon className="mb-1 h-6 w-6" />
+                            <span className="text-xs">다시 실행</span>
+                        </button>
+                    </div>
+                </div>
+                ) : null}
+
+                {ribbonTab === 'annotate' ? (
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">도구</div>
                     <div className="grid grid-cols-3 gap-1">
@@ -2273,13 +2546,42 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </button>
 
                         <button onClick={handleEyedropper} className="p-1.5 rounded hover:bg-blue-700/50" title="색상 추출"><EyeDropperIcon /></button>
-                        <button onClick={handleUndo} className="p-1.5 rounded hover:bg-blue-700/50" title="실행 취소">↺</button>
-                        <button onClick={handleRedo} className="p-1.5 rounded hover:bg-blue-700/50" title="다시 실행">↻</button>
                     </div>
                 </div>
+                ) : null}
 
+                {ribbonTab === 'measure' ? (
                 <div className="flex min-w-[650px] shrink-0 flex-col justify-center gap-1 border-r border-blue-800/50 px-4">
-                    <div className="text-xs font-bold text-cyan-200">실치수 보정</div>
+                    <div className="flex items-center gap-2">
+                        <div className="mr-2 text-xs font-bold text-cyan-200">측정</div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCurrentPoints([]);
+                                setErrorMessage('');
+                                setTool('dimension');
+                            }}
+                            className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${tool === 'dimension' ? 'bg-cyan-500 text-slate-950 ring-2 ring-cyan-200' : 'bg-blue-800/70 text-white hover:bg-blue-700'}`}
+                            title="두 점 사이 치수 측정"
+                        >
+                            <RulerIcon className="h-4 w-4" />
+                            치수
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCurrentPoints([]);
+                                setErrorMessage('');
+                                setTool('angle');
+                            }}
+                            className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${tool === 'angle' ? 'bg-amber-300 text-slate-950 ring-2 ring-amber-100' : 'bg-blue-800/70 text-white hover:bg-blue-700'}`}
+                            title="두 선분 사이 각도 측정"
+                        >
+                            <AngleIcon className="h-4 w-4" />
+                            각도
+                        </button>
+                        <span className="text-[10px] text-blue-200/75">실치수 보정</span>
+                    </div>
                     <div className="flex items-end gap-1">
                         <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
                             기준 실제 길이
@@ -2379,7 +2681,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         data-testid="dimension-calibration-status"
                         className={`rounded px-2 py-1 text-[10px] ${activeDimensionCalibration ? 'bg-emerald-950/70 text-emerald-300' : 'bg-slate-900/70 text-slate-400'}`}
                     >
-                        {tool === 'perspective-calibration'
+                        {tool === 'angle'
+                            ? `각도 점 선택 ${currentPoints.length}/3 · 첫 점 → 꼭짓점 → 끝 점`
+                            : tool === 'perspective-calibration'
                             ? `원근 점 선택 ${currentPoints.length}/4 · 좌상 → 우상 → 우하 → 좌하`
                             : activeDimensionCalibration?.mode === 'planar'
                                 ? `원근 보정 활성 · ${formatMeasurement(activeDimensionCalibration.knownWidth || activeDimensionCalibration.knownLength, activeDimensionCalibration.unit, dimensionPrecision)} × ${formatMeasurement(activeDimensionCalibration.knownHeight || 0, activeDimensionCalibration.unit, dimensionPrecision)}`
@@ -2399,17 +2703,25 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             <button type="button" onClick={() => handleDimensionReview('rejected')} className="rounded bg-red-800 px-2 py-0.5 font-bold text-white hover:bg-red-700">치수 거절</button>
                         </div>
                     ) : null}
+                    {inspectionAngle ? (
+                        <div data-testid="angle-measurement-summary" className="flex items-center gap-2 rounded bg-blue-950/80 px-2 py-1 text-[10px] text-blue-100">
+                            <strong className="text-amber-200">{inspectionAngle.text}</strong>
+                            <span>{inspectionAngle.manualOverride ? '수동 보정' : '자동 측정'}</span>
+                            <button type="button" onClick={handleAngleValueEdit} className="rounded bg-amber-700 px-2 py-0.5 font-bold text-white hover:bg-amber-600">각도 값 편집</button>
+                        </div>
+                    ) : null}
                 </div>
+                ) : null}
 
+                {ribbonTab === 'annotate' ? (
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">도형</div>
                     <div className="grid grid-cols-3 gap-1">
-                        <button onClick={() => setTool('arrow')} className={`p-1.5 rounded ${tool === 'arrow' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="화살표">↗</button>
+                        <button onClick={() => setTool('arrow')} className={`p-1.5 rounded ${tool === 'arrow' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="화살표"><ArrowIcon /></button>
                         <button onClick={() => setTool('line')} className={`p-1.5 rounded ${tool === 'line' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="직선"><DiagonalLineIcon /></button>
                         <button onClick={() => setTool('rect')} className={`p-1.5 rounded ${tool === 'rect' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="사각형"><RectangleIcon /></button>
                         <button onClick={() => setTool('circle')} className={`p-1.5 rounded ${tool === 'circle' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="원"><CircleIcon /></button>
-                        <button onClick={() => setTool('ellipse')} className={`p-1.5 rounded ${tool === 'ellipse' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="타원">⬭</button>
-                        <button onClick={() => setTool('dimension')} className={`p-1.5 rounded ${tool === 'dimension' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="치수"><RulerIcon /></button>
+                        <button onClick={() => setTool('ellipse')} className={`p-1.5 rounded ${tool === 'ellipse' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="타원"><EllipseIcon /></button>
                         <button onClick={() => setTool('callout')} className={`p-1.5 rounded ${tool === 'callout' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="표시 도형"><CalloutIcon /></button>
                     </div>
                     <div className="flex gap-2 mt-2">
@@ -2423,7 +2735,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
                     </div>
                 </div>
+                ) : null}
 
+                {ribbonTab === 'format' ? (
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">크기</div>
                     <div className="flex flex-col items-center gap-1 w-full">
@@ -2440,7 +2754,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
                     </div>
                 </div>
+                ) : null}
 
+                {ribbonTab === 'format' ? (
                 <div className="flex flex-col justify-center px-4 gap-1 flex-grow min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">색상</div>
                     <div className="flex gap-2 items-start flex-wrap">
@@ -2509,8 +2825,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
                     </div>
                 </div>
+                ) : null}
 
                 {/* 번역 섹션 추가 */}
+                {ribbonTab === 'translate' ? (
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">번역</div>
                     <div className="flex flex-col gap-2">
@@ -2532,7 +2850,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             className="flex items-center justify-center gap-1 px-3 py-1 bg-red-700/60 hover:bg-red-600/70 disabled:bg-blue-900/40 text-white text-xs rounded transition-colors"
                             title="주석을 선택한 언어로 직접 변환"
                         >
-                            <span>🌐</span>
+                            <TranslateIcon className="h-4 w-4" />
                             <span>{isTranslating ? '번역 중...' : '변환'}</span>
                         </button>
                         {translationMessage && (
@@ -2543,7 +2861,9 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         )}
                     </div>
                 </div>
+                ) : null}
 
+                </div>
             </div>
 
             <div className="flex-grow relative overflow-auto flex items-center justify-center cursor-crosshair p-8" style={{ backgroundColor: '#1a2640' }}>
@@ -2563,6 +2883,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     {editTextState && (
                         <textarea
                             ref={inputRef}
+                            aria-label={editTextState.type === 'annotation' ? '주석 텍스트 편집' : '측정값 편집'}
                             value={editTextState.text}
                             onChange={(e) => setEditTextState({ ...editTextState, text: e.target.value })}
                             onKeyDown={(e) => {

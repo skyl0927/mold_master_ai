@@ -377,3 +377,52 @@ export const CalloutIcon = ({ className }: { className?: string }) => (
         </svg>
     </IconWrapper>
 );
+
+export const ArrowIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 19L19 5M11 5h8v8" />
+        </svg>
+    </IconWrapper>
+);
+
+export const EllipseIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <ellipse cx="12" cy="12" rx="9" ry="6" />
+        </svg>
+    </IconWrapper>
+);
+
+export const AngleIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 18h16M4 18L15 5" />
+            <path strokeLinecap="round" d="M9 18a5 5 0 011.75-3.8" />
+        </svg>
+    </IconWrapper>
+);
+
+export const UndoIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 7L4 12l5 5M5 12h8a6 6 0 016 6" />
+        </svg>
+    </IconWrapper>
+);
+
+export const RedoIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7l5 5-5 5M19 12h-8a6 6 0 00-6 6" />
+        </svg>
+    </IconWrapper>
+);
+
+export const TranslateIcon = ({ className }: { className?: string }) => (
+    <IconWrapper className={className}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m3 0c-1 4-4 7-8 9m3-5c2 2 4 4 7 5M15 20l3-8 3 8m-5-3h4" />
+        </svg>
+    </IconWrapper>
+);
