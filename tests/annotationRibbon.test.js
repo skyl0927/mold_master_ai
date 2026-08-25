@@ -22,8 +22,12 @@ test('organizes annotation commands into Office-style functional tabs', () => {
     ['calibration', 'perspective-calibration', 'dimension', 'angle', 'measurement-review']
   );
   assert.deepEqual(
+    ANNOTATION_RIBBON_GROUPS.home.find(group => group.id === 'image').commands,
+    ['crop', 'insert-image', 'whiteboard']
+  );
+  assert.deepEqual(
     ANNOTATION_COMMON_GROUPS.flatMap(group => group.commands),
-    ['fill-style', 'line-style', 'size', 'color']
+    ['select', 'fill-style', 'line-style', 'size', 'color']
   );
 });
 
