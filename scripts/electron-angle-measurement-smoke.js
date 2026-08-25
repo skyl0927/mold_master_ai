@@ -57,6 +57,7 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
     for (const tabName of expectedTabs) {
       await page.getByRole('tab', { name: tabName }).click();
       await page.getByTitle(tabCommandTitles[tabName]).waitFor();
+      await page.getByTestId('persistent-selection-tool').waitFor();
       await page.getByTestId('persistent-format-controls').waitFor();
       await page.getByTitle('선색/도형색').waitFor();
     }

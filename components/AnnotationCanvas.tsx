@@ -2471,12 +2471,17 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 <div className="flex min-h-[7rem] w-full min-w-0 flex-nowrap items-stretch gap-2 overflow-x-hidden px-4 py-2">
 
                 {/* Atech Logo */}
-                <div className="flex items-center gap-2 px-3 border-r border-blue-800/50 min-w-max">
+                <div className="flex items-center gap-2 px-2 border-r border-blue-800/50 min-w-max">
                     <img src="./assets/icon.png" alt="Atech" className="w-8 h-8 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="flex flex-col">
-                        <span style={{ color: '#E31E24' }} className="text-xs font-bold leading-none">Atech</span>
-                        <span className="text-[9px] text-blue-300/80 leading-none">SOLUTION</span>
-                    </div>
+                    <button
+                        data-testid="persistent-selection-tool"
+                        onClick={() => setTool('select')}
+                        className={`flex flex-col items-center p-2 rounded w-16 ${tool === 'select' ? 'bg-red-700/40 text-red-200 ring-1 ring-red-400' : 'hover:bg-blue-700/50 text-gray-200'}`}
+                        title="선택"
+                    >
+                        <CursorArrowIcon className="w-6 h-6 mb-1" />
+                        <span className="text-xs">선택</span>
+                    </button>
                 </div>
 
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
@@ -2496,10 +2501,6 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">이미지</div>
                     <div className="flex gap-2">
-                        <button onClick={() => setTool('select')} className={`flex flex-col items-center p-2 rounded w-16 ${tool === 'select' ? 'bg-red-700/40 text-red-200 ring-1 ring-red-400' : 'hover:bg-blue-700/50 text-gray-200'}`}>
-                            <CursorArrowIcon className="w-6 h-6 mb-1" />
-                            <span className="text-xs">선택</span>
-                        </button>
                         <button onClick={() => setTool('crop')} className={`flex flex-col items-center p-2 rounded w-16 ${tool === 'crop' ? 'bg-red-700/40 text-red-200 ring-1 ring-red-400' : 'hover:bg-blue-700/50 text-gray-200'}`}>
                             <ScissorIcon className="w-6 h-6 mb-1" />
                             <span className="text-xs">자르기</span>

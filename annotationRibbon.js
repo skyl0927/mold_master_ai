@@ -8,7 +8,7 @@ const ANNOTATION_RIBBON_TABS = Object.freeze([
 const ANNOTATION_RIBBON_GROUPS = Object.freeze({
   home: [
     { id: 'file', labelKo: '파일', commands: ['save', 'cancel'] },
-    { id: 'image', labelKo: '이미지', commands: ['select', 'crop', 'insert-image', 'whiteboard'] },
+    { id: 'image', labelKo: '이미지', commands: ['crop', 'insert-image', 'whiteboard'] },
     { id: 'history', labelKo: '편집', commands: ['undo', 'redo'] }
   ],
   annotate: [
@@ -25,6 +25,7 @@ const ANNOTATION_RIBBON_GROUPS = Object.freeze({
 });
 
 const ANNOTATION_COMMON_GROUPS = Object.freeze([
+  { id: 'selection', labelKo: '공통 도구', commands: ['select'] },
   { id: 'shape-style', labelKo: '공통 서식', commands: ['fill-style', 'line-style'] },
   { id: 'size', labelKo: '크기', commands: ['size'] },
   { id: 'color', labelKo: '색상', commands: ['color'] }
