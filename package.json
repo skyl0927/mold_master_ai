@@ -175,6 +175,7 @@
     "test:electron:chat": "npm run build && node scripts/electron-common-agent-chat-smoke.js",
     "test:electron:migrate": "npm run build && node scripts/electron-process-knowledge-migration-smoke.js",
     "test:electron:transition": "npm run build && node scripts/electron-transition-report-smoke.js",
+    "test:electron:operational-status-autoload": "npm run build && node scripts/electron-operational-status-autoload-smoke.js",
     "test:electron:multimodal": "npm run build && node scripts/electron-multimodal-diagnosis-smoke.js",
     "test:electron:vision-recapture-policy": "npm run build && node scripts/electron-vision-recapture-policy-smoke.js",
     "test:electron:hitl": "npm run build && node scripts/electron-hitl-review-smoke.js",
