@@ -1844,7 +1844,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                   </p>
                   {operationalStatusBundleDisplay.settingsImportButtons.length > 0 && (
                     <div className="mt-2 rounded border border-blue-900/50 bg-gray-950/35 px-2 py-1">
-                      <p className="font-bold text-blue-50">Settings import order</p>
+                      <p className="font-bold text-blue-50">자동 복원 실패 시 수동 등록 순서</p>
                       <p className="mt-1 break-words text-[8px] text-blue-100">
                         {operationalStatusBundleDisplay.settingsImportButtons.join(' -> ')}
                       </p>

@@ -765,10 +765,10 @@ const postImportValidationSummaryFor = pipelineStatus => {
 
 const nextOperatorActionsFor = ({ sourceArtifacts, humanDecisionBrief, preparationWorksheetArtifacts }) => [
   {
-    code: 'register_status_artifacts_in_settings',
-    titleKo: 'Settings 운영 artifact 등록',
-    instructionKo: 'Settings의 Progress/Pipeline Status/Human Brief/Session Packet 버튼에 최신 JSON을 등록하세요.',
-    buttonLabelsKo: settingsImportChecklistFor(sourceArtifacts).map(item => item.buttonLabelKo)
+    code: 'confirm_status_autoload',
+    titleKo: '최신 운영 상태 자동 복원 확인',
+    instructionKo: 'Settings를 열어 최신 Status Bundle 생성 시각과 현재 HITL 단계를 확인하세요. 자동 복원이 실패한 경우에만 Status Bundle 등록을 사용하세요.',
+    fallbackButtonLabelKo: 'Status Bundle 등록'
   },
   ...(asArray(preparationWorksheetArtifacts).length > 0 || compact(sourceArtifacts.operationalPreparationRun) ? [{
     code: 'open_preparation_run_outputs',
@@ -909,7 +909,7 @@ const markdownFor = bundle => {
     `- 원본 worktable CSV: ${bundle.summary.worktableCsvPath || '확인 필요'}`,
     '- 안전 정책: 자동 적용 금지, Graph/Reference/Model 승격 금지',
     '',
-    '## Settings 등록 순서',
+    '## 자동 복원 실패 시 수동 등록',
     ''
   ];
 

@@ -165,7 +165,7 @@ const recommendedActionFor = status => ({
   invalid_refresh_commands: 'Remove unsupported refresh commands. Apply, verify --execute, and arbitrary shell commands are intentionally blocked.',
   plan_ready: 'Review the refresh plan, then run npm run operational:refresh-status -- --execute after the human HITL CSV has been edited.',
   refresh_failed: 'At least one failed command needs inspection. Check executionResults stdout/stderr, fix the artifact gap, then rerun the refresh.',
-  executed: 'Refresh completed. Open the latest operational-status-bundle artifact or register it in Settings to review the next HITL gate.'
+  executed: 'Refresh completed. Open Settings to auto-load the latest operational-status-bundle; use manual Status Bundle registration only if automatic discovery is unavailable.'
 }[status] || 'Review the operational status refresh report.');
 
 const buildOperationalStatusRefreshRun = ({
