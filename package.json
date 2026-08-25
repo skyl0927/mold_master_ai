@@ -199,7 +199,7 @@
     "build:css": "tailwindcss -i ./src/index.css -o ./build/styles.css",
     "build:js": "esbuild index.tsx toolbar.tsx components/RegionSelector.tsx --bundle --platform=browser --outdir=build/ --jsx=automatic --entry-names=[name]",
     "build": "npm run build:css && npm run build:js",
-    "prepackage": "npm run build",
+    "prepackage": "npm run test:package-runtime && npm run build",
     "package": "electron-builder"
   },
   "dependencies": {
@@ -243,6 +243,8 @@
       "apiConfigDefaults.js",
       "localVisionCandidate.js",
       "migrationGateStatus.js",
+      "latestOperationalStatusBundle.js",
+      "operationalStatusBundle.js",
       "shared/defect-taxonomy.js",
       "captureGeometry.js",
       "captureFrameCache.js",
