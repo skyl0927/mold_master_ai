@@ -771,7 +771,7 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     'Web Knowledge Package 등록'
   ]);
   assert.deepEqual(bundle.nextOperatorActions.map(action => action.code), [
-    'register_status_artifacts_in_settings',
+    'confirm_status_autoload',
     'open_preparation_run_outputs',
     'open_reviewer_worksheet',
     'open_label_conflict_review_guide',
@@ -780,9 +780,12 @@ test('builds an artifact-only operational status bundle for handoff and Settings
     'fill_original_worktable_csv',
     'dry_run_import_and_refresh_status'
   ]);
+  assert.match(bundle.nextOperatorActions[0].instructionKo, /자동 복원/);
+  assert.match(bundle.nextOperatorActions[0].instructionKo, /실패한 경우에만/);
   assert.equal(bundle.sessionPointers[0].code, 'label_conflict_session');
   assert.equal(bundle.sessionPointers[0].firstDecisionId, 'conflict-001');
   assert.match(bundle.markdown, /Operational Status Bundle/);
+  assert.match(bundle.markdown, /자동 복원 실패 시 수동 등록/);
   assert.match(bundle.markdown, /소프트웨어 100%/);
   assert.match(bundle.markdown, /Web cases: 43\/40/);
   assert.match(bundle.markdown, /Label conflict guide: 4 conflicts/);
