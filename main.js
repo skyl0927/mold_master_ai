@@ -19,6 +19,9 @@ const { buildMigrationGateStatus } = require('./migrationGateStatus');
 const { retryAsync } = require('./retryAsync');
 const { withRuntimeEndpointDefaults } = require('./apiConfigDefaults');
 const {
+    loadLatestOperationalStatusBundle
+} = require('./latestOperationalStatusBundle');
+const {
     createVisionReviewDecisionLedger
 } = require('./visionReviewDecisionLedger');
 const {
@@ -680,6 +683,18 @@ ipcMain.handle('DEBUG_CAPTURE_POINTER', (event, payload) => {
 });
 
 ipcMain.handle('GET_API_CONFIG', () => withRuntimeEndpointDefaults(apiConfig));
+ipcMain.handle('GET_LATEST_OPERATIONAL_STATUS_BUNDLE', () => {
+    const configuredRoot = String(
+        process.env.MOLD_MASTER_OPERATIONAL_ARTIFACT_ROOT || ''
+    ).trim();
+    const roots = [
+        configuredRoot,
+        path.join(__dirname, 'artifacts'),
+        path.join(process.cwd(), 'artifacts'),
+        path.join(app.getPath('userData'), 'artifacts')
+    ].filter(Boolean);
+    return loadLatestOperationalStatusBundle({ roots });
+});
 ipcMain.handle('SET_API_CONFIG', (event, config) => {
     apiConfig = config;
     saveApiConfig(config);

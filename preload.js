@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     debugCapturePointer: (payload) => ipcRenderer.invoke('DEBUG_CAPTURE_POINTER', payload),
 
     getApiConfig: () => ipcRenderer.invoke('GET_API_CONFIG'),
+    getLatestOperationalStatusBundle: () => ipcRenderer.invoke('GET_LATEST_OPERATIONAL_STATUS_BUNDLE'),
     setApiConfig: (config) => ipcRenderer.invoke('SET_API_CONFIG', config),
     runVisionBenchmark: () => ipcRenderer.invoke('RUN_VISION_BENCHMARK'),
     suggestVisionLabel: (imageId, context) => ipcRenderer.invoke('SUGGEST_VISION_LABEL', imageId, context),

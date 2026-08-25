@@ -55,6 +55,9 @@ test('skips malformed, oversized, and contract-mismatched candidates', t => {
   writeBundle(root, 'operational-status-bundle-large.json', '2026-08-26T00:00:00.000Z', {
     payload: 'x'.repeat(2048)
   });
+  writeBundle(root, 'operational-status-bundle-wrote-services.json', '2026-08-27T00:00:00.000Z', {
+    serviceWritesPerformed: true
+  });
 
   const result = loadLatestOperationalStatusBundle({ roots: [root], maxBytes: 512 });
 
@@ -64,7 +67,7 @@ test('skips malformed, oversized, and contract-mismatched candidates', t => {
   assert.match(result.summary, /유효한 최신 운영 상태 번들 없음/);
   assert.deepEqual(result.next_actions, ['Settings에서 Status Bundle JSON을 직접 등록']);
   assert.deepEqual(result.artifacts, []);
-  assert.equal(result.rejectedCandidates, 3);
+  assert.equal(result.rejectedCandidates, 4);
 });
 
 test('adopts only a supported bundle that is newer than the locally stored bundle', () => {
@@ -89,4 +92,13 @@ test('adopts only a supported bundle that is newer than the locally stored bundl
     ...newer,
     generatedAt: 'not-a-date'
   }), false);
+  assert.equal(shouldAdoptOperationalStatusBundle(current, {
+    ...newer,
+    serviceWritesPerformed: true
+  }), false);
+  assert.equal(shouldAdoptOperationalStatusBundle({
+    ...newer,
+    generatedAt: '2026-08-26T00:00:00.000Z',
+    serviceWritesPerformed: true
+  }, newer), true);
 });

@@ -999,6 +999,17 @@ export interface WebKnowledgeReviewQueue {
   queue: WebKnowledgeReviewQueueItem[];
 }
 
+export interface LatestOperationalStatusBundleResult {
+  status: 'success' | 'warning';
+  summary: string;
+  next_actions: string[];
+  artifacts: string[];
+  bundle: Record<string, any> | null;
+  sourcePath: string | null;
+  readOnly: true;
+  rejectedCandidates: number;
+}
+
 export interface IElectronAPI {
   startCaptureSession: () => Promise<void>;
   initiateRegionCapture: () => void;
@@ -1016,6 +1027,7 @@ export interface IElectronAPI {
   onCaptureSessionEnded: (callback: () => void) => () => void;
 
   getApiConfig: () => Promise<ApiConfig | null>;
+  getLatestOperationalStatusBundle: () => Promise<LatestOperationalStatusBundleResult>;
   setApiConfig: (config: ApiConfig) => Promise<void>;
   runVisionBenchmark: () => Promise<VisionBenchmarkRunResult>;
   suggestVisionLabel: (

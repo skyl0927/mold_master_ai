@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AiOrchestrationMode,
   ApiProvider,
@@ -50,7 +50,8 @@ import {
   summarizeOperationalStatusBundleDisplay
 } from '../visionOperationalHitlWorkflowDisplay';
 import {
-  extractRestorableStatusBundleArtifacts
+  extractRestorableStatusBundleArtifacts,
+  shouldAdoptOperationalStatusBundle
 } from '../operationalStatusBundle';
 
 interface SettingsModalProps {
@@ -460,6 +461,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
   const [operationalWebKnowledgeCommonAgentPackageImportStatus, setOperationalWebKnowledgeCommonAgentPackageImportStatus] = useState('');
   const [moldMasterDevelopmentProgressImportStatus, setMoldMasterDevelopmentProgressImportStatus] = useState('');
   const [operationalStatusBundleImportStatus, setOperationalStatusBundleImportStatus] = useState('');
+  const [isLoadingOperationalStatusBundle, setIsLoadingOperationalStatusBundle] = useState(false);
+  const didAttemptOperationalStatusAutoload = useRef(false);
   const [releaseOperator, setReleaseOperator] = useState('');
   const [releaseOperatorComment, setReleaseOperatorComment] = useState('');
   const [isMigratingKnowledge, setIsMigratingKnowledge] = useState(false);
@@ -829,6 +832,82 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     }
   };
 
+  const restoreOperationalStatusBundle = (bundle: any): string[] => {
+    if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
+      throw new Error('invalid operational status bundle');
+    }
+    if (bundle.serviceWritesPerformed === true) {
+      throw new Error('service writes are not allowed in a status bundle');
+    }
+    const restored = extractRestorableStatusBundleArtifacts(bundle);
+    if (restored.artifacts.developmentProgress) {
+      saveMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
+      setMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
+    }
+    if (restored.artifacts.pipelineStatus) {
+      saveOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
+      setOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
+    }
+    if (restored.artifacts.humanDecisionBrief) {
+      saveOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
+      setOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
+    }
+    if (restored.artifacts.reviewSessionPacket) {
+      saveOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
+      setOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
+    }
+    if (restored.artifacts.worktableSuggestion) {
+      saveOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
+      setOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
+    }
+    if (restored.artifacts.labelConflictReviewGuide) {
+      saveOperationalLabelConflictReviewGuide(restored.artifacts.labelConflictReviewGuide);
+    }
+    if (restored.artifacts.webKnowledgeCommonAgentPackage) {
+      saveOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
+      setOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
+    }
+    saveOperationalStatusBundle(bundle);
+    setOperationalStatusBundle(bundle);
+    return restored.restoredKeys;
+  };
+
+  const loadLatestOperationalStatusBundle = async () => {
+    if (!window.electronAPI?.getLatestOperationalStatusBundle) return;
+    setIsLoadingOperationalStatusBundle(true);
+    try {
+      const result = await window.electronAPI.getLatestOperationalStatusBundle();
+      if (result.status !== 'success' || !result.bundle) {
+        setOperationalStatusBundleImportStatus(
+          '자동 탐색: 유효한 최신 운영 상태 번들이 없습니다. JSON 수동 등록은 계속 사용할 수 있습니다.'
+        );
+        return;
+      }
+      if (!shouldAdoptOperationalStatusBundle(readOperationalStatusBundle(), result.bundle)) {
+        setOperationalStatusBundleImportStatus('로컬 운영 상태가 최신입니다.');
+        return;
+      }
+      const restoredKeys = restoreOperationalStatusBundle(result.bundle);
+      setOperationalStatusBundleImportStatus(
+        `최신 운영 상태 자동 복원 완료 · ${restoredKeys.length}개 내장 artifact · ${result.bundle.generatedAt}`
+      );
+    } catch (error) {
+      setOperationalStatusBundleImportStatus(
+        error instanceof Error
+          ? `자동 탐색 실패: ${error.message}`
+          : '자동 탐색 실패: Status Bundle JSON을 수동 등록해 주세요.'
+      );
+    } finally {
+      setIsLoadingOperationalStatusBundle(false);
+    }
+  };
+
+  useEffect(() => {
+    if (didAttemptOperationalStatusAutoload.current) return;
+    didAttemptOperationalStatusAutoload.current = true;
+    void loadLatestOperationalStatusBundle();
+  }, []);
+
   const handleOperationalStatusBundleImport = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -837,41 +916,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     if (!file) return;
     try {
       const bundle = JSON.parse(await file.text());
-      if (bundle?.contractVersion !== 'operational-status-bundle/v1') {
-        throw new Error('invalid operational status bundle');
-      }
-      const restored = extractRestorableStatusBundleArtifacts(bundle);
-      if (restored.artifacts.developmentProgress) {
-        saveMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
-        setMoldMasterDevelopmentProgress(restored.artifacts.developmentProgress);
-      }
-      if (restored.artifacts.pipelineStatus) {
-        saveOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
-        setOperationalHitlPipelineStatus(restored.artifacts.pipelineStatus);
-      }
-      if (restored.artifacts.humanDecisionBrief) {
-        saveOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
-        setOperationalHitlHumanDecisionBrief(restored.artifacts.humanDecisionBrief);
-      }
-      if (restored.artifacts.reviewSessionPacket) {
-        saveOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
-        setOperationalHitlReviewSessionPacket(restored.artifacts.reviewSessionPacket);
-      }
-      if (restored.artifacts.worktableSuggestion) {
-        saveOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
-        setOperationalHitlWorktableSuggestion(restored.artifacts.worktableSuggestion);
-      }
-      if (restored.artifacts.labelConflictReviewGuide) {
-        saveOperationalLabelConflictReviewGuide(restored.artifacts.labelConflictReviewGuide);
-      }
-      if (restored.artifacts.webKnowledgeCommonAgentPackage) {
-        saveOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
-        setOperationalWebKnowledgeCommonAgentPackage(restored.artifacts.webKnowledgeCommonAgentPackage);
-      }
-      saveOperationalStatusBundle(bundle);
-      setOperationalStatusBundle(bundle);
+      const restoredKeys = restoreOperationalStatusBundle(bundle);
       setOperationalStatusBundleImportStatus(
-        `Operational status bundle registered. Restored ${restored.restoredKeys.length} embedded artifacts.`
+        `운영 상태 번들 등록 완료 · ${restoredKeys.length}개 내장 artifact 복원`
       );
     } catch (error) {
       setOperationalStatusBundleImportStatus(
@@ -1212,6 +1259,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                       onChange={handleOperationalStatusBundleImport}
                     />
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => void loadLatestOperationalStatusBundle()}
+                    disabled={isLoadingOperationalStatusBundle}
+                    className="rounded bg-cyan-800 px-2 py-1 text-[9px] text-cyan-100 hover:bg-cyan-700 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isLoadingOperationalStatusBundle ? '최신 상태 확인 중' : '최신 상태 불러오기'}
+                  </button>
                   <label className="cursor-pointer rounded bg-emerald-800 px-2 py-1 text-[9px] text-emerald-100 hover:bg-emerald-700">
                     Web Package import
                     <input
@@ -1310,11 +1365,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                 </p>
               )}
               {operationalStatusBundleImportStatus && (
-                <p className={`mt-2 text-[9px] ${
+                <p
+                  role="status"
+                  data-testid="operational-status-autoload"
+                  className={`mt-2 text-[9px] ${
                   operationalStatusBundleImportStatus.includes('failed')
+                    || operationalStatusBundleImportStatus.includes('실패')
                     ? 'text-red-300'
+                    : operationalStatusBundleImportStatus.includes('없습니다')
+                      ? 'text-amber-300'
                     : 'text-emerald-300'
-                }`}>
+                }`}
+                >
                   {operationalStatusBundleImportStatus}
                 </p>
               )}

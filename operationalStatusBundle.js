@@ -7,6 +7,21 @@ const numberValue = value => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const operationalStatusBundleTimestamp = bundle => {
+  if (bundle?.contractVersion !== 'operational-status-bundle/v1') return null;
+  const timestamp = Date.parse(String(bundle.generatedAt || ''));
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const shouldAdoptOperationalStatusBundle = (current, candidate) => {
+  const candidateTimestamp = operationalStatusBundleTimestamp(candidate);
+  if (candidateTimestamp === null || candidate?.serviceWritesPerformed === true) return false;
+  const currentTimestamp = current?.serviceWritesPerformed === true
+    ? null
+    : operationalStatusBundleTimestamp(current);
+  return currentTimestamp === null || candidateTimestamp > currentTimestamp;
+};
+
 const isContract = (artifact, contractVersion) =>
   artifact?.contractVersion === contractVersion;
 
@@ -1160,5 +1175,6 @@ const buildOperationalStatusBundle = ({
 
 module.exports = {
   buildOperationalStatusBundle,
-  extractRestorableStatusBundleArtifacts
+  extractRestorableStatusBundleArtifacts,
+  shouldAdoptOperationalStatusBundle
 };

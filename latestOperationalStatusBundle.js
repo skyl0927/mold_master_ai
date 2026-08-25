@@ -1,5 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+  shouldAdoptOperationalStatusBundle
+} = require('./operationalStatusBundle');
 
 const CONTRACT_VERSION = 'operational-status-bundle/v1';
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
@@ -9,13 +12,6 @@ const timestampFor = bundle => {
   if (!bundle || bundle.contractVersion !== CONTRACT_VERSION) return null;
   const timestamp = Date.parse(String(bundle.generatedAt || ''));
   return Number.isFinite(timestamp) ? timestamp : null;
-};
-
-const shouldAdoptOperationalStatusBundle = (current, candidate) => {
-  const candidateTimestamp = timestampFor(candidate);
-  if (candidateTimestamp === null) return false;
-  const currentTimestamp = timestampFor(current);
-  return currentTimestamp === null || candidateTimestamp > currentTimestamp;
 };
 
 const candidatePathsFor = roots => {

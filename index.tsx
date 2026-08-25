@@ -34,6 +34,16 @@ if (!window.electronAPI) {
       const saved = localStorage.getItem('web_api_config');
       return saved ? JSON.parse(saved) : null;
     },
+    getLatestOperationalStatusBundle: async () => ({
+      status: 'warning',
+      summary: '웹 모드에서는 로컬 운영 상태 번들을 자동 탐색할 수 없습니다.',
+      next_actions: ['Settings에서 Status Bundle JSON을 직접 등록'],
+      artifacts: [],
+      bundle: null,
+      sourcePath: null,
+      readOnly: true,
+      rejectedCandidates: 0
+    }),
     setApiConfig: async (config: ApiConfig) => {
       localStorage.setItem('web_api_config', JSON.stringify(config));
       console.log("Config saved to LocalStorage (Web Mode)", config);
