@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  ANNOTATION_COMMON_GROUPS,
   ANNOTATION_RIBBON_GROUPS,
   ANNOTATION_RIBBON_TABS
 } = require('../annotationRibbon');
@@ -13,7 +14,6 @@ test('organizes annotation commands into Office-style functional tabs', () => {
       ['home', '홈'],
       ['annotate', '주석'],
       ['measure', '측정'],
-      ['format', '서식'],
       ['translate', '번역']
     ]
   );
@@ -21,10 +21,14 @@ test('organizes annotation commands into Office-style functional tabs', () => {
     ANNOTATION_RIBBON_GROUPS.measure.flatMap(group => group.commands),
     ['calibration', 'perspective-calibration', 'dimension', 'angle', 'measurement-review']
   );
+  assert.deepEqual(
+    ANNOTATION_COMMON_GROUPS.flatMap(group => group.commands),
+    ['fill-style', 'line-style', 'size', 'color']
+  );
 });
 
 test('assigns each ribbon command to exactly one functional group', () => {
-  const commands = Object.values(ANNOTATION_RIBBON_GROUPS)
+  const commands = [...Object.values(ANNOTATION_RIBBON_GROUPS), ANNOTATION_COMMON_GROUPS]
     .flatMap(groups => groups)
     .flatMap(group => group.commands);
   assert.equal(new Set(commands).size, commands.length);
