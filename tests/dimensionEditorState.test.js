@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  addMeasuredAngle,
   addMeasuredDimension,
   commitEditorHistory,
   createEditorHistory,
@@ -10,6 +11,7 @@ const {
   setActiveCalibration,
   setDimensionReviewStatus,
   undoEditorHistory,
+  updateAngleManualDisplay,
   updateDimensionManualDisplay,
   upsertCalibration
 } = require('../dimensionEditorState');
@@ -149,6 +151,24 @@ test('records dimension HITL review status without mutating other shapes', () =>
 
   assert.equal(updated.shapes[0].measurementReviewStatus, 'approved');
   assert.strictEqual(updated.shapes[1], document.shapes[1]);
+});
+
+test('adds and manually edits a two-segment angle measurement', () => {
+  const measured = addMeasuredAngle(baseDocument(), {
+    id: 'angle-1',
+    tool: 'angle',
+    color: '#ff4500',
+    lineWidth: 2,
+    points: [{ x: 0, y: 10 }, { x: 0, y: 0 }, { x: 10, y: 0 }],
+    opacity: 1,
+    style: 'outline'
+  }, { precision: 1 });
+
+  assert.equal(measured.shapes[0].text, '90.0°');
+  const edited = updateAngleManualDisplay(measured, '91.5°');
+  assert.equal(edited.shapes[0].measuredValue, 90);
+  assert.equal(edited.shapes[0].displayValue, 91.5);
+  assert.equal(edited.shapes[0].manualOverride, true);
 });
 
 test('switches active calibration only to an existing calibration', () => {
