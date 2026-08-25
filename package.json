@@ -153,6 +153,7 @@
     "test:operational-hitl-pipeline-status": "node --test tests/operationalHitlPipelineStatus.test.js",
     "test:operational-status-refresh": "node --test tests/operationalStatusRefresh.test.js",
     "test:operational-status-bundle": "node --test tests/operationalStatusBundle.test.js",
+    "test:operational-status-autoload": "node --test tests/latestOperationalStatusBundle.test.js",
     "test:vision-operational-worklist": "node --test tests/visionOperationalBlockerWorklist.test.js tests/visionOperationalCommonAgentHandoff.test.js",
     "test:vision-operational-hitl-display": "node --test tests/visionOperationalHitlWorkflowDisplay.test.js",
     "test:operational-progress": "node --test tests/moldMasterDevelopmentProgressReport.test.js",
