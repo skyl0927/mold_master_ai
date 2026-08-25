@@ -50,7 +50,7 @@ export interface TextAnnotation {
   };
 }
 
-export type ShapeTool = 'select' | 'pen' | 'rect' | 'ellipse' | 'blur' | 'step' | 'dimension' | 'line' | 'arrow' | 'image' | 'callout';
+export type ShapeTool = 'select' | 'pen' | 'rect' | 'ellipse' | 'blur' | 'step' | 'dimension' | 'angle' | 'line' | 'arrow' | 'image' | 'callout';
 
 export interface Shape {
   id: string;
@@ -74,14 +74,14 @@ export interface Shape {
   backgroundAlpha?: number;
   measuredValue?: number;
   displayValue?: number;
-  unit?: DimensionUnit | 'px';
+  unit?: DimensionUnit | 'px' | 'deg';
   precision?: number;
   calibrationId?: string;
   manualOverride?: boolean;
   legacyDimension?: boolean;
   measurementConfidence?: MeasurementConfidence;
   measurementReviewStatus?: DimensionReviewStatus;
-  measurementSource?: 'manual_calibration' | 'source_image_pixels' | 'perspective_calibration';
+  measurementSource?: 'manual_calibration' | 'source_image_pixels' | 'perspective_calibration' | 'image_geometry_angle';
   dimensionText?: string;
 }
 

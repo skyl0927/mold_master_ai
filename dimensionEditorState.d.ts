@@ -57,9 +57,19 @@ export function addMeasuredDimension(
   shape: Shape,
   options?: { precision?: number }
 ): DimensionEditorDocument;
+export function addMeasuredAngle(
+  document: DimensionEditorDocument,
+  shape: Shape,
+  options?: { precision?: number }
+): DimensionEditorDocument;
 export function updateDimensionManualDisplay(
   document: DimensionEditorDocument,
   dimensionId: string,
+  input: string
+): DimensionEditorDocument;
+export function updateAngleManualDisplay(
+  document: DimensionEditorDocument,
+  angleId: string,
   input: string
 ): DimensionEditorDocument;
 export function setDimensionReviewStatus(

@@ -165,7 +165,7 @@ test('adds and manually edits a two-segment angle measurement', () => {
   }, { precision: 1 });
 
   assert.equal(measured.shapes[0].text, '90.0°');
-  const edited = updateAngleManualDisplay(measured, '91.5°');
+  const edited = updateAngleManualDisplay(measured, 'angle-1', '91.5°');
   assert.equal(edited.shapes[0].measuredValue, 90);
   assert.equal(edited.shapes[0].displayValue, 91.5);
   assert.equal(edited.shapes[0].manualOverride, true);

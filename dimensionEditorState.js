@@ -10,6 +10,10 @@ const {
   parseDimensionDisplayInput,
   recalculateDimensions
 } = require('./dimensionMeasurement');
+const {
+  createAngleMeasurement,
+  updateAngleManualDisplay: updateAngleShapeManualDisplay
+} = require('./angleMeasurement');
 const { createPerspectiveCalibration } = require('./perspectiveMeasurement');
 
 function cloneDocument(document) {
@@ -147,6 +151,15 @@ function addMeasuredDimension(document, shape, options = {}) {
   };
 }
 
+function addMeasuredAngle(document, shape, options = {}) {
+  const measuredShape = createAngleMeasurement(shape, options);
+  return {
+    ...document,
+    shapes: [...(document.shapes || []), measuredShape],
+    coordinateSpaceVersion: IMAGE_COORDINATE_SPACE
+  };
+}
+
 function updateDimensionManualDisplay(document, dimensionId, input) {
   let updated = false;
   const shapes = (document.shapes || []).map(shape => {
@@ -170,6 +183,17 @@ function updateDimensionManualDisplay(document, dimensionId, input) {
     };
   });
   if (!updated) throw new RangeError(`dimension does not exist: ${dimensionId}`);
+  return { ...document, shapes };
+}
+
+function updateAngleManualDisplay(document, angleId, input) {
+  let updated = false;
+  const shapes = (document.shapes || []).map(shape => {
+    if (shape.id !== angleId || shape.tool !== 'angle') return shape;
+    updated = true;
+    return updateAngleShapeManualDisplay(shape, input);
+  });
+  if (!updated) throw new RangeError(`angle measurement does not exist: ${angleId}`);
   return { ...document, shapes };
 }
 
@@ -221,6 +245,7 @@ function redoEditorHistory(history) {
 }
 
 module.exports = {
+  addMeasuredAngle,
   addMeasuredDimension,
   commitEditorHistory,
   createEditorHistory,
@@ -229,6 +254,7 @@ module.exports = {
   setActiveCalibration,
   setDimensionReviewStatus,
   undoEditorHistory,
+  updateAngleManualDisplay,
   updateDimensionManualDisplay,
   upsertCalibration,
   upsertPerspectiveCalibration
