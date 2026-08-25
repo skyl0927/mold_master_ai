@@ -2551,7 +2551,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 ) : null}
 
                 {ribbonTab === 'measure' ? (
-                <div className="flex min-w-[650px] shrink-0 flex-col justify-center gap-1 border-r border-blue-800/50 px-4">
+                <div className="flex min-w-[590px] shrink-0 flex-col justify-center gap-1 border-r border-blue-800/50 px-3">
                     <div className="flex items-center gap-2">
                         <div className="mr-2 text-xs font-bold text-cyan-200">측정</div>
                         <button
@@ -2582,7 +2582,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </button>
                         <span className="text-[10px] text-blue-200/75">실치수 보정</span>
                     </div>
-                    <div className="flex items-end gap-1">
+                    <div className="flex flex-wrap items-end gap-1">
                         <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
                             기준 실제 길이
                             <input
@@ -2724,21 +2724,56 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         <button onClick={() => setTool('ellipse')} className={`p-1.5 rounded ${tool === 'ellipse' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="타원"><EllipseIcon /></button>
                         <button onClick={() => setTool('callout')} className={`p-1.5 rounded ${tool === 'callout' ? 'bg-red-700/40 ring-1 ring-red-400' : 'hover:bg-blue-700/50'}`} title="표시 도형"><CalloutIcon /></button>
                     </div>
-                    <div className="flex gap-2 mt-2">
-                        <div className="flex bg-blue-900/40 rounded p-0.5">
-                            <button onClick={() => setFillStyle('outline')} className={`p-1 rounded ${fillStyle === 'outline' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="윤곽선"><SquareOutlineIcon /></button>
-                            <button onClick={() => setFillStyle('fill')} className={`p-1 rounded ${fillStyle === 'fill' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="채우기"><SquareFillIcon /></button>
-                        </div>
-                        <div className="flex bg-blue-900/40 rounded p-0.5">
-                            <button onClick={() => setLineStyle('solid')} className={`p-1 rounded ${lineStyle === 'solid' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="실선"><LineSolidIcon /></button>
-                            <button onClick={() => setLineStyle('dashed')} className={`p-1 rounded ${lineStyle === 'dashed' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="점선"><LineDashedIcon /></button>
-                        </div>
+                </div>
+                ) : null}
+
+                {ribbonTab === 'translate' ? (
+                <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
+                    <div className="text-xs text-blue-300/80 font-bold mb-1">번역</div>
+                    <div className="flex flex-col gap-2">
+                        <select
+                            value={targetLang}
+                            onChange={(e) => setTargetLang(e.target.value)}
+                            className="bg-blue-900/40 text-white text-xs rounded px-2 py-1 border border-blue-800/50 focus:outline-none focus:ring-1 focus:ring-red-400"
+                            title="목표 언어 선택"
+                        >
+                            <option value="ko">한국어</option>
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
+                            <option value="zh">中文</option>
+                            <option value="th">ไทย</option>
+                        </select>
+                        <button
+                            onClick={handleTranslate}
+                            disabled={isTranslating}
+                            className="flex items-center justify-center gap-1 px-3 py-1 bg-red-700/60 hover:bg-red-600/70 disabled:bg-blue-900/40 text-white text-xs rounded transition-colors"
+                            title="주석을 선택한 언어로 직접 변환"
+                        >
+                            <TranslateIcon className="h-4 w-4" />
+                            <span>{isTranslating ? '번역 중...' : '변환'}</span>
+                        </button>
+                        {translationMessage && (
+                            <div className={`text-[10px] text-center px-2 py-1 rounded ${translationMessage.startsWith('✓') ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/30'
+                                }`}>
+                                {translationMessage}
+                            </div>
+                        )}
                     </div>
                 </div>
                 ) : null}
 
-                {ribbonTab === 'format' ? (
-                <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
+                <div data-testid="persistent-format-controls" className="ml-auto flex min-w-0 flex-1 items-stretch overflow-hidden border-l border-blue-700/50">
+                <div className="flex min-w-max flex-col items-center justify-center gap-1 border-r border-blue-800/50 px-2">
+                    <div className="text-xs font-bold text-blue-300/80">공통 서식</div>
+                    <div className="grid grid-cols-2 gap-1 rounded bg-blue-900/40 p-0.5">
+                        <button onClick={() => setFillStyle('outline')} className={`p-1 rounded ${fillStyle === 'outline' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="윤곽선"><SquareOutlineIcon /></button>
+                        <button onClick={() => setFillStyle('fill')} className={`p-1 rounded ${fillStyle === 'fill' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="채우기"><SquareFillIcon /></button>
+                        <button onClick={() => setLineStyle('solid')} className={`p-1 rounded ${lineStyle === 'solid' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="실선"><LineSolidIcon /></button>
+                        <button onClick={() => setLineStyle('dashed')} className={`p-1 rounded ${lineStyle === 'dashed' ? 'bg-blue-700/60 text-white shadow' : 'text-blue-300/60 hover:text-white'}`} title="점선"><LineDashedIcon /></button>
+                    </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center px-2 border-r border-blue-800/50 gap-1 min-w-max">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">크기</div>
                     <div className="flex flex-col items-center gap-1 w-full">
                         <div className="flex items-center justify-between w-full bg-blue-900/40 rounded px-2 py-1 gap-2">
@@ -2754,10 +2789,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
                     </div>
                 </div>
-                ) : null}
 
-                {ribbonTab === 'format' ? (
-                <div className="flex flex-col justify-center px-4 gap-1 flex-grow min-w-max">
+                <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-2">
                     <div className="text-xs text-blue-300/80 font-bold mb-1">색상</div>
                     <div className="flex gap-2 items-start flex-wrap">
                         {/* 색상 모드 선택 버튼들 */}
@@ -2789,7 +2822,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
 
                         {/* 팔레트 그리드 */}
-                        <div className="grid grid-cols-10 gap-1">
+                        <div className="grid grid-cols-5 gap-1">
                             {paletteColors.map((c, idx) => {
                                 const isSelected = (colorMode === 'line' && color === c) ||
                                     (colorMode === 'bg' && bgColor === c) ||
@@ -2825,43 +2858,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         </div>
                     </div>
                 </div>
-                ) : null}
-
-                {/* 번역 섹션 추가 */}
-                {ribbonTab === 'translate' ? (
-                <div className="flex flex-col items-center justify-center px-4 border-r border-blue-800/50 gap-1 min-w-max">
-                    <div className="text-xs text-blue-300/80 font-bold mb-1">번역</div>
-                    <div className="flex flex-col gap-2">
-                        <select
-                            value={targetLang}
-                            onChange={(e) => setTargetLang(e.target.value)}
-                            className="bg-blue-900/40 text-white text-xs rounded px-2 py-1 border border-blue-800/50 focus:outline-none focus:ring-1 focus:ring-red-400"
-                            title="목표 언어 선택"
-                        >
-                            <option value="ko">한국어</option>
-                            <option value="en">English</option>
-                            <option value="ja">日本語</option>
-                            <option value="zh">中文</option>
-                            <option value="th">ไทย</option>
-                        </select>
-                        <button
-                            onClick={handleTranslate}
-                            disabled={isTranslating}
-                            className="flex items-center justify-center gap-1 px-3 py-1 bg-red-700/60 hover:bg-red-600/70 disabled:bg-blue-900/40 text-white text-xs rounded transition-colors"
-                            title="주석을 선택한 언어로 직접 변환"
-                        >
-                            <TranslateIcon className="h-4 w-4" />
-                            <span>{isTranslating ? '번역 중...' : '변환'}</span>
-                        </button>
-                        {translationMessage && (
-                            <div className={`text-[10px] text-center px-2 py-1 rounded ${translationMessage.startsWith('✓') ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/30'
-                                }`}>
-                                {translationMessage}
-                            </div>
-                        )}
-                    </div>
                 </div>
-                ) : null}
 
                 </div>
             </div>

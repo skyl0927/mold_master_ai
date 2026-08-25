@@ -2,7 +2,6 @@ const ANNOTATION_RIBBON_TABS = Object.freeze([
   { id: 'home', labelKo: '홈' },
   { id: 'annotate', labelKo: '주석' },
   { id: 'measure', labelKo: '측정' },
-  { id: 'format', labelKo: '서식' },
   { id: 'translate', labelKo: '번역' }
 ]);
 
@@ -20,17 +19,19 @@ const ANNOTATION_RIBBON_GROUPS = Object.freeze({
     { id: 'reference', labelKo: '실치수 기준', commands: ['calibration', 'perspective-calibration'] },
     { id: 'measurement', labelKo: '측정', commands: ['dimension', 'angle', 'measurement-review'] }
   ],
-  format: [
-    { id: 'shape-style', labelKo: '도형 서식', commands: ['fill-style', 'line-style'] },
-    { id: 'size', labelKo: '크기', commands: ['size'] },
-    { id: 'color', labelKo: '색상', commands: ['color'] }
-  ],
   translate: [
     { id: 'language', labelKo: '주석 번역', commands: ['translate'] }
   ]
 });
 
+const ANNOTATION_COMMON_GROUPS = Object.freeze([
+  { id: 'shape-style', labelKo: '공통 서식', commands: ['fill-style', 'line-style'] },
+  { id: 'size', labelKo: '크기', commands: ['size'] },
+  { id: 'color', labelKo: '색상', commands: ['color'] }
+]);
+
 module.exports = {
+  ANNOTATION_COMMON_GROUPS,
   ANNOTATION_RIBBON_GROUPS,
   ANNOTATION_RIBBON_TABS
 };

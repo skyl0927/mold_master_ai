@@ -43,6 +43,23 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
 
     await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixturePath);
     await page.getByTitle('편집').click();
+    const expectedTabs = ['홈', '주석', '측정', '번역'];
+    const renderedTabs = await page.getByRole('tab').allTextContents();
+    if (JSON.stringify(renderedTabs) !== JSON.stringify(expectedTabs)) {
+      throw new Error(`unexpected annotation tabs: ${renderedTabs.join(', ')}`);
+    }
+    const tabCommandTitles = {
+      홈: '이미지 삽입 (Ctrl+V 또는 파일 선택)',
+      주석: '펜',
+      측정: '두 선분 사이 각도 측정',
+      번역: '주석을 선택한 언어로 직접 변환'
+    };
+    for (const tabName of expectedTabs) {
+      await page.getByRole('tab', { name: tabName }).click();
+      await page.getByTitle(tabCommandTitles[tabName]).waitFor();
+      await page.getByTestId('persistent-format-controls').waitFor();
+      await page.getByTitle('선색/도형색').waitFor();
+    }
     await page.getByRole('tab', { name: '측정' }).click();
 
     const canvas = page.locator('canvas');
@@ -89,7 +106,8 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
 
     await page.screenshot({ path: screenshot, fullPage: true });
     const output = {
-      officeRibbonTabs: await page.getByRole('tab').allTextContents(),
+      officeRibbonTabs: renderedTabs,
+      persistentFormatTabs: expectedTabs,
       referenceGuideHidden: JSON.stringify(referencePixelBefore) === JSON.stringify(referencePixelAfter),
       angleSummary: await reopenedSummary.innerText(),
       screenshot,
