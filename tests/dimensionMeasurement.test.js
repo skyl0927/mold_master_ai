@@ -247,5 +247,10 @@ test('automatically moves dimension arrows outside when the measured span is nar
 test('allows explicit inside or outside dimension arrow placement', () => {
   assert.equal(resolveDimensionArrowLayout({ span: 10, arrowSize: 10, mode: 'inside' }).placement, 'inside');
   assert.equal(resolveDimensionArrowLayout({ span: 100, arrowSize: 10, mode: 'outside' }).placement, 'outside');
+  assert.equal(resolveDimensionArrowLayout({ span: 24, arrowSize: 10, lineWidth: 2 }).placement, 'inside');
+  assert.equal(resolveDimensionArrowLayout({ span: 40, arrowSize: 10, lineWidth: 8 }).requiredInsideSpan, 36);
+  assert.equal(resolveDimensionArrowLayout({ span: 40, arrowSize: 10, lineWidth: Number.NaN }).requiredInsideSpan, 24);
   assert.throws(() => resolveDimensionArrowLayout({ span: -1, arrowSize: 10 }), /span/i);
+  assert.throws(() => resolveDimensionArrowLayout({ span: 10, arrowSize: 0 }), /arrow size/i);
+  assert.throws(() => resolveDimensionArrowLayout({ span: 10, arrowSize: 10, mode: 'sideways' }), /unsupported/i);
 });
