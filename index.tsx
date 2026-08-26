@@ -34,6 +34,19 @@ if (!window.electronAPI) {
       const saved = localStorage.getItem('web_api_config');
       return saved ? JSON.parse(saved) : null;
     },
+    writeClipboardImage: async (dataUrl: string) => {
+      const blob = await (await fetch(dataUrl)).blob();
+      const bitmap = await createImageBitmap(blob);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      const result = {
+        success: true,
+        width: bitmap.width,
+        height: bitmap.height,
+        payloadByteLength: blob.size
+      };
+      bitmap.close();
+      return result;
+    },
     getLatestOperationalStatusBundle: async () => ({
       status: 'warning',
       summary: '웹 모드에서는 로컬 운영 상태 번들을 자동 탐색할 수 없습니다.',

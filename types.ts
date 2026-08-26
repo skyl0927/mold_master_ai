@@ -1030,6 +1030,12 @@ export interface IElectronAPI {
   onCaptureSessionEnded: (callback: () => void) => () => void;
 
   getApiConfig: () => Promise<ApiConfig | null>;
+  writeClipboardImage: (dataUrl: string) => Promise<{
+    success: boolean;
+    width: number;
+    height: number;
+    payloadByteLength: number;
+  }>;
   getLatestOperationalStatusBundle: () => Promise<LatestOperationalStatusBundleResult>;
   setApiConfig: (config: ApiConfig) => Promise<void>;
   runVisionBenchmark: () => Promise<VisionBenchmarkRunResult>;

@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DimensionCalibration, DimensionUnit, Point, TextAnnotation, Shape, ShapeTool } from '../types';
-import { SaveIcon, TextIcon, PenIcon, RectangleIcon, CircleIcon, BlurIcon, NumberIcon, CursorArrowIcon, RulerIcon, CloseIcon, ScissorIcon, CopyIcon, EyeDropperIcon, PaletteIcon, SquareOutlineIcon, SquareFillIcon, LineSolidIcon, LineDashedIcon, DiagonalLineIcon, CalloutIcon, ImageIcon, ArrowIcon, EllipseIcon, AngleIcon, UndoIcon, RedoIcon, TranslateIcon } from './Icons';
+import { SaveIcon, TextIcon, PenIcon, RectangleIcon, CircleIcon, BlurIcon, NumberIcon, CursorArrowIcon, RulerIcon, CloseIcon, ScissorIcon, CopyIcon, EyeDropperIcon, PaletteIcon, SquareOutlineIcon, SquareFillIcon, LineSolidIcon, LineDashedIcon, DiagonalLineIcon, CalloutIcon, ImageIcon, ArrowIcon, EllipseIcon, AngleIcon, UndoIcon, RedoIcon, TranslateIcon, SpinnerIcon } from './Icons';
 import { translateText } from '../services/aiService';
 import {
     applyCalibrationToDimension,
@@ -219,6 +219,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [nextStepNumber, setNextStepNumber] = useState(1);
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
+    const [clipboardMessage, setClipboardMessage] = useState('');
+    const [isWritingClipboard, setIsWritingClipboard] = useState(false);
     const [calibrationLengthInput, setCalibrationLengthInput] = useState('');
     const [perspectiveWidthInput, setPerspectiveWidthInput] = useState('');
     const [perspectiveHeightInput, setPerspectiveHeightInput] = useState('');
@@ -793,12 +795,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         const tx = labelPoint.x;
         const ty = labelPoint.y;
 
-        if (shape.text && editTextState?.id !== shape.id) {
+        const displayText = isSaving && editTextState?.id === shape.id ? editTextState.text : shape.text;
+        if (displayText && (isSaving || editTextState?.id !== shape.id)) {
             const textSize = shape.fontSize || 16;
             ctx.font = `bold ${textSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const metrics = ctx.measureText(shape.text);
+            const metrics = ctx.measureText(displayText);
             const padding = 4;
             const bx = -metrics.width / 2 - padding;
             const by = -(textSize / 2) - padding;
@@ -819,7 +822,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             ctx.strokeRect(bx, by, bw, bh);
 
             ctx.fillStyle = shape.textColor || '#111827';
-            ctx.fillText(shape.text, 0, 0);
+            ctx.fillText(displayText, 0, 0);
 
             if (isSelected && draggingPart === 'text' && !isSaving) {
                 ctx.strokeStyle = 'cyan';
@@ -863,12 +866,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         ctx.stroke();
 
         const labelPoint = getAngleLabelPoint(shape);
-        if (shape.text && editTextState?.id !== shape.id) {
+        const displayText = isSaving && editTextState?.id === shape.id ? editTextState.text : shape.text;
+        if (displayText && (isSaving || editTextState?.id !== shape.id)) {
             const textSize = shape.fontSize || 16;
             ctx.font = `bold ${textSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const metrics = ctx.measureText(shape.text);
+            const metrics = ctx.measureText(displayText);
             const padding = 4;
             const bounds = {
                 x: labelPoint.x - metrics.width / 2 - padding,
@@ -884,7 +888,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             ctx.lineWidth = 1;
             ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
             ctx.fillStyle = shape.textColor || '#111827';
-            ctx.fillText(shape.text, labelPoint.x, labelPoint.y);
+            ctx.fillText(displayText, labelPoint.x, labelPoint.y);
             if (isSelected && draggingPart === 'text' && !isSaving) {
                 ctx.strokeStyle = '#22D3EE';
                 ctx.lineWidth = 2;
@@ -1329,41 +1333,44 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
         annotations.forEach(ann => {
             const isEditing = editTextState?.id === ann.id;
+            const visibleAnnotation = isSaving && isEditing
+                ? { ...ann, text: editTextState.text }
+                : ann;
 
             // Note: Arrows are now Shapes, so 'ann.arrow' logic is removed or ignored for new drawings.
             // Keeping legacy rendering support if needed, but for "Arrow Tool" specifically we use Shapes.
             // If legacy annotations exist with arrows, they can be kept here or migrated.
             // Given user request is to fix the tool behavior, we focus on the Tool logic.
 
-            if (ann.text && !isEditing) {
+            if (visibleAnnotation.text && (isSaving || !isEditing)) {
                 ctx.save();
-                const isSelected = selectedAnnotationId === ann.id;
+                const isSelected = selectedAnnotationId === visibleAnnotation.id;
 
                 if (isSelected && draggingPart === 'text' && !isSaving) {
                     ctx.shadowColor = 'cyan';
                     ctx.shadowBlur = 10;
                 }
 
-                ctx.font = `bold ${ann.fontSize}px Arial`;
+                ctx.font = `bold ${visibleAnnotation.fontSize}px Arial`;
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'bottom'; // 기준선은 바텀
-                const layout = getAnnotationLayout(ctx, ann);
+                const layout = getAnnotationLayout(ctx, visibleAnnotation);
 
                 ctx.translate(layout.center.x, layout.center.y);
-                ctx.rotate(ann.textRotation || 0);
+                ctx.rotate(visibleAnnotation.textRotation || 0);
                 const boxLeft = layout.left - layout.center.x;
                 const boxTop = layout.top - layout.center.y;
 
-                ctx.fillStyle = ann.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // 배경색
+                ctx.fillStyle = visibleAnnotation.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // 배경색
                 ctx.fillRect(boxLeft, boxTop, layout.width, layout.height);
 
                 // 텍스트 그리기
-                ctx.fillStyle = ann.textColor || 'white'; // 글자색
+                ctx.fillStyle = visibleAnnotation.textColor || 'white'; // 글자색
 
                 layout.lines.forEach((line, index) => {
                     // 각 줄의 Y 좌표: 첫 줄은 y, 그 다음부터 lineHeight만큼 추가
-                    const lineY = ann.textPos.y + (index * layout.lineHeight);
-                    ctx.fillText(line, ann.textPos.x - layout.center.x, lineY - layout.center.y);
+                    const lineY = visibleAnnotation.textPos.y + (index * layout.lineHeight);
+                    ctx.fillText(line, visibleAnnotation.textPos.x - layout.center.x, lineY - layout.center.y);
                 });
 
                 // 선택 테두리
@@ -2526,6 +2533,40 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         });
     };
 
+    const renderClipboardDataUrl = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) throw new Error('편집 이미지를 렌더링할 수 없습니다.');
+        draw(ctx, true);
+        try {
+            return canvas.toDataURL('image/png');
+        } finally {
+            draw(ctx, false);
+        }
+    };
+
+    const handleWriteClipboard = async () => {
+        if (isWritingClipboard) return;
+        setIsWritingClipboard(true);
+        setClipboardMessage('');
+        try {
+            const dataUrl = renderClipboardDataUrl();
+            if (window.electronAPI?.writeClipboardImage) {
+                const result = await window.electronAPI.writeClipboardImage(dataUrl);
+                setClipboardMessage(`클립보드 저장 완료 · ${result.width} × ${result.height}px`);
+            } else {
+                const blob = await (await fetch(dataUrl)).blob();
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                setClipboardMessage('클립보드 저장 완료');
+            }
+        } catch (error) {
+            setClipboardMessage(`클립보드 저장 실패 · ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+        } finally {
+            setIsWritingClipboard(false);
+            window.setTimeout(() => setClipboardMessage(''), 3500);
+        }
+    };
+
     const handleSave = () => {
         if (editTextState) handleInputCommit();
         const canvas = canvasRef.current;
@@ -2588,6 +2629,17 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                         <button onClick={handleSave} className="flex flex-col items-center p-2 rounded hover:bg-blue-700/50 text-gray-200" title="저장">
                             <SaveIcon className="w-6 h-6" />
                             <span className="text-xs mt-1">저장</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleWriteClipboard}
+                            disabled={isWritingClipboard}
+                            className="flex w-20 flex-col items-center rounded p-2 text-gray-200 hover:bg-cyan-800/60 disabled:cursor-wait disabled:opacity-60"
+                            title="클립보드 저장"
+                            aria-label="클립보드 저장하기"
+                        >
+                            {isWritingClipboard ? <SpinnerIcon className="h-6 w-6" /> : <CopyIcon className="h-6 w-6" />}
+                            <span className="mt-1 text-xs">클립보드</span>
                         </button>
                         <button onClick={onCancel} className="flex flex-col items-center p-2 rounded hover:bg-blue-700/50 text-gray-200" title="취소">
                             <CloseIcon className="w-6 h-6" />
@@ -3075,6 +3127,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     )}
                 </div>
             </div>
+            {clipboardMessage && (
+                <div
+                    role="status"
+                    data-testid="clipboard-write-status"
+                    className={`fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full border px-5 py-2 text-sm font-bold shadow-xl ${clipboardMessage.startsWith('클립보드 저장 실패') ? 'border-red-500 bg-red-950 text-red-100' : 'border-emerald-500 bg-emerald-950 text-emerald-100'}`}
+                >
+                    {clipboardMessage}
+                </div>
+            )}
         </div>
     );
 };

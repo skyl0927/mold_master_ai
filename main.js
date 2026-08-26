@@ -1,5 +1,5 @@
 
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, dialog, globalShortcut, safeStorage, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, dialog, globalShortcut, safeStorage, nativeImage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Menu } = require('electron');
@@ -18,6 +18,7 @@ const { scanLocalVisionCandidates } = require('./localVisionCandidate');
 const { buildMigrationGateStatus } = require('./migrationGateStatus');
 const { retryAsync } = require('./retryAsync');
 const { withRuntimeEndpointDefaults } = require('./apiConfigDefaults');
+const { parseClipboardPngDataUrl } = require('./clipboardImagePayload');
 const {
     loadLatestOperationalStatusBundle
 } = require('./latestOperationalStatusBundle');
@@ -683,6 +684,19 @@ ipcMain.handle('DEBUG_CAPTURE_POINTER', (event, payload) => {
 });
 
 ipcMain.handle('GET_API_CONFIG', () => withRuntimeEndpointDefaults(apiConfig));
+ipcMain.handle('WRITE_CLIPBOARD_IMAGE', (_event, dataUrl) => {
+    const payload = parseClipboardPngDataUrl(dataUrl);
+    const image = nativeImage.createFromDataURL(payload.dataUrl);
+    if (image.isEmpty()) throw new Error('clipboard PNG could not be decoded');
+    clipboard.writeImage(image);
+    const size = image.getSize();
+    return {
+        success: true,
+        width: size.width,
+        height: size.height,
+        payloadByteLength: payload.payloadByteLength
+    };
+});
 ipcMain.handle('GET_LATEST_OPERATIONAL_STATUS_BUNDLE', () => {
     const configuredRoot = String(
         process.env.MOLD_MASTER_OPERATIONAL_ARTIFACT_ROOT || ''
