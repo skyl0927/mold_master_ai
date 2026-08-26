@@ -59,6 +59,11 @@ import {
 } from './captureSessionProtocol';
 import { buildVisionBboxAnnotationPayloads, VisionBboxReviewSubmission } from './visionBboxAnnotation';
 import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatus';
+import {
+    INSPECTION_CARD_TABS,
+    toggleInspectionCardPanel
+} from './inspectionCardPanel';
+import type { InspectionCardPanel } from './inspectionCardPanel';
 
 interface EditingState {
     id?: string;
@@ -246,6 +251,7 @@ const App: React.FC = () => {
     const [serverHealth, setServerHealth] = useState<ServerHealthStatus | null>(null);
 
     const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+    const [openInspectionCardPanels, setOpenInspectionCardPanels] = useState<Record<string, InspectionCardPanel | undefined>>({});
     const [copyNotification, setCopyNotification] = useState('');
 
     const [loadedDocs, setLoadedDocs] = useState<string[]>([]);
@@ -1237,6 +1243,41 @@ const App: React.FC = () => {
         ));
     };
 
+    const toggleCardPanel = (imageId: string, panel: InspectionCardPanel) => {
+        setOpenInspectionCardPanels(previous => toggleInspectionCardPanel(previous, imageId, panel));
+    };
+
+    const openImageEditor = (image: CapturedImage) => {
+        setEditingState({
+            id: image.id,
+            baseImageUrl: image.baseImageUrl,
+            renderedImageUrl: image.dataUrl,
+            annotations: image.annotations,
+            shapes: image.shapes,
+            dimensionCalibrations: image.dimensionCalibrations,
+            activeDimensionCalibrationId: image.activeDimensionCalibrationId,
+            coordinateSpaceVersion: image.coordinateSpaceVersion,
+            captureSessionId: image.captureSessionId,
+            captureViewTag: image.captureViewTag,
+            captureImageKind: image.captureImageKind,
+            captureSource: image.captureSource
+        });
+    };
+
+    const deleteCapturedImage = (imageId: string) => {
+        setCapturedImages(previous => previous.filter(image => image.id !== imageId));
+        setSelectedImageIds(previous => {
+            const next = new Set(previous);
+            next.delete(imageId);
+            return next;
+        });
+        setOpenInspectionCardPanels(previous => {
+            const next = { ...previous };
+            delete next[imageId];
+            return next;
+        });
+    };
+
     const handleMergeSelectedCaptureEvidence = () => {
         const plan = buildCaptureEvidenceMergePlan({
             images: capturedImages,
@@ -1866,254 +1907,228 @@ const App: React.FC = () => {
                             <p>이미지를 드래그하거나 클릭하여 분석을 시작하세요.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                             {capturedImages.map((image, index) => {
                                 const isSel = selectedImageIds.has(image.id);
                                 const isThisAnalyzing = isAnalyzing.has(image.id);
                                 const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
                                 const captureSummary = summarizeCaptureSession(capturedImages, image.captureSessionId);
+                                const activePanel = openInspectionCardPanels[image.id];
+                                const sampleLabel = `Sample ${index + 1}`;
                                 return (
-                                    <div key={image.id}
+                                    <div
+                                        key={image.id}
+                                        data-testid="inspection-image-card"
                                         draggable
                                         onDragStart={() => handleDragStart(index)}
                                         onDragEnter={() => handleDragEnter(index)}
                                         onDrop={handleDropSort}
                                         onDragEnd={handleDragEnd}
-                                        className={`relative group bg-gray-800 rounded-xl overflow-hidden shadow-xl border transition-all hover:border-indigo-500 ${isSel ? 'ring-2 ring-indigo-500' : ''} ${isAdmin ? 'border-yellow-500/50' : 'border-gray-700'}`}>
+                                        className={`group relative self-start overflow-hidden rounded-xl border bg-gray-800 shadow-lg transition-all hover:border-indigo-500 ${isSel ? 'ring-2 ring-indigo-500' : ''} ${isAdmin ? 'border-yellow-500/50' : 'border-gray-700'}`}
+                                    >
 
-                                        <div className="absolute top-3 left-3 z-20">
-                                            <input type="checkbox" checked={isSel} onChange={() => toggleImageSelection(image.id)} className="w-5 h-5 rounded bg-gray-900/80 border-gray-500 checked:bg-indigo-600 cursor-pointer" />
-                                        </div>
-
-                                        {isAdmin && (
-                                            <div className="absolute top-3 right-3 z-20 pointer-events-none">
-                                                <div className="w-2 h-2 rounded-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.8)]"></div>
+                                        <div data-testid="inspection-image-preview" className="relative flex h-36 items-center justify-center overflow-hidden bg-black">
+                                            <img src={image.dataUrl} className="h-full w-full object-contain" alt={`${sampleLabel} 미리보기`} />
+                                            <div className="absolute left-2 top-2 z-20">
+                                                <input
+                                                    aria-label={`${sampleLabel} 선택`}
+                                                    type="checkbox"
+                                                    checked={isSel}
+                                                    onChange={() => toggleImageSelection(image.id)}
+                                                    className="h-5 w-5 cursor-pointer rounded border-gray-500 bg-gray-900/80 checked:bg-indigo-600"
+                                                />
                                             </div>
-                                        )}
-
-                                        <div className="h-48 bg-black flex items-center justify-center overflow-hidden relative">
-                                            <img src={image.dataUrl} className="w-full h-full object-contain" alt="" />
+                                            <div className="absolute right-2 top-2 z-20 flex gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openImageEditor(image)}
+                                                    className="rounded-md border border-gray-600 bg-gray-900/90 p-1.5 text-gray-100 shadow hover:border-cyan-400 hover:text-cyan-200"
+                                                    title={`${sampleLabel} 편집`}
+                                                    aria-label={`${sampleLabel} 편집`}
+                                                >
+                                                    <EditIcon className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => deleteCapturedImage(image.id)}
+                                                    className="rounded-md border border-gray-600 bg-gray-900/90 p-1.5 text-gray-100 shadow hover:border-red-500 hover:bg-red-950/90 hover:text-red-300"
+                                                    title={`${sampleLabel} 삭제`}
+                                                    aria-label={`${sampleLabel} 삭제`}
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                            {isAdmin && <span className="absolute left-1/2 top-3 h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.8)]" />}
                                             <div className="absolute bottom-2 right-2">
                                                 {isThisAnalyzing ? (
-                                                    <span className="bg-indigo-900/90 text-indigo-100 text-xs font-bold px-2 py-1 rounded border border-indigo-700 shadow-sm flex items-center gap-1">
-                                                        <SpinnerIcon className="w-3 h-3" /> 분석 중...
+                                                    <span className="flex items-center gap-1 rounded border border-indigo-700 bg-indigo-900/90 px-2 py-1 text-[10px] font-bold text-indigo-100 shadow-sm">
+                                                        <SpinnerIcon className="h-3 w-3" /> 분석 중
                                                     </span>
                                                 ) : image.analysis ? (
-                                                    <span className="bg-green-900/90 text-green-100 text-xs font-bold px-2 py-1 rounded border border-green-700 shadow-sm">진단 완료</span>
+                                                    <span className="rounded border border-green-700 bg-green-900/90 px-2 py-1 text-[10px] font-bold text-green-100 shadow-sm">진단 완료</span>
                                                 ) : image.analysisError ? (
-                                                    <span className="bg-red-900/90 text-red-100 text-xs font-bold px-2 py-1 rounded border border-red-700">오류</span>
+                                                    <span className="rounded border border-red-700 bg-red-900/90 px-2 py-1 text-[10px] font-bold text-red-100">오류</span>
                                                 ) : (
-                                                    <span className="bg-gray-900/80 text-gray-300 text-xs px-2 py-1 rounded border border-gray-700">미진단</span>
+                                                    <span className="rounded border border-gray-700 bg-gray-900/80 px-2 py-1 text-[10px] text-gray-300">미진단</span>
                                                 )}
                                             </div>
                                         </div>
 
-                                         <div className="p-4">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <h3 className="text-white font-bold text-sm truncate w-32">{image.analysis?.defectType || `Sample #${index + 1}`}</h3>
-                                                    <p className="text-xs text-gray-500">{image.analysis?.severity ? `${image.analysis.severity} Severity` : '분석 대기중'}</p>
-                                                    {image.analysis?.retrievalSummary && (
-                                                        <p className="text-[11px] text-sky-300 mt-1">
-                                                            {image.analysis.retrievalSummary.modeUsed} · {image.analysis.retrievalSummary.evidenceCount} evidence
-                                                        </p>
-                                                    )}
-                                                    {image.visionQuality && (
-                                                        <p className={`mt-1 text-[11px] ${
-                                                            image.visionQuality.status === 'pass'
-                                                                ? 'text-emerald-300'
-                                                                : image.visionQuality.status === 'warn'
-                                                                    ? 'text-amber-300'
-                                                                    : 'text-red-300'
-                                                        }`}>
-                                                            사진 품질 {image.visionQuality.score}점 · {
-                                                                image.visionQuality.status === 'pass'
-                                                                    ? '적합'
-                                                                    : image.visionQuality.status === 'warn'
-                                                                        ? '주의'
-                                                                        : '재촬영 필요'
-                                                            }
-                                                        </p>
-                                                    )}
-                                                    {image.analysis?.visionSummary && (
-                                                        <p className={`mt-1 text-[11px] ${
-                                                            image.analysis.visionSummary.decisionStatus === 'probable'
-                                                                ? 'text-cyan-300'
-                                                                : 'text-amber-300'
-                                                        }`}>
-                                                            비전 후보 {image.analysis.visionSummary.candidates.length}개 · {
-                                                                image.analysis.visionSummary.decisionStatus === 'probable'
-                                                                    ? '유력'
-                                                                    : image.analysis.visionSummary.decisionStatus === 'needs_review'
-                                                                        ? '사람 검토 필요'
-                                                                        : '판정 보류'
-                                                            }
-                                                        </p>
-                                                    )}
+                                        <div className="p-3">
+                                            <div className="flex min-w-0 items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <h3 className="truncate text-sm font-bold text-white">{image.analysis?.defectType || `Sample #${index + 1}`}</h3>
+                                                    <p className="truncate text-[10px] text-gray-500">
+                                                        {image.analysis?.severity ? `${image.analysis.severity} Severity` : '분석 대기중'}
+                                                    </p>
                                                 </div>
-                                             </div>
+                                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${captureAssessment.ready ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-200'}`}>
+                                                    {captureAssessment.ready ? '촬영 완료' : '정보 필요'}
+                                                </span>
+                                            </div>
 
-                                            {image.visionQuality && image.visionQuality.issues.length > 0 && (
-                                                <div className={`mb-3 rounded-lg border px-3 py-2 text-[11px] ${
-                                                    image.visionQuality.canAnalyze
-                                                        ? 'border-amber-700/50 bg-amber-950/20 text-amber-200'
-                                                        : 'border-red-700/60 bg-red-950/30 text-red-200'
-                                                }`}>
-                                                    {image.visionQuality.issues.map(issue => issue.message).join(' ')}
+                                            <div data-testid="inspection-card-tabs" role="tablist" aria-label={`${sampleLabel} 상세 기능`} className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-gray-900/80 p-1">
+                                                {INSPECTION_CARD_TABS.map(tab => {
+                                                    const isActive = activePanel === tab.id;
+                                                    const indicatorClass = tab.id === 'capture'
+                                                        ? (captureAssessment.ready ? 'bg-emerald-400' : 'bg-amber-400')
+                                                        : tab.id === 'phenomenon'
+                                                            ? (image.phenomenonDescription?.trim() ? 'bg-cyan-400' : 'bg-gray-600')
+                                                            : image.analysisError
+                                                                ? 'bg-red-400'
+                                                                : image.analysis
+                                                                    ? 'bg-emerald-400'
+                                                                    : isThisAnalyzing
+                                                                        ? 'bg-indigo-400'
+                                                                        : 'bg-gray-600';
+                                                    return (
+                                                        <button
+                                                            key={tab.id}
+                                                            type="button"
+                                                            role="tab"
+                                                            aria-selected={isActive}
+                                                            aria-label={`${sampleLabel} ${tab.labelKo} 탭`}
+                                                            onClick={() => toggleCardPanel(image.id, tab.id)}
+                                                            className={`flex items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-bold transition-colors ${isActive ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100'}`}
+                                                        >
+                                                            <span className={`h-1.5 w-1.5 rounded-full ${indicatorClass}`} />
+                                                            {tab.labelKo}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {activePanel === 'capture' && (
+                                                <div data-testid="inspection-card-panel" role="tabpanel" className={`mt-3 rounded-lg border px-3 py-3 ${captureAssessment.ready ? 'border-emerald-800/70 bg-emerald-950/20' : 'border-amber-800/70 bg-amber-950/20'}`}>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={`text-[11px] font-bold ${captureAssessment.ready ? 'text-emerald-300' : 'text-amber-200'}`}>
+                                                            {captureAssessment.ready ? '촬영 프로토콜 충족' : '촬영 정보 확인 필요'}
+                                                        </span>
+                                                        <span className="font-mono text-[9px] text-gray-500" title={image.captureSessionId}>
+                                                            {image.captureSessionId?.slice(-10) || '세션 없음'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-1 text-[10px] leading-4 text-gray-400">{captureAssessment.message}</p>
+                                                    {image.visionQuality && image.visionQuality.issues.length > 0 && (
+                                                        <p className={`mt-2 rounded border px-2 py-1.5 text-[10px] ${image.visionQuality.canAnalyze ? 'border-amber-800/60 text-amber-200' : 'border-red-800/60 text-red-200'}`}>
+                                                            {image.visionQuality.issues.map(issue => issue.message).join(' ')}
+                                                        </p>
+                                                    )}
+                                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                                        <label>
+                                                            <span className="mb-1 block text-[9px] font-bold text-gray-500">이미지 종류</span>
+                                                            <select
+                                                                aria-label={`${sampleLabel} 이미지 종류`}
+                                                                value={image.captureImageKind || 'unknown'}
+                                                                onChange={event => updateImageCaptureMetadata(image.id, { captureImageKind: event.target.value as CaptureImageKind })}
+                                                                className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
+                                                            >
+                                                                <option value="physical_product">실제 성형품</option>
+                                                                <option value="document_or_diagram">문서·도면</option>
+                                                                <option value="unknown">종류 미지정</option>
+                                                            </select>
+                                                        </label>
+                                                        <label>
+                                                            <span className="mb-1 block text-[9px] font-bold text-gray-500">촬영 시점</span>
+                                                            <select
+                                                                aria-label={`${sampleLabel} 촬영 시점`}
+                                                                value={image.captureViewTag || ''}
+                                                                onChange={event => updateImageCaptureMetadata(image.id, { captureViewTag: (event.target.value || undefined) as CaptureViewTag | undefined })}
+                                                                className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
+                                                            >
+                                                                <option value="">시점 선택</option>
+                                                                {CAPTURE_VIEW_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                                            </select>
+                                                        </label>
+                                                    </div>
+                                                    <p className="mt-2 text-[9px] text-gray-500">세션 {captureSummary.imageCount}장 · 확보 시점 {captureSummary.availableViews.length}/2</p>
                                                 </div>
                                             )}
 
-                                            <div className={`mb-3 rounded-lg border px-3 py-3 ${
-                                                captureAssessment.ready
-                                                    ? 'border-emerald-800/70 bg-emerald-950/20'
-                                                    : 'border-amber-800/70 bg-amber-950/20'
-                                            }`}>
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className={`text-[11px] font-bold ${
-                                                        captureAssessment.ready ? 'text-emerald-300' : 'text-amber-200'
-                                                    }`}>
-                                                        {captureAssessment.ready ? '촬영 프로토콜 충족' : '촬영 정보 확인 필요'}
-                                                    </span>
-                                                    <span className="font-mono text-[9px] text-gray-500" title={image.captureSessionId}>
-                                                        {image.captureSessionId?.slice(-10) || '세션 없음'}
-                                                    </span>
+                                            {activePanel === 'phenomenon' && (
+                                                <div data-testid="inspection-card-panel" role="tabpanel" className="mt-3 rounded-lg border border-cyan-900/70 bg-cyan-950/10 p-3">
+                                                    <textarea
+                                                        aria-label={`${sampleLabel} 현상 설명`}
+                                                        value={image.phenomenonDescription || ''}
+                                                        onChange={event => {
+                                                            const phenomenonDescription = event.target.value;
+                                                            setCapturedImages(previous => previous.map(item => item.id === image.id
+                                                                ? { ...item, phenomenonDescription, analysis: undefined, analysisError: undefined }
+                                                                : item));
+                                                        }}
+                                                        rows={3}
+                                                        maxLength={1200}
+                                                        placeholder="예: 리브 주변 백화, 취출 시 딱 소리, 사출 조건 정상 범위"
+                                                        className="w-full resize-y rounded-lg border border-gray-700 bg-gray-900/80 px-3 py-2 text-xs text-gray-100 outline-none placeholder:text-gray-600 focus:border-cyan-500"
+                                                    />
+                                                    <span className="mt-1 block text-[9px] text-gray-500">사진, ROI, 주석과 함께 Graph 진단에 사용됩니다.</span>
                                                 </div>
-                                                <p className="mt-1 text-[10px] leading-4 text-gray-400">
-                                                    {captureAssessment.message}
-                                                </p>
-                                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                                    <label>
-                                                        <span className="mb-1 block text-[9px] font-bold text-gray-500">이미지 종류</span>
-                                                        <select
-                                                            aria-label={`Sample ${index + 1} 이미지 종류`}
-                                                            value={image.captureImageKind || 'unknown'}
-                                                            onChange={event => updateImageCaptureMetadata(image.id, {
-                                                                captureImageKind: event.target.value as CaptureImageKind
-                                                            })}
-                                                            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
-                                                        >
-                                                            <option value="physical_product">실제 성형품</option>
-                                                            <option value="document_or_diagram">문서·도면</option>
-                                                            <option value="unknown">종류 미지정</option>
-                                                        </select>
-                                                    </label>
-                                                    <label>
-                                                        <span className="mb-1 block text-[9px] font-bold text-gray-500">촬영 시점</span>
-                                                        <select
-                                                            aria-label={`Sample ${index + 1} 촬영 시점`}
-                                                            value={image.captureViewTag || ''}
-                                                            onChange={event => updateImageCaptureMetadata(image.id, {
-                                                                captureViewTag: (event.target.value || undefined) as CaptureViewTag | undefined
-                                                            })}
-                                                            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[10px] text-gray-200 outline-none focus:border-cyan-500"
-                                                        >
-                                                            <option value="">시점 선택</option>
-                                                            {CAPTURE_VIEW_OPTIONS.map(option => (
-                                                                <option key={option.value} value={option.value}>{option.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    </label>
-                                                </div>
-                                                <p className="mt-2 text-[9px] text-gray-500">
-                                                    세션 {captureSummary.imageCount}장 · 확보 시점 {captureSummary.availableViews.length}/2
-                                                </p>
-                                            </div>
+                                            )}
 
-                                            <label className="block mb-3">
-                                                <span className="mb-1 block text-[11px] font-bold text-cyan-200">현상 설명</span>
-                                                <textarea
-                                                    aria-label={`Sample ${index + 1} 현상 설명`}
-                                                    value={image.phenomenonDescription || ''}
-                                                    onChange={(event) => {
-                                                        const phenomenonDescription = event.target.value;
-                                                        setCapturedImages(previous => previous.map(item =>
-                                                            item.id === image.id
-                                                                ? {
-                                                                    ...item,
-                                                                    phenomenonDescription,
-                                                                    analysis: undefined,
-                                                                    analysisError: undefined
-                                                                }
-                                                                : item
-                                                        ));
-                                                    }}
-                                                    rows={2}
-                                                    maxLength={1200}
-                                                    placeholder="예: 리브 주변 백화, 취출 시 딱 소리, 사출 조건 정상 범위"
-                                                    className="w-full resize-y rounded-lg border border-gray-700 bg-gray-900/80 px-3 py-2 text-xs text-gray-100 outline-none transition-colors placeholder:text-gray-600 focus:border-cyan-500"
-                                                />
-                                                <span className="mt-1 block text-[10px] text-gray-500">
-                                                    사진, ROI, 주석과 함께 Common Agent Graph 진단에 사용됩니다.
-                                                </span>
-                                            </label>
-
-                                             <div className="flex gap-2 mt-2">
-                                                <button
-                                                    onClick={() => handleAnalyzeClick(image.id)}
-                                                    disabled={isThisAnalyzing || (!captureAssessment.ready && !image.analysis)}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${image.analysis ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                                >
-                                                    {isThisAnalyzing ? <SpinnerIcon className="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
-                                                    {isThisAnalyzing ? '분석 중' : (image.analysis ? '결과 보기' : (image.shapes && image.shapes.length > 0 ? 'ROI 진단' : 'AI 진단'))}
-                                                </button>
-                                                <button onClick={() => setEditingState({
-                                                    id: image.id,
-                                                    baseImageUrl: image.baseImageUrl,
-                                                    renderedImageUrl: image.dataUrl,
-                                                    annotations: image.annotations,
-                                                    shapes: image.shapes,
-                                                    dimensionCalibrations: image.dimensionCalibrations,
-                                                    activeDimensionCalibrationId: image.activeDimensionCalibrationId,
-                                                    coordinateSpaceVersion: image.coordinateSpaceVersion,
-                                                    captureSessionId: image.captureSessionId,
-                                                    captureViewTag: image.captureViewTag,
-                                                    captureImageKind: image.captureImageKind,
-                                                    captureSource: image.captureSource
-                                                })} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="편집">
-                                                    <EditIcon className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => { setCapturedImages(prev => prev.filter(i => i.id !== image.id)); setSelectedImageIds(p => { const n = new Set(p); n.delete(image.id); return n; }) }} className="p-2 bg-gray-700 hover:bg-red-900/50 hover:text-red-400 rounded-lg text-gray-300" title="삭제">
-                                                    <TrashIcon className="w-4 h-4" />
-                                                </button>
-                                            </div>
-
-                                            {/* RAG 기능 버튼 */}
-                                            <div className="mt-2">
-                                                <button
-                                                    onClick={() => handleGraphAnalyzeClick(image.id)}
-                                                    disabled={isThisAnalyzing || !captureAssessment.ready}
-                                                    className="w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors bg-sky-700 hover:bg-sky-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title="Graph 경로 기반 추론"
-                                                >
-                                                    <SparklesIcon className="w-4 h-4" />
-                                                    Graph 추론
-                                                </button>
-                                            </div>
-                                            <div className="mt-2">
-                                                <button
-                                                    onClick={() => handleCommonAgentSync(image.id)}
-                                                    disabled={isThisAnalyzing || serverHealth?.agent === 'offline' || !captureAssessment.ready}
-                                                    className="w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title="Common Agent 이미지 진단 및 ROI 주석 동기화"
-                                                >
-                                                    {isThisAnalyzing ? <SpinnerIcon className="w-4 h-4" /> : <BotIcon className="w-4 h-4" />}
-                                                    {image.commonAgentStatus === 'synced' ? 'Agent 동기화 완료' : 'Agent 동기화'}
-                                                </button>
-                                                {image.commonAgentImageId && (
-                                                    <div className="mt-1 flex items-center gap-2">
-                                                        <p className="min-w-0 flex-1 text-[11px] text-blue-300 truncate" title={image.commonAgentImageId}>
-                                                            {image.commonAgentImageId} · ROI {image.commonAgentAnnotationCount || 0}
-                                                        </p>
+                                            {activePanel === 'analysis' && (
+                                                <div data-testid="inspection-card-panel" role="tabpanel" className="mt-3 rounded-lg border border-indigo-900/70 bg-indigo-950/10 p-3">
+                                                    <div className="mb-2 flex flex-wrap gap-1 text-[9px]">
+                                                        {image.analysis?.retrievalSummary && <span className="rounded bg-sky-950 px-2 py-1 text-sky-300">{image.analysis.retrievalSummary.modeUsed} · 근거 {image.analysis.retrievalSummary.evidenceCount}</span>}
+                                                        {image.visionQuality && <span className={`rounded px-2 py-1 ${image.visionQuality.status === 'pass' ? 'bg-emerald-950 text-emerald-300' : image.visionQuality.status === 'warn' ? 'bg-amber-950 text-amber-300' : 'bg-red-950 text-red-300'}`}>사진 품질 {image.visionQuality.score}점</span>}
+                                                        {image.analysis?.visionSummary && <span className="rounded bg-cyan-950 px-2 py-1 text-cyan-300">비전 후보 {image.analysis.visionSummary.candidates.length}개</span>}
+                                                    </div>
+                                                    {image.analysisError && <p className="mb-2 rounded border border-red-800/70 bg-red-950/30 px-2 py-1.5 text-[10px] text-red-200">{image.analysisError}</p>}
+                                                    <div className="grid grid-cols-3 gap-1.5">
                                                         <button
-                                                            onClick={() => handleCopyCommonAgentImageId(image.id)}
-                                                            className="shrink-0 rounded bg-blue-900/70 px-2 py-1 text-[11px] font-bold text-blue-100 hover:bg-blue-800"
-                                                            title="Common Agent image_id 복사"
+                                                            onClick={() => handleAnalyzeClick(image.id)}
+                                                            disabled={isThisAnalyzing || (!captureAssessment.ready && !image.analysis)}
+                                                            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[10px] font-bold text-white transition-colors ${image.analysis ? 'bg-green-700 hover:bg-green-600' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:cursor-not-allowed disabled:opacity-50`}
                                                         >
-                                                            ID 복사
+                                                            {isThisAnalyzing ? <SpinnerIcon className="h-4 w-4" /> : <SparklesIcon className="h-4 w-4" />}
+                                                            {image.analysis ? '결과 보기' : (image.shapes && image.shapes.length > 0 ? 'ROI 진단' : 'AI 진단')}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleGraphAnalyzeClick(image.id)}
+                                                            disabled={isThisAnalyzing || !captureAssessment.ready}
+                                                            className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg bg-sky-700 px-1 py-2 text-[10px] font-bold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            title="Graph 경로 기반 추론"
+                                                        >
+                                                            <SparklesIcon className="h-4 w-4" />
+                                                            Graph
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCommonAgentSync(image.id)}
+                                                            disabled={isThisAnalyzing || serverHealth?.agent === 'offline' || !captureAssessment.ready}
+                                                            className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg bg-blue-700 px-1 py-2 text-[10px] font-bold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            title="Common Agent 이미지 진단 및 ROI 주석 동기화"
+                                                        >
+                                                            {isThisAnalyzing ? <SpinnerIcon className="h-4 w-4" /> : <BotIcon className="h-4 w-4" />}
+                                                            {image.commonAgentStatus === 'synced' ? '동기화 완료' : 'Agent'}
                                                         </button>
                                                     </div>
-                                                )}
-                                            </div>
+                                                    {image.commonAgentImageId && (
+                                                        <div className="mt-2 flex items-center gap-2">
+                                                            <p className="min-w-0 flex-1 truncate text-[9px] text-blue-300" title={image.commonAgentImageId}>{image.commonAgentImageId} · ROI {image.commonAgentAnnotationCount || 0}</p>
+                                                            <button onClick={() => handleCopyCommonAgentImageId(image.id)} className="shrink-0 rounded bg-blue-900/70 px-2 py-1 text-[9px] font-bold text-blue-100 hover:bg-blue-800">ID 복사</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -2121,7 +2136,7 @@ const App: React.FC = () => {
                             {/* Add New Image Card */}
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="bg-gray-800/50 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-800 hover:border-indigo-500 transition-all min-h-[300px]"
+                                className="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-700 bg-gray-800/50 transition-all hover:border-indigo-500 hover:bg-gray-800"
                             >
                                 <CameraIcon className="w-10 h-10 text-gray-500 mb-2" />
                                 <span className="text-gray-400 text-sm font-medium">이미지 추가</span>
