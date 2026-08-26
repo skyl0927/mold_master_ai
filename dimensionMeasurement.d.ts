@@ -29,6 +29,17 @@ export function createCalibration(options: {
 }): DimensionCalibration;
 export function convertMeasurement(value: number, fromUnit: DimensionUnit, toUnit: DimensionUnit): number;
 export function formatMeasurement(value: number, unit: DimensionUnit | 'px', precision?: number): string;
+export function resolveDimensionArrowLayout(options: {
+  span: number;
+  arrowSize?: number;
+  lineWidth?: number;
+  mode?: 'auto' | 'inside' | 'outside';
+}): {
+  placement: 'inside' | 'outside';
+  arrowSize: number;
+  extension: number;
+  requiredInsideSpan: number;
+};
 export function applyCalibrationToDimension(
   shape: Shape,
   calibration: DimensionCalibration,

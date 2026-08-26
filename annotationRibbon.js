@@ -28,6 +28,7 @@ const ANNOTATION_COMMON_GROUPS = Object.freeze([
   { id: 'selection', labelKo: '공통 도구', commands: ['select'] },
   { id: 'shape-style', labelKo: '공통 서식', commands: ['fill-style', 'line-style'] },
   { id: 'size', labelKo: '크기', commands: ['size'] },
+  { id: 'text-rotation', labelKo: '글자 회전', commands: ['text-rotation'] },
   { id: 'color', labelKo: '색상', commands: ['color'] }
 ]);
 

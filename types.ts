@@ -38,6 +38,7 @@ export interface TextAnnotation {
   fontFamily: string;
   textColor: string;
   backgroundColor?: string;  // 주석 배경색 (선택적, 기본값: 검정 반투명)
+  textRotation?: number; // radians, around the annotation label center
   coordinateSpaceVersion?: ImageCoordinateSpaceVersion;
   // Arrow removed from TextAnnotation as it is now a Shape
   arrow?: {
@@ -68,6 +69,8 @@ export interface Shape {
   lineStyle?: 'solid' | 'dashed' | 'dotted' | 'dash-dot'; // Added for line dash styles
   imageUrl?: string; // For 'image' tool — base64 data URL of the inserted image
   rotation?: number; // radians
+  textRotation?: number; // radians, dimension/angle label only
+  dimensionArrowMode?: 'auto' | 'inside' | 'outside';
   coordinateSpaceVersion?: ImageCoordinateSpaceVersion;
   labelOffset?: Point;
   backgroundColor?: string;

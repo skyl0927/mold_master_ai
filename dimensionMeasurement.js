@@ -87,6 +87,31 @@ function formatMeasurement(value, unit, precision = 2) {
   return `${value.toFixed(clampPrecision(precision))} ${unit}`;
 }
 
+function resolveDimensionArrowLayout({
+  span,
+  arrowSize = 10,
+  lineWidth = 2,
+  mode = 'auto'
+} = {}) {
+  if (!Number.isFinite(span) || span < 0) throw new RangeError('dimension span must be zero or greater');
+  if (!Number.isFinite(arrowSize) || arrowSize <= 0) throw new RangeError('arrow size must be greater than zero');
+  if (!['auto', 'inside', 'outside'].includes(mode)) {
+    throw new RangeError(`unsupported dimension arrow mode: ${mode}`);
+  }
+  const strokeWidth = Number.isFinite(lineWidth) && lineWidth >= 0 ? lineWidth : 2;
+  const clearance = Math.max(4, strokeWidth * 2);
+  const requiredInsideSpan = arrowSize * 2 + clearance;
+  const placement = mode === 'auto'
+    ? (span < requiredInsideSpan ? 'outside' : 'inside')
+    : mode;
+  return {
+    placement,
+    arrowSize,
+    extension: placement === 'outside' ? arrowSize + clearance : 0,
+    requiredInsideSpan
+  };
+}
+
 function applyCalibrationToDimension(shape, calibration, options = {}) {
   if (!shape || shape.tool !== 'dimension' || !Array.isArray(shape.points) || shape.points.length < 2) {
     throw new TypeError('a dimension shape with two points is required');
@@ -297,5 +322,6 @@ module.exports = {
   moveDimension,
   parseDimensionDisplayInput,
   recalculateDimensions,
+  resolveDimensionArrowLayout,
   snapPointToAxes
 };
