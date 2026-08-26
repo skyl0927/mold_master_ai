@@ -58,6 +58,13 @@ const path = require('node:path');
 
     const measurementSummary = page.getByTestId('dimension-measurement-summary');
     await measurementSummary.waitFor();
+    const arrowLayoutSummary = page.getByTestId('dimension-arrow-layout-summary');
+    await arrowLayoutSummary.getByText('화살표 내부').waitFor();
+    const rotationInput = page.getByLabel('텍스트 회전 각도');
+    await rotationInput.fill('90');
+    if (await rotationInput.inputValue() !== '90') {
+      throw new Error(`dimension text rotation did not update: ${await rotationInput.inputValue()}`);
+    }
     const initialMeasurementText = await measurementSummary.innerText();
     const measuredMatch = initialMeasurementText.match(/([0-9]+(?:\.[0-9]+)?)\s*mm/);
     const measuredValue = measuredMatch ? Number(measuredMatch[1]) : Number.NaN;
@@ -78,11 +85,44 @@ const path = require('node:path');
       throw new Error(`saved measurement changed after reopen: ${reopenedMeasurementText}`);
     }
     await reopenedSummary.getByText('승인됨').waitFor();
+    const reopenedCalibrationStatusText = await page.getByTestId('dimension-calibration-status').innerText();
+
+    await page.getByRole('button', { name: '치수', exact: true }).click();
+    const reopenedCanvas = page.locator('canvas');
+    const reopenedBox = await reopenedCanvas.boundingBox();
+    if (!reopenedBox) throw new Error('reopened annotation canvas has no bounding box');
+    const narrowY = reopenedBox.y + reopenedBox.height * 0.78;
+    const narrowStartX = reopenedBox.x + reopenedBox.width * 0.68;
+    await page.mouse.move(narrowStartX, narrowY);
+    await page.mouse.down();
+    await page.mouse.move(narrowStartX + 6, narrowY);
+    await page.mouse.up();
+
+    const narrowArrowSummary = page.getByTestId('dimension-arrow-layout-summary');
+    await narrowArrowSummary.getByText('화살표 외측').waitFor();
+    await page.getByLabel('치수 화살표 배치').selectOption('inside');
+    await narrowArrowSummary.getByText('화살표 내부').waitFor();
+    await page.getByLabel('치수 화살표 배치').selectOption('auto');
+    await narrowArrowSummary.getByText('화살표 외측').waitFor();
+    const narrowArrowSummaryText = await narrowArrowSummary.innerText();
+
+    await page.getByRole('tab', { name: '주석' }).click();
+    await page.getByTitle('텍스트').click();
+    await page.mouse.click(reopenedBox.x + reopenedBox.width * 0.7, reopenedBox.y + reopenedBox.height * 0.3);
+    const annotationEditor = page.getByLabel('주석 텍스트 편집');
+    await annotationEditor.fill('회전 주석');
+    await annotationEditor.press('Enter');
+    await rotationInput.fill('-90');
+    if (await rotationInput.inputValue() !== '-90') {
+      throw new Error(`annotation text rotation did not update: ${await rotationInput.inputValue()}`);
+    }
 
     await page.screenshot({ path: screenshot, fullPage: true });
     const output = {
-      calibrationStatus: await page.getByTestId('dimension-calibration-status').innerText(),
-      measurementSummary: await reopenedSummary.innerText(),
+      calibrationStatus: reopenedCalibrationStatusText,
+      measurementSummary: reopenedMeasurementText,
+      narrowArrowSummary: narrowArrowSummaryText,
+      annotationRotation: await rotationInput.inputValue(),
       screenshot,
       consoleErrors
     };

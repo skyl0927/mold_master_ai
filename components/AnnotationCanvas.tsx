@@ -8,6 +8,7 @@ import {
     createCalibration,
     formatMeasurement,
     moveDimension,
+    resolveDimensionArrowLayout,
     snapPointToAxes
 } from '../dimensionMeasurement';
 import {
@@ -35,6 +36,13 @@ import {
 } from '../annotationRibbon';
 import type { AnnotationRibbonTabId } from '../annotationRibbon';
 import { shouldRenderCalibrationGuide } from '../calibrationOverlayPolicy';
+import {
+    applyTextRotation,
+    normalizeTextRotationDegrees,
+    rotatePointAround,
+    textRotationDegreesFromRadians,
+    textRotationRadiansFromDegrees
+} from '../textRotation';
 
 // Add type definition for the experimental EyeDropper API
 declare global {
@@ -83,6 +91,7 @@ interface EditTextState {
     y: number;
     width?: number;
     height?: number;
+    rotation?: number;
 }
 
 type LineStyle = 'solid' | 'dashed' | 'dotted' | 'dash-dot';
@@ -147,6 +156,45 @@ function getDimensionLabelPoint(shape: Shape): Point {
     return shape.textPos || { x: midpoint.x, y: midpoint.y - 15 };
 }
 
+function getDimensionArrowSize(shape: Shape): number {
+    return Math.max(8, 8 + (shape.lineWidth || 2));
+}
+
+function getDimensionArrowLayout(shape: Shape) {
+    const start = shape.points[0];
+    const end = shape.points[shape.points.length - 1];
+    return resolveDimensionArrowLayout({
+        span: start && end ? Math.hypot(end.x - start.x, end.y - start.y) : 0,
+        arrowSize: getDimensionArrowSize(shape),
+        lineWidth: shape.lineWidth,
+        mode: shape.dimensionArrowMode || 'auto'
+    });
+}
+
+function getAnnotationLayout(ctx: CanvasRenderingContext2D, ann: TextAnnotation) {
+    ctx.font = `bold ${ann.fontSize}px Arial`;
+    const lines = ann.text.split('\n');
+    const lineHeight = ann.fontSize * 1.2;
+    const padding = ann.fontSize / 2;
+    const maxLineWidth = lines.reduce(
+        (width, line) => Math.max(width, ctx.measureText(line).width),
+        0
+    );
+    const width = maxLineWidth + padding;
+    const height = (lineHeight * lines.length) + (padding / 2);
+    const left = ann.textPos.x - (padding / 2);
+    const top = ann.textPos.y - ann.fontSize - (padding / 2);
+    return {
+        lines,
+        lineHeight,
+        left,
+        top,
+        width,
+        height,
+        center: { x: left + width / 2, y: top + height / 2 }
+    };
+}
+
 const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSave, onCancel }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
@@ -176,6 +224,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const [perspectiveHeightInput, setPerspectiveHeightInput] = useState('');
     const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>('mm');
     const [dimensionPrecision, setDimensionPrecision] = useState(2);
+    const [dimensionArrowMode, setDimensionArrowMode] = useState<'auto' | 'inside' | 'outside'>('auto');
+    const [textRotationDegrees, setTextRotationDegrees] = useState(0);
     const [ribbonTab, setRibbonTab] = useState<AnnotationRibbonTabId>('home');
 
     // Selection & Dragging
@@ -223,6 +273,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const selectedDimension = shapes.find(
         shape => shape.id === selectedShapeId && shape.tool === 'dimension'
     );
+    const selectedAnnotation = annotations.find(annotation => annotation.id === selectedAnnotationId);
     const inspectionDimension = selectedDimension || [...shapes].reverse().find(
         shape => shape.tool === 'dimension' && shape.unit !== 'px'
     );
@@ -232,6 +283,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const inspectionAngle = selectedAngle || [...shapes].reverse().find(
         shape => shape.tool === 'angle'
     );
+    const activeTextRotationDegrees = selectedDimension
+        ? textRotationDegreesFromRadians(selectedDimension.textRotation || 0)
+        : selectedAnnotation
+            ? textRotationDegreesFromRadians(selectedAnnotation.textRotation || 0)
+            : textRotationDegrees;
+    const activeDimensionArrowMode = selectedDimension?.dimensionArrowMode || dimensionArrowMode;
+    const inspectionDimensionArrowLayout = inspectionDimension
+        ? getDimensionArrowLayout(inspectionDimension)
+        : null;
 
     const buildCurrentDocument = useCallback((): DimensionEditorDocument => ({
         shapes: shapesRef.current,
@@ -519,6 +579,37 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         }
     };
 
+    const handleTextRotationChange = (degrees: number) => {
+        try {
+            const normalized = normalizeTextRotationDegrees(degrees);
+            setTextRotationDegrees(normalized);
+            if (selectedDimension) {
+                setShapes(prev => prev.map(shape => (
+                    shape.id === selectedDimension.id ? applyTextRotation(shape, normalized) : shape
+                )));
+            }
+            if (selectedAnnotation) {
+                setAnnotations(prev => prev.map(annotation => (
+                    annotation.id === selectedAnnotation.id ? applyTextRotation(annotation, normalized) : annotation
+                )));
+            }
+            setEditTextState(prev => prev && (
+                prev.id === selectedDimension?.id || prev.id === selectedAnnotation?.id
+            ) ? { ...prev, rotation: textRotationRadiansFromDegrees(normalized) } : prev);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : '글자 회전값을 확인해 주세요.');
+        }
+    };
+
+    const handleDimensionArrowModeChange = (mode: 'auto' | 'inside' | 'outside') => {
+        setDimensionArrowMode(mode);
+        if (selectedDimension) {
+            setShapes(prev => prev.map(shape => shape.id === selectedDimension.id
+                ? { ...shape, dimensionArrowMode: mode }
+                : shape));
+        }
+    };
+
     const handleUndo = () => {
         if (!historyRef.current || historyRef.current.past.length === 0) {
             setErrorMessage("더 이상 실행 취소할 작업이 없습니다.");
@@ -558,10 +649,11 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
     const isPointInDimensionLabel = (point: Point, shape: Shape): boolean => {
         if (shape.tool !== 'dimension' || !shape.text || shape.points.length < 2) return false;
         const labelPoint = getDimensionLabelPoint(shape);
+        const localPoint = rotatePointAround(point, labelPoint, -(shape.textRotation || 0));
         const textSize = shape.fontSize || 16;
         const halfWidth = Math.max(40, shape.text.length * textSize * 0.35 + 8);
-        return Math.abs(point.x - labelPoint.x) <= halfWidth
-            && Math.abs(point.y - labelPoint.y) <= textSize / 2 + 8;
+        return Math.abs(localPoint.x - labelPoint.x) <= halfWidth
+            && Math.abs(localPoint.y - labelPoint.y) <= textSize / 2 + 8;
     };
 
     const isPointInAngleLabel = (point: Point, shape: Shape): boolean => {
@@ -658,26 +750,35 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         setCtxLineStyle(ctx, shape.lineStyle || 'solid');
 
         const angle = Math.atan2(end.y - start.y, end.x - start.x);
-        const headlen = 10;
+        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+        const arrowLayout = getDimensionArrowLayout(shape);
+        const headlen = arrowLayout.arrowSize;
+        const lineStart = arrowLayout.placement === 'outside'
+            ? { x: start.x - direction.x * arrowLayout.extension, y: start.y - direction.y * arrowLayout.extension }
+            : start;
+        const lineEnd = arrowLayout.placement === 'outside'
+            ? { x: end.x + direction.x * arrowLayout.extension, y: end.y + direction.y * arrowLayout.extension }
+            : end;
 
         ctx.beginPath();
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
+        ctx.moveTo(lineStart.x, lineStart.y);
+        ctx.lineTo(lineEnd.x, lineEnd.y);
         ctx.stroke();
 
         ctx.setLineDash([]);
 
-        // Draw Arrows for Dimension
+        const startArrowDirection = arrowLayout.placement === 'outside' ? -1 : 1;
+        const endArrowDirection = arrowLayout.placement === 'outside' ? 1 : -1;
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
-        ctx.lineTo(start.x + headlen * Math.cos(angle + Math.PI / 6), start.y + headlen * Math.sin(angle + Math.PI / 6));
+        ctx.lineTo(start.x + startArrowDirection * headlen * Math.cos(angle + Math.PI / 6), start.y + startArrowDirection * headlen * Math.sin(angle + Math.PI / 6));
         ctx.moveTo(start.x, start.y);
-        ctx.lineTo(start.x + headlen * Math.cos(angle - Math.PI / 6), start.y + headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(start.x + startArrowDirection * headlen * Math.cos(angle - Math.PI / 6), start.y + startArrowDirection * headlen * Math.sin(angle - Math.PI / 6));
 
         ctx.moveTo(end.x, end.y);
-        ctx.lineTo(end.x - headlen * Math.cos(angle + Math.PI / 6), end.y - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.lineTo(end.x + endArrowDirection * headlen * Math.cos(angle + Math.PI / 6), end.y + endArrowDirection * headlen * Math.sin(angle + Math.PI / 6));
         ctx.moveTo(end.x, end.y);
-        ctx.lineTo(end.x - headlen * Math.cos(angle - Math.PI / 6), end.y - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(end.x + endArrowDirection * headlen * Math.cos(angle - Math.PI / 6), end.y + endArrowDirection * headlen * Math.sin(angle - Math.PI / 6));
         ctx.stroke();
 
         const capLen = 10;
@@ -699,10 +800,14 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             ctx.textBaseline = 'middle';
             const metrics = ctx.measureText(shape.text);
             const padding = 4;
-            const bx = tx - metrics.width / 2 - padding;
-            const by = ty - (textSize / 2) - padding;
+            const bx = -metrics.width / 2 - padding;
+            const by = -(textSize / 2) - padding;
             const bw = metrics.width + padding * 2;
             const bh = textSize + padding * 2;
+
+            ctx.save();
+            ctx.translate(tx, ty);
+            ctx.rotate(shape.textRotation || 0);
 
             const backgroundAlpha = Math.max(0, Math.min(1, shape.backgroundAlpha ?? 0.92));
             ctx.globalAlpha = backgroundAlpha;
@@ -714,13 +819,14 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
             ctx.strokeRect(bx, by, bw, bh);
 
             ctx.fillStyle = shape.textColor || '#111827';
-            ctx.fillText(shape.text, tx, ty);
+            ctx.fillText(shape.text, 0, 0);
 
             if (isSelected && draggingPart === 'text' && !isSaving) {
                 ctx.strokeStyle = 'cyan';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(bx, by, bw, bh);
             }
+            ctx.restore();
         }
         ctx.restore();
     }, [editTextState, draggingPart]);
@@ -1241,45 +1347,30 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 ctx.font = `bold ${ann.fontSize}px Arial`;
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'bottom'; // 기준선은 바텀
+                const layout = getAnnotationLayout(ctx, ann);
 
-                const lines = ann.text.split('\n');
-                const lineHeight = ann.fontSize * 1.2; // 줄 간격
-                const padding = ann.fontSize / 2;
-
-                // 최대 너비 계산
-                let maxLineWidth = 0;
-                lines.forEach(line => {
-                    const metrics = ctx.measureText(line);
-                    if (metrics.width > maxLineWidth) maxLineWidth = metrics.width;
-                });
-
-                const totalWidth = maxLineWidth + padding;
-                const totalHeight = (lineHeight * lines.length) + (padding / 2); // 높이 보정
-
-                // 배경 박스 그리기
-                // 첫 줄의 baseline(ann.textPos.y)을 기준으로 박스 위치 계산
-                // 박스 Top = y - (fontSize) - padding/2
-                // (ctx.textBaseline='bottom'이므로 y는 글자 하단. 글자 상단은 y - fontSize)
-                const boxTop = ann.textPos.y - ann.fontSize - (padding / 2);
-                const boxLeft = ann.textPos.x - (padding / 2);
+                ctx.translate(layout.center.x, layout.center.y);
+                ctx.rotate(ann.textRotation || 0);
+                const boxLeft = layout.left - layout.center.x;
+                const boxTop = layout.top - layout.center.y;
 
                 ctx.fillStyle = ann.backgroundColor || 'rgba(0, 0, 0, 0.7)'; // 배경색
-                ctx.fillRect(boxLeft, boxTop, totalWidth, totalHeight);
+                ctx.fillRect(boxLeft, boxTop, layout.width, layout.height);
 
                 // 텍스트 그리기
                 ctx.fillStyle = ann.textColor || 'white'; // 글자색
 
-                lines.forEach((line, index) => {
+                layout.lines.forEach((line, index) => {
                     // 각 줄의 Y 좌표: 첫 줄은 y, 그 다음부터 lineHeight만큼 추가
-                    const lineY = ann.textPos.y + (index * lineHeight);
-                    ctx.fillText(line, ann.textPos.x, lineY);
+                    const lineY = ann.textPos.y + (index * layout.lineHeight);
+                    ctx.fillText(line, ann.textPos.x - layout.center.x, lineY - layout.center.y);
                 });
 
                 // 선택 테두리
                 if (isSelected && draggingPart === 'text' && !isSaving) {
                     ctx.strokeStyle = 'cyan';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(boxLeft, boxTop, totalWidth, totalHeight);
+                    ctx.strokeRect(boxLeft, boxTop, layout.width, layout.height);
                 }
                 ctx.restore();
             }
@@ -1318,6 +1409,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 text: tool === 'dimension' ? '0 px' : undefined,
                 fontSize: fontSize,
                 textColor,
+                textRotation: textRotationRadiansFromDegrees(textRotationDegrees),
+                dimensionArrowMode,
                 backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
                 backgroundAlpha: opacity,
                 coordinateSpaceVersion: 'image/v1'
@@ -1435,6 +1528,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         calibrationLengthInput,
         color,
         currentPoints,
+        dimensionArrowMode,
         dimensionCalibrations,
         dimensionPrecision,
         dimensionUnit,
@@ -1453,6 +1547,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
         selectedShapeId,
         shapes,
         textColor,
+        textRotationDegrees,
         tool
     ]);
 
@@ -1542,25 +1637,16 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
 
     const isPointInText = (p: Point, ann: TextAnnotation): boolean => {
         if (!ann.text) return false;
-
-        // Multi-line hit test estimation
-        const lines = ann.text.split('\n');
-        // Width estimation (rough) or better using canvas measure if possible,
-        // but here we estimate based on char length to avoid canvas context dep if not passed.
-        // Better: assume max char length * font size * 0.6 (avg char width)
-        const maxLineLen = Math.max(...lines.map(l => l.length));
-        const width = maxLineLen * ann.fontSize * 0.8; // 0.8 factor from original code
-
-        const lineHeight = ann.fontSize * 1.2;
-        const totalHeight = (lines.length * lineHeight) + 10;
-
-        // Box coordinates estimation matching draw logic roughly
-        // Box Left = textPos.x - 5
-        // Box Top = textPos.y - fontSize - 5
-        const x = ann.textPos.x - 5;
-        const y = ann.textPos.y - ann.fontSize - 5;
-
-        return (p.x >= x && p.x <= x + width + 10 && p.y >= y && p.y <= y + totalHeight);
+        const ctx = canvasRef.current?.getContext('2d');
+        if (!ctx) return false;
+        ctx.save();
+        const layout = getAnnotationLayout(ctx, ann);
+        ctx.restore();
+        const localPoint = rotatePointAround(p, layout.center, -(ann.textRotation || 0));
+        return localPoint.x >= layout.left
+            && localPoint.x <= layout.left + layout.width
+            && localPoint.y >= layout.top
+            && localPoint.y <= layout.top + layout.height;
     };
 
     const isPointInShape = (p: Point, shape: Shape): boolean => {
@@ -1650,14 +1736,22 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     type: 'dimension',
                     text: clickedDim.text,
                     x: labelPoint.x,
-                    y: labelPoint.y
+                    y: labelPoint.y,
+                    rotation: clickedDim.textRotation || 0
                 });
                 return;
             }
         }
         const clickedAnn = annotations.find(ann => isPointInText(point, ann));
         if (clickedAnn) {
-            setEditTextState({ id: clickedAnn.id, type: 'annotation', text: clickedAnn.text, x: clickedAnn.textPos.x, y: clickedAnn.textPos.y });
+            setEditTextState({
+                id: clickedAnn.id,
+                type: 'annotation',
+                text: clickedAnn.text,
+                x: clickedAnn.textPos.x,
+                y: clickedAnn.textPos.y,
+                rotation: clickedAnn.textRotation || 0
+            });
         }
     };
 
@@ -1780,14 +1874,18 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                 fontSize: fontSize,
                 fontFamily: 'Arial',
                 textColor: textColor,      // 글자색 적용
-                backgroundColor: bgColor   // 배경색 적용
+                backgroundColor: bgColor,  // 배경색 적용
+                textRotation: textRotationRadiansFromDegrees(textRotationDegrees)
             }]);
+            setSelectedAnnotationId(newId);
+            setSelectedShapeId(null);
             setEditTextState({
                 id: newId,
                 type: 'annotation',
                 text: "",
                 x: point.x,
-                y: point.y
+                y: point.y,
+                rotation: textRotationRadiansFromDegrees(textRotationDegrees)
             });
             return;
         }
@@ -2199,27 +2297,26 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             });
                             annotations.forEach(ann => {
                                 if (ann.text) {
+                                    tCtx.save();
                                     tCtx.font = `bold ${ann.fontSize}px Arial`;
                                     tCtx.textAlign = 'left';
                                     tCtx.textBaseline = 'bottom';
-                                    const lines = ann.text.split('\n');
-                                    const lineHeight = ann.fontSize * 1.2;
-                                    const padding = ann.fontSize / 2;
-                                    let maxLineWidth = 0;
-                                    lines.forEach(line => {
-                                        const metrics = tCtx.measureText(line);
-                                        if (metrics.width > maxLineWidth) maxLineWidth = metrics.width;
-                                    });
-                                    const totalWidth = maxLineWidth + padding;
-                                    const totalHeight = (lineHeight * lines.length) + (padding / 2);
-                                    const boxTop = ann.textPos.y - ann.fontSize - (padding / 2);
-                                    const boxLeft = ann.textPos.x - (padding / 2);
+                                    const layout = getAnnotationLayout(tCtx, ann);
+                                    tCtx.translate(layout.center.x, layout.center.y);
+                                    tCtx.rotate(ann.textRotation || 0);
+                                    const boxLeft = layout.left - layout.center.x;
+                                    const boxTop = layout.top - layout.center.y;
                                     tCtx.fillStyle = ann.backgroundColor || 'rgba(0, 0, 0, 0.7)';
-                                    tCtx.fillRect(boxLeft, boxTop, totalWidth, totalHeight);
+                                    tCtx.fillRect(boxLeft, boxTop, layout.width, layout.height);
                                     tCtx.fillStyle = ann.textColor || 'white';
-                                    lines.forEach((line, index) => {
-                                        tCtx.fillText(line, ann.textPos.x, ann.textPos.y + (index * lineHeight));
+                                    layout.lines.forEach((line, index) => {
+                                        tCtx.fillText(
+                                            line,
+                                            ann.textPos.x - layout.center.x,
+                                            ann.textPos.y + (index * layout.lineHeight) - layout.center.y
+                                        );
                                     });
+                                    tCtx.restore();
                                 }
                             });
                             tCtx.restore();
@@ -2283,6 +2380,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                     fontSize,
                     lineStyle,
                     textColor,
+                    textRotation: textRotationRadiansFromDegrees(textRotationDegrees),
+                    dimensionArrowMode,
                     backgroundColor: bgColor.startsWith('rgba') ? '#000000' : bgColor,
                     backgroundAlpha: opacity,
                     coordinateSpaceVersion: 'image/v1'
@@ -2621,6 +2720,19 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 {[0, 1, 2, 3].map(value => <option key={value} value={value}>{value}</option>)}
                             </select>
                         </label>
+                        <label className="flex shrink-0 flex-col gap-0.5 text-[10px] text-blue-200">
+                            치수 화살표
+                            <select
+                                aria-label="치수 화살표 배치"
+                                value={activeDimensionArrowMode}
+                                onChange={event => handleDimensionArrowModeChange(event.target.value as 'auto' | 'inside' | 'outside')}
+                                className="rounded border border-blue-700 bg-blue-950/70 px-2 py-1 text-xs text-white"
+                            >
+                                <option value="auto">자동</option>
+                                <option value="inside">내부</option>
+                                <option value="outside">외측</option>
+                            </select>
+                        </label>
                         <button
                             type="button"
                             title="기준 치수"
@@ -2692,6 +2804,22 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             ? `축척 활성 · ${activeDimensionCalibration.unitPerPixel.toPrecision(5)} ${activeDimensionCalibration.unit}/px`
                             : '축척 미설정 · 치수는 원본 px로 표시'}
                     </div>
+                    {inspectionDimension && inspectionDimensionArrowLayout ? (
+                        <div
+                            data-testid="dimension-arrow-layout-summary"
+                            className="flex items-center gap-2 rounded bg-slate-950/75 px-2 py-1 text-[10px] text-blue-100"
+                        >
+                            <strong className={inspectionDimensionArrowLayout.placement === 'outside' ? 'text-amber-200' : 'text-emerald-300'}>
+                                화살표 {inspectionDimensionArrowLayout.placement === 'outside' ? '외측' : '내부'}
+                            </strong>
+                            <span>
+                                {(inspectionDimension.dimensionArrowMode || 'auto') === 'auto' ? '치수 폭 자동 판정' : '사용자 지정'}
+                            </span>
+                            <span className="text-blue-300/75">
+                                내부 최소 폭 {Math.round(inspectionDimensionArrowLayout.requiredInsideSpan)} px
+                            </span>
+                        </div>
+                    ) : null}
                     {inspectionDimension && inspectionDimension.unit !== 'px' ? (
                         <div data-testid="dimension-measurement-summary" className="flex items-center gap-2 rounded bg-blue-950/80 px-2 py-1 text-[10px] text-blue-100">
                             <strong className="text-cyan-200">{inspectionDimension.text}</strong>
@@ -2788,6 +2916,41 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                             <input type="number" value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-12 bg-transparent text-white text-center text-sm focus:outline-none font-bold" min="10" max="100" />
                             <span className="text-[10px] text-blue-400/60">px</span>
                         </div>
+                    </div>
+                </div>
+
+                <div data-testid="text-rotation-control" className="flex min-w-max flex-col items-center justify-center gap-1 border-r border-blue-800/50 px-2">
+                    <div className="text-xs font-bold text-blue-300/80">글자 회전</div>
+                    <div className="flex items-center rounded bg-blue-900/40 px-1 py-1">
+                        <input
+                            aria-label="텍스트 회전 각도"
+                            type="number"
+                            min="-180"
+                            max="180"
+                            step="1"
+                            value={Number(activeTextRotationDegrees.toFixed(1))}
+                            onChange={event => handleTextRotationChange(Number(event.target.value))}
+                            className="w-14 bg-transparent text-center text-sm font-bold text-white focus:outline-none"
+                        />
+                        <span className="text-[10px] text-blue-400/70">°</span>
+                    </div>
+                    <div className="flex gap-1">
+                        <button
+                            type="button"
+                            aria-label="텍스트 왼쪽 90도 회전"
+                            onClick={() => handleTextRotationChange(activeTextRotationDegrees - 90)}
+                            className="rounded bg-blue-800/70 px-2 py-1 text-xs font-bold text-white hover:bg-blue-700"
+                        >
+                            ↶ 90°
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="텍스트 오른쪽 90도 회전"
+                            onClick={() => handleTextRotationChange(activeTextRotationDegrees + 90)}
+                            className="rounded bg-blue-800/70 px-2 py-1 text-xs font-bold text-white hover:bg-blue-700"
+                        >
+                            ↷ 90°
+                        </button>
                     </div>
                 </div>
 
@@ -2899,7 +3062,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({ editingImage, onSav
                                 position: 'absolute',
                                 left: `${editTextState.x}px`,
                                 top: `${editTextState.y - 15}px`,
-                                transform: 'translate(-50%, 0)',
+                                transform: `translate(-50%, 0) rotate(${editTextState.rotation || 0}rad)`,
+                                transformOrigin: 'center center',
                                 zIndex: 100,
                                 minWidth: '200px',
                                 minHeight: '40px',
