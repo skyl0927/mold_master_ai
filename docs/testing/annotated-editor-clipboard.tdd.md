@@ -39,6 +39,9 @@
 - Electron 클립보드 이미지: 1482 x 1467px, PNG 2,010,220 bytes
 - Electron 치수, 각도, 원근 보정, 카드 패널 회귀: PASS
 - Electron console errors: 0
+- Windows 테스트 설치본 패키징 및 `win-unpacked` 실행: PASS
+- 패키징 실행 파일 클립보드 이미지: 1482 x 1467px, PNG 2,011,548 bytes
+- 설치본 SHA-256: `59D9C7859849423F839D4F4491BA0F75D0458B10F6AA07C1594944A38794F587`
 
 ## 시각 증거
 
