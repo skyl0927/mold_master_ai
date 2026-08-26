@@ -1943,7 +1943,7 @@ const App: React.FC = () => {
                                                     type="button"
                                                     onClick={() => openImageEditor(image)}
                                                     className="rounded-md border border-gray-600 bg-gray-900/90 p-1.5 text-gray-100 shadow hover:border-cyan-400 hover:text-cyan-200"
-                                                    title={`${sampleLabel} 편집`}
+                                                    title="편집"
                                                     aria-label={`${sampleLabel} 편집`}
                                                 >
                                                     <EditIcon className="h-4 w-4" />
@@ -1952,7 +1952,7 @@ const App: React.FC = () => {
                                                     type="button"
                                                     onClick={() => deleteCapturedImage(image.id)}
                                                     className="rounded-md border border-gray-600 bg-gray-900/90 p-1.5 text-gray-100 shadow hover:border-red-500 hover:bg-red-950/90 hover:text-red-300"
-                                                    title={`${sampleLabel} 삭제`}
+                                                    title="삭제"
                                                     aria-label={`${sampleLabel} 삭제`}
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
