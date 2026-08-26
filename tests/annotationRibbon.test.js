@@ -27,7 +27,7 @@ test('organizes annotation commands into Office-style functional tabs', () => {
   );
   assert.deepEqual(
     ANNOTATION_COMMON_GROUPS.flatMap(group => group.commands),
-    ['select', 'fill-style', 'line-style', 'size', 'color']
+    ['select', 'fill-style', 'line-style', 'size', 'text-rotation', 'color']
   );
 });
 

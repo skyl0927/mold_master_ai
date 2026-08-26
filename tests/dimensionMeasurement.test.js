@@ -14,6 +14,7 @@ const {
   moveDimension,
   parseDimensionDisplayInput,
   recalculateDimensions,
+  resolveDimensionArrowLayout,
   snapPointToAxes
 } = require('../dimensionMeasurement');
 
@@ -215,4 +216,36 @@ test('recalibration updates automatic values but preserves manual overrides', ()
   assert.equal(recalculated[1].measuredValue, 10);
   assert.equal(recalculated[1].displayValue, 5.2);
   assert.equal(recalculated[1].text, '5.20 mm');
+});
+
+test('automatically moves dimension arrows outside when the measured span is narrow', () => {
+  assert.deepEqual(resolveDimensionArrowLayout({
+    span: 80,
+    arrowSize: 10,
+    lineWidth: 2,
+    mode: 'auto'
+  }), {
+    placement: 'inside',
+    arrowSize: 10,
+    extension: 0,
+    requiredInsideSpan: 24
+  });
+
+  assert.deepEqual(resolveDimensionArrowLayout({
+    span: 20,
+    arrowSize: 10,
+    lineWidth: 2,
+    mode: 'auto'
+  }), {
+    placement: 'outside',
+    arrowSize: 10,
+    extension: 14,
+    requiredInsideSpan: 24
+  });
+});
+
+test('allows explicit inside or outside dimension arrow placement', () => {
+  assert.equal(resolveDimensionArrowLayout({ span: 10, arrowSize: 10, mode: 'inside' }).placement, 'inside');
+  assert.equal(resolveDimensionArrowLayout({ span: 100, arrowSize: 10, mode: 'outside' }).placement, 'outside');
+  assert.throws(() => resolveDimensionArrowLayout({ span: -1, arrowSize: 10 }), /span/i);
 });
