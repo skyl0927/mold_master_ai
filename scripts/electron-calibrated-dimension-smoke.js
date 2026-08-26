@@ -74,7 +74,7 @@ const path = require('node:path');
     await page.getByRole('button', { name: '치수 승인' }).click();
     await measurementSummary.getByText('승인됨').waitFor();
 
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '저장', exact: true }).click();
     await page.getByTitle('편집').click();
     await page.getByRole('tab', { name: '측정' }).click();
     await page.getByTestId('dimension-calibration-status').getByText('축척 활성').waitFor();

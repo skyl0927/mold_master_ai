@@ -44,7 +44,8 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
     await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixturePath);
     await page.getByTitle('편집').click();
     const expectedTabs = ['홈', '주석', '측정', '번역'];
-    const renderedTabs = await page.getByRole('tab').allTextContents();
+    const ribbonTabs = page.getByRole('tablist', { name: '주석 편집 기능' });
+    const renderedTabs = await ribbonTabs.getByRole('tab').allTextContents();
     if (JSON.stringify(renderedTabs) !== JSON.stringify(expectedTabs)) {
       throw new Error(`unexpected annotation tabs: ${renderedTabs.join(', ')}`);
     }
@@ -55,13 +56,13 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
       번역: '주석을 선택한 언어로 직접 변환'
     };
     for (const tabName of expectedTabs) {
-      await page.getByRole('tab', { name: tabName }).click();
+      await ribbonTabs.getByRole('tab', { name: tabName }).click();
       await page.getByTitle(tabCommandTitles[tabName]).waitFor();
       await page.getByTestId('persistent-selection-tool').waitFor();
       await page.getByTestId('persistent-format-controls').waitFor();
       await page.getByTitle('선색/도형색').waitFor();
     }
-    await page.getByRole('tab', { name: '측정' }).click();
+    await ribbonTabs.getByRole('tab', { name: '측정' }).click();
 
     const canvas = page.locator('canvas');
     await canvas.waitFor();
@@ -99,9 +100,9 @@ const readPixel = async (page, xFraction, yFraction) => page.locator('canvas').e
     await summary.getByText('92.50°').waitFor();
     await summary.getByText('수동 보정').waitFor();
 
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '저장', exact: true }).click();
     await page.getByTitle('편집').click();
-    await page.getByRole('tab', { name: '측정' }).click();
+    await page.getByRole('tablist', { name: '주석 편집 기능' }).getByRole('tab', { name: '측정' }).click();
     const reopenedSummary = page.getByTestId('angle-measurement-summary');
     await reopenedSummary.getByText('92.50°').waitFor();
 
