@@ -28,6 +28,24 @@ const policy = () => ({
 const readJson = filePath =>
   JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 
+const discoverFixtureLocations = fixtureRoot => {
+  const locations = new Map();
+  for (const fileName of fs.readdirSync(fixtureRoot)) {
+    if (fileName === 'manifest.json' || !fileName.endsWith('.json')) continue;
+    const fixturePath = path.join(fixtureRoot, fileName);
+    try {
+      const fixture = readJson(fixturePath);
+      const fixtureId = compact(fixture?.id);
+      if (fixtureId && !locations.has(fixtureId)) {
+        locations.set(fixtureId, { fixture, fixturePath, fileName });
+      }
+    } catch {
+      // Unreadable fixture files cannot be recovered into the governed manifest.
+    }
+  }
+  return locations;
+};
+
 const writeJson = (filePath, payload) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
@@ -338,19 +356,35 @@ const applyVisionApprovedLabelConflictDecisionVerificationReport = ({
 
   const manifest = readJson(manifestPath);
   const caseById = new Map(asArray(manifest.cases).map(item => [compact(item.id), item]));
+  const discoveredFixtures = discoverFixtureLocations(fixtureRoot);
+  const recoveredCaseIds = new Set();
   const fixtureByCaseId = new Map();
   const fixturePathByCaseId = new Map();
   const invalidTargets = [];
 
   for (const decision of decisions) {
     for (const caseId of unique(decision.affectedCaseIds || [])) {
-      const caseEntry = caseById.get(caseId);
+      let caseEntry = caseById.get(caseId);
+      const discovered = discoveredFixtures.get(caseId);
+      if (!caseEntry && discovered) {
+        caseEntry = {
+          id: caseId,
+          file: discovered.fileName,
+          status: 'needs_review',
+          tags: [
+            'approved-image',
+            'vision',
+            'manifest-unlisted-fixture-recovered'
+          ]
+        };
+        caseById.set(caseId, caseEntry);
+        recoveredCaseIds.add(caseId);
+      }
       const fixturePath = caseEntry?.file
         ? path.join(fixtureRoot, caseEntry.file)
         : '';
-      const fixture = fixturePath && fs.existsSync(fixturePath)
-        ? readJson(fixturePath)
-        : null;
+      const fixture = discovered?.fixture
+        || (fixturePath && fs.existsSync(fixturePath) ? readJson(fixturePath) : null);
       const invalidTarget = validateTarget({ decision, caseEntry, fixture });
       if (invalidTarget) invalidTargets.push(invalidTarget);
       if (caseEntry && fixture) {
@@ -409,6 +443,13 @@ const applyVisionApprovedLabelConflictDecisionVerificationReport = ({
   }
 
   if (applyRequested) {
+    const recoveredCases = [...recoveredCaseIds]
+      .map(caseId => caseById.get(caseId))
+      .filter(Boolean);
+    const governedCases = [
+      ...asArray(manifest.cases),
+      ...recoveredCases
+    ];
     const updatedManifest = {
       ...manifest,
       generatedAt,
@@ -417,7 +458,7 @@ const applyVisionApprovedLabelConflictDecisionVerificationReport = ({
         ...asArray(manifest.resolvedQualityIssues),
         ...resolved
       ],
-      cases: asArray(manifest.cases).map(item =>
+      cases: governedCases.map(item =>
         updatedCaseById.get(compact(item.id)) || item
       )
     };
