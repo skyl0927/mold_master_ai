@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-24T11:30:01.154Z",
+  "generatedAt": "2026-08-28T10:48:02.074Z",
   "source": "http://127.0.0.1:8000/v1/datasets/images",
   "minimumSamples": 20,
   "evaluationGate": {
@@ -37,30 +37,6 @@
       "labels": [
         "웰드라인"
       ]
-    },
-    {
-      "type": "approved_label_observation_conflict",
-      "caseId": "approved-image-d94e0f7d8733",
-      "approvedLabel": "수축",
-      "observationLabel": "백화",
-      "approvedClass": "other:수축",
-      "observationClass": "whitening"
-    },
-    {
-      "type": "approved_label_observation_conflict",
-      "caseId": "approved-image-027934361081",
-      "approvedLabel": "밀핀 자국",
-      "observationLabel": "표면 긁힘",
-      "approvedClass": "ejection",
-      "observationClass": "other:표면긁힘"
-    },
-    {
-      "type": "approved_label_observation_conflict",
-      "caseId": "approved-image-6ed00c53f0ee",
-      "approvedLabel": "플래시",
-      "observationLabel": "표면 결함",
-      "approvedClass": "flash",
-      "observationClass": "other:표면결함"
     },
     {
       "type": "capture_protocol_incomplete",
@@ -352,8 +328,8 @@
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict",
-        "capture-needs_metadata"
+        "capture-needs_metadata",
+        "label-conflict-recapture-requested"
       ]
     },
     {
@@ -364,7 +340,8 @@
         "approved-image",
         "vision",
         "graph",
-        "capture-needs_views"
+        "capture-needs_views",
+        "label-conflict-resolved"
       ]
     },
     {
@@ -521,21 +498,109 @@
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict",
-        "capture-needs_metadata"
+        "capture-needs_metadata",
+        "label-conflict-recapture-requested"
       ]
     },
     {
       "id": "approved-image-6ed00c53f0ee",
       "file": "image-6ed00c53f0ee.json",
-      "status": "needs_review",
+      "status": "active",
       "tags": [
         "approved-image",
         "vision",
         "graph",
-        "vision-label-conflict",
-        "capture-needs_metadata"
+        "capture-needs_metadata",
+        "label-conflict-resolved"
       ]
+    },
+    {
+      "id": "approved-image-66f69cc7bbed",
+      "file": "image-66f69cc7bbed.json",
+      "status": "needs_review",
+      "tags": [
+        "approved-image",
+        "vision",
+        "manifest-unlisted-fixture-recovered",
+        "label-conflict-superseded"
+      ]
+    }
+  ],
+  "resolvedQualityIssues": [
+    {
+      "type": "approved_label_observation_conflict",
+      "caseId": "approved-image-d94e0f7d8733",
+      "approvedLabel": "수축",
+      "observationLabel": "백화",
+      "approvedClass": "other:수축",
+      "observationClass": "whitening",
+      "resolvedAt": "2026-08-28T10:48:02.074Z",
+      "resolution": {
+        "conflictId": "conflict-002",
+        "action": "request_recapture",
+        "selectedLabel": "",
+        "reviewerId": "operator-authorized-codex-20260828",
+        "decidedAt": "2026-08-28T10:45:37.565Z",
+        "reviewComment": "단일 정면 사진에는 흐린 유백색 영역만 보이고 깊이 정보가 없어 수축 함몰과 백화를 신뢰성 있게 구분할 수 없습니다. 다중 조명과 측면 시점 재촬영이 필요합니다."
+      }
+    },
+    {
+      "type": "approved_label_observation_conflict",
+      "caseId": "approved-image-027934361081",
+      "approvedLabel": "밀핀 자국",
+      "observationLabel": "표면 긁힘",
+      "approvedClass": "ejection",
+      "observationClass": "other:표면긁힘",
+      "resolvedAt": "2026-08-28T10:48:02.074Z",
+      "resolution": {
+        "conflictId": "conflict-003",
+        "action": "request_recapture",
+        "selectedLabel": "",
+        "reviewerId": "operator-authorized-codex-20260828",
+        "decidedAt": "2026-08-28T10:45:37.565Z",
+        "reviewComment": "fixture 메타데이터만 남고 Common Agent 원본 이미지와 파일 API가 모두 404로 유실됐습니다. 밀핀 자국과 표면 긁힘을 판정할 시각 근거가 없어 재촬영이 필요합니다."
+      }
+    },
+    {
+      "type": "approved_label_observation_conflict",
+      "caseId": "approved-image-6ed00c53f0ee",
+      "approvedLabel": "플래시",
+      "observationLabel": "표면 결함",
+      "approvedClass": "flash",
+      "observationClass": "other:표면결함",
+      "resolvedAt": "2026-08-28T10:48:02.074Z",
+      "resolution": {
+        "conflictId": "conflict-004",
+        "action": "keep_label",
+        "selectedLabel": "플래시",
+        "reviewerId": "operator-authorized-codex-20260828",
+        "decidedAt": "2026-08-28T10:45:37.565Z",
+        "reviewComment": "원본 SHA-256을 확인했으며 제품 경계 밖으로 이어지는 얇고 불규칙한 잉여 수지가 명확합니다. 단순 표면 긁힘보다 플래시의 형상 정의에 부합하므로 플래시 라벨을 유지합니다."
+      }
+    },
+    {
+      "type": "recovered_unlisted_fixture_label_conflict",
+      "contentHash": "a7e3d4d1065e92b0f3406b727f5a9e280300bd92fb49c44e32a09b54df82a0f1",
+      "caseIds": [
+        "approved-image-59bec59e84dc",
+        "approved-image-66f69cc7bbed"
+      ],
+      "labels": [
+        "제팅",
+        "플로우마크"
+      ],
+      "recoveredCaseIds": [
+        "approved-image-66f69cc7bbed"
+      ],
+      "resolvedAt": "2026-08-28T10:48:02.074Z",
+      "resolution": {
+        "conflictId": "conflict-001",
+        "action": "keep_label",
+        "selectedLabel": "제팅",
+        "reviewerId": "operator-authorized-codex-20260828",
+        "decidedAt": "2026-08-28T10:45:37.565Z",
+        "reviewComment": "원본 SHA-256과 중복 레코드의 동일 파일명을 확인했습니다. 백색 제품 표면의 자유 제트가 접히며 형성된 뱀형 광택 띠가 지배적이므로 제팅을 유지하고 플로우마크 중복 라벨은 격리합니다."
+      }
     }
   ]
 }

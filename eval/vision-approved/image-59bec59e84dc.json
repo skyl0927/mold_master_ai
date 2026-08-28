@@ -25,6 +25,31 @@
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "제팅",
     "originalVisionDefectType": "제팅",
-    "priorObservationSummary": "백색 사출품 표면 좌측 상단~중앙에 뱀형으로 굽이치는 광택/명암 차이의 유동 흔적이 관찰됩니다. 원형 밀핀 자국이나 선형 스크래치 형상보다는 게이트 유입 후 수지가 불안정하게 분사·접힘하며 형성되는 제팅 형상에 더 부합합니다."
+    "priorObservationSummary": "백색 사출품 표면 좌측 상단~중앙에 뱀형으로 굽이치는 광택/명암 차이의 유동 흔적이 관찰됩니다. 원형 밀핀 자국이나 선형 스크래치 형상보다는 게이트 유입 후 수지가 불안정하게 분사·접힘하며 형성되는 제팅 형상에 더 부합합니다.",
+    "labelConflictResolution": {
+      "conflictId": "conflict-001",
+      "action": "keep_label",
+      "outcome": "kept_label",
+      "selectedLabel": "제팅",
+      "previousLabel": "제팅",
+      "nextLabel": "제팅",
+      "candidateLabels": [
+        "제팅",
+        "플로우마크"
+      ],
+      "affectedCaseIds": [
+        "approved-image-59bec59e84dc",
+        "approved-image-66f69cc7bbed"
+      ],
+      "reviewerId": "operator-authorized-codex-20260828",
+      "decidedAt": "2026-08-28T10:45:37.565Z",
+      "reviewComment": "원본 SHA-256과 중복 레코드의 동일 파일명을 확인했습니다. 백색 제품 표면의 자유 제트가 접히며 형성된 뱀형 광택 띠가 지배적이므로 제팅을 유지하고 플로우마크 중복 라벨은 격리합니다.",
+      "requestedViews": [],
+      "humanLabelConfirmed": true,
+      "appliedAt": "2026-08-28T10:48:02.074Z",
+      "graphPromotionAllowed": false,
+      "referenceLearningAllowed": false,
+      "modelTrainingAllowed": false
+    }
   }
 }

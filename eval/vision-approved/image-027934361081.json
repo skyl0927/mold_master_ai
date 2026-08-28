@@ -31,6 +31,34 @@
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "밀핀 자국",
     "originalVisionDefectType": "표면 긁힘",
-    "priorObservationSummary": "표면 결함이 감지되었습니다."
+    "priorObservationSummary": "표면 결함이 감지되었습니다.",
+    "labelConflictResolution": {
+      "conflictId": "conflict-003",
+      "action": "request_recapture",
+      "outcome": "recapture_requested",
+      "selectedLabel": "",
+      "previousLabel": "밀핀 자국",
+      "nextLabel": "밀핀 자국",
+      "candidateLabels": [
+        "밀핀 자국",
+        "표면 긁힘"
+      ],
+      "affectedCaseIds": [
+        "approved-image-027934361081"
+      ],
+      "reviewerId": "operator-authorized-codex-20260828",
+      "decidedAt": "2026-08-28T10:45:37.565Z",
+      "reviewComment": "fixture 메타데이터만 남고 Common Agent 원본 이미지와 파일 API가 모두 404로 유실됐습니다. 밀핀 자국과 표면 긁힘을 판정할 시각 근거가 없어 재촬영이 필요합니다.",
+      "requestedViews": [
+        "전체 제품과 밀핀 위치 대응 사진",
+        "결함 ROI의 초점 고정 정면 근접 사진",
+        "원형 압흔과 선형 긁힘을 구분할 수 있는 사선 조명 사진"
+      ],
+      "humanLabelConfirmed": false,
+      "appliedAt": "2026-08-28T10:48:02.074Z",
+      "graphPromotionAllowed": false,
+      "referenceLearningAllowed": false,
+      "modelTrainingAllowed": false
+    }
   }
 }

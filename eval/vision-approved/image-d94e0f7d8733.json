@@ -25,6 +25,34 @@
     "sourceSystem": "mold-master-ai",
     "priorObservationDefectType": "수축",
     "originalVisionDefectType": "백화",
-    "priorObservationSummary": "평탄한 외관면의 표시 ROI 내부에 주변 질감과 대비되는 흐린 유백색 변색이 관찰됩니다. 선형 마찰흔이나 원형 밀핀 기능 형상은 ROI에서 뚜렷하지 않으며, 가장 가능성 높은 분류는 백화입니다."
+    "priorObservationSummary": "평탄한 외관면의 표시 ROI 내부에 주변 질감과 대비되는 흐린 유백색 변색이 관찰됩니다. 선형 마찰흔이나 원형 밀핀 기능 형상은 ROI에서 뚜렷하지 않으며, 가장 가능성 높은 분류는 백화입니다.",
+    "labelConflictResolution": {
+      "conflictId": "conflict-002",
+      "action": "request_recapture",
+      "outcome": "recapture_requested",
+      "selectedLabel": "",
+      "previousLabel": "수축",
+      "nextLabel": "수축",
+      "candidateLabels": [
+        "수축",
+        "백화"
+      ],
+      "affectedCaseIds": [
+        "approved-image-d94e0f7d8733"
+      ],
+      "reviewerId": "operator-authorized-codex-20260828",
+      "decidedAt": "2026-08-28T10:45:37.565Z",
+      "reviewComment": "단일 정면 사진에는 흐린 유백색 영역만 보이고 깊이 정보가 없어 수축 함몰과 백화를 신뢰성 있게 구분할 수 없습니다. 다중 조명과 측면 시점 재촬영이 필요합니다.",
+      "requestedViews": [
+        "동일 ROI의 무반사 정면 근접 사진",
+        "함몰 깊이와 표면 변색을 구분할 수 있는 사선 레이킹 라이트 사진",
+        "측면 프로파일 또는 깊이 확인 사진"
+      ],
+      "humanLabelConfirmed": false,
+      "appliedAt": "2026-08-28T10:48:02.074Z",
+      "graphPromotionAllowed": false,
+      "referenceLearningAllowed": false,
+      "modelTrainingAllowed": false
+    }
   }
 }

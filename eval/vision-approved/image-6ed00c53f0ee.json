@@ -25,6 +25,30 @@
     "sourceSystem": "field-vision-test",
     "priorObservationDefectType": "플래시",
     "originalVisionDefectType": "표면 결함",
-    "priorObservationSummary": "사진에서 보이는 결함은 표면의 긁힘과 패임이 있습니다."
+    "priorObservationSummary": "사진에서 보이는 결함은 표면의 긁힘과 패임이 있습니다.",
+    "labelConflictResolution": {
+      "conflictId": "conflict-004",
+      "action": "keep_label",
+      "outcome": "kept_label",
+      "selectedLabel": "플래시",
+      "previousLabel": "플래시",
+      "nextLabel": "플래시",
+      "candidateLabels": [
+        "플래시",
+        "표면 결함"
+      ],
+      "affectedCaseIds": [
+        "approved-image-6ed00c53f0ee"
+      ],
+      "reviewerId": "operator-authorized-codex-20260828",
+      "decidedAt": "2026-08-28T10:45:37.565Z",
+      "reviewComment": "원본 SHA-256을 확인했으며 제품 경계 밖으로 이어지는 얇고 불규칙한 잉여 수지가 명확합니다. 단순 표면 긁힘보다 플래시의 형상 정의에 부합하므로 플래시 라벨을 유지합니다.",
+      "requestedViews": [],
+      "humanLabelConfirmed": true,
+      "appliedAt": "2026-08-28T10:48:02.074Z",
+      "graphPromotionAllowed": false,
+      "referenceLearningAllowed": false,
+      "modelTrainingAllowed": false
+    }
   }
 }
