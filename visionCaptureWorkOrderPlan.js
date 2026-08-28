@@ -20,6 +20,11 @@ const unique = values => [...new Set(values.map(compact).filter(Boolean))];
 const isBenchmarkReport = artifact =>
   artifact && typeof artifact === 'object' && artifact.summary && Array.isArray(artifact.results);
 
+const isPendingHitlWorklist = artifact =>
+  artifact
+  && artifact.contractVersion === 'vision-pending-hitl-non-approval-worklist/v1'
+  && Array.isArray(artifact.items);
+
 const sortCountedViews = items =>
   [...items].sort((left, right) =>
     right.count - left.count || left.view.localeCompare(right.view)
@@ -61,6 +66,47 @@ const captureInstructionsFor = views =>
     label: compact(VIEW_DEFINITIONS[view]?.label) || view,
     instruction: compact(VIEW_DEFINITIONS[view]?.instruction) || view
   }));
+
+const hitlRecaptureWorkOrdersFor = worklist => {
+  if (!isPendingHitlWorklist(worklist)) return [];
+
+  return asArray(worklist.items)
+    .filter(item => compact(item?.action) === 'request_recapture')
+    .map((item, index) => {
+      const defectClass = compact(item?.defectClass);
+      const queueId = compact(item?.queueId);
+      const requestedViews = unique(asArray(item?.requestedViews));
+      const requiredViews = requestedViews.length > 0
+        ? requestedViews
+        : requiredViewsFor(defectClass);
+
+      return {
+        source: 'pending_hitl_decision',
+        workItemId: compact(item?.workItemId),
+        queueId,
+        contentSha256: compact(item?.contentSha256),
+        defectType: compact(item?.defectType),
+        defectClass,
+        actionType: 'hitl_recapture_requested_views',
+        priority: 200 + (requiredViews.length * 5) - index,
+        currentSamples: 0,
+        requiredSamples: 0,
+        missingApprovedSamples: 0,
+        accuracy: null,
+        top3Accuracy: null,
+        covered: false,
+        requiredViews,
+        missingViews: requiredViews.map(view => ({ view, count: 1 })),
+        recaptureSampleIds: [queueId].filter(Boolean),
+        captureInstructions: captureInstructionsFor(requiredViews),
+        reviewComment: compact(item?.reviewComment),
+        decidedAt: compact(item?.decidedAt),
+        serviceWriteAllowed: false
+      };
+    })
+    .filter(order => order.queueId && order.defectClass)
+    .sort((left, right) => right.priority - left.priority || left.queueId.localeCompare(right.queueId));
+};
 
 const recaptureSampleIdsFor = (results, defectClass, limit = 10) =>
   unique(classResults(results, defectClass)
@@ -106,11 +152,11 @@ const actionTypeFor = (missingApprovedSamples, recaptureSampleIds) => {
   return 'recapture_missing_views';
 };
 
-const missingEvidencePlan = generatedAt => ({
+const missingEvidencePlan = (generatedAt, hitlWorkOrders = []) => ({
   schemaVersion: 1,
   contractVersion: CONTRACT_VERSION,
   generatedAt,
-  status: 'missing_evidence',
+  status: hitlWorkOrders.length > 0 ? 'capture_required' : 'missing_evidence',
   serviceWritesPerformed: false,
   localArtifactsWritten: true,
   policy: {
@@ -122,22 +168,26 @@ const missingEvidencePlan = generatedAt => ({
   },
   summary: {
     missingArtifacts: 1,
+    benchmarkEvidenceMissing: true,
     totalCases: 0,
     top1Accuracy: 0,
     top3Accuracy: 0,
     captureProtocolReadyRate: 0,
-    totalWorkOrders: 0,
+    totalWorkOrders: hitlWorkOrders.length,
     totalMissingApprovedSamples: 0,
-    totalRecaptureSamples: 0,
-    topPriorityDefectClass: null,
+    totalRecaptureSamples: unique(hitlWorkOrders.flatMap(order => order.recaptureSampleIds)).length,
+    explicitHitlRecaptureRequests: hitlWorkOrders.length,
+    topPriorityDefectClass: hitlWorkOrders[0]?.defectClass || null,
     coreMissingViews: []
   },
-  workOrders: [],
+  workOrders: hitlWorkOrders,
   nextCommands: [
     'npm run eval:vision:approved',
     'npm run vision:capture:work-orders'
   ],
-  recommendedActionKo: '승인 Vision benchmark report를 먼저 생성한 뒤 촬영 work order를 다시 산출하세요.'
+  recommendedActionKo: hitlWorkOrders.length > 0
+    ? '검증된 HITL 재촬영 요청을 먼저 수행하고 승인 Vision benchmark도 생성하세요.'
+    : '승인 Vision benchmark report를 먼저 생성한 뒤 촬영 work order를 다시 산출하세요.'
 });
 
 const workOrdersFor = (benchmarkReport, options = {}) => {
@@ -201,14 +251,21 @@ const workOrdersFor = (benchmarkReport, options = {}) => {
 const buildVisionCaptureWorkOrderPlan = ({
   generatedAt = new Date().toISOString(),
   benchmarkReport = null,
+  pendingHitlWorklist = null,
   minimumSamplesPerClass
 } = {}) => {
+  const hitlWorkOrders = hitlRecaptureWorkOrdersFor(pendingHitlWorklist);
   if (!isBenchmarkReport(benchmarkReport)) {
-    return missingEvidencePlan(generatedAt);
+    return missingEvidencePlan(generatedAt, hitlWorkOrders);
   }
 
   const summary = benchmarkReport.summary || {};
-  const workOrders = workOrdersFor(benchmarkReport, { minimumSamplesPerClass });
+  const workOrders = [
+    ...hitlWorkOrders,
+    ...workOrdersFor(benchmarkReport, { minimumSamplesPerClass })
+  ].sort((left, right) =>
+    right.priority - left.priority || left.defectClass.localeCompare(right.defectClass)
+  );
   const totalMissingApprovedSamples = workOrders.reduce(
     (total, order) => total + order.missingApprovedSamples,
     0
@@ -232,6 +289,7 @@ const buildVisionCaptureWorkOrderPlan = ({
     },
     summary: {
       missingArtifacts: 0,
+      benchmarkEvidenceMissing: false,
       totalCases: numberFrom(summary.total),
       top1Accuracy: numberFrom(summary.top1Accuracy),
       top3Accuracy: numberFrom(summary.top3Accuracy),
@@ -239,6 +297,7 @@ const buildVisionCaptureWorkOrderPlan = ({
       totalWorkOrders: workOrders.length,
       totalMissingApprovedSamples,
       totalRecaptureSamples,
+      explicitHitlRecaptureRequests: hitlWorkOrders.length,
       topPriorityDefectClass: workOrders[0]?.defectClass || null,
       coreMissingViews: coreMissingViews(summary)
     },

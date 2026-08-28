@@ -26,6 +26,15 @@ const readOptionalJson = filePath => {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 };
 
+const latestArtifact = prefix => {
+  if (!fs.existsSync(artifactRoot)) return null;
+  return fs.readdirSync(artifactRoot)
+    .filter(name => name.startsWith(prefix) && name.endsWith('.json'))
+    .map(name => path.join(artifactRoot, name))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs)
+    .at(0) || null;
+};
+
 const writeText = (filePath, payload) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, payload, 'utf8');
@@ -46,6 +55,7 @@ const markdownFor = artifact => {
     `- totalWorkOrders: ${artifact.summary.totalWorkOrders}`,
     `- totalMissingApprovedSamples: ${artifact.summary.totalMissingApprovedSamples}`,
     `- totalRecaptureSamples: ${artifact.summary.totalRecaptureSamples}`,
+    `- explicitHitlRecaptureRequests: ${artifact.summary.explicitHitlRecaptureRequests || 0}`,
     ''
   ];
 
@@ -76,6 +86,12 @@ const benchmarkPath = resolveOptionalPath(
   path.join(artifactRoot, 'multimodal-vision-benchmark-report.json')
 );
 
+const pendingHitlWorklistPath = resolveOptionalPath(
+  valueAfter('--pending-hitl-worklist'),
+  process.env.VISION_PENDING_HITL_NON_APPROVAL_WORKLIST,
+  latestArtifact('vision-pending-hitl-non-approval-worklist-')
+);
+
 const outputPath = path.resolve(
   valueAfter('--output')
   || process.env.VISION_CAPTURE_WORK_ORDER_PLAN_OUTPUT
@@ -89,12 +105,14 @@ const markdownPath = path.resolve(
 
 const run = () => {
   const plan = buildVisionCaptureWorkOrderPlan({
-    benchmarkReport: readOptionalJson(benchmarkPath)
+    benchmarkReport: readOptionalJson(benchmarkPath),
+    pendingHitlWorklist: readOptionalJson(pendingHitlWorklistPath)
   });
   const artifact = {
     ...plan,
     sources: {
-      benchmarkReport: benchmarkPath
+      benchmarkReport: benchmarkPath,
+      pendingHitlWorklist: pendingHitlWorklistPath
     }
   };
 
@@ -109,6 +127,7 @@ const run = () => {
     totalWorkOrders: artifact.summary.totalWorkOrders,
     totalMissingApprovedSamples: artifact.summary.totalMissingApprovedSamples,
     totalRecaptureSamples: artifact.summary.totalRecaptureSamples,
+    explicitHitlRecaptureRequests: artifact.summary.explicitHitlRecaptureRequests || 0,
     topPriorityDefectClass: artifact.summary.topPriorityDefectClass,
     recommendedActionKo: artifact.recommendedActionKo
   }, null, 2));
@@ -124,7 +143,8 @@ try {
   const artifact = buildVisionCaptureWorkOrderPlan({});
   artifact.error = error instanceof Error ? error.message : String(error);
   artifact.sources = {
-    benchmarkReport: benchmarkPath
+    benchmarkReport: benchmarkPath,
+    pendingHitlWorklist: pendingHitlWorklistPath
   };
   writeJson(outputPath, artifact);
   writeText(markdownPath, markdownFor(artifact));
