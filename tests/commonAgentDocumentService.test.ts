@@ -2443,14 +2443,22 @@ test('current Vision reference benchmark is requested from Common Agent with rel
 });
 
 test('current Vision reference status is requested from Common Agent', async () => {
-    let capturedUrl = '';
+    const capturedUrls: string[] = [];
     (globalThis as any).window = {
         electronAPI: {
             getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request) => {
-        capturedUrl = String(input);
+        const url = String(input);
+        capturedUrls.push(url);
+        if (url.endsWith('/openapi.json')) {
+            return new Response(JSON.stringify({
+                paths: {
+                    '/v1/vision/classifier/references/current': { get: {} }
+                }
+            }), { status: 200 });
+        }
         return new Response(JSON.stringify({
             ready: true,
             status: 'ready',
@@ -2475,12 +2483,43 @@ test('current Vision reference status is requested from Common Agent', async () 
 
     const status = await CommonAgentApiService.getCurrentVisionReferenceStatus();
 
-    assert.equal(capturedUrl, 'https://agent.test/v1/vision/classifier/references/current');
+    assert.deepEqual(capturedUrls, [
+        'https://agent.test/openapi.json',
+        'https://agent.test/v1/vision/classifier/references/current'
+    ]);
     assert.equal(status.ready, true);
     assert.equal(status.embedding_model_version, 'dinov2:facebook/dinov2-base');
     assert.equal(status.embedding_provider, 'dinov2');
     assert.equal(status.reference_count, 42);
     assert.deepEqual(status.warnings, ['2 images skipped']);
+});
+
+test('missing Vision reference API is reported without issuing a 404 request', async () => {
+    const capturedUrls: string[] = [];
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent-missing-reference.test' })
+        }
+    };
+    globalThis.fetch = (async (input: string | URL | Request) => {
+        const url = String(input);
+        capturedUrls.push(url);
+        return new Response(JSON.stringify({
+            paths: {
+                '/v1/vision/status': { get: {} },
+                '/v1/datasets/images': { get: {} }
+            }
+        }), { status: 200 });
+    }) as typeof fetch;
+
+    const status = await CommonAgentApiService.getCurrentVisionReferenceStatus();
+
+    assert.deepEqual(capturedUrls, ['https://agent-missing-reference.test/openapi.json']);
+    assert.equal(status.ready, false);
+    assert.equal(status.status, 'missing');
+    assert.equal(status.reference_count, 0);
+    assert.match(status.message || '', /지원하지 않습니다/);
+    assert.deepEqual(status.warnings, ['vision_reference_api_not_advertised']);
 });
 
 test('Vision reference refresh is requested from Common Agent', async () => {
