@@ -9,6 +9,7 @@ const {
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  inferRecaptureViewTags,
   resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,
   summarizeCaptureSession
@@ -259,7 +260,9 @@ test('HITL recapture review builds next-capture lineage from vision safety evide
       'bbox 신뢰도 보강: 초점/조명 보정 후 동일 위치 재촬영',
       'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영'
     ],
-    bboxGroundingProfileId: 'defect_closeup_precision'
+    bboxGroundingProfileId: 'defect_closeup_precision',
+    workOrderId: 'review-recapture-1',
+    requiredViewTags: ['full_part_context', 'defect_closeup']
   });
 });
 
@@ -281,8 +284,144 @@ test('recapture capture guidance recommends a defect close-up for weak bbox grou
       'bbox 범위 축소: 결함 부위가 프레임 중앙에 오도록 근접 재촬영',
       '결함 경계와 주변 정상면이 함께 보이도록 근접 촬영'
     ],
+    requiredViewTags: ['full_part_context', 'defect_closeup'],
     message: '재촬영 권장 시점: 결함 근접 사진'
   });
+});
+
+test('recapture instructions infer every defect-specific view instead of only the first match', () => {
+  const source = {
+    reviewDecisionId: 'review-burn-1',
+    requiredAdditionalViews: [
+      '게이트부터 충전 말단까지 보이도록 촬영',
+      '결함부와 인접 벤트 또는 가스 배출 위치를 함께 촬영'
+    ]
+  };
+
+  assert.deepEqual(inferRecaptureViewTags(source), [
+    'fill_end_context',
+    'vent_context'
+  ]);
+  assert.deepEqual(buildRecaptureCaptureGuidance(source).requiredViewTags, [
+    'full_part_context',
+    'defect_closeup',
+    'fill_end_context',
+    'vent_context'
+  ]);
+});
+
+test('a recapture work order remains blocked until every defect-specific view is captured', () => {
+  const recaptureSource = {
+    workOrderId: 'work-order-flash-1',
+    reviewDecisionId: 'review-flash-1',
+    requiredAdditionalViews: [
+      '결함부와 파팅라인 위치가 함께 보이도록 촬영',
+      '얇은 잉여 수지의 돌출 높이가 보이도록 측면에서 촬영'
+    ],
+    requiredViewTags: [
+      'full_part_context',
+      'defect_closeup',
+      'parting_line_context',
+      'edge_profile'
+    ]
+  };
+  const baseViews = [
+    image({ id: 'flash-full', recaptureSource }),
+    image({ id: 'flash-close', captureViewTag: 'defect_closeup', recaptureSource })
+  ];
+
+  const baseSummary = summarizeCaptureSession(baseViews, 'session-1');
+  assert.equal(baseSummary.ready, false);
+  assert.deepEqual(baseSummary.requiredViews, [
+    'full_part_context',
+    'defect_closeup',
+    'parting_line_context',
+    'edge_profile'
+  ]);
+  assert.deepEqual(baseSummary.missingViews, [
+    'parting_line_context',
+    'edge_profile'
+  ]);
+
+  const partingSummary = summarizeCaptureSession([
+    ...baseViews,
+    image({ id: 'flash-parting', captureViewTag: 'parting_line_context', recaptureSource })
+  ], 'session-1');
+  assert.equal(partingSummary.ready, false);
+  assert.deepEqual(partingSummary.missingViews, ['edge_profile']);
+
+  const completeImages = [
+    ...baseViews,
+    image({ id: 'flash-parting', captureViewTag: 'parting_line_context', recaptureSource }),
+    image({ id: 'flash-edge', captureViewTag: 'edge_profile', recaptureSource })
+  ];
+  const completeSummary = summarizeCaptureSession(completeImages, 'session-1');
+  assert.equal(completeSummary.ready, true);
+  assert.deepEqual(completeSummary.missingViews, []);
+});
+
+test('evidence merge preserves recapture work-order requirements', () => {
+  const recaptureSource = {
+    workOrderId: 'work-order-flash-merge',
+    requiredViewTags: [
+      'full_part_context',
+      'defect_closeup',
+      'parting_line_context',
+      'edge_profile'
+    ]
+  };
+  const images = [
+    image({ id: 'merge-full', captureSessionId: 'full', recaptureSource }),
+    image({ id: 'merge-close', captureSessionId: 'close', captureViewTag: 'defect_closeup', recaptureSource })
+  ];
+
+  const incomplete = buildCaptureEvidenceMergePlan({
+    images,
+    selectedIds: images.map(item => item.id)
+  });
+  assert.equal(incomplete.readyAfterMerge, false);
+  assert.deepEqual(incomplete.requiredViews, [
+    'full_part_context',
+    'defect_closeup',
+    'parting_line_context',
+    'edge_profile'
+  ]);
+  assert.deepEqual(incomplete.missingViews, [
+    'parting_line_context',
+    'edge_profile'
+  ]);
+});
+
+test('recapture metadata exposes work-order identity and all required views', () => {
+  const recaptureSource = {
+    workOrderId: 'work-order-flash-metadata',
+    reviewDecisionId: 'review-flash-metadata',
+    requiredViewTags: [
+      'full_part_context',
+      'defect_closeup',
+      'parting_line_context',
+      'edge_profile'
+    ]
+  };
+  const images = [
+    image({ id: 'metadata-full', recaptureSource }),
+    image({ id: 'metadata-close', captureViewTag: 'defect_closeup', recaptureSource })
+  ];
+  const metadata = buildCaptureMetadata(images[0], images);
+
+  assert.equal(metadata.recapture_work_order_id, 'work-order-flash-metadata');
+  assert.deepEqual(metadata.recapture_required_view_tags, [
+    'full_part_context',
+    'defect_closeup',
+    'parting_line_context',
+    'edge_profile'
+  ]);
+  assert.equal(metadata.capture_protocol_ready, false);
+  assert.equal(metadata.recapture_guidance_fulfilled, false);
+  assert.deepEqual(metadata.capture_missing_views, [
+    'parting_line_context',
+    'edge_profile'
+  ]);
 });
 
 test('recapture capture guidance recommends oblique light when lighting evidence is requested', () => {
