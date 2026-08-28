@@ -392,6 +392,38 @@ test('evidence merge preserves recapture work-order requirements', () => {
   ]);
 });
 
+test('evidence merge rejects images from different recapture work orders', () => {
+  const images = [
+    image({
+      id: 'order-a-full',
+      captureSessionId: 'session-a',
+      recaptureSource: {
+        workOrderId: 'work-order-a',
+        requiredViewTags: ['full_part_context', 'defect_closeup']
+      }
+    }),
+    image({
+      id: 'order-b-close',
+      captureSessionId: 'session-b',
+      captureViewTag: 'defect_closeup',
+      recaptureSource: {
+        workOrderId: 'work-order-b',
+        requiredViewTags: ['full_part_context', 'defect_closeup']
+      }
+    })
+  ];
+
+  const plan = buildCaptureEvidenceMergePlan({
+    images,
+    selectedIds: images.map(item => item.id)
+  });
+
+  assert.equal(plan.canMerge, false);
+  assert.equal(plan.workOrderConflict, true);
+  assert.deepEqual(plan.workOrderIds, ['work-order-a', 'work-order-b']);
+  assert.match(plan.message, /서로 다른 재촬영 작업지시/);
+});
+
 test('recapture metadata exposes work-order identity and all required views', () => {
   const recaptureSource = {
     workOrderId: 'work-order-flash-metadata',
