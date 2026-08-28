@@ -13,6 +13,7 @@ dist-ssr
 build
 artifacts
 backups
+eval/vision-hitl-recheck/
 .tmp-tests
 .tmp-tools
 .tmp-hitl-db
