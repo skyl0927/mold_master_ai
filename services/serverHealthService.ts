@@ -1,5 +1,6 @@
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
+import { COMMON_AGENT_HEALTH_PATHS } from '../commonAgentHealthPolicy';
 
 export interface ServerHealthStatus {
     rag: 'online' | 'offline';
@@ -30,7 +31,7 @@ const tryGet = async (url: string): Promise<boolean> => {
 export const checkAgentServerStatus = async (): Promise<boolean> => {
     try {
         const baseUrl = await getAgentServerBaseUrl();
-        const candidates = [`${baseUrl}/healthz`, `${baseUrl}/v1/vision/status`, `${baseUrl}/health`];
+        const candidates = COMMON_AGENT_HEALTH_PATHS.map(path => `${baseUrl}${path}`);
 
         for (const url of candidates) {
             if (await tryGet(url)) return true;

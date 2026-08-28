@@ -28,8 +28,17 @@ const path = require('node:path');
     });
     const page = await app.firstWindow();
     const consoleErrors = [];
+    const failedResponses = [];
     page.on('console', message => {
       if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('response', response => {
+      if (response.status() >= 400) {
+        failedResponses.push({
+          status: response.status(),
+          url: response.url()
+        });
+      }
     });
 
     await page.getByText('DATABASE TREE').click();
@@ -55,6 +64,7 @@ const path = require('node:path');
       fullPartTagVisible: await fullPartTag.isVisible(),
       saveButtonVisible: await saveButton.isVisible(),
       screenshot,
+      failedResponses,
       consoleErrors
     };
     console.log(JSON.stringify(output, null, 2));

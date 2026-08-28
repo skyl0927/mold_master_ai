@@ -14,6 +14,7 @@ import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
 import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
+import { COMMON_AGENT_HEALTH_PATHS } from '../commonAgentHealthPolicy';
 
 export interface CommonAgentObservation {
     contract_version?: string;
@@ -427,6 +428,42 @@ const getAgentUrl = async (path: string): Promise<string> => {
     return `${baseUrl}${path}`;
 };
 
+const advertisedEndpointCache = new Map<string, Promise<Set<string>>>();
+
+const getAdvertisedEndpoints = async (): Promise<Set<string>> => {
+    const baseUrl = await getAgentServerBaseUrl();
+    const cached = advertisedEndpointCache.get(baseUrl);
+    if (cached) return await cached;
+
+    const request = (async () => {
+        const response = await fetchWithCommonAgentPolicy(`${baseUrl}/openapi.json`);
+        if (!response.ok) {
+            throw new Error(`Common Agent capability discovery failed: ${response.status}`);
+        }
+        const document = await response.json() as { paths?: Record<string, unknown> };
+        return new Set(Object.keys(document.paths || {}));
+    })();
+    advertisedEndpointCache.set(baseUrl, request);
+
+    try {
+        return await request;
+    } catch (error) {
+        advertisedEndpointCache.delete(baseUrl);
+        throw error;
+    }
+};
+
+const getEndpointCapability = async (
+    path: string
+): Promise<'supported' | 'missing' | 'unknown'> => {
+    try {
+        const endpoints = await getAdvertisedEndpoints();
+        return endpoints.has(path) ? 'supported' : 'missing';
+    } catch {
+        return 'unknown';
+    }
+};
+
 const postJson = async <T>(path: string, payload: unknown): Promise<T> => {
     const response = await fetchWithCommonAgentPolicy(await getAgentUrl(path), {
         method: 'POST',
@@ -571,8 +608,15 @@ const sha256Hex = async (content: ArrayBuffer): Promise<string> => {
 export class CommonAgentApiService {
     static async checkServerStatus(): Promise<boolean> {
         try {
-            const response = await fetchWithCommonAgentPolicy(await getAgentUrl('/healthz'), {}, { timeoutMs: 5000 });
-            return response.ok;
+            for (const path of COMMON_AGENT_HEALTH_PATHS) {
+                const response = await fetchWithCommonAgentPolicy(
+                    await getAgentUrl(path),
+                    {},
+                    { timeoutMs: 5000 }
+                );
+                if (response.ok) return true;
+            }
+            return false;
         } catch {
             return false;
         }
@@ -867,8 +911,19 @@ export class CommonAgentApiService {
     }
 
     static async getCurrentVisionReferenceStatus(): Promise<CommonAgentVisionReferenceCurrentStatus> {
+        const path = '/v1/vision/classifier/references/current';
+        const capability = await getEndpointCapability(path);
+        if (capability === 'missing') {
+            return {
+                ready: false,
+                status: 'missing',
+                reference_count: 0,
+                warnings: ['vision_reference_api_not_advertised'],
+                message: '현재 Common Agent는 Vision Reference Store 상태 API를 지원하지 않습니다.'
+            };
+        }
         return await getJson<CommonAgentVisionReferenceCurrentStatus>(
-            '/v1/vision/classifier/references/current'
+            path
         );
     }
 
