@@ -155,6 +155,15 @@ const issueMatchesDecision = (issue, decision) => {
   return false;
 };
 
+const resolutionForDecision = decision => ({
+  conflictId: compact(decision.conflictId),
+  action: compact(decision.action),
+  selectedLabel: compact(decision.selectedLabel),
+  reviewerId: compact(decision.reviewerId),
+  decidedAt: compact(decision.decidedAt),
+  reviewComment: compact(decision.reviewComment)
+});
+
 const splitQualityIssues = (qualityIssues, decisions, generatedAt) => {
   const resolved = [];
   const remaining = [];
@@ -167,14 +176,7 @@ const splitQualityIssues = (qualityIssues, decisions, generatedAt) => {
     resolved.push({
       ...issue,
       resolvedAt: generatedAt,
-      resolution: {
-        conflictId: compact(decision.conflictId),
-        action: compact(decision.action),
-        selectedLabel: compact(decision.selectedLabel),
-        reviewerId: compact(decision.reviewerId),
-        decidedAt: compact(decision.decidedAt),
-        reviewComment: compact(decision.reviewComment)
-      }
+      resolution: resolutionForDecision(decision)
     });
   }
   return { remaining, resolved };
@@ -399,10 +401,26 @@ const applyVisionApprovedLabelConflictDecisionVerificationReport = ({
     decisions,
     generatedAt
   );
+  const resolvedConflictIds = new Set(
+    resolved.map(item => compact(item.resolution?.conflictId))
+  );
+  for (const decision of decisions) {
+    if (resolvedConflictIds.has(compact(decision.conflictId))) continue;
+    const recoveredTargets = unique(decision.affectedCaseIds || [])
+      .filter(caseId => recoveredCaseIds.has(caseId));
+    if (recoveredTargets.length === 0) continue;
+    resolved.push({
+      type: 'recovered_unlisted_fixture_label_conflict',
+      contentHash: normalizeHash(decision.contentHash),
+      caseIds: unique(decision.affectedCaseIds || []),
+      labels: unique(decision.candidateLabels || []),
+      recoveredCaseIds: recoveredTargets,
+      resolvedAt: generatedAt,
+      resolution: resolutionForDecision(decision)
+    });
+    resolvedConflictIds.add(compact(decision.conflictId));
+  }
   if (resolved.length < decisions.length) {
-    const resolvedConflictIds = new Set(
-      resolved.map(item => compact(item.resolution?.conflictId))
-    );
     decisions
       .filter(decision => !resolvedConflictIds.has(compact(decision.conflictId)))
       .forEach(decision => invalidTargets.push({
