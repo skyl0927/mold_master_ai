@@ -2063,7 +2063,7 @@ test('local process knowledge is converted into a traceable migration document',
 test('central orchestration health does not depend on the legacy RAG server', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     const originalFetch = globalThis.fetch;
@@ -2078,6 +2078,44 @@ test('central orchestration health does not depend on the legacy RAG server', as
         assert.equal(health.rag, 'online');
     } finally {
         globalThis.fetch = originalFetch;
+    }
+});
+
+test('Common Agent services block plaintext external endpoints before any network request', async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalFetch = globalThis.fetch;
+    let fetchCalls = 0;
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'http://218.151.133.137:5011' })
+        }
+    };
+    globalThis.fetch = (async () => {
+        fetchCalls += 1;
+        return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+        const health = await checkServerHealth();
+        assert.equal(health.agent, 'offline');
+        assert.equal(fetchCalls, 0);
+
+        await assert.rejects(
+            CommonAgentDocumentService.syncDraft({
+                caseRequest: { case_id: 'case-security', title: 'Security check' },
+                draftRequest: {
+                    case_id: 'case-security',
+                    draft_type: 'review_report',
+                    title: 'Security check',
+                    sections: []
+                }
+            }),
+            /외부 Common Agent 주소는 HTTPS가 필요합니다/
+        );
+        assert.equal(fetchCalls, 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+        (globalThis as any).window = originalWindow;
     }
 });
 
