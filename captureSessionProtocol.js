@@ -41,38 +41,76 @@ const stringList = value => (Array.isArray(value) ? value : [])
 
 const uniqueStrings = values => [...new Set(stringList(values))];
 
+const RECAPTURE_VIEW_PATTERNS = [
+  ['full_part_context', /전체|전경|full[_\s-]*part|overview|wide[_\s-]*context/],
+  ['defect_closeup', /근접|확대|bbox|roi|defect[_\s-]*close|결함\s*부위.*중앙/],
+  ['oblique_light', /사선광|사광|광택|oblique|raking|side[_\s-]*light/],
+  ['ejection_location', /밀핀|이젝|ejector|취출\s*(?:접촉|기능|위치)/],
+  ['fill_end_context', /충전\s*말단|유동\s*말단|fill[_\s-]*end|flow[_\s-]*end|게이트.*말단|burn/],
+  ['reference_part', /정상\s*품|정상품|기준품|비교품|reference|golden[_\s-]*sample/],
+  ['vent_context', /벤트|가스\s*배출|vent|burn/],
+  ['parting_line_context', /파팅|parting|인서트\s*경계/],
+  ['edge_profile', /경계\s*측면|돌출\s*높이|측면에서|edge[_\s-]*profile/],
+  ['reverse_geometry', /반대면|배면|후육|reverse|backside/],
+  ['flow_convergence_context', /유동\s*합류|합류\s*위치|웰드|weld|flow[_\s-]*convergence/],
+  ['release_sequence', /금형\s*개방|취출\s*완료|취출\s*전후|release[_\s-]*sequence|before[_\s-]*after[_\s-]*ejection/]
+];
+
+const inferRecaptureViewTags = source => {
+  const explicitTags = normalizeViewTags(source?.requiredViewTags);
+  const evidenceItems = [
+    ...stringList(source?.requiredAdditionalViews),
+    ...stringList(source?.safetyGateReasons),
+    compact(source?.bboxGroundingProfileId)
+  ].map(item => item.toLocaleLowerCase());
+  const inferredTags = [];
+
+  for (const [viewTag, pattern] of RECAPTURE_VIEW_PATTERNS) {
+    if (evidenceItems.some(item => pattern.test(item))) inferredTags.push(viewTag);
+  }
+
+  const viewTags = normalizeViewTags([...explicitTags, ...inferredTags]);
+  const hasRecaptureSignal = Boolean(
+    compact(source?.localImageId)
+    || compact(source?.commonAgentImageId)
+    || compact(source?.reviewDecisionId)
+    || compact(source?.workOrderId)
+    || evidenceItems.some(Boolean)
+  );
+  return viewTags.length > 0
+    ? viewTags
+    : hasRecaptureSignal
+      ? ['defect_closeup']
+      : [];
+};
+
+const requiredRecaptureViews = source => normalizeViewTags([
+  ...BASE_REQUIRED_VIEWS,
+  ...normalizeViewTags(source?.requiredViewTags),
+  ...inferRecaptureViewTags(source)
+]);
+
 const buildRecaptureSourceFromReview = ({
   image,
   analysis,
-  reviewDecisionId
+  reviewDecisionId,
+  workOrderId,
+  requiredViewTags
 } = {}) => {
   const visionSummary = analysis?.visionSummary || image?.analysis?.visionSummary || {};
   const safetyGate = visionSummary?.safetyGate || {};
-  return {
+  const source = {
     localImageId: compact(image?.id),
     commonAgentImageId: compact(image?.commonAgentImageId),
     reviewDecisionId: compact(reviewDecisionId),
     safetyGateReasons: stringList(safetyGate?.reasons),
     requiredAdditionalViews: stringList(visionSummary?.requiredAdditionalViews),
-    bboxGroundingProfileId: compact(safetyGate?.bboxGroundingProfileId)
+    bboxGroundingProfileId: compact(safetyGate?.bboxGroundingProfileId),
+    workOrderId: compact(workOrderId) || compact(reviewDecisionId),
+    requiredViewTags: normalizeViewTags(requiredViewTags)
   };
-};
-
-const inferRecaptureViewTag = source => {
-  const text = [
-    ...stringList(source?.requiredAdditionalViews),
-    ...stringList(source?.safetyGateReasons),
-    compact(source?.bboxGroundingProfileId)
-  ].join(' ').toLocaleLowerCase();
-
-  if (/사선광|광택|oblique|raking/.test(text)) return 'oblique_light';
-  if (/취출|밀핀|이젝|eject|release/.test(text)) return 'ejection_location';
-  if (/파팅|parting|인서트/.test(text)) return 'parting_line_context';
-  if (/합류|웰드|weld|flow_convergence/.test(text)) return 'flow_convergence_context';
-  if (/벤트|가스|burn|flow_end|충전\s*말단|유동\s*말단/.test(text)) return 'fill_end_context';
-  if (/정상\s*품|정상품|비교|reference/.test(text)) return 'reference_part';
-  if (/전체|full_part|overview/.test(text)) return 'full_part_context';
-  return 'defect_closeup';
+  source.requiredViewTags = requiredRecaptureViews(source);
+  return source;
 };
 
 const buildRecaptureCaptureGuidance = (source = {}) => {
@@ -82,11 +120,18 @@ const buildRecaptureCaptureGuidance = (source = {}) => {
     compact(source?.localImageId)
     || compact(source?.commonAgentImageId)
     || compact(source?.reviewDecisionId)
+    || compact(source?.workOrderId)
     || compact(source?.bboxGroundingProfileId)
     || reasonCodes.length
     || sourceInstructions.length
   );
-  const recommendedViewTag = inferRecaptureViewTag(source);
+  const inferredViewTags = inferRecaptureViewTags(source);
+  const recommendedViewTag = inferredViewTags.find(
+    viewTag => !BASE_REQUIRED_VIEWS.includes(viewTag)
+  ) || inferredViewTags.find(viewTag => viewTag === 'defect_closeup')
+    || inferredViewTags[0]
+    || 'defect_closeup';
+  const requiredViewTags = requiredRecaptureViews(source);
   const view = VIEW_DEFINITIONS[recommendedViewTag];
   const instructions = uniqueStrings([
     ...sourceInstructions,
@@ -99,6 +144,7 @@ const buildRecaptureCaptureGuidance = (source = {}) => {
     recommendedViewTag,
     reasonCodes,
     instructions,
+    requiredViewTags,
     message: hasRecaptureSignal
       ? `재촬영 권장 시점: ${view?.label || recommendedViewTag}`
       : '재촬영 연결 대기 없음'
@@ -125,7 +171,7 @@ const getViewLabel = view => VIEW_DEFINITIONS[view]?.label || view;
 
 const buildSessionMessage = (status, missingViews) => {
   if (status === 'ready') {
-    return '기본 촬영 시점이 충족되어 비전 진단을 실행할 수 있습니다.';
+    return '필수 촬영 시점이 충족되어 비전 진단을 실행할 수 있습니다.';
   }
   if (status === 'not_visually_verifiable') {
     return '문서나 도면이 아닌 실제 성형품 사진을 촬영해 주세요.';
@@ -136,7 +182,23 @@ const buildSessionMessage = (status, missingViews) => {
   return `추가 촬영 필요: ${missingViews.map(getViewLabel).join(', ')}`;
 };
 
-const summarizeCaptureSession = (images, sessionId) => {
+const requiredViewsForImages = (images, recaptureSource) => {
+  const sources = (Array.isArray(images) ? images : [])
+    .map(image => image?.recaptureSource)
+    .filter(Boolean);
+  if (recaptureSource) sources.push(recaptureSource);
+  return normalizeViewTags([
+    ...BASE_REQUIRED_VIEWS,
+    ...sources.flatMap(requiredRecaptureViews)
+  ]);
+};
+
+const summarizeCaptureSession = (images, sessionId, recaptureSource) => {
+  const sessionImages = sessionId
+    ? (Array.isArray(images) ? images : [])
+      .filter(image => image?.captureSessionId === sessionId)
+    : [];
+  const requiredViews = requiredViewsForImages(sessionImages, recaptureSource);
   if (!sessionId) {
     return {
       sessionId: undefined,
@@ -146,22 +208,20 @@ const summarizeCaptureSession = (images, sessionId) => {
       physicalImageCount: 0,
       uniqueViewCount: 0,
       availableViews: [],
-      requiredViews: [...BASE_REQUIRED_VIEWS],
-      missingViews: [...BASE_REQUIRED_VIEWS],
-      missingViewLabels: BASE_REQUIRED_VIEWS.map(getViewLabel),
-      message: buildSessionMessage('needs_metadata', BASE_REQUIRED_VIEWS)
+      requiredViews,
+      missingViews: requiredViews,
+      missingViewLabels: requiredViews.map(getViewLabel),
+      message: buildSessionMessage('needs_metadata', requiredViews)
     };
   }
 
-  const sessionImages = (Array.isArray(images) ? images : [])
-    .filter(image => image?.captureSessionId === sessionId);
   const physicalImages = sessionImages.filter(
     image => normalizeImageKind(image?.captureImageKind) === 'physical_product'
   );
   const availableViews = normalizeViewTags(
     physicalImages.map(image => image?.captureViewTag)
   );
-  const missingViews = BASE_REQUIRED_VIEWS.filter(
+  const missingViews = requiredViews.filter(
     view => !availableViews.includes(view)
   );
 
@@ -183,7 +243,7 @@ const summarizeCaptureSession = (images, sessionId) => {
     physicalImageCount: physicalImages.length,
     uniqueViewCount: availableViews.length,
     availableViews,
-    requiredViews: [...BASE_REQUIRED_VIEWS],
+    requiredViews,
     missingViews,
     missingViewLabels: missingViews.map(getViewLabel),
     message: buildSessionMessage(status, missingViews)
@@ -194,7 +254,8 @@ const buildCaptureEvidenceMergePlan = ({
   images,
   selectedIds,
   targetSessionId,
-  fallbackSessionId
+  fallbackSessionId,
+  recaptureSource
 } = {}) => {
   const selectedIdList = selectedIds instanceof Set
     ? stringList([...selectedIds])
@@ -210,7 +271,8 @@ const buildCaptureEvidenceMergePlan = ({
   const availableViews = normalizeViewTags(
     physicalImages.map(image => image?.captureViewTag)
   );
-  const missingViews = BASE_REQUIRED_VIEWS.filter(
+  const requiredViews = requiredViewsForImages(selectedImages, recaptureSource);
+  const missingViews = requiredViews.filter(
     view => !availableViews.includes(view)
   );
   const safeTargetSessionId = compact(targetSessionId)
@@ -232,6 +294,7 @@ const buildCaptureEvidenceMergePlan = ({
     selectedCount: selectedImages.length,
     physicalImageCount: physicalImages.length,
     availableViews,
+    requiredViews,
     missingViews,
     missingViewLabels: missingViews.map(getViewLabel),
     readyAfterMerge,
@@ -275,19 +338,27 @@ const assessCaptureImageForDiagnosis = (image, images) => {
 };
 
 const buildCaptureMetadata = (image, images) => {
-  const summary = summarizeCaptureSession(images, image?.captureSessionId);
-  const captureViewTags = normalizeViewTags(image?.captureViewTag);
   const recaptureSource = image?.recaptureSource || {};
+  const summary = summarizeCaptureSession(
+    images,
+    image?.captureSessionId,
+    recaptureSource
+  );
+  const captureViewTags = normalizeViewTags(image?.captureViewTag);
   const hasRecaptureLineage = Boolean(
     compact(recaptureSource.localImageId)
     || compact(recaptureSource.commonAgentImageId)
     || compact(recaptureSource.reviewDecisionId)
+    || compact(recaptureSource.workOrderId)
+    || normalizeViewTags(recaptureSource.requiredViewTags).length
   );
   const recaptureGuidance = hasRecaptureLineage
     ? buildRecaptureCaptureGuidance(recaptureSource)
     : null;
   const recaptureGuidanceFulfilled = recaptureGuidance
-    ? captureViewTags.includes(recaptureGuidance.recommendedViewTag)
+    ? summary.ready && recaptureGuidance.requiredViewTags.every(
+      viewTag => summary.availableViews.includes(viewTag)
+    )
     : false;
   const recaptureGuidanceFulfillmentStatus = recaptureGuidanceFulfilled
     ? 'fulfilled'
@@ -307,8 +378,10 @@ const buildCaptureMetadata = (image, images) => {
       recapture_source_local_image_id: compact(recaptureSource.localImageId),
       recapture_source_common_agent_image_id: compact(recaptureSource.commonAgentImageId),
       recapture_review_decision_id: compact(recaptureSource.reviewDecisionId),
+      recapture_work_order_id: compact(recaptureSource.workOrderId),
       recapture_safety_gate_reasons: stringList(recaptureSource.safetyGateReasons),
       recapture_required_additional_views: stringList(recaptureSource.requiredAdditionalViews),
+      recapture_required_view_tags: recaptureGuidance.requiredViewTags,
       recapture_bbox_grounding_profile_id: compact(recaptureSource.bboxGroundingProfileId),
       recapture_guidance_protocol_version: recaptureGuidance.protocolVersion,
       recapture_recommended_view_tag: recaptureGuidance.recommendedViewTag,
@@ -427,6 +500,7 @@ module.exports = {
   buildRecaptureSourceFromReview,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  inferRecaptureViewTags,
   resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,
   summarizeCaptureSession
