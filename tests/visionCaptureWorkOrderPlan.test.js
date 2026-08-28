@@ -82,6 +82,66 @@ test('fails closed when benchmark evidence is missing', () => {
   ]);
 });
 
+test('keeps reviewed HITL recapture requests actionable when benchmark evidence is missing', () => {
+  const pendingHitlWorklist = {
+    contractVersion: 'vision-pending-hitl-non-approval-worklist/v1',
+    status: 'action_required',
+    items: [
+      {
+        workItemId: 'vision-non-approval-007',
+        queueId: 'pending-hitl-006',
+        contentSha256: 'a'.repeat(64),
+        action: 'request_recapture',
+        defectType: '웰드라인',
+        defectClass: 'weld_line',
+        reviewComment: 'Annotated composite image must be replaced.',
+        requestedViews: [
+          '주석 없는 전체 시편 사진',
+          '유동 합류부 근접 원본'
+        ]
+      },
+      {
+        workItemId: 'vision-non-approval-008',
+        queueId: 'pending-hitl-007',
+        contentSha256: 'b'.repeat(64),
+        action: 'request_recapture',
+        defectType: '플래시',
+        defectClass: 'flash',
+        reviewComment: 'A side profile is required.',
+        requestedViews: ['제품 전체 사진', '잉여 수지 측면 사진']
+      },
+      {
+        workItemId: 'vision-non-approval-001',
+        queueId: 'pending-hitl-001',
+        action: 'reject_candidate',
+        defectClass: 'sink',
+        requestedViews: []
+      }
+    ]
+  };
+
+  const plan = buildVisionCaptureWorkOrderPlan({ pendingHitlWorklist });
+
+  assert.equal(plan.status, 'capture_required');
+  assert.equal(plan.summary.missingArtifacts, 1);
+  assert.equal(plan.summary.benchmarkEvidenceMissing, true);
+  assert.equal(plan.summary.explicitHitlRecaptureRequests, 2);
+  assert.equal(plan.summary.totalWorkOrders, 2);
+  assert.equal(plan.summary.totalRecaptureSamples, 2);
+  assert.deepEqual(
+    plan.workOrders.map(order => order.queueId),
+    ['pending-hitl-006', 'pending-hitl-007']
+  );
+  assert.ok(plan.workOrders.every(order => order.actionType === 'hitl_recapture_requested_views'));
+  assert.ok(plan.workOrders.every(order => order.serviceWriteAllowed === false));
+  assert.deepEqual(plan.workOrders[0].requiredViews, [
+    '주석 없는 전체 시편 사진',
+    '유동 합류부 근접 원본'
+  ]);
+  assert.deepEqual(plan.workOrders[0].recaptureSampleIds, ['pending-hitl-006']);
+  assert.ok(plan.nextCommands.includes('npm run eval:vision:approved'));
+});
+
 test('turns weak benchmark evidence into prioritized defect-class capture work orders', () => {
   const plan = buildVisionCaptureWorkOrderPlan({
     generatedAt: '2026-07-28T04:05:00.000Z',
