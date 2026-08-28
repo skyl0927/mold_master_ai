@@ -208,7 +208,9 @@ test('explicit apply recovers an existing unlisted fixture as a quarantined mani
   const fixtureRoot = createFixtureRoot();
   const manifestPath = path.join(fixtureRoot, 'manifest.json');
   const manifest = readJson(manifestPath);
-  manifest.qualityIssues[0].caseIds = ['approved-image-a', 'approved-image-d'];
+  manifest.qualityIssues = manifest.qualityIssues.filter(
+    issue => issue.type !== 'duplicate_image_conflicting_labels'
+  );
   writeJson(manifestPath, manifest);
   writeJson(path.join(fixtureRoot, 'image-d.json'), {
     id: 'approved-image-d',
@@ -250,6 +252,9 @@ test('explicit apply recovers an existing unlisted fixture as a quarantined mani
   assert.equal(recovered.status, 'needs_review');
   assert.ok(recovered.tags.includes('manifest-unlisted-fixture-recovered'));
   assert.ok(recovered.tags.includes('label-conflict-superseded'));
+  assert.ok(updatedManifest.resolvedQualityIssues.some(
+    issue => issue.type === 'recovered_unlisted_fixture_label_conflict'
+  ));
   const recoveredFixture = readJson(path.join(fixtureRoot, 'image-d.json'));
   assert.equal(recoveredFixture.sourceReview.labelConflictResolution.outcome, 'superseded_needs_review');
 });
