@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mode": "provisional_existing_same_part_pairs",
+  "releaseEvidenceEligible": false,
+  "sourceDocument": {
+    "documentId": "doc-kcard-bb5f728a2564be15c8b4",
+    "title": "암묵지_전처리_입력_조립_(1)_전처리인식강화_v2.pptx"
+  },
+  "cases": [
+    {
+      "id": "shadow-pair-001",
+      "evidenceStatus": "provisional_pair",
+      "sourceSlide": 3,
+      "expected": {
+        "defectType": "백화",
+        "defectClass": "whitening"
+      },
+      "views": [
+        {
+          "commonAgentImageId": "image-b00ca4a30e10",
+          "captureViewTag": "full_part_context",
+          "isPrimary": true
+        },
+        {
+          "commonAgentImageId": "image-80520cd398d6",
+          "captureViewTag": "defect_closeup",
+          "isPrimary": false
+        }
+      ]
+    },
+    {
+      "id": "shadow-pair-002",
+      "evidenceStatus": "provisional_pair",
+      "sourceSlide": 5,
+      "expected": {
+        "defectType": "미성형",
+        "defectClass": "short_shot"
+      },
+      "views": [
+        {
+          "commonAgentImageId": "image-1a90cbbdd9d6",
+          "captureViewTag": "full_part_context",
+          "isPrimary": true
+        },
+        {
+          "commonAgentImageId": "image-287a816430b5",
+          "captureViewTag": "defect_closeup",
+          "isPrimary": false
+        }
+      ]
+    },
+    {
+      "id": "shadow-pair-003",
+      "evidenceStatus": "provisional_pair",
+      "sourceSlide": 7,
+      "expected": {
+        "defectType": "플래시",
+        "defectClass": "flash"
+      },
+      "views": [
+        {
+          "commonAgentImageId": "image-d6582eda4f47",
+          "captureViewTag": "full_part_context",
+          "isPrimary": true
+        },
+        {
+          "commonAgentImageId": "image-4d238bb8a9b7",
+          "captureViewTag": "defect_closeup",
+          "isPrimary": false
+        }
+      ]
+    }
+  ]
+}

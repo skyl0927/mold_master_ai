@@ -5,6 +5,8 @@ const {
   assessNoWriteDiagnosis,
   buildDatasetSnapshot,
   buildNoWriteVisionForm,
+  normalizeVisionRuntimeStatus,
+  shouldRetryNoWriteDiagnosisStatus,
   summarizeNoWriteMultiviewEvaluation,
   validateNoWriteMultiviewCases
 } = require('../scripts/lib/no-write-multiview-evaluation');
@@ -118,6 +120,7 @@ test('fails closed unless no-write, fusion, and dataset invariants are explicit'
       persist_mode: 'never'
     },
     reasoning_trace: [
+      'answer_ledger_persisted=false',
       'image_dataset_persisted=false',
       'service_writes_performed=false'
     ]
@@ -147,22 +150,60 @@ test('dataset snapshots are stable across item order and detect record mutation'
       { image_id: 'image-b', updated_at: '2' },
       { image_id: 'image-a', updated_at: '1' }
     ]
-  });
+  }, { centralCount: 23 });
   const reordered = buildDatasetSnapshot({
     items: [
       { image_id: 'image-a', updated_at: '1' },
       { image_id: 'image-b', updated_at: '2' }
     ]
-  });
+  }, { centralCount: 23 });
   const changed = buildDatasetSnapshot({
     items: [
       { image_id: 'image-a', updated_at: '1' },
       { image_id: 'image-b', updated_at: '3' }
     ]
-  });
+  }, { centralCount: 23 });
+  const hiddenInsert = buildDatasetSnapshot({
+    items: [
+      { image_id: 'image-a', updated_at: '1' },
+      { image_id: 'image-b', updated_at: '2' }
+    ]
+  }, { centralCount: 24 });
 
   assert.equal(left.fingerprint, reordered.fingerprint);
   assert.notEqual(left.fingerprint, changed.fingerprint);
+  assert.notEqual(left.fingerprint, hiddenInsert.fingerprint);
+  assert.equal(left.centralCount, 23);
+});
+
+test('normalizes the nested Common Agent Vision runtime contract', () => {
+  assert.deepEqual(normalizeVisionRuntimeStatus({
+    status: 'ready',
+    image_dataset_count: 23,
+    qa_agent: {
+      status: 'ready',
+      provider: 'openai',
+      vision_model: 'gpt-5.6-terra',
+      vision_prompt_version: 'vision-diagnosis-v2',
+      vision_image_detail: 'original'
+    }
+  }), {
+    status: 'ready',
+    provider: 'openai',
+    visionModel: 'gpt-5.6-terra',
+    visionPromptVersion: 'vision-diagnosis-v2',
+    visionImageDetail: 'original',
+    imageDatasetCount: 23,
+    ready: true
+  });
+});
+
+test('retries only transient no-write diagnosis failures', () => {
+  assert.equal(shouldRetryNoWriteDiagnosisStatus(429), true);
+  assert.equal(shouldRetryNoWriteDiagnosisStatus(502), true);
+  assert.equal(shouldRetryNoWriteDiagnosisStatus(503), true);
+  assert.equal(shouldRetryNoWriteDiagnosisStatus(400), false);
+  assert.equal(shouldRetryNoWriteDiagnosisStatus(404), false);
 });
 
 test('summary separates shadow quality evidence from release eligibility', () => {
