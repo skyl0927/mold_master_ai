@@ -6,6 +6,7 @@ const {
   buildCaptureEvidenceMergePlan,
   buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,
+  buildRecaptureSourceFromWorkOrder,
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
@@ -286,6 +287,44 @@ test('HITL recapture review builds next-capture lineage from vision safety evide
     workOrderId: 'review-recapture-1',
     requiredViewTags: ['full_part_context', 'defect_closeup']
   });
+});
+
+test('governed capture work order builds recapture lineage with every required Korean view', () => {
+  const source = buildRecaptureSourceFromWorkOrder({
+    workItemId: 'vision-non-approval-008',
+    queueId: 'pending-hitl-007',
+    defectClass: 'flash',
+    actionType: 'hitl_recapture_requested_views',
+    requiredViews: [
+      '제품 전체와 결함 위치가 함께 보이는 사진',
+      '플래시 후보 부위의 초점 고정 근접 사진',
+      '파팅라인 또는 게이트 경계 맥락 사진',
+      '잉여 수지 두께가 보이는 측면 사진'
+    ],
+    captureInstructions: [
+      {
+        view: '잉여 수지 두께가 보이는 측면 사진',
+        instruction: '잉여 수지 두께가 보이는 측면 사진'
+      }
+    ],
+    reviewComment: '결함 부위 중심의 다중 시점 재촬영이 필요합니다.'
+  });
+
+  assert.equal(source.workOrderId, 'vision-non-approval-008');
+  assert.equal(source.reviewDecisionId, 'pending-hitl-007');
+  assert.deepEqual(source.safetyGateReasons, ['governed_capture_work_order']);
+  assert.deepEqual(source.requiredAdditionalViews, [
+    '제품 전체와 결함 위치가 함께 보이는 사진',
+    '플래시 후보 부위의 초점 고정 근접 사진',
+    '파팅라인 또는 게이트 경계 맥락 사진',
+    '잉여 수지 두께가 보이는 측면 사진'
+  ]);
+  assert.deepEqual(source.requiredViewTags, [
+    'full_part_context',
+    'defect_closeup',
+    'parting_line_context',
+    'edge_profile'
+  ]);
 });
 
 test('recapture capture guidance recommends a defect close-up for weak bbox grounding', () => {

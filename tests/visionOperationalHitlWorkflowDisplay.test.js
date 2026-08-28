@@ -1303,12 +1303,24 @@ test('summarizes operational status bundle for one-step Settings handoff display
     ],
     visionCaptureWorkOrderPreviews: [
       {
+        workItemId: 'vision-non-approval-009',
+        queueId: 'pending-hitl-010',
+        defectType: '흑점/탄화',
         defectClass: 'burn',
         actionType: 'capture_new_multiview_samples',
         priority: 105,
         missingApprovedSamples: 2,
-        recaptureSampleCount: 0,
-        requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context']
+        recaptureSampleIds: ['pending-hitl-010'],
+        recaptureSampleCount: 1,
+        requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context'],
+        captureInstructions: [
+          {
+            view: 'full_part_context',
+            label: '전체 제품 사진',
+            instruction: '제품 전체와 결함 위치가 함께 보이도록 촬영'
+          }
+        ],
+        reviewComment: '주석 없는 다중 시점 재촬영이 필요합니다.'
       }
     ],
     preparationWorksheetArtifacts: [
@@ -1508,12 +1520,25 @@ test('summarizes operational status bundle for one-step Settings handoff display
   assert.equal(display.labelConflictGuidePath, 'C:\\repo\\artifacts\\vision-approved-label-conflict-review-guide.md');
   assert.deepEqual(display.captureWorkOrderPreviews, [
     {
+      workItemId: 'vision-non-approval-009',
+      queueId: 'pending-hitl-010',
+      defectType: '흑점/탄화',
       defectClass: 'burn',
       actionType: 'capture_new_multiview_samples',
       priority: 105,
       missingApprovedSamples: 2,
-      recaptureSampleCount: 0,
-      requiredViewsText: 'full_part_context, defect_closeup, fill_end_context, vent_context'
+      recaptureSampleIds: ['pending-hitl-010'],
+      recaptureSampleCount: 1,
+      requiredViews: ['full_part_context', 'defect_closeup', 'fill_end_context', 'vent_context'],
+      requiredViewsText: 'full_part_context, defect_closeup, fill_end_context, vent_context',
+      captureInstructions: [
+        {
+          view: 'full_part_context',
+          label: '전체 제품 사진',
+          instruction: '제품 전체와 결함 위치가 함께 보이도록 촬영'
+        }
+      ],
+      reviewComment: '주석 없는 다중 시점 재촬영이 필요합니다.'
     }
   ]);
   assert.equal(display.worktableCsvPath, 'C:\\repo\\artifacts\\worktable.csv');

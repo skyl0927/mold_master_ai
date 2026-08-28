@@ -37,6 +37,27 @@ const path = require('node:path');
       visionTop3Accuracy: 92
     },
     progressFeedbackKo: ['최신 로컬 운영 상태를 자동 복원했습니다.'],
+    visionCaptureWorkOrderPreviews: [
+      {
+        workItemId: 'vision-non-approval-009',
+        queueId: 'pending-hitl-010',
+        defectType: '흑점/탄화',
+        defectClass: 'burn',
+        actionType: 'hitl_recapture_requested_views',
+        priority: 218,
+        missingApprovedSamples: 0,
+        recaptureSampleIds: ['pending-hitl-010'],
+        recaptureSampleCount: 1,
+        requiredViews: [
+          '카메라 아이콘과 점선이 없는 전체 성형품 원본',
+          '탄화 후보 부위 근접 사진',
+          '유동 말단과 벤트 위치가 함께 보이는 사진',
+          '동일 조명 정상 비교품'
+        ],
+        captureInstructions: [],
+        reviewComment: '주석 오염이 없는 다중 시점 재촬영이 필요합니다.'
+      }
+    ],
     nextOperatorActions: [],
     sessionPointers: [],
     sourceArtifactSnapshots: [
@@ -106,6 +127,11 @@ const path = require('node:path');
     await retryButton.click();
     await autoloadStatus.getByText(/최신|자동 복원/).waitFor();
     const retryStatus = await autoloadStatus.innerText();
+    const launchButton = page.getByRole('button', { name: 'pending-hitl-010 재촬영 시작' });
+    await launchButton.waitFor({ state: 'visible' });
+    await launchButton.click();
+    await page.getByText('다중 시점 촬영').waitFor({ state: 'visible' });
+    const cameraProtocolText = await page.getByText('촬영 프로토콜').locator('..').innerText();
     const persistedState = await page.evaluate(() => ({
       bundle: JSON.parse(localStorage.getItem('mold-master-ai:operational-status-bundle:v1') || 'null'),
       progress: JSON.parse(localStorage.getItem('mold-master-ai:development-progress:v1') || 'null')
@@ -121,6 +147,8 @@ const path = require('node:path');
       restoredEmbeddedProgress:
         persistedState.progress?.currentPhase?.code === 'autoload_e2e',
       retryAvailable: await retryButton.isVisible(),
+      workOrderLaunchAvailable: true,
+      workOrderCameraOpened: cameraProtocolText.includes('필수 시점 촬영 필요'),
       retryStatus,
       sourceBundle: path.join(fixtureRoot, 'operational-status-bundle-autoload-e2e.json'),
       screenshot,
@@ -134,6 +162,8 @@ const path = require('node:path');
       || !result.persistedLatestBundle
       || !result.restoredEmbeddedProgress
       || !result.retryAvailable
+      || !result.workOrderLaunchAvailable
+      || !result.workOrderCameraOpened
       || consoleErrors.length > 0
     ) {
       process.exitCode = 1;
