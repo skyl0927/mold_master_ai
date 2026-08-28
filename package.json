@@ -243,9 +243,10 @@
     "productName": "Capture & Annotate Pro",
     "files": [
       "build/",
-      "main.js",
-      "clipboardImagePayload.js",
-      "apiConfigDefaults.js",
+    "main.js",
+    "clipboardImagePayload.js",
+    "commonAgentTransport.js",
+    "apiConfigDefaults.js",
       "localVisionCandidate.js",
       "migrationGateStatus.js",
       "latestOperationalStatusBundle.js",
