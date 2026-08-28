@@ -1554,7 +1554,8 @@ test('Vision diagnose sends persistence policy and omits quarantined dataset ids
     const file = new File([new Uint8Array([1, 2, 3])], 'screen.png', { type: 'image/png' });
     await CommonAgentApiService.diagnoseImage(file);
     await CommonAgentApiService.diagnoseImage(file, { persistMode: 'always' });
-    assert.deepEqual(persistModes, ['classifiable_only', 'always']);
+    await CommonAgentApiService.diagnoseImage(file, { persistMode: 'never' });
+    assert.deepEqual(persistModes, ['classifiable_only', 'always', 'never']);
 
     const result = await CommonAgentGateway.diagnoseImage({
         imageId: 'local-screen',
