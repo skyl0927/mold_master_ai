@@ -204,6 +204,56 @@ test('explicit apply resolves selected label and quarantines superseded conflict
   assert.equal(superseded.sourceReview.labelConflictResolution.outcome, 'superseded_needs_review');
 });
 
+test('explicit apply recovers an existing unlisted fixture as a quarantined manifest case', () => {
+  const fixtureRoot = createFixtureRoot();
+  const manifestPath = path.join(fixtureRoot, 'manifest.json');
+  const manifest = readJson(manifestPath);
+  manifest.qualityIssues[0].caseIds = ['approved-image-a', 'approved-image-d'];
+  writeJson(manifestPath, manifest);
+  writeJson(path.join(fixtureRoot, 'image-d.json'), {
+    id: 'approved-image-d',
+    title: '플로우마크 approved image',
+    commonAgentImageId: 'image-d',
+    contentHash: hashA,
+    expected: {
+      defectType: '플로우마크',
+      defectClass: 'flow_mark'
+    },
+    sourceReview: {
+      reviewStatus: 'approved',
+      reviewedAt: '2026-07-24T09:00:00.000Z'
+    }
+  });
+
+  const report = applyVisionApprovedLabelConflictDecisionVerificationReport({
+    verificationReport: readyReport({
+      importPlan: {
+        resolvedLabelConflicts: [{
+          ...readyReport().importPlan.resolvedLabelConflicts[0],
+          affectedCaseIds: ['approved-image-a', 'approved-image-d']
+        }],
+        needsReviewConflicts: [],
+        rejectedConflicts: [],
+        recaptureRequests: []
+      }
+    }),
+    fixtureRoot,
+    apply: true
+  });
+
+  assert.equal(report.status, 'applied');
+  assert.equal(report.summary.appliedCaseUpdates, 2);
+  assert.equal(report.summary.supersededCases, 1);
+  const updatedManifest = readJson(manifestPath);
+  const recovered = updatedManifest.cases.find(item => item.id === 'approved-image-d');
+  assert.equal(recovered.file, 'image-d.json');
+  assert.equal(recovered.status, 'needs_review');
+  assert.ok(recovered.tags.includes('manifest-unlisted-fixture-recovered'));
+  assert.ok(recovered.tags.includes('label-conflict-superseded'));
+  const recoveredFixture = readJson(path.join(fixtureRoot, 'image-d.json'));
+  assert.equal(recoveredFixture.sourceReview.labelConflictResolution.outcome, 'superseded_needs_review');
+});
+
 test('single-record keep_label can update the expected label after human reconciliation', () => {
   const fixtureRoot = createFixtureRoot();
   const report = applyVisionApprovedLabelConflictDecisionVerificationReport({
