@@ -47,7 +47,7 @@ const RECAPTURE_VIEW_PATTERNS = [
   ['oblique_light', /사선광|사광|광택|oblique|raking|side[_\s-]*light/],
   ['ejection_location', /밀핀|이젝|ejector|취출\s*(?:접촉|기능|위치)/],
   ['fill_end_context', /충전\s*말단|유동\s*말단|fill[_\s-]*end|flow[_\s-]*end|게이트.*말단|burn/],
-  ['reference_part', /정상\s*품|정상품|기준품|비교품|reference|golden[_\s-]*sample/],
+  ['reference_part', /정상\s*품|정상품|정상\s*비교|기준품|비교품|비교\s*시편|reference|golden[_\s-]*sample/],
   ['vent_context', /벤트|가스\s*배출|vent|burn/],
   ['parting_line_context', /파팅|parting|인서트\s*경계/],
   ['edge_profile', /경계\s*측면|돌출\s*높이|측면에서|잉여\s*수지.*측면|두께.*측면|edge[_\s-]*profile/],
