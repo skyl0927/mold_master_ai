@@ -587,7 +587,7 @@ export class CommonAgentApiService {
             ragCategory?: string;
             metadata?: Record<string, any>;
             sessionId?: string;
-            persistMode?: 'always' | 'classifiable_only';
+            persistMode?: 'always' | 'classifiable_only' | 'never';
             sessionViews?: CommonAgentSessionViewUpload[];
         } = {}
     ): Promise<CommonAgentVisionDiagnosis> {
