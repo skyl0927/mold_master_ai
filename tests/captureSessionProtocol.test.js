@@ -327,6 +327,26 @@ test('governed capture work order builds recapture lineage with every required K
   ]);
 });
 
+test('governed weld-line work order requires the normal comparison specimen', () => {
+  const source = buildRecaptureSourceFromWorkOrder({
+    workItemId: 'vision-non-approval-007',
+    queueId: 'pending-hitl-006',
+    defectClass: 'weld_line',
+    requiredViews: [
+      '주석과 확대 연결선이 없는 원본 전체 시편 사진',
+      '유동 합류부의 동일 배율 근접 현미경 원본',
+      '동일 배율 정상 비교 시편'
+    ]
+  });
+
+  assert.deepEqual(source.requiredViewTags, [
+    'full_part_context',
+    'defect_closeup',
+    'reference_part',
+    'flow_convergence_context'
+  ]);
+});
+
 test('recapture capture guidance recommends a defect close-up for weak bbox grounding', () => {
   const guidance = buildRecaptureCaptureGuidance({
     safetyGateReasons: ['overbroad_region_bbox'],
