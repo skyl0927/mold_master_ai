@@ -84,6 +84,24 @@ export interface RecaptureCaptureGuidance {
   message: string;
 }
 
+export interface CaptureWorkOrderInput {
+  workItemId?: string;
+  queueId?: string;
+  defectType?: string;
+  defectClass?: string;
+  actionType?: string;
+  priority?: number;
+  missingApprovedSamples?: number;
+  recaptureSampleIds?: string[];
+  requiredViews?: string[];
+  captureInstructions?: Array<{
+    view?: string;
+    label?: string;
+    instruction?: string;
+  }>;
+  reviewComment?: string;
+}
+
 export interface CaptureLearningEligibility {
   eligible: boolean;
   reason:
@@ -137,6 +155,10 @@ export function buildRecaptureSourceFromReview(options?: {
   workOrderId?: string;
   requiredViewTags?: CaptureViewTag[];
 }): RecaptureSource;
+
+export function buildRecaptureSourceFromWorkOrder(
+  workOrder?: CaptureWorkOrderInput
+): RecaptureSource;
 
 export function buildRecaptureCaptureGuidance(
   source?: Partial<RecaptureSource>

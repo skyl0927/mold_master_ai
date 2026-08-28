@@ -1017,6 +1017,7 @@ test('embeds Vision capture work orders in the status bundle handoff', () => {
       actionType: 'capture_new_and_recapture_existing_samples',
       priority: 98,
       missingApprovedSamples: 1,
+      recaptureSampleIds: ['sink-001'],
       recaptureSampleCount: 1,
       requiredViews: ['full_part_context', 'defect_closeup', 'oblique_light', 'reverse_geometry']
     }

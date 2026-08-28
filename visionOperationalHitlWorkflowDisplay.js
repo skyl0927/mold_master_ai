@@ -1032,14 +1032,36 @@ const summarizeOperationalStatusBundleDisplay = bundle => {
     postImportValidationText: postImportPipelineSummaryParts(summary).join(' · '),
     captureWorkOrderPreviews: asArray(bundle.visionCaptureWorkOrderPreviews)
       .slice(0, 4)
-      .map(order => ({
-        defectClass: compact(order?.defectClass),
-        actionType: compact(order?.actionType),
-        priority: numberValue(order?.priority),
-        missingApprovedSamples: numberValue(order?.missingApprovedSamples),
-        recaptureSampleCount: numberValue(order?.recaptureSampleCount),
-        requiredViewsText: asArray(order?.requiredViews).map(compact).filter(Boolean).join(', ')
-      })),
+      .map(order => {
+        const workItemId = compact(order?.workItemId);
+        const queueId = compact(order?.queueId);
+        const defectType = compact(order?.defectType);
+        const recaptureSampleIds = asArray(order?.recaptureSampleIds).map(compact).filter(Boolean);
+        const requiredViews = asArray(order?.requiredViews).map(compact).filter(Boolean);
+        const captureInstructions = asArray(order?.captureInstructions)
+          .map(item => ({
+            view: compact(item?.view),
+            label: compact(item?.label),
+            instruction: compact(item?.instruction)
+          }))
+          .filter(item => item.view || item.label || item.instruction);
+        const reviewComment = compact(order?.reviewComment);
+        return {
+          ...(workItemId ? { workItemId } : {}),
+          ...(queueId ? { queueId } : {}),
+          ...(defectType ? { defectType } : {}),
+          defectClass: compact(order?.defectClass),
+          actionType: compact(order?.actionType),
+          priority: numberValue(order?.priority),
+          missingApprovedSamples: numberValue(order?.missingApprovedSamples),
+          ...(recaptureSampleIds.length > 0 ? { recaptureSampleIds } : {}),
+          recaptureSampleCount: numberValue(order?.recaptureSampleCount),
+          requiredViews,
+          requiredViewsText: requiredViews.join(', '),
+          ...(captureInstructions.length > 0 ? { captureInstructions } : {}),
+          ...(reviewComment ? { reviewComment } : {})
+        };
+      }),
     nextSessionText: nextSessionCode || nextDecisionId
       ? `Next session: ${nextSessionCode || 'review_required'}${nextDecisionId ? ` · ${nextDecisionId}` : ''}`
       : '',

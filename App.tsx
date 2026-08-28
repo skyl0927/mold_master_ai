@@ -51,12 +51,14 @@ import {
     buildCaptureMetadata,
     buildRecaptureCaptureGuidance,
     buildRecaptureSourceFromReview,
+    buildRecaptureSourceFromWorkOrder,
     collectSessionDiagnosisImages,
     createCaptureSessionId,
     resolveCaptureLearningEligibility,
     selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
+import type { CaptureWorkOrderInput } from './captureSessionProtocol';
 import { buildVisionBboxAnnotationPayloads, VisionBboxReviewSubmission } from './visionBboxAnnotation';
 import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatus';
 import {
@@ -310,6 +312,15 @@ const App: React.FC = () => {
     const getPendingRecaptureLineage = useCallback((): CapturedImage['recaptureSource'] | undefined => {
         return pendingRecaptureSourceRef.current || undefined;
     }, []);
+
+    const handleStartCaptureWorkOrder = useCallback((workOrder: CaptureWorkOrderInput) => {
+        const source = buildRecaptureSourceFromWorkOrder(workOrder);
+        setPendingRecaptureLineage(source);
+        setIsSettingsOpen(false);
+        setIsCameraOpen(true);
+        setCopyNotification(`재촬영 작업지시 시작: ${source.workOrderId || source.reviewDecisionId}`);
+        window.setTimeout(() => setCopyNotification(''), 5000);
+    }, [setPendingRecaptureLineage]);
 
     useEffect(() => {
         const source = pendingRecaptureSourceRef.current;
@@ -1615,7 +1626,14 @@ const App: React.FC = () => {
                 isAdmin={isAdmin}
             />
 
-            {isSettingsOpen && <SettingsModal initialConfig={apiConfig} onClose={() => setIsSettingsOpen(false)} onSave={setApiConfig} />}
+            {isSettingsOpen && (
+                <SettingsModal
+                    initialConfig={apiConfig}
+                    onClose={() => setIsSettingsOpen(false)}
+                    onSave={setApiConfig}
+                    onStartCaptureWorkOrder={handleStartCaptureWorkOrder}
+                />
+            )}
 
             {/* Login Modal */}
             {showLoginModal && (

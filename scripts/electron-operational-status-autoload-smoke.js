@@ -127,6 +127,8 @@ const path = require('node:path');
     await retryButton.click();
     await autoloadStatus.getByText(/최신|자동 복원/).waitFor();
     const retryStatus = await autoloadStatus.innerText();
+    const prelaunchBodyText = await page.locator('body').innerText();
+    const retryAvailable = await retryButton.isVisible();
     const launchButton = page.getByRole('button', { name: 'pending-hitl-010 재촬영 시작' });
     await launchButton.waitFor({ state: 'visible' });
     await launchButton.click();
@@ -136,17 +138,15 @@ const path = require('node:path');
       bundle: JSON.parse(localStorage.getItem('mold-master-ai:operational-status-bundle:v1') || 'null'),
       progress: JSON.parse(localStorage.getItem('mold-master-ai:development-progress:v1') || 'null')
     }));
-    const bodyText = await page.locator('body').innerText();
-
     const screenshot = path.join(artifactsDir, 'electron-operational-status-autoload.png');
     await page.screenshot({ path: screenshot, fullPage: true });
     const result = {
       automaticallyRestored: initialStatus.includes('자동 복원'),
-      showsLatestPhase: bodyText.includes('자동 복원 E2E 단계'),
+      showsLatestPhase: prelaunchBodyText.includes('자동 복원 E2E 단계'),
       persistedLatestBundle: persistedState.bundle?.generatedAt === generatedAt,
       restoredEmbeddedProgress:
         persistedState.progress?.currentPhase?.code === 'autoload_e2e',
-      retryAvailable: await retryButton.isVisible(),
+      retryAvailable,
       workOrderLaunchAvailable: true,
       workOrderCameraOpened: cameraProtocolText.includes('필수 시점 촬영 필요'),
       retryStatus,

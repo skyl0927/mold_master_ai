@@ -341,14 +341,34 @@ const captureWorkOrderSummaryFor = visionCaptureWorkOrderPlan => {
 
 const captureWorkOrderPreviewsFor = visionCaptureWorkOrderPlan =>
   isVisionCaptureWorkOrderPlan(visionCaptureWorkOrderPlan)
-    ? asArray(visionCaptureWorkOrderPlan.workOrders).slice(0, 5).map(order => ({
-      defectClass: compact(order?.defectClass),
-      actionType: compact(order?.actionType),
-      priority: numberValue(order?.priority),
-      missingApprovedSamples: numberValue(order?.missingApprovedSamples),
-      recaptureSampleCount: asArray(order?.recaptureSampleIds).length,
-      requiredViews: asArray(order?.requiredViews).map(compact).filter(Boolean)
-    }))
+    ? asArray(visionCaptureWorkOrderPlan.workOrders).slice(0, 5).map(order => {
+      const workItemId = compact(order?.workItemId);
+      const queueId = compact(order?.queueId);
+      const defectType = compact(order?.defectType);
+      const recaptureSampleIds = asArray(order?.recaptureSampleIds).map(compact).filter(Boolean);
+      const captureInstructions = asArray(order?.captureInstructions)
+        .map(item => ({
+          view: compact(item?.view),
+          label: compact(item?.label),
+          instruction: compact(item?.instruction)
+        }))
+        .filter(item => item.view || item.label || item.instruction);
+      const reviewComment = compact(order?.reviewComment);
+      return {
+        ...(workItemId ? { workItemId } : {}),
+        ...(queueId ? { queueId } : {}),
+        ...(defectType ? { defectType } : {}),
+        defectClass: compact(order?.defectClass),
+        actionType: compact(order?.actionType),
+        priority: numberValue(order?.priority),
+        missingApprovedSamples: numberValue(order?.missingApprovedSamples),
+        ...(recaptureSampleIds.length > 0 ? { recaptureSampleIds } : {}),
+        recaptureSampleCount: recaptureSampleIds.length,
+        requiredViews: asArray(order?.requiredViews).map(compact).filter(Boolean),
+        ...(captureInstructions.length > 0 ? { captureInstructions } : {}),
+        ...(reviewComment ? { reviewComment } : {})
+      };
+    })
     : [];
 
 const labelConflictGuideSummaryFor = ({ labelConflictReviewGuide, sourceArtifacts }) => {

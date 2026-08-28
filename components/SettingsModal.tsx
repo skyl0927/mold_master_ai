@@ -54,10 +54,12 @@ import {
   extractRestorableStatusBundleArtifacts,
   shouldAdoptOperationalStatusBundle
 } from '../operationalStatusBundle';
+import type { CaptureWorkOrderInput } from '../captureSessionProtocol';
 
 interface SettingsModalProps {
   onClose: () => void;
   onSave: (config: ApiConfig) => void;
+  onStartCaptureWorkOrder?: (workOrder: CaptureWorkOrderInput) => void;
   initialConfig: ApiConfig | null;
 }
 
@@ -330,7 +332,12 @@ const visionDecisionStatusLabel = (status: string): string => {
   return status;
 };
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialConfig }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({
+  onClose,
+  onSave,
+  onStartCaptureWorkOrder,
+  initialConfig
+}) => {
   const [provider, setProvider] = useState<ApiProvider>(initialConfig?.provider || 'gemini');
   const [aiOrchestrationMode, setAiOrchestrationMode] = useState<AiOrchestrationMode>(
     initialConfig?.aiOrchestrationMode || 'dual_validation'
@@ -1806,12 +1813,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                     <div className="mt-2 space-y-1">
                       {operationalStatusBundleDisplay.captureWorkOrderPreviews.map(order => (
                         <div
-                          key={`${order.defectClass}:${order.actionType}`}
+                          key={order.workItemId || order.queueId || `${order.defectClass}:${order.actionType}`}
                           className="rounded border border-emerald-900/50 bg-gray-950/35 px-2 py-1"
                         >
-                          <p className="break-words text-[8px] font-bold text-emerald-50">
-                            P{order.priority} {order.defectClass} · {order.actionType}
-                          </p>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="break-words text-[8px] font-bold text-emerald-50">
+                                P{order.priority} {order.defectType || order.defectClass} · {order.actionType}
+                              </p>
+                              {(order.queueId || order.workItemId) && (
+                                <p className="mt-0.5 break-words font-mono text-[8px] text-emerald-200/80">
+                                  {order.queueId || order.workItemId}
+                                </p>
+                              )}
+                            </div>
+                            {onStartCaptureWorkOrder
+                              && (order.workItemId || order.queueId || order.recaptureSampleIds?.length > 0) && (
+                              <button
+                                type="button"
+                                aria-label={`${order.queueId || order.workItemId || order.defectClass} 재촬영 시작`}
+                                onClick={() => onStartCaptureWorkOrder(order)}
+                                className="shrink-0 rounded border border-cyan-600 bg-cyan-900/70 px-2 py-1 text-[8px] font-bold text-cyan-50 hover:bg-cyan-700"
+                              >
+                                재촬영 시작
+                              </button>
+                            )}
+                          </div>
                           <p className="mt-1 break-words text-[8px] text-emerald-100">
                             신규 {order.missingApprovedSamples}건 · 재촬영 {order.recaptureSampleCount}건
                           </p>

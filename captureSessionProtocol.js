@@ -50,7 +50,7 @@ const RECAPTURE_VIEW_PATTERNS = [
   ['reference_part', /정상\s*품|정상품|기준품|비교품|reference|golden[_\s-]*sample/],
   ['vent_context', /벤트|가스\s*배출|vent|burn/],
   ['parting_line_context', /파팅|parting|인서트\s*경계/],
-  ['edge_profile', /경계\s*측면|돌출\s*높이|측면에서|edge[_\s-]*profile/],
+  ['edge_profile', /경계\s*측면|돌출\s*높이|측면에서|잉여\s*수지.*측면|두께.*측면|edge[_\s-]*profile/],
   ['reverse_geometry', /반대면|배면|후육|reverse|backside/],
   ['flow_convergence_context', /유동\s*합류|합류\s*위치|웰드|weld|flow[_\s-]*convergence/],
   ['release_sequence', /금형\s*개방|취출\s*완료|취출\s*전후|release[_\s-]*sequence|before[_\s-]*after[_\s-]*ejection/]
@@ -108,6 +108,40 @@ const buildRecaptureSourceFromReview = ({
     bboxGroundingProfileId: compact(safetyGate?.bboxGroundingProfileId),
     workOrderId: compact(workOrderId) || compact(reviewDecisionId),
     requiredViewTags: normalizeViewTags(requiredViewTags)
+  };
+  source.requiredViewTags = requiredRecaptureViews(source);
+  return source;
+};
+
+const buildRecaptureSourceFromWorkOrder = (workOrder = {}) => {
+  const recaptureSampleIds = uniqueStrings(workOrder?.recaptureSampleIds);
+  const captureInstructions = (Array.isArray(workOrder?.captureInstructions)
+    ? workOrder.captureInstructions
+    : [])
+    .flatMap(item => [compact(item?.instruction), compact(item?.view)])
+    .filter(Boolean);
+  const requiredAdditionalViews = uniqueStrings([
+    ...stringList(workOrder?.requiredViews),
+    ...captureInstructions
+  ]);
+  const reviewDecisionId = compact(workOrder?.queueId) || recaptureSampleIds[0] || '';
+  const fallbackWorkOrderId = uniqueStrings([
+    workOrder?.defectClass,
+    workOrder?.actionType
+  ]).join(':');
+  const source = {
+    reviewDecisionId,
+    workOrderId: compact(workOrder?.workItemId)
+      || reviewDecisionId
+      || fallbackWorkOrderId,
+    safetyGateReasons: ['governed_capture_work_order'],
+    requiredAdditionalViews,
+    requiredViewTags: normalizeViewTags([
+      ...stringList(workOrder?.requiredViews),
+      ...(Array.isArray(workOrder?.captureInstructions)
+        ? workOrder.captureInstructions.map(item => item?.view)
+        : [])
+    ])
   };
   source.requiredViewTags = requiredRecaptureViews(source);
   return source;
@@ -507,6 +541,7 @@ module.exports = {
   buildCaptureMetadata,
   buildRecaptureCaptureGuidance,
   buildRecaptureSourceFromReview,
+  buildRecaptureSourceFromWorkOrder,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
   inferRecaptureViewTags,
