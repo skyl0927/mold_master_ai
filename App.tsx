@@ -268,7 +268,11 @@ const App: React.FC = () => {
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const activeCaptureSummary = summarizeCaptureSession(capturedImages, activeCaptureSessionId);
+    const activeCaptureSummary = summarizeCaptureSession(
+        capturedImages,
+        activeCaptureSessionId,
+        pendingRecaptureSource || undefined
+    );
     const selectedCaptureEvidenceMergePlan = buildCaptureEvidenceMergePlan({
         images: capturedImages,
         selectedIds: Array.from(selectedImageIds),
@@ -295,26 +299,40 @@ const App: React.FC = () => {
         pendingRecaptureSourceRef.current = nextSource;
         setPendingRecaptureSource(nextSource);
         if (nextSource) {
+            startNewCaptureSession('recapture');
             const guidance = buildRecaptureCaptureGuidance(nextSource);
-            screenCaptureViewTagRef.current = guidance.recommendedViewTag;
-            setScreenCaptureViewTag(guidance.recommendedViewTag);
+            const firstRequiredView = guidance.requiredViewTags[0] || guidance.recommendedViewTag;
+            screenCaptureViewTagRef.current = firstRequiredView;
+            setScreenCaptureViewTag(firstRequiredView);
         }
+    }, [startNewCaptureSession]);
+
+    const getPendingRecaptureLineage = useCallback((): CapturedImage['recaptureSource'] | undefined => {
+        return pendingRecaptureSourceRef.current || undefined;
     }, []);
 
-    const consumePendingRecaptureLineage = useCallback((): CapturedImage['recaptureSource'] | undefined => {
-        const source = pendingRecaptureSourceRef.current || undefined;
-        if (source) {
-            pendingRecaptureSourceRef.current = null;
-            setPendingRecaptureSource(null);
-        }
-        return source;
-    }, []);
+    useEffect(() => {
+        const source = pendingRecaptureSourceRef.current;
+        if (!source) return;
 
-    const getRecaptureRecommendedView = useCallback(
-        (source: CapturedImage['recaptureSource'] | undefined): CaptureViewTag | undefined =>
-            source ? buildRecaptureCaptureGuidance(source).recommendedViewTag : undefined,
-        []
-    );
+        const summary = summarizeCaptureSession(
+            capturedImages,
+            activeCaptureSessionId,
+            source
+        );
+        if (summary.ready) {
+            setPendingRecaptureLineage(null);
+            setCopyNotification(`재촬영 작업지시 완료: 필수 시점 ${summary.requiredViews.length}개 충족`);
+            const timeout = window.setTimeout(() => setCopyNotification(''), 4000);
+            return () => window.clearTimeout(timeout);
+        }
+
+        const nextMissingView = summary.missingViews[0];
+        if (nextMissingView && screenCaptureViewTagRef.current !== nextMissingView) {
+            screenCaptureViewTagRef.current = nextMissingView;
+            setScreenCaptureViewTag(nextMissingView);
+        }
+    }, [activeCaptureSessionId, capturedImages, pendingRecaptureSource, setPendingRecaptureLineage]);
 
     useEffect(() => {
         const refreshManualDocuments = () => {
@@ -350,8 +368,10 @@ const App: React.FC = () => {
         const unsubSession = window.electronAPI.onCaptureSessionEnded(() => setStatus('idle'));
 
         const unsubMobileUpload = window.electronAPI.onMobileUploadSuccess((payload) => {
-            const recaptureSource = consumePendingRecaptureLineage();
-            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
+            const recaptureSource = getPendingRecaptureLineage();
+            const recaptureViewTag = recaptureSource
+                ? screenCaptureViewTagRef.current
+                : undefined;
             setCapturedImages(prev => {
                 if (prev.length > 0 && prev[prev.length - 1].dataUrl === payload.dataUrl) {
                     return prev;
@@ -405,7 +425,7 @@ const App: React.FC = () => {
             unsubMobileUpload();
             unsubMobileConnect();
         };
-    }, [consumePendingRecaptureLineage, getRecaptureRecommendedView]);
+    }, [getPendingRecaptureLineage]);
 
     useEffect(() => {
         let cancelled = false;
@@ -514,7 +534,6 @@ const App: React.FC = () => {
                 ...(recaptureSource ? { recaptureSource } : {})
             };
             setCapturedImages(prev => [...prev, newImage]);
-            if (recaptureSource) setPendingRecaptureLineage(null);
         }
         setEditingState(null);
         setStatus('idle');
@@ -1204,7 +1223,7 @@ const App: React.FC = () => {
     };
 
     const handleCameraCapture = (dataUrl: string, metadata: CameraCaptureMetadata) => {
-        const recaptureSource = consumePendingRecaptureLineage();
+        const recaptureSource = getPendingRecaptureLineage();
         setCapturedImages(prev => [...prev, {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             baseImageUrl: dataUrl,
@@ -1312,7 +1331,7 @@ const App: React.FC = () => {
         ));
 
         const message = plan.readyAfterMerge
-            ? `사진 증거 통합 완료: ${plan.selectedCount}장 · 기본 시점 충족`
+            ? `사진 증거 통합 완료: ${plan.selectedCount}장 · 필수 시점 충족`
             : `사진 증거 통합 완료: ${plan.selectedCount}장 · 추가 필요 ${plan.missingViewLabels.join(', ')}`;
         setCopyNotification(message);
         setTimeout(() => setCopyNotification(''), 4000);
@@ -1325,8 +1344,10 @@ const App: React.FC = () => {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         if (ev.target?.result) {
-                            const recaptureSource = consumePendingRecaptureLineage();
-                            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
+                            const recaptureSource = getPendingRecaptureLineage();
+                            const recaptureViewTag = recaptureSource
+                                ? screenCaptureViewTagRef.current
+                                : undefined;
                             setCapturedImages(prev => [...prev, {
                                 id: Date.now().toString() + Math.random(),
                                 baseImageUrl: ev.target!.result as string,
@@ -1531,8 +1552,10 @@ const App: React.FC = () => {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         if (ev.target?.result) {
-                            const recaptureSource = consumePendingRecaptureLineage();
-                            const recaptureViewTag = getRecaptureRecommendedView(recaptureSource);
+                            const recaptureSource = getPendingRecaptureLineage();
+                            const recaptureViewTag = recaptureSource
+                                ? screenCaptureViewTagRef.current
+                                : undefined;
                             setCapturedImages(prev => [...prev, {
                                 id: Date.now().toString() + Math.random(),
                                 baseImageUrl: ev.target!.result as string,
@@ -1820,18 +1843,20 @@ const App: React.FC = () => {
                                     ? 'bg-emerald-900/70 text-emerald-200'
                                     : 'bg-amber-900/60 text-amber-100'
                             }`}>
-                                기본 시점 {activeCaptureSummary.availableViews.length}/2
+                                필수 시점 {activeCaptureSummary.availableViews.filter(view => activeCaptureSummary.requiredViews.includes(view)).length}/{activeCaptureSummary.requiredViews.length}
                             </span>
                         </div>
                         <p className="mt-2 text-xs text-gray-400">
                             {activeCaptureSummary.imageCount > 0
                                 ? activeCaptureSummary.message
-                                : '같은 제품의 전체 사진과 결함 근접 사진을 이 세션에 추가하세요.'}
+                                : pendingRecaptureSource
+                                    ? `이 작업지시의 필수 시점 ${activeCaptureSummary.requiredViews.length}개를 같은 세션에 추가하세요.`
+                                    : '같은 제품의 전체 사진과 결함 근접 사진을 이 세션에 추가하세요.'}
                         </p>
                         {pendingRecaptureSource && pendingRecaptureGuidance && (
                             <div className="mt-2 rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
                                 <p className="font-bold">
-                                    {pendingRecaptureGuidance.message} · 원본 {pendingRecaptureSource.localImageId || 'local image'}
+                                    {pendingRecaptureGuidance.message} · 작업지시 {pendingRecaptureSource.workOrderId || pendingRecaptureSource.reviewDecisionId || 'pending'}
                                 </p>
                                 {pendingRecaptureGuidance.instructions[0] && (
                                     <p className="mt-1 text-amber-200/90">{pendingRecaptureGuidance.instructions[0]}</p>
@@ -2061,7 +2086,9 @@ const App: React.FC = () => {
                                                             </select>
                                                         </label>
                                                     </div>
-                                                    <p className="mt-2 text-[9px] text-gray-500">세션 {captureSummary.imageCount}장 · 확보 시점 {captureSummary.availableViews.length}/2</p>
+                                                    <p className="mt-2 text-[9px] text-gray-500">
+                                                        세션 {captureSummary.imageCount}장 · 필수 시점 {captureSummary.availableViews.filter(view => captureSummary.requiredViews.includes(view)).length}/{captureSummary.requiredViews.length}
+                                                    </p>
                                                 </div>
                                             )}
 

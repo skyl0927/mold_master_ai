@@ -33,11 +33,14 @@ export interface CaptureEvidenceMergePlan {
   selectedCount: number;
   physicalImageCount: number;
   availableViews: CaptureViewTag[];
+  requiredViews: CaptureViewTag[];
   missingViews: CaptureViewTag[];
   missingViewLabels: string[];
   readyAfterMerge: boolean;
   changedImageIds: string[];
   sourceSessionIds: string[];
+  workOrderIds: string[];
+  workOrderConflict: boolean;
   message: string;
 }
 
@@ -53,8 +56,10 @@ export interface CaptureMetadata {
   recapture_source_local_image_id?: string;
   recapture_source_common_agent_image_id?: string;
   recapture_review_decision_id?: string;
+  recapture_work_order_id?: string;
   recapture_safety_gate_reasons?: string[];
   recapture_required_additional_views?: string[];
+  recapture_required_view_tags?: CaptureViewTag[];
   recapture_bbox_grounding_profile_id?: string;
   recapture_guidance_protocol_version?: 'vision-recapture-capture-guidance/v1';
   recapture_recommended_view_tag?: CaptureViewTag;
@@ -75,6 +80,7 @@ export interface RecaptureCaptureGuidance {
   recommendedViewTag: CaptureViewTag;
   reasonCodes: string[];
   instructions: string[];
+  requiredViewTags: CaptureViewTag[];
   message: string;
 }
 
@@ -102,7 +108,8 @@ export function createCaptureSessionId(
 
 export function summarizeCaptureSession(
   images: Array<Partial<CapturedImage>>,
-  sessionId?: string
+  sessionId?: string,
+  recaptureSource?: Partial<RecaptureSource>
 ): CaptureSessionSummary;
 
 export function assessCaptureImageForDiagnosis(
@@ -115,6 +122,7 @@ export function buildCaptureEvidenceMergePlan(options?: {
   selectedIds?: Iterable<string> | string[];
   targetSessionId?: string;
   fallbackSessionId?: string;
+  recaptureSource?: Partial<RecaptureSource>;
 }): CaptureEvidenceMergePlan;
 
 export function buildCaptureMetadata(
@@ -126,11 +134,17 @@ export function buildRecaptureSourceFromReview(options?: {
   image?: Partial<CapturedImage>;
   analysis?: Partial<DefectAnalysis>;
   reviewDecisionId?: string;
+  workOrderId?: string;
+  requiredViewTags?: CaptureViewTag[];
 }): RecaptureSource;
 
 export function buildRecaptureCaptureGuidance(
   source?: Partial<RecaptureSource>
 ): RecaptureCaptureGuidance;
+
+export function inferRecaptureViewTags(
+  source?: Partial<RecaptureSource>
+): CaptureViewTag[];
 
 export function resolveCaptureLearningEligibility(
   reviewDecision: string,

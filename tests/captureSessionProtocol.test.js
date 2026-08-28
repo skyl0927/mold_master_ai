@@ -146,6 +146,28 @@ test('an empty named session still requests capture metadata', () => {
   assert.equal(summary.imageCount, 0);
 });
 
+test('a pending recapture work order exposes all required views before the first photo', () => {
+  const summary = summarizeCaptureSession([], 'recapture-session', {
+    workOrderId: 'work-order-before-first-photo',
+    requiredViewTags: [
+      'full_part_context',
+      'defect_closeup',
+      'parting_line_context',
+      'edge_profile'
+    ]
+  });
+
+  assert.equal(summary.ready, false);
+  assert.equal(summary.status, 'needs_metadata');
+  assert.deepEqual(summary.requiredViews, [
+    'full_part_context',
+    'defect_closeup',
+    'parting_line_context',
+    'edge_profile'
+  ]);
+  assert.deepEqual(summary.missingViews, summary.requiredViews);
+});
+
 test('untracked images fail closed instead of bypassing the protocol', () => {
   const assessment = assessCaptureImageForDiagnosis(image({
     captureSessionId: undefined,

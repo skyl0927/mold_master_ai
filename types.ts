@@ -489,8 +489,10 @@ export interface CapturedImage {
     localImageId?: string;
     commonAgentImageId?: string;
     reviewDecisionId?: string;
+    workOrderId?: string;
     safetyGateReasons?: string[];
     requiredAdditionalViews?: string[];
+    requiredViewTags?: CaptureViewTag[];
     bboxGroundingProfileId?: string;
   };
   captureSessionId?: string;

@@ -282,7 +282,12 @@ const buildCaptureEvidenceMergePlan = ({
   const sessionIds = uniqueStrings(
     selectedImages.map(image => image?.captureSessionId)
   );
-  const canMerge = selectedImages.length >= 2;
+  const workOrderIds = uniqueStrings(selectedImages.map(image =>
+    image?.recaptureSource?.workOrderId
+    || image?.recaptureSource?.reviewDecisionId
+  ));
+  const workOrderConflict = workOrderIds.length > 1;
+  const canMerge = selectedImages.length >= 2 && !workOrderConflict;
   const readyAfterMerge = canMerge
     && physicalImages.length >= 2
     && missingViews.length === 0;
@@ -302,7 +307,11 @@ const buildCaptureEvidenceMergePlan = ({
       .filter(image => image?.captureSessionId !== safeTargetSessionId)
       .map(image => image.id),
     sourceSessionIds: sessionIds,
-    message: !canMerge
+    workOrderIds,
+    workOrderConflict,
+    message: workOrderConflict
+      ? '서로 다른 재촬영 작업지시의 사진은 하나의 증거 세트로 통합할 수 없습니다.'
+      : !canMerge
       ? 'Select at least 2 photos to merge as one evidence set.'
       : readyAfterMerge
         ? `Selected ${selectedImages.length} photos can be merged into one diagnosis-ready evidence set.`

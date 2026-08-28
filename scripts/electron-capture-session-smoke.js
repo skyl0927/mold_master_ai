@@ -45,24 +45,31 @@ const path = require('node:path');
     const fileInput = page.locator('input[type="file"][accept="image/*"]');
     await fileInput.setInputFiles(fixturePath);
 
+    await page.getByRole('tab', { name: 'Sample 1 촬영 정보 탭' }).click();
     const firstKind = page.getByLabel('Sample 1 이미지 종류');
     const firstView = page.getByLabel('Sample 1 촬영 시점');
     await firstKind.waitFor();
     await firstKind.selectOption('physical_product');
     await firstView.selectOption('full_part_context');
 
-    const firstDiagnosis = page.getByRole('button', { name: 'AI 진단' }).first();
+    await page.getByRole('tab', { name: 'Sample 1 분석 탭' }).click();
+    const firstDiagnosis = page.getByRole('button', { name: 'AI 진단', exact: true }).first();
     const blockedAfterOneView = await firstDiagnosis.isDisabled();
 
     await fileInput.setInputFiles(fixturePath);
+    await page.getByRole('tab', { name: 'Sample 2 촬영 정보 탭' }).click();
     const secondKind = page.getByLabel('Sample 2 이미지 종류');
     const secondView = page.getByLabel('Sample 2 촬영 시점');
     await secondKind.waitFor();
     await secondKind.selectOption('physical_product');
     await secondView.selectOption('defect_closeup');
 
+    await page.getByRole('tab', { name: 'Sample 1 촬영 정보 탭' }).click();
     await page.getByText('촬영 프로토콜 충족').first().waitFor();
-    const diagnosisButtons = page.getByRole('button', { name: 'AI 진단' });
+    const readyCards = await page.getByText('촬영 프로토콜 충족').count();
+    await page.getByRole('tab', { name: 'Sample 1 분석 탭' }).click();
+    await page.getByRole('tab', { name: 'Sample 2 분석 탭' }).click();
+    const diagnosisButtons = page.getByRole('button', { name: 'AI 진단', exact: true });
     const diagnosisButtonCount = await diagnosisButtons.count();
     const enabledStates = [];
     for (let index = 0; index < diagnosisButtonCount; index++) {
@@ -82,7 +89,7 @@ const path = require('node:path');
       blockedAfterOneView,
       diagnosisButtonCount,
       enabledStates,
-      readyCards: await page.getByText('촬영 프로토콜 충족').count(),
+      readyCards,
       screenshot,
       cameraScreenshot,
       cameraViewSelectorVisible: await cameraViewSelector.isVisible(),

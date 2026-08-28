@@ -222,7 +222,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                 <aside className="overflow-y-auto border-l border-gray-800 bg-gray-950 p-5">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">촬영 프로토콜</p>
                     <h3 className="mt-2 text-lg font-bold text-white">
-                        {sessionSummary.ready ? '기본 시점 충족' : '필수 시점 촬영 필요'}
+                        {sessionSummary.ready ? '필수 시점 충족' : '필수 시점 촬영 필요'}
                     </h3>
                     <p className={`mt-2 text-sm ${sessionSummary.ready ? 'text-emerald-300' : 'text-amber-200'}`}>
                         {sessionSummary.message}
@@ -238,7 +238,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                     )}
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                        {(['full_part_context', 'defect_closeup'] as CaptureViewTag[]).map(viewTag => {
+                        {sessionSummary.requiredViews.map(viewTag => {
                             const option = CAPTURE_VIEW_OPTIONS.find(item => item.value === viewTag);
                             const captured = sessionSummary.availableViews.includes(viewTag);
                             return (
