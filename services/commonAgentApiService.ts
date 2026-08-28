@@ -13,6 +13,7 @@ import { guardDefectAnalysisForVisionRisk } from '../visionDiagnosisGuard';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
+import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
 
 export interface CommonAgentObservation {
     contract_version?: string;
@@ -427,7 +428,7 @@ const getAgentUrl = async (path: string): Promise<string> => {
 };
 
 const postJson = async <T>(path: string, payload: unknown): Promise<T> => {
-    const response = await fetch(await getAgentUrl(path), {
+    const response = await fetchWithCommonAgentPolicy(await getAgentUrl(path), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -444,7 +445,7 @@ const postJson = async <T>(path: string, payload: unknown): Promise<T> => {
 };
 
 const patchJson = async <T>(path: string, payload: unknown): Promise<T> => {
-    const response = await fetch(await getAgentUrl(path), {
+    const response = await fetchWithCommonAgentPolicy(await getAgentUrl(path), {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json'
@@ -461,7 +462,7 @@ const patchJson = async <T>(path: string, payload: unknown): Promise<T> => {
 };
 
 const getJson = async <T>(path: string): Promise<T> => {
-    const response = await fetch(await getAgentUrl(path));
+    const response = await fetchWithCommonAgentPolicy(await getAgentUrl(path));
     if (!response.ok) {
         const detail = await response.text();
         throw new Error(`Common Agent request failed: ${response.status} ${response.statusText} - ${detail}`);
@@ -570,7 +571,7 @@ const sha256Hex = async (content: ArrayBuffer): Promise<string> => {
 export class CommonAgentApiService {
     static async checkServerStatus(): Promise<boolean> {
         try {
-            const response = await fetch(await getAgentUrl('/healthz'));
+            const response = await fetchWithCommonAgentPolicy(await getAgentUrl('/healthz'), {}, { timeoutMs: 5000 });
             return response.ok;
         } catch {
             return false;
@@ -629,7 +630,7 @@ export class CommonAgentApiService {
             formData.append('view_manifest_json', JSON.stringify(viewManifest));
         }
 
-        const response = await fetch(await getAgentUrl('/v1/vision/diagnose'), {
+        const response = await fetchWithCommonAgentPolicy(await getAgentUrl('/v1/vision/diagnose'), {
             method: 'POST',
             body: formData
         });
@@ -805,7 +806,7 @@ export class CommonAgentApiService {
             while (cursor < pending.length) {
                 const item = pending[cursor++];
                 try {
-                    const response = await fetch(
+                    const response = await fetchWithCommonAgentPolicy(
                         await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(item.image_id)}/file`)
                     );
                     if (!response.ok) continue;
@@ -907,7 +908,7 @@ export class CommonAgentApiService {
             rag_category: options.category || 'mold-master'
         }));
 
-        const response = await fetch(await getAgentUrl('/v1/workflows/ingest-file'), {
+        const response = await fetchWithCommonAgentPolicy(await getAgentUrl('/v1/workflows/ingest-file'), {
             method: 'POST',
             body: formData
         });
@@ -919,7 +920,7 @@ export class CommonAgentApiService {
     }
 
     static async deleteDocument(documentId: string): Promise<void> {
-        const response = await fetch(await getAgentUrl(
+        const response = await fetchWithCommonAgentPolicy(await getAgentUrl(
             `/v1/documents/${encodeURIComponent(documentId)}?confirm=true&delete_graph=true`
         ), { method: 'DELETE' });
         if (!response.ok) {
@@ -929,7 +930,7 @@ export class CommonAgentApiService {
     }
 
     static async listAnnotations(imageId: string): Promise<CommonAgentAnnotation[]> {
-        const response = await fetch(await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(imageId)}/annotations`));
+        const response = await fetchWithCommonAgentPolicy(await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(imageId)}/annotations`));
         if (!response.ok) {
             const detail = await response.text();
             throw new Error(`Common Agent annotation list failed: ${response.status} ${response.statusText} - ${detail}`);

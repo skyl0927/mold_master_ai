@@ -1,4 +1,5 @@
 import { getAgentServerBaseUrl } from './runtimeConfig';
+import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
 
 export interface ServerHealthStatus {
     rag: 'online' | 'offline';
@@ -8,7 +9,11 @@ export interface ServerHealthStatus {
 
 const tryGet = async (url: string): Promise<boolean> => {
     try {
-        const response = await fetch(url, { method: 'GET' });
+        const response = await fetchWithCommonAgentPolicy(
+            url,
+            { method: 'GET' },
+            { timeoutMs: 5000 }
+        );
         if (!response.ok) return false;
 
         const contentType = response.headers.get('content-type') || '';

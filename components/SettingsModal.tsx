@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { CloseIcon, SaveIcon, InfoIcon, LockIcon } from './Icons';
 import { DEFAULT_AGENT_SERVER_URL } from '../services/runtimeConfig';
+import { normalizeCommonAgentBaseUrl } from '../commonAgentTransport';
 import {
   calculateDiagnosisObservability,
   calculateTransitionReadiness,
@@ -521,7 +522,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
     setIsRecording(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate current provider's key
     const currentKey = provider === 'gemini' ? geminiKey : openAiKey;
     if (aiOrchestrationMode === 'legacy' && !currentKey) {
@@ -534,32 +535,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
         return;
     }
 
-    const newConfig: ApiConfig = {
-        provider,
-        aiOrchestrationMode,
-        geminiApiKey: geminiKey,
-        openAiApiKey: openAiKey,
-        proxyUrl,
-        shortcut,
-        agentServerUrl,
-        visionQaServerUrl,
-        visionReferenceBenchmarkGateMode,
-        visionReferenceBenchmarkModelVersion: visionReferenceBenchmarkModelVersion.trim() || undefined,
-        visionReferenceBenchmarkRequiredDefectTypes: optionalCsv(visionReferenceBenchmarkRequiredDefectTypes),
-        visionReferenceBenchmarkMinimumSamples: optionalNumber(visionReferenceBenchmarkMinimumSamples),
-        visionReferenceBenchmarkMinimumSamplesPerClass: optionalNumber(visionReferenceBenchmarkMinimumSamplesPerClass),
-        visionReferenceBenchmarkMinimumTop1Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop1Accuracy),
-        visionReferenceBenchmarkMinimumTop3Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop3Accuracy),
-        adminPassword: newAdminPassword || initialConfig?.adminPassword // Update only if new one provided
-    };
+    try {
+      const normalizedAgentServerUrl = agentServerUrl.trim()
+        ? normalizeCommonAgentBaseUrl(agentServerUrl)
+        : '';
+      const normalizedVisionQaServerUrl = visionQaServerUrl.trim()
+        ? normalizeCommonAgentBaseUrl(visionQaServerUrl)
+        : '';
+      const newConfig: ApiConfig = {
+          provider,
+          aiOrchestrationMode,
+          geminiApiKey: geminiKey,
+          openAiApiKey: openAiKey,
+          proxyUrl,
+          shortcut,
+          agentServerUrl: normalizedAgentServerUrl,
+          visionQaServerUrl: normalizedVisionQaServerUrl,
+          visionReferenceBenchmarkGateMode,
+          visionReferenceBenchmarkModelVersion: visionReferenceBenchmarkModelVersion.trim() || undefined,
+          visionReferenceBenchmarkRequiredDefectTypes: optionalCsv(visionReferenceBenchmarkRequiredDefectTypes),
+          visionReferenceBenchmarkMinimumSamples: optionalNumber(visionReferenceBenchmarkMinimumSamples),
+          visionReferenceBenchmarkMinimumSamplesPerClass: optionalNumber(visionReferenceBenchmarkMinimumSamplesPerClass),
+          visionReferenceBenchmarkMinimumTop1Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop1Accuracy),
+          visionReferenceBenchmarkMinimumTop3Accuracy: optionalNumber(visionReferenceBenchmarkMinimumTop3Accuracy),
+          adminPassword: newAdminPassword || initialConfig?.adminPassword
+      };
 
-    window.electronAPI.setApiConfig(newConfig);
-    onSave(newConfig);
-    setStatus('설정이 저장되었습니다!');
-    setTimeout(() => {
-        setStatus('');
-        onClose();
-    }, 1500);
+      await window.electronAPI.setApiConfig(newConfig);
+      onSave(newConfig);
+      setAgentServerUrl(normalizedAgentServerUrl);
+      setVisionQaServerUrl(normalizedVisionQaServerUrl);
+      setStatus('설정이 저장되었습니다!');
+      setTimeout(() => {
+          setStatus('');
+          onClose();
+      }, 1500);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const handleKnowledgeMigration = async () => {
@@ -3081,7 +3094,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onSave, initialC
                 placeholder={`${DEFAULT_AGENT_SERVER_URL} (비워두면 기본값 사용)`}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Vision, Graph, 문서 자동작성, HITL API의 기준 주소입니다. 비워두면 {DEFAULT_AGENT_SERVER_URL}을 사용합니다.</p>
+            <p className="text-xs text-gray-500 mt-1">Vision, Graph, 문서 자동작성, HITL API의 기준 주소입니다. 외부 주소는 HTTPS만 허용하며, 비워두면 {DEFAULT_AGENT_SERVER_URL}을 사용합니다.</p>
             <label htmlFor="vision-qa-server-url" className="mt-3 block text-sm font-medium text-gray-300">
                 Vision QA URL (선택 사항)
             </label>

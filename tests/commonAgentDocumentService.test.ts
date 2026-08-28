@@ -1209,7 +1209,7 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
     (globalThis as any).window = {
         electronAPI: {
             getApiConfig: async () => ({
-                agentServerUrl: 'http://agent.test',
+                agentServerUrl: 'https://agent.test',
                 aiOrchestrationMode: 'common_agent_primary'
             })
         }
@@ -1455,7 +1455,7 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
 test('Vision diagnose sends additional session views and an ordered lineage manifest', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     let capturedForm: FormData | undefined;
@@ -1519,7 +1519,7 @@ test('Vision diagnose sends persistence policy and omits quarantined dataset ids
     (globalThis as any).window = {
         electronAPI: {
             getApiConfig: async () => ({
-                agentServerUrl: 'http://agent.test',
+                agentServerUrl: 'https://agent.test',
                 aiOrchestrationMode: 'common_agent_primary'
             })
         }
@@ -1568,7 +1568,7 @@ test('knowledge and graph retrieval use Common Agent contracts', async () => {
     const calls: Array<{ url: string; body: any }> = [];
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -1611,9 +1611,9 @@ test('knowledge and graph retrieval use Common Agent contracts', async () => {
     });
 
     assert.deepEqual(calls.map(call => call.url), [
-        'http://agent.test/v1/ask',
-        'http://agent.test/v1/graph/paths',
-        'http://agent.test/v1/feedback'
+        'https://agent.test/v1/ask',
+        'https://agent.test/v1/graph/paths',
+        'https://agent.test/v1/feedback'
     ]);
     assert.equal(calls[0].body.top_k, 4);
     assert.equal(calls[0].body.filters.include_knowledge_graph, true);
@@ -1628,7 +1628,7 @@ test('knowledge and graph retrieval use Common Agent contracts', async () => {
 test('HITL image review writes corrected fields and promotes approved data to Graph', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     let capturedUrl = '';
@@ -1676,7 +1676,7 @@ test('HITL image review writes corrected fields and promotes approved data to Gr
         metadata: { content_sha256: 'hash-1' }
     });
 
-    assert.equal(capturedUrl, 'http://agent.test/v1/datasets/images/image-1/review');
+    assert.equal(capturedUrl, 'https://agent.test/v1/datasets/images/image-1/review');
     assert.equal(capturedBody.decision, 'approve');
     assert.equal(capturedBody.defect_type, '밀핀 자국');
     assert.deepEqual(capturedBody.possible_causes, ['밀핀 돌출']);
@@ -1690,7 +1690,7 @@ test('HITL image review writes corrected fields and promotes approved data to Gr
 test('capture protocol metadata uses a non-destructive dataset patch', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     let capturedUrl = '';
@@ -1712,7 +1712,7 @@ test('capture protocol metadata uses a non-destructive dataset patch', async () 
         capture_view_tags: ['full_part_context', 'defect_closeup']
     });
 
-    assert.equal(capturedUrl, 'http://agent.test/v1/datasets/images/image-1');
+    assert.equal(capturedUrl, 'https://agent.test/v1/datasets/images/image-1');
     assert.equal(capturedMethod, 'PATCH');
     assert.equal(capturedBody.review_status, undefined);
     assert.deepEqual(capturedBody.metadata.capture_view_tags, [
@@ -1725,7 +1725,7 @@ test('capture protocol metadata uses a non-destructive dataset patch', async () 
 test('HITL conflict check detects an approved identical image with another label', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async () => new Response(JSON.stringify({
@@ -1925,7 +1925,7 @@ test('chat gateway returns a cited Common Agent answer with the same session', a
     (globalThis as any).window = {
         electronAPI: {
             getApiConfig: async () => ({
-                agentServerUrl: 'http://agent.test',
+                agentServerUrl: 'https://agent.test',
                 aiOrchestrationMode: 'common_agent_primary'
             })
         }
@@ -1971,7 +1971,7 @@ test('graph chat explicitly reports when Common Agent returns no approved eviden
         electronAPI: {
             getApiConfig: async () => ({
                 aiOrchestrationMode: 'common_agent_primary',
-                agentServerUrl: 'http://agent.test'
+                agentServerUrl: 'https://agent.test'
             })
         }
     };
@@ -2001,7 +2001,7 @@ test('graph chat explicitly reports when Common Agent returns no approved eviden
 test('manual documents are ingested and deleted through Common Agent', async () => {
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     const calls: Array<{ url: string; method: string; body?: FormData }> = [];
@@ -2032,8 +2032,8 @@ test('manual documents are ingested and deleted through Common Agent', async () 
 
     assert.equal(result.persisted_to_graph, true);
     assert.deepEqual(calls.map(call => [call.method, call.url]), [
-        ['POST', 'http://agent.test/v1/workflows/ingest-file'],
-        ['DELETE', 'http://agent.test/v1/documents/document-1?confirm=true&delete_graph=true']
+        ['POST', 'https://agent.test/v1/workflows/ingest-file'],
+        ['DELETE', 'https://agent.test/v1/documents/document-1?confirm=true&delete_graph=true']
     ]);
     assert.equal(calls[0].body?.get('source_system'), 'mold-master-ai');
     assert.equal((calls[0].body?.get('file') as File).name, 'manual.txt');
@@ -2188,7 +2188,7 @@ test('verified sync follows create, submit, approve order', async () => {
     const calls: Array<{ url: string; method: string; body: any }> = [];
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -2222,10 +2222,10 @@ test('verified sync follows create, submit, approve order', async () => {
 
     assert.equal(result.status, 'approved');
     assert.deepEqual(calls.map(call => call.url), [
-        'http://agent.test/v1/cases',
-        'http://agent.test/v1/report-drafts',
-        'http://agent.test/v1/report-drafts/draft-1/submit',
-        'http://agent.test/v1/report-drafts/draft-1/review'
+        'https://agent.test/v1/cases',
+        'https://agent.test/v1/report-drafts',
+        'https://agent.test/v1/report-drafts/draft-1/submit',
+        'https://agent.test/v1/report-drafts/draft-1/review'
     ]);
     assert.equal(calls[3].body.decision, 'approve');
 });
@@ -2234,7 +2234,7 @@ test('section assist upserts the case before requesting graph-grounded draft con
     const calls: Array<{ url: string; body: any }> = [];
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -2274,8 +2274,8 @@ test('section assist upserts the case before requesting graph-grounded draft con
     });
 
     assert.deepEqual(calls.map(call => call.url), [
-        'http://agent.test/v1/cases',
-        'http://agent.test/v1/report-drafts/assist'
+        'https://agent.test/v1/cases',
+        'https://agent.test/v1/report-drafts/assist'
     ]);
     assert.equal(calls[1].body.evidence_policy, 'graph_approved_only');
     assert.equal(result.graph_grounded, true);
@@ -2291,7 +2291,7 @@ test('manual documents are owned by the Common Agent registry', async () => {
     };
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -2325,11 +2325,11 @@ test('manual documents are owned by the Common Agent registry', async () => {
     assert.deepEqual(listManualDocuments(), []);
     assert.deepEqual(requests, [
         {
-            url: 'http://agent.test/v1/workflows/ingest-file',
+            url: 'https://agent.test/v1/workflows/ingest-file',
             method: 'POST'
         },
         {
-            url: 'http://agent.test/v1/documents/doc-manual-1?confirm=true&delete_graph=true',
+            url: 'https://agent.test/v1/documents/doc-manual-1?confirm=true&delete_graph=true',
             method: 'DELETE'
         }
     ]);
@@ -2339,7 +2339,7 @@ test('learning-ready Vision export is requested from Common Agent with strict ga
     let capturedUrl = '';
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request) => {
@@ -2381,7 +2381,7 @@ test('learning-ready Vision export is requested from Common Agent with strict ga
     });
 
     const url = new URL(capturedUrl);
-    assert.equal(url.origin, 'http://agent.test');
+    assert.equal(url.origin, 'https://agent.test');
     assert.equal(url.pathname, '/v1/datasets/images/export');
     assert.equal(url.searchParams.get('review_status'), 'approved');
     assert.equal(url.searchParams.get('learning_ready_only'), 'true');
@@ -2399,7 +2399,7 @@ test('current Vision reference benchmark is requested from Common Agent with rel
     let capturedBody: any;
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -2429,7 +2429,7 @@ test('current Vision reference benchmark is requested from Common Agent with rel
         minimum_top3_accuracy: 0.9
     });
 
-    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/benchmark-current');
+    assert.equal(capturedUrl, 'https://agent.test/v1/vision/classifier/benchmark-current');
     assert.deepEqual(capturedBody, {
         embedding_model_version: 'dinov2-reference-v1',
         minimum_samples: 20,
@@ -2445,7 +2445,7 @@ test('current Vision reference status is requested from Common Agent', async () 
     let capturedUrl = '';
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request) => {
@@ -2474,7 +2474,7 @@ test('current Vision reference status is requested from Common Agent', async () 
 
     const status = await CommonAgentApiService.getCurrentVisionReferenceStatus();
 
-    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/references/current');
+    assert.equal(capturedUrl, 'https://agent.test/v1/vision/classifier/references/current');
     assert.equal(status.ready, true);
     assert.equal(status.embedding_model_version, 'dinov2:facebook/dinov2-base');
     assert.equal(status.embedding_provider, 'dinov2');
@@ -2487,7 +2487,7 @@ test('Vision reference refresh is requested from Common Agent', async () => {
     let capturedMethod = '';
     (globalThis as any).window = {
         electronAPI: {
-            getApiConfig: async () => ({ agentServerUrl: 'http://agent.test' })
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
         }
     };
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -2505,7 +2505,7 @@ test('Vision reference refresh is requested from Common Agent', async () => {
 
     const result = await CommonAgentApiService.refreshVisionReferences();
 
-    assert.equal(capturedUrl, 'http://agent.test/v1/vision/classifier/references/refresh');
+    assert.equal(capturedUrl, 'https://agent.test/v1/vision/classifier/references/refresh');
     assert.equal(capturedMethod, 'POST');
     assert.equal(result.status, 'promoted');
     assert.equal(result.manifest_id, 'dinov2-base-ready');

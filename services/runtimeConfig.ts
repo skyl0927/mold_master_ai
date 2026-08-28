@@ -1,11 +1,11 @@
 import { ApiConfig } from '../types';
+import { normalizeCommonAgentBaseUrl } from '../commonAgentTransport';
 
 export const DEFAULT_AGENT_SERVER_URL = 'http://127.0.0.1:8000';
 
 const normalizeUrl = (value: string | undefined, fallback: string): string => {
     const candidate = value?.trim();
-    if (!candidate) return fallback;
-    return candidate.replace(/\/+$/, '');
+    return normalizeCommonAgentBaseUrl(candidate || fallback);
 };
 
 export const getRuntimeConfig = async (): Promise<ApiConfig | null> => {

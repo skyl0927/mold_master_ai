@@ -1,6 +1,7 @@
 import type { ReportItem } from './reportService';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactSpecificationAnalysis } from './reportContentFormatter';
+import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
 
 export type CommonAgentDraftType = 'review_report' | 'specification_revision';
 export type CommonAgentDraftStatus = 'draft' | 'review_pending' | 'approved' | 'rejected' | 'exported';
@@ -170,7 +171,7 @@ export const buildDocumentDraftSyncPayload = (
 
 const postJson = async <T>(path: string, payload: unknown): Promise<T> => {
     const baseUrl = await getAgentServerBaseUrl();
-    const response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetchWithCommonAgentPolicy(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

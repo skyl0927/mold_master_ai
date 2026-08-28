@@ -20,6 +20,10 @@ const { retryAsync } = require('./retryAsync');
 const { withRuntimeEndpointDefaults } = require('./apiConfigDefaults');
 const { parseClipboardPngDataUrl } = require('./clipboardImagePayload');
 const {
+    fetchWithCommonAgentPolicy,
+    normalizeCommonAgentBaseUrl
+} = require('./commonAgentTransport');
+const {
     loadLatestOperationalStatusBundle
 } = require('./latestOperationalStatusBundle');
 const {
@@ -112,33 +116,28 @@ const writeWebKnowledgeIngestions = ingestions => atomicWriteJson(
 );
 
 const configuredCommonAgentEndpoints = () => {
-    const agentUrl = String(
+    const agentUrl = normalizeCommonAgentBaseUrl(String(
         apiConfig?.agentServerUrl || process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000'
-    ).replace(/\/+$/, '');
+    ));
     let qaUrl = String(
         apiConfig?.visionQaServerUrl || process.env.COMMON_AGENT_QA_URL || ''
-    ).replace(/\/+$/, '');
+    ).trim();
     if (!qaUrl) {
         const parsed = new URL(agentUrl);
         if (['127.0.0.1', 'localhost'].includes(parsed.hostname) && parsed.port === '8000') {
             parsed.port = '8103';
-            qaUrl = parsed.toString().replace(/\/+$/, '');
+            qaUrl = normalizeCommonAgentBaseUrl(parsed.toString());
         } else {
             qaUrl = agentUrl;
         }
+    } else {
+        qaUrl = normalizeCommonAgentBaseUrl(qaUrl);
     }
     return { agentUrl, qaUrl };
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 45000) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-        clearTimeout(timer);
-    }
-};
+const fetchWithTimeout = (url, options = {}, timeoutMs = 45000) =>
+    fetchWithCommonAgentPolicy(url, options, { timeoutMs });
 
 const runBundledNodeScript = (scriptName, args, envOverrides = {}) => new Promise((resolve, reject) => {
     const scriptsRoot = app.isPackaged
@@ -710,10 +709,16 @@ ipcMain.handle('GET_LATEST_OPERATIONAL_STATUS_BUNDLE', () => {
     return loadLatestOperationalStatusBundle({ roots });
 });
 ipcMain.handle('SET_API_CONFIG', (event, config) => {
-    apiConfig = config;
-    saveApiConfig(config);
+    const validatedConfig = { ...config };
+    for (const field of ['agentServerUrl', 'visionQaServerUrl']) {
+        const value = String(validatedConfig[field] || '').trim();
+        validatedConfig[field] = value ? normalizeCommonAgentBaseUrl(value) : '';
+    }
+    apiConfig = validatedConfig;
+    saveApiConfig(validatedConfig);
     applyProxySettings(apiConfig);
     updateGlobalShortcut(apiConfig?.shortcut);
+    return withRuntimeEndpointDefaults(validatedConfig);
 });
 
 const currentApprovedWebKnowledgeTemplate = caseId => {
