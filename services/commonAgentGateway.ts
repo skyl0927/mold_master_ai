@@ -16,6 +16,7 @@ import { streamChatResponse } from './aiService';
 import { CommonAgentApiService } from './commonAgentApiService';
 import { MultimodalDiagnosisContext } from './diagnosisContextService';
 import { getRuntimeConfig } from './runtimeConfig';
+import { VISION_DIAGNOSIS_TIMEOUT_MS } from '../commonAgentTransport';
 
 export const DIAGNOSIS_COMPARISON_STORAGE_KEY = 'mold-master-ai:diagnosis-comparisons:v1';
 const MAX_COMPARISON_RECORDS = 50;
@@ -1267,7 +1268,8 @@ export class CommonAgentGateway {
                         question: options.diagnosisContext?.question,
                         sourceSystem: 'mold-master-ai',
                         processArea: 'injection-molding',
-                        persistMode: 'classifiable_only',
+                        persistMode: 'never',
+                        timeoutMs: VISION_DIAGNOSIS_TIMEOUT_MS,
                         sessionViews,
                         sessionId: typeof options.diagnosisContext?.metadata.capture_session_id === 'string'
                             ? options.diagnosisContext.metadata.capture_session_id
@@ -1287,17 +1289,18 @@ export class CommonAgentGateway {
                         }
                     }
                 );
+                const persistedToDataset = response.metadata?.persisted_to_dataset === true;
                 return {
                     source: 'common_agent',
                     analysis: CommonAgentApiService.toDefectAnalysis(response, retrievalMode),
-                    commonAgentImageId: response.metadata?.persisted_to_dataset === false
-                        ? undefined
-                        : response.image_id,
-                    commonAgentImageIdsByLocalId: Object.fromEntries(
-                        (response.view_observations || [])
-                            .filter(item => item.local_image_id && item.image_id)
-                            .map(item => [item.local_image_id as string, item.image_id as string])
-                    )
+                    commonAgentImageId: persistedToDataset ? response.image_id : undefined,
+                    commonAgentImageIdsByLocalId: persistedToDataset
+                        ? Object.fromEntries(
+                            (response.view_observations || [])
+                                .filter(item => item.local_image_id && item.image_id)
+                                .map(item => [item.local_image_id as string, item.image_id as string])
+                        )
+                        : {}
                 };
             },
             async () => ({

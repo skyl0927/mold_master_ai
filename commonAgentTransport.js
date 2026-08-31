@@ -1,5 +1,6 @@
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const DEFAULT_TIMEOUT_MS = 45000;
+const VISION_DIAGNOSIS_TIMEOUT_MS = 180000;
 
 const parseCommonAgentUrl = value => {
   const candidate = String(value || '').trim();
@@ -67,6 +68,7 @@ const fetchWithCommonAgentPolicy = async (
 
 module.exports = {
   DEFAULT_TIMEOUT_MS,
+  VISION_DIAGNOSIS_TIMEOUT_MS,
   fetchWithCommonAgentPolicy,
   normalizeCommonAgentBaseUrl
 };

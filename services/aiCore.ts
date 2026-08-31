@@ -6,6 +6,7 @@ export const OPENAI_PRIMARY_MODEL = 'gpt-5.6';
 export const OPENAI_EFFICIENT_MODEL = 'gpt-5.6-luna';
 export const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
 export const OPENAI_VISION_MAX_COMPLETION_TOKENS = 1200;
+export const OPENAI_REQUEST_TIMEOUT_MS = 120000;
 
 // --- API Client Management ---
 export const getClients = async () => {
@@ -42,7 +43,7 @@ export const getClients = async () => {
             apiKey: apiKey,
             dangerouslyAllowBrowser: true,
             maxRetries: 3,
-            timeout: 20000
+            timeout: OPENAI_REQUEST_TIMEOUT_MS
         });
         return { provider: 'openai' as const, client: openaiClient, apiKey: apiKey };
     }

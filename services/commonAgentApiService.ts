@@ -13,7 +13,10 @@ import { guardDefectAnalysisForVisionRisk } from '../visionDiagnosisGuard';
 import { getAgentServerBaseUrl } from './runtimeConfig';
 import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
-import { fetchWithCommonAgentPolicy } from '../commonAgentTransport';
+import {
+    fetchWithCommonAgentPolicy,
+    VISION_DIAGNOSIS_TIMEOUT_MS
+} from '../commonAgentTransport';
 import { COMMON_AGENT_HEALTH_PATHS } from '../commonAgentHealthPolicy';
 
 export interface CommonAgentObservation {
@@ -633,6 +636,7 @@ export class CommonAgentApiService {
             sessionId?: string;
             persistMode?: 'always' | 'classifiable_only' | 'never';
             sessionViews?: CommonAgentSessionViewUpload[];
+            timeoutMs?: number;
         } = {}
     ): Promise<CommonAgentVisionDiagnosis> {
         const formData = new FormData();
@@ -645,7 +649,7 @@ export class CommonAgentApiService {
             ].join(' ')
         );
         formData.append('source_system', options.sourceSystem || 'mold-master-ai');
-        formData.append('persist_mode', options.persistMode || 'classifiable_only');
+        formData.append('persist_mode', options.persistMode || 'never');
         if (options.processArea) formData.append('process_area', options.processArea);
         if (options.ragCategory) formData.append('rag_category', options.ragCategory);
         if (options.sessionId) formData.append('session_id', options.sessionId);
@@ -677,6 +681,8 @@ export class CommonAgentApiService {
         const response = await fetchWithCommonAgentPolicy(await getAgentUrl('/v1/vision/diagnose'), {
             method: 'POST',
             body: formData
+        }, {
+            timeoutMs: options.timeoutMs || VISION_DIAGNOSIS_TIMEOUT_MS
         });
 
         if (!response.ok) {
