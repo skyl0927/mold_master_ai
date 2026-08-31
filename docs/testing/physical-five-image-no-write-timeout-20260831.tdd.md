@@ -56,6 +56,8 @@ The same five files were replayed after the Common Agent fail-closed rebuild. Bo
 
 The four-view result remained `needs_review`. The marked-edge image improved to `unclassifiable`, and the explicit conditional `플래시` term was removed from retrieval. One residual issue remains: the negative Vision sentence stating that a burr could not be determined still produced `query_canonical_terms=버`. This did not leak into the final answer, but the Common Agent must also exclude negated or uncertain terms originating from Vision observations.
 
+Repeatability is not yet release-grade. With the same model, prompt version, and four source files, the first run ranked surface delamination or tearing first at `0.6461`, while the post-fix replay ranked burr or flash first at `0.6456`. The replay also retained `표면 긁힘/스크래치` and `표면 스크래치` as separate fusion candidates. These aliases should be merged before disagreement scoring, and repeated-run Top-1 stability should become a release metric.
+
 Post-fix runtime evidence: `artifacts/goal-review-20260828/physical-product-five-image-no-write-20260831-post-fix.json`.
 
 ## Remaining Human Gate
