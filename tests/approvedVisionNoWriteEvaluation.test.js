@@ -133,6 +133,8 @@ test('accepts an approved shadow result only when all no-write invariants hold',
   assert.equal(accepted.top1Accurate, false);
   assert.equal(accepted.top3Accurate, true);
   assert.equal(accepted.graphGrounded, true);
+  assert.equal(accepted.acceptedPrediction, false);
+  assert.equal(accepted.unsafeAcceptedError, false);
   assert.equal(accepted.releaseEvidenceEligible, false);
 
   const missingTrace = assessApprovedNoWriteDiagnosis(
@@ -176,4 +178,36 @@ test('summarizes approved shadow quality without unlocking physical recapture', 
   assert.equal(summary.graphGroundedRate, 50);
   assert.equal(summary.readyForOperationalRelease, false);
   assert.equal(summary.nextGate, 'governed physical multiview recapture');
+});
+
+test('reports probable wrong predictions as unsafe accepted errors', () => {
+  const summary = summarizeApprovedNoWriteEvaluation([
+    {
+      operationallyValid: true,
+      noWriteAttested: true,
+      datasetUnchanged: true,
+      classifiable: true,
+      decisionStatus: 'probable',
+      top1Accurate: false,
+      top3Accurate: false,
+      graphGrounded: false,
+      releaseEvidenceEligible: false
+    },
+    {
+      operationallyValid: true,
+      noWriteAttested: true,
+      datasetUnchanged: true,
+      classifiable: true,
+      decisionStatus: 'needs_review',
+      top1Accurate: false,
+      top3Accurate: false,
+      graphGrounded: false,
+      releaseEvidenceEligible: false
+    }
+  ]);
+
+  assert.equal(summary.acceptedPredictions, 1);
+  assert.equal(summary.unsafeAcceptedErrors, 1);
+  assert.equal(summary.unsafeErrorRate, 100);
+  assert.equal(summary.reviewCaptureRate, 50);
 });
