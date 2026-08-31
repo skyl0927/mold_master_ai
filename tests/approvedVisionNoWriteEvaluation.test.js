@@ -208,6 +208,7 @@ test('reports probable wrong predictions as unsafe accepted errors', () => {
 
   assert.equal(summary.acceptedPredictions, 1);
   assert.equal(summary.unsafeAcceptedErrors, 1);
-  assert.equal(summary.unsafeErrorRate, 100);
+  assert.equal(summary.unsafeErrorRate, 50);
+  assert.equal(summary.unsafeAcceptedErrorRate, 100);
   assert.equal(summary.reviewCaptureRate, 50);
 });

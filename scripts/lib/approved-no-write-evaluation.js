@@ -130,6 +130,10 @@ const assessApprovedNoWriteDiagnosis = (testCase, payload, snapshots = {}) => {
   const top1Accurate = candidateClasses[0] === expectedClass;
   const top3Accurate = candidateClasses.slice(0, 3).includes(expectedClass);
   const actualDefectType = candidates[0]?.defect_type || null;
+  const classifiable = isClassifiable(actualDefectType);
+  const decisionStatus = payload?.observation?.decision_status || null;
+  const acceptedPrediction = decisionStatus === 'probable' && classifiable;
+  const unsafeAcceptedError = acceptedPrediction && !top1Accurate;
 
   return {
     id: testCase.id,
@@ -144,12 +148,14 @@ const assessApprovedNoWriteDiagnosis = (testCase, payload, snapshots = {}) => {
       defectClass: candidateClasses[index],
       confidence: Number(candidate.confidence || 0)
     })),
-    classifiable: isClassifiable(actualDefectType),
-    decisionStatus: payload?.observation?.decision_status || null,
+    classifiable,
+    decisionStatus,
     decisionReason: payload?.observation?.decision_reason || null,
     requiredAdditionalViews: payload?.observation?.required_additional_views || [],
     top1Accurate,
     top3Accurate,
+    acceptedPrediction,
+    unsafeAcceptedError,
     graphGrounded: graph.graph_grounded === true,
     graphDecisionStatus: graph.decision_status || null,
     graphDecisionReason: graph.decision_reason || null,
@@ -186,6 +192,16 @@ const summarizeApprovedNoWriteEvaluation = results => {
   const top3Accurate = results.filter(item => item.top3Accurate).length;
   const graphGrounded = results.filter(item => item.graphGrounded).length;
   const releaseEligibleCases = results.filter(item => item.releaseEvidenceEligible).length;
+  const acceptedResults = results.filter(item =>
+    item.acceptedPrediction ?? (item.decisionStatus === 'probable' && item.classifiable)
+  );
+  const unsafeAcceptedErrors = acceptedResults.filter(item =>
+    item.unsafeAcceptedError ?? !item.top1Accurate
+  ).length;
+  const wrongResults = results.filter(item => !item.top1Accurate);
+  const safelyDeferredErrors = wrongResults.filter(item =>
+    !(item.acceptedPrediction ?? (item.decisionStatus === 'probable' && item.classifiable))
+  ).length;
 
   return {
     total,
@@ -202,6 +218,11 @@ const summarizeApprovedNoWriteEvaluation = results => {
     top1Accuracy: percentage(top1Accurate, total),
     top3Accurate,
     top3Accuracy: percentage(top3Accurate, total),
+    acceptedPredictions: acceptedResults.length,
+    unsafeAcceptedErrors,
+    unsafeErrorRate: percentage(unsafeAcceptedErrors, total),
+    unsafeAcceptedErrorRate: percentage(unsafeAcceptedErrors, acceptedResults.length),
+    reviewCaptureRate: percentage(safelyDeferredErrors, wrongResults.length),
     graphGrounded,
     graphGroundedRate: percentage(graphGrounded, total),
     releaseEligibleCases,
