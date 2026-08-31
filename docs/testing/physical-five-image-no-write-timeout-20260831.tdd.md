@@ -50,6 +50,14 @@ The before/after Common Agent dataset fingerprint, record counts, and image-file
 
 Detailed runtime evidence: `artifacts/goal-review-20260828/physical-product-five-image-no-write-20260831.json`.
 
+## Common Agent Post-Fix Runtime
+
+The same five files were replayed after the Common Agent fail-closed rebuild. Both requests returned HTTP 200 with `persist_mode=never`, `persisted_to_dataset=false`, `service_writes_performed=false`, `general_retrieval_suppressed=true`, and `vision_answer_evidence_scope=vision_observation_only`. Both had zero approved Graph paths, disabled the LLM supplement, and returned only the fail-closed instruction that causes and countermeasures must not be confirmed before approved evidence is attached.
+
+The four-view result remained `needs_review`. The marked-edge image improved to `unclassifiable`, and the explicit conditional `플래시` term was removed from retrieval. One residual issue remains: the negative Vision sentence stating that a burr could not be determined still produced `query_canonical_terms=버`. This did not leak into the final answer, but the Common Agent must also exclude negated or uncertain terms originating from Vision observations.
+
+Post-fix runtime evidence: `artifacts/goal-review-20260828/physical-product-five-image-no-write-20260831-post-fix.json`.
+
 ## Remaining Human Gate
 
 The leaf-shaped local damage, separate scratches, and possible rib-edge burr must not be merged into one approved label. A reviewer should confirm the primary defect and whether the marked-edge image belongs to the same physical part before any Common Agent learning or Graph promotion.
