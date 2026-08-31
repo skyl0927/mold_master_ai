@@ -9,9 +9,15 @@ const path = require('node:path');
   try {
     const artifactsDir = path.join(process.cwd(), 'artifacts');
     fs.mkdirSync(artifactsDir, { recursive: true });
+    const profilePath = path.join(artifactsDir, `multimodal-diagnosis-profile-${Date.now()}`);
+    fs.mkdirSync(profilePath, { recursive: true });
     const samplePath = path.join(process.cwd(), 'assets', 'icon.png');
 
-    app = await electron.launch({ args: ['.'], cwd: process.cwd(), artifactsDir });
+    app = await electron.launch({
+      args: ['.', `--user-data-dir=${profilePath}`],
+      cwd: process.cwd(),
+      artifactsDir
+    });
     const page = await app.firstWindow();
     const consoleErrors = [];
 
@@ -238,15 +244,22 @@ const path = require('node:path');
 
     const imageInput = page.locator('input[type="file"][accept="image/*"]');
     await imageInput.setInputFiles(samplePath);
-    await page.getByLabel('Sample 1 이미지 종류').selectOption('physical_product');
-    await page.getByLabel('Sample 1 촬영 시점').selectOption('full_part_context');
+    const cards = page.getByTestId('inspection-image-card');
+    const firstCard = cards.nth(0);
+    await firstCard.getByRole('tab', { name: 'Sample 1 촬영 정보 탭' }).click();
+    await firstCard.getByLabel('Sample 1 이미지 종류').selectOption('physical_product');
+    await firstCard.getByLabel('Sample 1 촬영 시점').selectOption('full_part_context');
     await imageInput.setInputFiles(samplePath);
-    await page.getByLabel('Sample 2 이미지 종류').selectOption('physical_product');
-    await page.getByLabel('Sample 2 촬영 시점').selectOption('defect_closeup');
+    const secondCard = cards.nth(1);
+    await secondCard.getByRole('tab', { name: 'Sample 2 촬영 정보 탭' }).click();
+    await secondCard.getByLabel('Sample 2 이미지 종류').selectOption('physical_product');
+    await secondCard.getByLabel('Sample 2 촬영 시점').selectOption('defect_closeup');
     await page.getByText('촬영 프로토콜 충족').first().waitFor();
     const fieldContext = '리브 주변 백화, 취출 시 딱 소리와 함께 제품이 튕김';
-    await page.getByLabel('Sample 1 현상 설명').fill(fieldContext);
-    await page.getByRole('button', { name: 'AI 진단' }).first().click();
+    await firstCard.getByRole('tab', { name: 'Sample 1 현상 설명 탭' }).click();
+    await firstCard.getByRole('textbox', { name: 'Sample 1 현상 설명', exact: true }).fill(fieldContext);
+    await firstCard.getByRole('tab', { name: 'Sample 1 분석 탭' }).click();
+    await firstCard.getByRole('button', { name: 'AI 진단' }).click();
     await page.getByText('진단 완료').first().waitFor({ timeout: 15000 });
     await page.getByText('Multi-view Fusion').waitFor({ timeout: 10000 });
     await page.getByText('구조화 Vision 관찰 및 Top-3').waitFor({ timeout: 10000 });
@@ -268,6 +281,7 @@ const path = require('node:path');
     };
     const result = {
       questionContainsFieldContext: capturedForm.question.includes(fieldContext),
+      initialDiagnosisNoWrite: capturedForm.persist_mode === 'never',
       metadataContainsContextFlag: capturedMetadata.context_provided === true,
       supplementaryViewFileCount: (capturedEntries.view_files || []).length,
       manifestViewCount: capturedManifest.length,
@@ -295,6 +309,7 @@ const path = require('node:path');
       visionInferenceRejected: !bodyText.includes('비전이 생성한 미검증 원인')
         && !bodyText.includes('비전이 생성한 미검증 대책')
         && !bodyText.includes('비전 단계에서 신뢰하면 안 되는 라벨'),
+      isolatedProfile: profilePath,
       screenshot: screenshotPath,
       consoleErrors
     };
@@ -302,6 +317,7 @@ const path = require('node:path');
 
     if (
       !result.questionContainsFieldContext
+      || !result.initialDiagnosisNoWrite
       || !result.metadataContainsContextFlag
       || result.supplementaryViewFileCount !== 1
       || result.manifestViewCount !== 2
