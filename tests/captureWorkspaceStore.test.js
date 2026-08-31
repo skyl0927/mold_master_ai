@@ -11,7 +11,7 @@ const {
 
 const PNG_A = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
 const PNG_B = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAAC';
-const JPEG_A = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD';
+const JPEG_A = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAA=';
 
 const createImage = (overrides = {}) => ({
   id: 'capture-full',
