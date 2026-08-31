@@ -284,6 +284,37 @@ const summarizeCaptureSession = (images, sessionId, recaptureSource) => {
   };
 };
 
+const findResumableRecaptureSession = images => {
+  const candidates = Array.isArray(images) ? images : [];
+  const checkedSessions = new Set();
+  const completedWorkOrders = new Set();
+
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const image = candidates[index];
+    const sessionId = compact(image?.captureSessionId);
+    const recaptureSource = image?.recaptureSource;
+    const workOrderId = compact(
+      recaptureSource?.workOrderId || recaptureSource?.reviewDecisionId
+    );
+    if (!sessionId || !recaptureSource || checkedSessions.has(sessionId)) continue;
+    checkedSessions.add(sessionId);
+    if (workOrderId && completedWorkOrders.has(workOrderId)) continue;
+
+    const summary = summarizeCaptureSession(candidates, sessionId, recaptureSource);
+    if (summary.ready) {
+      if (workOrderId) completedWorkOrders.add(workOrderId);
+      continue;
+    }
+    return {
+      sessionId,
+      recaptureSource,
+      summary
+    };
+  }
+
+  return null;
+};
+
 const buildCaptureEvidenceMergePlan = ({
   images,
   selectedIds,
@@ -544,6 +575,7 @@ module.exports = {
   buildRecaptureSourceFromWorkOrder,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  findResumableRecaptureSession,
   inferRecaptureViewTags,
   resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,

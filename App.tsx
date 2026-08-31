@@ -54,11 +54,13 @@ import {
     buildRecaptureSourceFromWorkOrder,
     collectSessionDiagnosisImages,
     createCaptureSessionId,
+    findResumableRecaptureSession,
     resolveCaptureLearningEligibility,
     selectDiagnosisTargetIds,
     summarizeCaptureSession
 } from './captureSessionProtocol';
 import type { CaptureWorkOrderInput } from './captureSessionProtocol';
+import { isCaptureWorkspaceHydrated } from './captureWorkspaceProtocol';
 import { buildVisionBboxAnnotationPayloads, VisionBboxReviewSubmission } from './visionBboxAnnotation';
 import { summarizeVisionBboxAnnotationStatus } from './visionBboxAnnotationStatus';
 import {
@@ -216,6 +218,12 @@ const ServerStatusBadge: React.FC<{ label: string; status: 'online' | 'offline' 
 
 const App: React.FC = () => {
     const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
+    const [captureWorkspaceReady, setCaptureWorkspaceReady] = useState(false);
+    const [captureWorkspaceHydrated, setCaptureWorkspaceHydrated] = useState(false);
+    const restoredCaptureImageIdsRef = useRef<string[]>([]);
+    const persistedCaptureImagesRef = useRef<Map<string, CapturedImage>>(new Map());
+    const captureWorkspaceSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const recaptureWorkspaceResumeCheckedRef = useRef(false);
     const [editingState, setEditingState] = useState<EditingState | null>(null);
     const [status, setStatus] = useState<'idle' | 'capturing' | 'generating'>('idle');
     const [error, setError] = useState<string | null>(null);
@@ -321,6 +329,95 @@ const App: React.FC = () => {
         setCopyNotification(`재촬영 작업지시 시작: ${source.workOrderId || source.reviewDecisionId}`);
         window.setTimeout(() => setCopyNotification(''), 5000);
     }, [setPendingRecaptureLineage]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const restoreCaptureWorkspace = async () => {
+            try {
+                const restoredImages = await window.electronAPI.listCaptureWorkspaceImages();
+                if (cancelled) return;
+                restoredCaptureImageIdsRef.current = restoredImages.map(image => image.id);
+                persistedCaptureImagesRef.current = new Map(
+                    restoredImages.map(image => [image.id, image])
+                );
+                setCapturedImages(currentImages => {
+                    const currentIds = new Set(currentImages.map(image => image.id));
+                    return [
+                        ...restoredImages.filter(image => !currentIds.has(image.id)),
+                        ...currentImages
+                    ];
+                });
+                if (restoredImages.length > 0) {
+                    setCopyNotification(`캡처 작업공간 ${restoredImages.length}장 복원 완료`);
+                    window.setTimeout(() => setCopyNotification(''), 3000);
+                }
+            } catch (workspaceError) {
+                console.error('Capture workspace restore failed:', workspaceError);
+                if (!cancelled) setError('캡처 작업공간을 복원하지 못했습니다.');
+            } finally {
+                if (!cancelled) setCaptureWorkspaceReady(true);
+            }
+        };
+
+        void restoreCaptureWorkspace();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!captureWorkspaceReady || captureWorkspaceHydrated) return;
+        if (!isCaptureWorkspaceHydrated(restoredCaptureImageIdsRef.current, capturedImages)) return;
+        setCaptureWorkspaceHydrated(true);
+    }, [captureWorkspaceHydrated, captureWorkspaceReady, capturedImages]);
+
+    useEffect(() => {
+        if (!captureWorkspaceHydrated || recaptureWorkspaceResumeCheckedRef.current) return;
+        recaptureWorkspaceResumeCheckedRef.current = true;
+        const resumable = findResumableRecaptureSession(capturedImages);
+        if (!resumable) return;
+
+        activeCaptureSessionIdRef.current = resumable.sessionId;
+        setActiveCaptureSessionId(resumable.sessionId);
+        pendingRecaptureSourceRef.current = resumable.recaptureSource;
+        setPendingRecaptureSource(resumable.recaptureSource);
+        const nextView = resumable.summary.missingViews[0];
+        if (nextView) {
+            screenCaptureViewTagRef.current = nextView;
+            setScreenCaptureViewTag(nextView);
+        }
+        setCopyNotification(
+            `재촬영 작업지시 복원: ${resumable.recaptureSource.workOrderId || resumable.recaptureSource.reviewDecisionId || resumable.sessionId}`
+        );
+        const timeout = window.setTimeout(() => setCopyNotification(''), 5000);
+        return () => window.clearTimeout(timeout);
+    }, [captureWorkspaceHydrated, capturedImages]);
+
+    useEffect(() => {
+        if (!captureWorkspaceHydrated) return;
+        const snapshot = capturedImages;
+
+        captureWorkspaceSyncQueueRef.current = captureWorkspaceSyncQueueRef.current
+            .catch(() => undefined)
+            .then(async () => {
+                const currentIds = new Set(snapshot.map(image => image.id));
+                for (const image of snapshot) {
+                    if (persistedCaptureImagesRef.current.get(image.id) === image) continue;
+                    await window.electronAPI.saveCaptureWorkspaceImage(image);
+                    persistedCaptureImagesRef.current.set(image.id, image);
+                }
+                for (const persistedId of [...persistedCaptureImagesRef.current.keys()]) {
+                    if (currentIds.has(persistedId)) continue;
+                    await window.electronAPI.deleteCaptureWorkspaceImage(persistedId);
+                    persistedCaptureImagesRef.current.delete(persistedId);
+                }
+            })
+            .catch(workspaceError => {
+                console.error('Capture workspace sync failed:', workspaceError);
+                setError('캡처 작업공간 저장에 실패했습니다.');
+            });
+    }, [captureWorkspaceHydrated, capturedImages]);
 
     useEffect(() => {
         const source = pendingRecaptureSourceRef.current;
@@ -1290,7 +1387,8 @@ const App: React.FC = () => {
             captureSessionId: image.captureSessionId,
             captureViewTag: image.captureViewTag,
             captureImageKind: image.captureImageKind,
-            captureSource: image.captureSource
+            captureSource: image.captureSource,
+            recaptureSource: image.recaptureSource
         });
     };
 

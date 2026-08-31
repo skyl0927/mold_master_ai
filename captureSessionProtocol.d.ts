@@ -26,6 +26,12 @@ export interface CaptureSessionSummary {
   message: string;
 }
 
+export interface ResumableRecaptureSession {
+  sessionId: string;
+  recaptureSource: RecaptureSource;
+  summary: CaptureSessionSummary;
+}
+
 export interface CaptureEvidenceMergePlan {
   protocolVersion: 'capture-evidence-merge/v1';
   canMerge: boolean;
@@ -129,6 +135,10 @@ export function summarizeCaptureSession(
   sessionId?: string,
   recaptureSource?: Partial<RecaptureSource>
 ): CaptureSessionSummary;
+
+export function findResumableRecaptureSession(
+  images: Array<Partial<CapturedImage>>
+): ResumableRecaptureSession | null;
 
 export function assessCaptureImageForDiagnosis(
   image: Partial<CapturedImage>,

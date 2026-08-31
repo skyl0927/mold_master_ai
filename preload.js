@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     debugCapturePointer: (payload) => ipcRenderer.invoke('DEBUG_CAPTURE_POINTER', payload),
 
     getApiConfig: () => ipcRenderer.invoke('GET_API_CONFIG'),
+    saveCaptureWorkspaceImage: (image) => ipcRenderer.invoke('SAVE_CAPTURE_WORKSPACE_IMAGE', image),
+    listCaptureWorkspaceImages: () => ipcRenderer.invoke('LIST_CAPTURE_WORKSPACE_IMAGES'),
+    deleteCaptureWorkspaceImage: (imageId) => ipcRenderer.invoke('DELETE_CAPTURE_WORKSPACE_IMAGE', imageId),
+    getCaptureWorkspaceStatus: () => ipcRenderer.invoke('GET_CAPTURE_WORKSPACE_STATUS'),
     writeClipboardImage: (dataUrl) => ipcRenderer.invoke('WRITE_CLIPBOARD_IMAGE', dataUrl),
     getLatestOperationalStatusBundle: () => ipcRenderer.invoke('GET_LATEST_OPERATIONAL_STATUS_BUNDLE'),
     setApiConfig: (config) => ipcRenderer.invoke('SET_API_CONFIG', config),

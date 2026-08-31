@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { mapSelectionToImage } = require('./captureGeometry');
 const { createCaptureFrameCache } = require('./captureFrameCache');
+const { createCaptureWorkspaceStore } = require('./captureWorkspaceStore');
 const db = require('./database.js');
 const layoutManager = require('./layouts.js');
 const JSZip = require('jszip');
@@ -176,6 +177,10 @@ const DB_PATHS = {
     vectors: path.join(DB_ROOT, 'vectors.json'),
     feedback: path.join(DB_ROOT, 'feedback.json'),
 };
+const CAPTURE_WORKSPACE_ROOT = path.join(DB_ROOT, 'capture_workspace');
+const captureWorkspaceStore = createCaptureWorkspaceStore({
+    rootDir: CAPTURE_WORKSPACE_ROOT
+});
 
 function seedGeneratedProcessKnowledge() {
     try {
@@ -683,6 +688,23 @@ ipcMain.handle('DEBUG_CAPTURE_POINTER', (event, payload) => {
 });
 
 ipcMain.handle('GET_API_CONFIG', () => withRuntimeEndpointDefaults(apiConfig));
+ipcMain.handle('SAVE_CAPTURE_WORKSPACE_IMAGE', (_event, image) => (
+    captureWorkspaceStore.saveImage(image)
+));
+ipcMain.handle('LIST_CAPTURE_WORKSPACE_IMAGES', () => (
+    captureWorkspaceStore.listImages()
+));
+ipcMain.handle('DELETE_CAPTURE_WORKSPACE_IMAGE', (_event, imageId) => (
+    captureWorkspaceStore.deleteImage(String(imageId || ''))
+));
+ipcMain.handle('GET_CAPTURE_WORKSPACE_STATUS', () => {
+    const images = captureWorkspaceStore.listImages();
+    return {
+        rootPath: CAPTURE_WORKSPACE_ROOT,
+        imageCount: images.length,
+        workOrders: captureWorkspaceStore.summarizeWorkOrders()
+    };
+});
 ipcMain.handle('WRITE_CLIPBOARD_IMAGE', (_event, dataUrl) => {
     const payload = parseClipboardPngDataUrl(dataUrl);
     const image = nativeImage.createFromDataURL(payload.dataUrl);

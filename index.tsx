@@ -1,7 +1,23 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { ApiConfig, DBStats, DefectAnalysis } from './types';
+import { ApiConfig, CapturedImage, DBStats, DefectAnalysis } from './types';
+
+const WEB_CAPTURE_WORKSPACE_KEY = 'web_capture_workspace_v1';
+
+const readWebCaptureWorkspace = (): CapturedImage[] => {
+  try {
+    const stored = localStorage.getItem(WEB_CAPTURE_WORKSPACE_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeWebCaptureWorkspace = (images: CapturedImage[]) => {
+  localStorage.setItem(WEB_CAPTURE_WORKSPACE_KEY, JSON.stringify(images));
+};
 
 // --- WEB COMPATIBILITY MODE ---
 if (!window.electronAPI) {
@@ -34,6 +50,25 @@ if (!window.electronAPI) {
       const saved = localStorage.getItem('web_api_config');
       return saved ? JSON.parse(saved) : null;
     },
+    saveCaptureWorkspaceImage: async (image: CapturedImage) => {
+      const images = readWebCaptureWorkspace().filter(item => item.id !== image.id);
+      images.push(image);
+      writeWebCaptureWorkspace(images);
+      return { id: image.id, persistedAt: new Date().toISOString() };
+    },
+    listCaptureWorkspaceImages: async () => readWebCaptureWorkspace(),
+    deleteCaptureWorkspaceImage: async (imageId: string) => {
+      const images = readWebCaptureWorkspace();
+      const nextImages = images.filter(image => image.id !== imageId);
+      if (nextImages.length === images.length) return false;
+      writeWebCaptureWorkspace(nextImages);
+      return true;
+    },
+    getCaptureWorkspaceStatus: async () => ({
+      rootPath: 'browser-local-storage',
+      imageCount: readWebCaptureWorkspace().length,
+      workOrders: []
+    }),
     writeClipboardImage: async (dataUrl: string) => {
       const blob = await (await fetch(dataUrl)).blob();
       const bitmap = await createImageBitmap(blob);

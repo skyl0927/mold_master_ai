@@ -501,6 +501,24 @@ export interface CapturedImage {
   captureSource?: CaptureSource;
 }
 
+export interface CaptureWorkspaceWorkOrderSummary {
+  workOrderId: string;
+  reviewDecisionId: string | null;
+  captureSessionIds: string[];
+  requiredViews: CaptureViewTag[];
+  availableViews: CaptureViewTag[];
+  missingViews: CaptureViewTag[];
+  imageIds: string[];
+  imageCount: number;
+  ready: boolean;
+}
+
+export interface CaptureWorkspaceStatus {
+  rootPath: string;
+  imageCount: number;
+  workOrders: CaptureWorkspaceWorkOrderSummary[];
+}
+
 export type ApiProvider = 'gemini' | 'openai';
 export type AiOrchestrationMode = 'common_agent_primary' | 'dual_validation' | 'legacy';
 export type VisionReferenceBenchmarkGateMode = 'off' | 'shadow' | 'enforce';
@@ -1032,6 +1050,13 @@ export interface IElectronAPI {
   onCaptureSessionEnded: (callback: () => void) => () => void;
 
   getApiConfig: () => Promise<ApiConfig | null>;
+  saveCaptureWorkspaceImage: (image: CapturedImage) => Promise<{
+    id: string;
+    persistedAt: string;
+  }>;
+  listCaptureWorkspaceImages: () => Promise<CapturedImage[]>;
+  deleteCaptureWorkspaceImage: (imageId: string) => Promise<boolean>;
+  getCaptureWorkspaceStatus: () => Promise<CaptureWorkspaceStatus>;
   writeClipboardImage: (dataUrl: string) => Promise<{
     success: boolean;
     width: number;
