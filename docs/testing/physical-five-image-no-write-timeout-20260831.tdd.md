@@ -60,6 +60,14 @@ Repeatability is not yet release-grade. With the same model, prompt version, and
 
 Post-fix runtime evidence: `artifacts/goal-review-20260828/physical-product-five-image-no-write-20260831-post-fix.json`.
 
+## Alias-Fix Live Replay
+
+The rebuilt runtime correctly merged scratch aliases into one `스크래치/패임` candidate supported by three views. The live disagreement score was `0.5529`, not the fixed-evidence replay value `0.2824`, because the Vision model produced a new independent `국부 찌그러짐 또는 함몰` candidate. Fixed-observation replay and live Vision repeatability must therefore be reported as separate metrics.
+
+Two release blockers remained in the live response. First, an unclassifiable marked image with no candidates still produced `query_canonical_terms=버` from the negative observation that a burr could not be determined. Second, the third-ranked scratch candidate received three approved paths from a source whose defect label was `수축` and whose observation and prior answer described `백화`. The top candidate remained unsupported, but the global Graph response reported three approved paths while the final text said that no approved Graph path existed. Candidate-to-evidence label congruence, weak-path exclusion, and top-candidate-specific path counts are required before Graph grounding can be trusted.
+
+Alias-fix live evidence: `artifacts/goal-review-20260828/physical-product-five-image-no-write-20260831-post-alias-fix.json`.
+
 ## Remaining Human Gate
 
 The leaf-shaped local damage, separate scratches, and possible rib-edge burr must not be merged into one approved label. A reviewer should confirm the primary defect and whether the marked-edge image belongs to the same physical part before any Common Agent learning or Graph promotion.
