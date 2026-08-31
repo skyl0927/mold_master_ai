@@ -20,6 +20,7 @@ import {
     selectValidatedDiagnosis
 } from '../services/commonAgentGateway';
 import { CommonAgentApiService } from '../services/commonAgentApiService';
+import { getClients } from '../services/aiCore';
 import { buildMultimodalDiagnosisContext } from '../services/diagnosisContextService';
 import { buildProcessKnowledgeMigrationMarkdown } from '../services/processKnowledgeMigrationService';
 import { checkServerHealth } from '../services/serverHealthService';
@@ -1412,7 +1413,8 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
         assert.equal(receivedOptions?.question, '현상 설명: 리브 주변 백화');
         assert.equal(receivedOptions?.metadata?.context_provided, true);
         assert.equal(receivedOptions?.metadata?.roi_count, 1);
-        assert.equal(receivedOptions?.persistMode, 'classifiable_only');
+        assert.equal(receivedOptions?.persistMode, 'never');
+        assert.equal(receivedOptions?.timeoutMs, 180000);
         assert.equal(receivedOptions?.metadata?.vision_quality_status, 'warn');
         assert.equal(receivedOptions?.metadata?.vision_quality_score, 88);
         assert.deepEqual(receivedOptions?.metadata?.vision_quality_issue_codes, ['resolution_low']);
@@ -1443,10 +1445,7 @@ test('image gateway forwards multimodal question and telemetry to Common Agent',
             promptVersion: 'vision-prompt-v6',
             graphVersion: 'approved-graph-43'
         });
-        assert.equal(
-            result.commonAgentImageIdsByLocalId?.['local-image-full'],
-            'server-close'
-        );
+        assert.deepEqual(result.commonAgentImageIdsByLocalId, {});
     } finally {
         CommonAgentApiService.diagnoseImage = originalDiagnose;
     }
@@ -1555,7 +1554,7 @@ test('Vision diagnose sends persistence policy and omits quarantined dataset ids
     await CommonAgentApiService.diagnoseImage(file);
     await CommonAgentApiService.diagnoseImage(file, { persistMode: 'always' });
     await CommonAgentApiService.diagnoseImage(file, { persistMode: 'never' });
-    assert.deepEqual(persistModes, ['classifiable_only', 'always', 'never']);
+    assert.deepEqual(persistModes, ['never', 'always', 'never']);
 
     const result = await CommonAgentGateway.diagnoseImage({
         imageId: 'local-screen',
@@ -1563,6 +1562,39 @@ test('Vision diagnose sends persistence policy and omits quarantined dataset ids
         strategy: 'common_agent_primary'
     });
     assert.equal(result.commonAgentImageId, undefined);
+});
+
+test('Vision diagnose applies an explicit operation timeout', async () => {
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({ agentServerUrl: 'https://agent.test' })
+        }
+    };
+    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) =>
+        await new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        })) as typeof fetch;
+
+    const file = new File([new Uint8Array([1])], 'vision.png', { type: 'image/png' });
+    await assert.rejects(
+        CommonAgentApiService.diagnoseImage(file, { timeoutMs: 10 }),
+        /Common Agent 요청 시간이 10ms를 초과했습니다/
+    );
+});
+
+test('OpenAI client allows enough time for high-resolution vision requests', async () => {
+    (globalThis as any).window = {
+        electronAPI: {
+            getApiConfig: async () => ({
+                provider: 'openai',
+                openAiApiKey: 'test-key'
+            })
+        }
+    };
+
+    const { provider, client } = await getClients();
+    assert.equal(provider, 'openai');
+    assert.equal((client as any).timeout, 120000);
 });
 
 test('knowledge and graph retrieval use Common Agent contracts', async () => {
