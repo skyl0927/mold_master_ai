@@ -10,6 +10,7 @@ const {
   buildCaptureMetadata,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  findResumableRecaptureSession,
   inferRecaptureViewTags,
   resolveCaptureLearningEligibility,
   selectDiagnosisTargetIds,
@@ -52,6 +53,49 @@ test('full context and defect close-up make a physical capture session ready', (
   assert.equal(summary.status, 'ready');
   assert.deepEqual(summary.missingViews, []);
   assert.equal(assessment.ready, true);
+});
+
+test('restores the latest incomplete recapture work order after app restart', () => {
+  const recaptureSource = {
+    workOrderId: 'vision-non-approval-008',
+    reviewDecisionId: 'pending-hitl-007',
+    requiredViewTags: ['full_part_context', 'defect_closeup']
+  };
+  const resumable = findResumableRecaptureSession([
+    image({
+      id: 'older-complete-full',
+      captureSessionId: 'older-session',
+      recaptureSource
+    }),
+    image({
+      id: 'older-complete-close',
+      captureSessionId: 'older-session',
+      captureViewTag: 'defect_closeup',
+      recaptureSource
+    }),
+    image({
+      id: 'latest-incomplete-full',
+      captureSessionId: 'latest-session',
+      recaptureSource
+    })
+  ]);
+
+  assert.equal(resumable.sessionId, 'latest-session');
+  assert.equal(resumable.recaptureSource.workOrderId, 'vision-non-approval-008');
+  assert.deepEqual(resumable.summary.missingViews, ['defect_closeup']);
+});
+
+test('does not reopen a recapture work order whose required views are complete', () => {
+  const recaptureSource = {
+    workOrderId: 'completed-work-order',
+    requiredViewTags: ['full_part_context', 'defect_closeup']
+  };
+  const resumable = findResumableRecaptureSession([
+    image({ id: 'complete-full', recaptureSource }),
+    image({ id: 'complete-close', captureViewTag: 'defect_closeup', recaptureSource })
+  ]);
+
+  assert.equal(resumable, null);
 });
 
 test('selected full context and close-up from different sessions can be planned as one evidence set', () => {
