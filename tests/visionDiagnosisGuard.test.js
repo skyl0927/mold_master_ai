@@ -37,7 +37,7 @@ test('weak Vision candidates can retrieve graph context but cannot finalize diag
   assert.equal(guard.allowGraphRetrieval, true);
   assert.equal(guard.allowLlmSupplement, false);
   assert.equal(guard.finalizationAllowed, false);
-  assert.equal(guard.guardedDefectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guard.guardedDefectType, '판정 보류 (후보 미검증)');
   assert.match(guard.reviewReason, /insufficient_independent_visual_evidence/);
 });
 
@@ -58,12 +58,74 @@ test('guard removes unverified LLM causes and actions from weak Vision analysis'
     }
   }, weakObservation);
 
-  assert.equal(guarded.defectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guarded.defectType, '판정 보류 (후보 미검증)');
   assert.equal(guarded.severity, '-');
   assert.equal(guarded.description, '리브 기부의 유백색 변색');
   assert.equal(guarded.possibleCauses, '');
   assert.equal(guarded.countermeasures, '');
   assert.equal(guarded.retrievalSummary.llmSupplemented, true);
+});
+
+test('mixed defect locations hide the speculative top candidate and stop retrieval', () => {
+  const mixedObservation = {
+    ...weakObservation,
+    primaryCandidate: {
+      defectType: '플래시 또는 버',
+      confidence: 0.72
+    },
+    fusionSummary: {
+      contractVersion: 'vision-fusion/v1',
+      requestedViewCount: 4,
+      validViewCount: 4,
+      availableViewTags: ['full_part_context', 'defect_closeup', 'oblique_light', 'ejection_location'],
+      missingRequiredViews: [],
+      disagreementScore: 0.55,
+      candidateSupport: [{
+        defectType: '플래시 또는 버',
+        fusedConfidence: 0.72,
+        supportingViewIds: ['view-rib'],
+        contradictingViewIds: [],
+        supportingViewCount: 1
+      }, {
+        defectType: '스크래치/패임',
+        fusedConfidence: 0.52,
+        supportingViewIds: ['view-full', 'view-leaf', 'view-round'],
+        contradictingViewIds: [],
+        supportingViewCount: 3
+      }],
+      decisionStatus: 'needs_review',
+      decisionReason: 'multiview_candidate_conflict'
+    }
+  };
+
+  const guard = buildVisionDiagnosisGuard(mixedObservation);
+  const guarded = guardDefectAnalysisForVisionRisk({
+    defectType: '플래시 또는 버',
+    severity: 'Medium',
+    description: '서로 다른 부위의 관찰 내용',
+    possibleCauses: '잘못 결합된 원인',
+    countermeasures: '잘못 결합된 대책',
+    rawOutput: 'raw',
+    retrievalSummary: {
+      modeUsed: 'graph_only',
+      citations: ['unrelated-path'],
+      evidenceCount: 3,
+      graphTrace: ['스크래치 -> 취출 저항 -> 조건 점검'],
+      graphGrounded: false,
+      llmSupplemented: false
+    }
+  }, mixedObservation);
+
+  assert.equal(guard.finalizationAllowed, false);
+  assert.equal(guard.allowGraphRetrieval, false);
+  assert.equal(guard.allowLlmSupplement, false);
+  assert.equal(guard.guardedDefectType, '판정 보류 (사진 그룹 분리 필요)');
+  assert.equal(guard.reviewReason, 'different_defect_regions_suspected');
+  assert.match(guard.recommendedReviewAction, /동일 결함 위치/);
+  assert.equal(guarded.defectType, '판정 보류 (사진 그룹 분리 필요)');
+  assert.match(guarded.description, /서로 다른 결함 위치/);
+  assert.equal(guarded.possibleCauses, '');
+  assert.equal(guarded.countermeasures, '');
 });
 
 test('reliable Vision without Graph grounding cannot pass LLM-only causes and actions', () => {
@@ -101,7 +163,7 @@ test('reliable Vision without Graph grounding cannot pass LLM-only causes and ac
     }
   }, reliableObservation);
 
-  assert.equal(guarded.defectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guarded.defectType, '판정 보류 (후보 미검증)');
   assert.equal(guarded.possibleCauses, '');
   assert.equal(guarded.countermeasures, '');
   assert.equal(guarded.visionSummary.decisionReason, 'missing_graph_grounding');
@@ -234,7 +296,7 @@ test('classifier disagreement prevents finalization even with approved Graph sup
     }
   });
 
-  assert.equal(guarded.defectType, '판정 보류 (백화 후보 검토 필요)');
+  assert.equal(guarded.defectType, '판정 보류 (후보 미검증)');
   assert.equal(guarded.possibleCauses, '');
   assert.equal(guarded.countermeasures, '');
   assert.equal(guarded.visionSummary.decisionReason, 'vision_classifier_disagreement');

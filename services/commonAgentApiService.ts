@@ -1029,7 +1029,19 @@ export class CommonAgentApiService {
         );
         const classifierBlocksFinalization = classifierSummary?.requiresHumanReview === true;
         const graphGrounding = response.graph_grounding;
-        const graphGroundedForDraft = graphGrounding?.graph_grounded && !classifierBlocksFinalization;
+        const rawTopCandidateGrounding = graphGrounding?.candidate_grounding.find(item =>
+            item.vision_rank === 1
+        );
+        const rawUsableTopCandidateGrounding = graphGrounding?.top_candidate_supported === true
+            && rawTopCandidateGrounding?.status === 'supported'
+            && rawTopCandidateGrounding.approved_path_count > 0
+            ? rawTopCandidateGrounding
+            : undefined;
+        const graphGroundedForDraft = Boolean(
+            graphGrounding?.graph_grounded
+            && graphGrounding.top_candidate_supported
+            && !classifierBlocksFinalization
+        );
         const possibleCauses = graphGroundedForDraft
             ? graphGrounding.grounded_causes
             : isGroundedV2 ? [] : observation.possible_causes || [];
@@ -1097,11 +1109,14 @@ export class CommonAgentApiService {
                     })),
                     rejectedPathReasons: item.rejected_path_reasons
                 })),
-                graphGrounded: graphGrounding.graph_grounded,
+                graphGrounded: Boolean(
+                    graphGrounding.graph_grounded
+                    && rawUsableTopCandidateGrounding
+                ),
                 topCandidateSupported: graphGrounding.top_candidate_supported,
                 visionGraphConflict: graphGrounding.vision_graph_conflict,
-                approvedPathCount: graphGrounding.approved_path_count,
-                citationCount: graphGrounding.citation_count,
+                approvedPathCount: rawUsableTopCandidateGrounding?.approved_path_count || 0,
+                citationCount: rawUsableTopCandidateGrounding?.citations.length || 0,
                 groundedCauses: graphGrounding.grounded_causes,
                 groundedCountermeasures: graphGrounding.grounded_countermeasures,
                 requiresHumanReview: graphGrounding.requires_human_review || classifierBlocksFinalization,
@@ -1142,12 +1157,24 @@ export class CommonAgentApiService {
             viewEvidence,
             classifierSummary
         };
-        const graphCitations = graphValidation?.candidateGrounding.flatMap(item =>
-            item.citations.map(citation => citation.pathId)
+        const topCandidateGrounding = graphValidation?.candidateGrounding.find(item =>
+            item.visionRank === 1
+        );
+        const usableTopCandidateGrounding = graphValidation?.topCandidateSupported === true
+            && topCandidateGrounding?.status === 'supported'
+            && topCandidateGrounding.approvedPathCount > 0
+            ? topCandidateGrounding
+            : undefined;
+        const graphCitations = usableTopCandidateGrounding?.citations.map(
+            citation => citation.pathId
         ) || [];
-        const graphTrace = graphValidation?.candidateGrounding.flatMap(item =>
-            item.citations.map(citation => citation.pathText)
+        const graphTrace = usableTopCandidateGrounding?.citations.map(
+            citation => citation.pathText
         ) || [];
+        const usableTopGraphGrounding = Boolean(
+            graphGrounding?.graph_grounded
+            && usableTopCandidateGrounding
+        );
 
         const analysis = compactDefectAnalysis({
             defectType: visionSummary.primaryCandidate?.defectType
@@ -1165,13 +1192,15 @@ export class CommonAgentApiService {
                     ? Array.from(new Set(graphCitations))
                     : evidence.map(item => item.source_ref || item.node_id || '').filter(Boolean),
                 evidenceCount: graphGrounding
-                    ? Math.max(evidence.length, graphGrounding.approved_path_count)
+                    ? (usableTopCandidateGrounding
+                        ? usableTopCandidateGrounding.approvedPathCount
+                        : 0)
                     : evidence.length,
                 graphTrace: graphGrounding
                     ? Array.from(new Set(graphTrace))
                     : response.retrieval_query ? [response.retrieval_query] : [],
                 graphGrounded: graphGrounding
-                    ? graphGrounding.graph_grounded
+                    ? usableTopGraphGrounding
                     : evidence.some(item => item.source_type === 'knowledge_path' || item.source_type === 'knowledge_relation'),
                 llmSupplemented: response.metadata?.llm_supplement_used === true,
                 runtimeVersions: (

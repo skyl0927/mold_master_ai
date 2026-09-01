@@ -20,6 +20,7 @@ const {
 const image = (overrides = {}) => ({
   id: overrides.id || 'image-1',
   captureSessionId: 'session-1',
+  diagnosisGroupId: 'defect-group-1',
   captureViewTag: 'full_part_context',
   captureImageKind: 'physical_product',
   captureSource: 'camera',
@@ -237,6 +238,7 @@ test('capture metadata preserves session lineage for Common Agent', () => {
 
   assert.deepEqual(metadata, {
     capture_session_id: 'session-1',
+    diagnosis_group_id: 'defect-group-1',
     capture_view_tags: ['full_part_context'],
     vision_image_kind: 'physical_product',
     capture_source: 'camera',
@@ -715,6 +717,109 @@ test('session diagnosis collects every physical view with the selected image fir
   );
 });
 
+test('session diagnosis never mixes different defect evidence groups', () => {
+  const selected = image({
+    id: 'scratch-closeup',
+    diagnosisGroupId: 'scratch-target',
+    captureViewTag: 'defect_closeup'
+  });
+  const scratchContext = image({
+    id: 'scratch-context',
+    diagnosisGroupId: 'scratch-target',
+    captureViewTag: 'full_part_context'
+  });
+  const ribBurr = image({
+    id: 'rib-burr',
+    diagnosisGroupId: 'rib-target',
+    captureViewTag: 'oblique_light'
+  });
+
+  const collected = collectSessionDiagnosisImages(
+    selected,
+    [scratchContext, ribBurr, selected]
+  );
+
+  assert.deepEqual(
+    collected.map(item => item.id),
+    ['scratch-closeup', 'scratch-context']
+  );
+});
+
+test('one full-part context photo can support multiple isolated defect groups', () => {
+  const sharedContext = image({
+    id: 'shared-full-context',
+    diagnosisGroupId: 'most-recent-group',
+    captureViewTag: 'full_part_context'
+  });
+  const leafCloseup = image({
+    id: 'leaf-closeup',
+    diagnosisGroupId: 'leaf-group',
+    captureViewTag: 'defect_closeup'
+  });
+  const ribCloseup = image({
+    id: 'rib-closeup',
+    diagnosisGroupId: 'rib-group',
+    captureViewTag: 'defect_closeup'
+  });
+  const images = [sharedContext, leafCloseup, ribCloseup];
+
+  assert.deepEqual(
+    collectSessionDiagnosisImages(leafCloseup, images).map(item => item.id),
+    ['leaf-closeup', 'shared-full-context']
+  );
+  assert.deepEqual(
+    collectSessionDiagnosisImages(ribCloseup, images).map(item => item.id),
+    ['rib-closeup', 'shared-full-context']
+  );
+  assert.equal(
+    summarizeCaptureSession(images, 'session-1', undefined, 'leaf-group').ready,
+    true
+  );
+  assert.equal(
+    summarizeCaptureSession(images, 'session-1', undefined, 'rib-group').ready,
+    true
+  );
+});
+
+test('ungrouped photos fail closed instead of being fused by capture session alone', () => {
+  const ungrouped = image({
+    id: 'ungrouped-closeup',
+    diagnosisGroupId: undefined,
+    captureViewTag: 'defect_closeup'
+  });
+  const assessment = assessCaptureImageForDiagnosis(ungrouped, [
+    ungrouped,
+    image({
+      id: 'ungrouped-context',
+      diagnosisGroupId: undefined,
+      captureViewTag: 'full_part_context'
+    })
+  ]);
+
+  assert.equal(assessment.ready, false);
+  assert.equal(assessment.status, 'needs_group');
+  assert.match(assessment.message, /동일 결함 위치/);
+  assert.deepEqual(collectSessionDiagnosisImages(ungrouped, [ungrouped]), []);
+});
+
+test('evidence merge plan creates one explicit defect evidence group', () => {
+  const plan = buildCaptureEvidenceMergePlan({
+    images: [
+      image({ id: 'merge-context', diagnosisGroupId: undefined }),
+      image({
+        id: 'merge-closeup',
+        diagnosisGroupId: undefined,
+        captureViewTag: 'defect_closeup'
+      })
+    ],
+    selectedIds: ['merge-context', 'merge-closeup']
+  });
+
+  assert.equal(plan.canMerge, true);
+  assert.match(plan.targetDiagnosisGroupId, /^defect-group-/);
+  assert.deepEqual(plan.changedImageIds, ['merge-context', 'merge-closeup']);
+});
+
 test('batch diagnosis selects one representative per session and skips busy sessions', () => {
   const images = [
     image({ id: 'session-1-full' }),
@@ -747,6 +852,22 @@ test('batch diagnosis selects one representative per session and skips busy sess
   );
 
   assert.deepEqual(targets, ['session-1-full', 'session-3-full']);
+});
+
+test('batch diagnosis selects each defect group independently within one session', () => {
+  const images = [
+    image({ id: 'scratch-full', diagnosisGroupId: 'scratch' }),
+    image({ id: 'scratch-close', diagnosisGroupId: 'scratch', captureViewTag: 'defect_closeup' }),
+    image({ id: 'burr-full', diagnosisGroupId: 'burr' }),
+    image({ id: 'burr-close', diagnosisGroupId: 'burr', captureViewTag: 'defect_closeup' })
+  ];
+
+  const targets = selectDiagnosisTargetIds(
+    images,
+    images.map(item => item.id)
+  );
+
+  assert.deepEqual(targets, ['scratch-full', 'burr-full']);
 });
 
 test('unknown capture values are normalized to safe metadata defaults', () => {

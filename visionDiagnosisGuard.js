@@ -152,21 +152,52 @@ const additionalViewAction = visionSummary => {
   return `추가 촬영 필요: ${views.slice(0, 3).join(', ')}`;
 };
 
+const detectMixedDefectEvidenceSet = visionSummary => {
+  const fusion = visionSummary?.fusionSummary || visionSummary?.fusion_summary;
+  const candidateSupport = asArray(fusion?.candidateSupport || fusion?.candidate_support);
+  const validViewCount = Number(fusion?.validViewCount || fusion?.valid_view_count) || 0;
+  const disagreementScore = Number(fusion?.disagreementScore || fusion?.disagreement_score) || 0;
+  if (validViewCount < 3 || candidateSupport.length < 2 || disagreementScore < 0.35) return false;
+
+  const candidate = topCandidateName(visionSummary);
+  const topSupport = candidateSupport.find(item => labelsAgree(
+    item?.defectType || item?.defect_type,
+    candidate
+  )) || candidateSupport[0];
+  const topCount = Number(topSupport?.supportingViewCount || topSupport?.supporting_view_count) || 0;
+  const topViewIds = new Set(asArray(
+    topSupport?.supportingViewIds || topSupport?.supporting_view_ids
+  ).map(compact).filter(Boolean));
+  const strongerDisjointAlternative = candidateSupport.some(item => {
+    if (item === topSupport) return false;
+    const supportCount = Number(item?.supportingViewCount || item?.supporting_view_count) || 0;
+    const supportIds = asArray(item?.supportingViewIds || item?.supporting_view_ids)
+      .map(compact)
+      .filter(Boolean);
+    return supportCount > topCount && supportIds.some(viewId => !topViewIds.has(viewId));
+  });
+
+  return topCount <= 1 && strongerDisjointAlternative;
+};
+
 const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {}) => {
   const candidate = topCandidateName(visionSummary);
   const consensusGate = buildVisionConsensusGate(visionSummary, { graphValidation });
   const diagnosticReliabilityCard = buildVisionDiagnosticReliabilityCard(visionSummary, { graphValidation });
   const classifierBlocked = classifierRequiresReview(visionSummary);
+  const mixedDefectEvidenceSet = detectMixedDefectEvidenceSet(visionSummary);
   const blocked = isV2Observation(visionSummary) && consensusGate.status === 'blocked';
   const weak = isV2Observation(visionSummary) && !blocked && consensusGate.status !== 'accepted';
   const finalizationAllowed = !isV2Observation(visionSummary)
     ? true
-    : consensusGate.finalizationAllowed && !classifierBlocked;
+    : consensusGate.finalizationAllowed && !classifierBlocked && !mixedDefectEvidenceSet;
 
   const guardedDefectType = finalizationAllowed
     ? candidate
+    : mixedDefectEvidenceSet
+      ? '판정 보류 (사진 그룹 분리 필요)'
     : candidate
-      ? `판정 보류 (${candidate} 후보 검토 필요)`
+      ? '판정 보류 (후보 미검증)'
       : '판정 보류 (사람 검토 필요)';
   const reasons = gateReasons(visionSummary);
   const classifierReason = classifierBlocked ? classifierReviewReason(visionSummary) : '';
@@ -188,18 +219,25 @@ const buildVisionDiagnosisGuard = (visionSummary, { graphValidation = null } = {
   return {
     status: finalizationAllowed ? 'finalizable' : blocked ? 'blocked' : 'needs_review',
     finalizationAllowed,
-    allowGraphRetrieval: consensusGate.allowGraphRetrieval,
-    allowLlmSupplement: consensusGate.allowLlmSupplement,
+    allowGraphRetrieval: mixedDefectEvidenceSet ? false : consensusGate.allowGraphRetrieval,
+    allowLlmSupplement: mixedDefectEvidenceSet ? false : consensusGate.allowLlmSupplement,
     guardedDefectType,
-    reviewReason: graphReviewReason
+    reviewReason: mixedDefectEvidenceSet
+      ? 'different_defect_regions_suspected'
+      : graphReviewReason
       || classifierReason
       || blockingPrimaryVisionReason
       || actionableVisionReasons.join(', ')
       || (finalizationAllowed ? primaryVisionReason : '')
       || consensusReason
       || (finalizationAllowed ? 'finalizable' : 'vision_review_required'),
-    observationText: visibleObservationText(visionSummary),
-    recommendedReviewAction: additionalViewAction(visionSummary),
+    observationText: mixedDefectEvidenceSet
+      ? '서로 다른 결함 위치로 보이는 사진이 하나의 진단 그룹에 포함되었습니다.'
+      : visibleObservationText(visionSummary),
+    recommendedReviewAction: mixedDefectEvidenceSet
+      ? '동일 결함 위치를 촬영한 전경·근접 사진끼리 별도 그룹으로 묶어 다시 진단하세요.'
+      : additionalViewAction(visionSummary),
+    mixedDefectEvidenceSet,
     consensusGate,
     diagnosticReliabilityCard
   };

@@ -201,6 +201,12 @@ const createCaptureSessionId = (
   return `capture-${safeSource}-${Number(now).toString(36)}-${entropy}`;
 };
 
+const createDiagnosisGroupId = (
+  source = 'manual',
+  now = Date.now(),
+  random = Math.random
+) => createCaptureSessionId(source, now, random).replace(/^capture-/, 'defect-group-');
+
 const getViewLabel = view => VIEW_DEFINITIONS[view]?.label || view;
 
 const buildSessionMessage = (status, missingViews) => {
@@ -212,6 +218,9 @@ const buildSessionMessage = (status, missingViews) => {
   }
   if (status === 'needs_metadata') {
     return '촬영 세션, 이미지 종류와 촬영 시점을 지정해 주세요.';
+  }
+  if (status === 'needs_group') {
+    return '동일 결함 위치를 촬영한 사진만 선택한 뒤 사진 증거를 묶어 주세요.';
   }
   return `추가 촬영 필요: ${missingViews.map(getViewLabel).join(', ')}`;
 };
@@ -227,15 +236,22 @@ const requiredViewsForImages = (images, recaptureSource) => {
   ]);
 };
 
-const summarizeCaptureSession = (images, sessionId, recaptureSource) => {
+const summarizeCaptureSession = (images, sessionId, recaptureSource, diagnosisGroupId) => {
+  const safeDiagnosisGroupId = compact(diagnosisGroupId);
   const sessionImages = sessionId
     ? (Array.isArray(images) ? images : [])
       .filter(image => image?.captureSessionId === sessionId)
+      .filter(image => (
+        !safeDiagnosisGroupId
+        || compact(image?.diagnosisGroupId) === safeDiagnosisGroupId
+        || normalizeViewTags(image?.captureViewTag).includes('full_part_context')
+      ))
     : [];
   const requiredViews = requiredViewsForImages(sessionImages, recaptureSource);
   if (!sessionId) {
     return {
       sessionId: undefined,
+      diagnosisGroupId: safeDiagnosisGroupId || undefined,
       status: 'needs_metadata',
       ready: false,
       imageCount: 0,
@@ -271,6 +287,7 @@ const summarizeCaptureSession = (images, sessionId, recaptureSource) => {
 
   return {
     sessionId,
+    diagnosisGroupId: safeDiagnosisGroupId || undefined,
     status,
     ready: status === 'ready',
     imageCount: sessionImages.length,
@@ -319,6 +336,7 @@ const buildCaptureEvidenceMergePlan = ({
   images,
   selectedIds,
   targetSessionId,
+  targetDiagnosisGroupId,
   fallbackSessionId,
   recaptureSource
 } = {}) => {
@@ -347,6 +365,12 @@ const buildCaptureEvidenceMergePlan = ({
   const sessionIds = uniqueStrings(
     selectedImages.map(image => image?.captureSessionId)
   );
+  const diagnosisGroupIds = uniqueStrings(
+    selectedImages.map(image => image?.diagnosisGroupId)
+  );
+  const safeTargetDiagnosisGroupId = compact(targetDiagnosisGroupId)
+    || (diagnosisGroupIds.length === 1 ? diagnosisGroupIds[0] : '')
+    || createDiagnosisGroupId('evidence');
   const workOrderIds = uniqueStrings(selectedImages.map(image =>
     image?.recaptureSource?.workOrderId
     || image?.recaptureSource?.reviewDecisionId
@@ -361,6 +385,7 @@ const buildCaptureEvidenceMergePlan = ({
     protocolVersion: 'capture-evidence-merge/v1',
     canMerge,
     targetSessionId: safeTargetSessionId,
+    targetDiagnosisGroupId: safeTargetDiagnosisGroupId,
     selectedCount: selectedImages.length,
     physicalImageCount: physicalImages.length,
     availableViews,
@@ -369,7 +394,10 @@ const buildCaptureEvidenceMergePlan = ({
     missingViewLabels: missingViews.map(getViewLabel),
     readyAfterMerge,
     changedImageIds: selectedImages
-      .filter(image => image?.captureSessionId !== safeTargetSessionId)
+      .filter(image => (
+        image?.captureSessionId !== safeTargetSessionId
+        || compact(image?.diagnosisGroupId) !== safeTargetDiagnosisGroupId
+      ))
       .map(image => image.id),
     sourceSessionIds: sessionIds,
     workOrderIds,
@@ -408,16 +436,40 @@ const assessCaptureImageForDiagnosis = (image, images) => {
     };
   }
 
-  return summarizeCaptureSession(images, image.captureSessionId);
+  if (!compact(image?.diagnosisGroupId)) {
+    return {
+      ...summarizeCaptureSession(images, image.captureSessionId),
+      status: 'needs_group',
+      ready: false,
+      message: buildSessionMessage('needs_group', [])
+    };
+  }
+
+  return summarizeCaptureSession(
+    images,
+    image.captureSessionId,
+    image?.recaptureSource,
+    image.diagnosisGroupId
+  );
 };
 
 const buildCaptureMetadata = (image, images) => {
   const recaptureSource = image?.recaptureSource || {};
-  const summary = summarizeCaptureSession(
+  const diagnosisGroupId = compact(image?.diagnosisGroupId);
+  const groupedSummary = summarizeCaptureSession(
     images,
     image?.captureSessionId,
-    recaptureSource
+    recaptureSource,
+    diagnosisGroupId
   );
+  const summary = diagnosisGroupId
+    ? groupedSummary
+    : {
+        ...groupedSummary,
+        status: 'needs_group',
+        ready: false,
+        message: buildSessionMessage('needs_group', [])
+      };
   const captureViewTags = normalizeViewTags(image?.captureViewTag);
   const hasRecaptureLineage = Boolean(
     compact(recaptureSource.localImageId)
@@ -441,6 +493,7 @@ const buildCaptureMetadata = (image, images) => {
       : 'view_mismatch';
   return {
     capture_session_id: image?.captureSessionId,
+    ...(diagnosisGroupId ? { diagnosis_group_id: diagnosisGroupId } : {}),
     capture_view_tags: captureViewTags,
     vision_image_kind: normalizeImageKind(image?.captureImageKind),
     capture_source: normalizeCaptureSource(image?.captureSource),
@@ -507,6 +560,7 @@ const collectSessionDiagnosisImages = (selectedImage, images, maxViews = 8) => {
   if (
     !selectedImage
     || !selectedImage.captureSessionId
+    || !compact(selectedImage.diagnosisGroupId)
     || normalizeImageKind(selectedImage.captureImageKind) !== 'physical_product'
   ) {
     return [];
@@ -521,6 +575,10 @@ const collectSessionDiagnosisImages = (selectedImage, images, maxViews = 8) => {
       !image?.id
       || seenIds.has(image.id)
       || image.captureSessionId !== selectedImage.captureSessionId
+      || (
+        compact(image.diagnosisGroupId) !== compact(selectedImage.diagnosisGroupId)
+        && !normalizeViewTags(image.captureViewTag).includes('full_part_context')
+      )
       || normalizeImageKind(image.captureImageKind) !== 'physical_product'
       || normalizeViewTags(image.captureViewTag).length === 0
     ) {
@@ -539,18 +597,21 @@ const selectDiagnosisTargetIds = (images, selectedIds, busyIds = []) => {
       .filter(image => image?.id)
       .map(image => [image.id, image])
   );
+  const diagnosisKey = image => compact(image?.diagnosisGroupId)
+    ? `group:${compact(image?.captureSessionId)}:${compact(image?.diagnosisGroupId)}`
+    : `image:${image?.id}`;
   const busySessionKeys = new Set(
     (Array.isArray(busyIds) ? busyIds : [])
       .map(id => imageById.get(id))
       .filter(Boolean)
-      .map(image => image.captureSessionId || `image:${image.id}`)
+      .map(diagnosisKey)
   );
   const selectedSessionKeys = new Set();
   const targets = [];
   for (const id of Array.isArray(selectedIds) ? selectedIds : []) {
     const image = imageById.get(id);
     if (!image) continue;
-    const sessionKey = image.captureSessionId || `image:${image.id}`;
+    const sessionKey = diagnosisKey(image);
     if (
       busySessionKeys.has(sessionKey)
       || selectedSessionKeys.has(sessionKey)
@@ -575,6 +636,7 @@ module.exports = {
   buildRecaptureSourceFromWorkOrder,
   collectSessionDiagnosisImages,
   createCaptureSessionId,
+  createDiagnosisGroupId,
   findResumableRecaptureSession,
   inferRecaptureViewTags,
   resolveCaptureLearningEligibility,

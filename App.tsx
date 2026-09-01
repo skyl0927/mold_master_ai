@@ -79,6 +79,7 @@ interface EditingState {
     activeDimensionCalibrationId?: string;
     coordinateSpaceVersion?: CapturedImage['coordinateSpaceVersion'];
     captureSessionId?: string;
+    diagnosisGroupId?: string;
     captureViewTag?: CaptureViewTag;
     captureImageKind?: CaptureImageKind;
     captureSource?: CaptureSource;
@@ -185,6 +186,7 @@ const buildCommonAgentAnnotationPayloads = async (
                     local_shape_tool: shape.tool,
                     local_shape_color: shape.color,
                     capture_session_id: image.captureSessionId,
+                    diagnosis_group_id: image.diagnosisGroupId,
                     capture_view_tags: image.captureViewTag ? [image.captureViewTag] : [],
                     vision_image_kind: image.captureImageKind,
                     capture_source: image.captureSource
@@ -282,6 +284,10 @@ const App: React.FC = () => {
         capturedImages,
         activeCaptureSessionId,
         pendingRecaptureSource || undefined
+    );
+    const activeDiagnosisGroupReady = capturedImages.some(image =>
+        image.captureSessionId === activeCaptureSessionId
+        && assessCaptureImageForDiagnosis(image, capturedImages).ready
     );
     const selectedCaptureEvidenceMergePlan = buildCaptureEvidenceMergePlan({
         images: capturedImages,
@@ -636,6 +642,7 @@ const App: React.FC = () => {
                 activeDimensionCalibrationId: savedData.activeDimensionCalibrationId,
                 coordinateSpaceVersion: savedData.coordinateSpaceVersion,
                 captureSessionId: editingState?.captureSessionId || activeCaptureSessionIdRef.current,
+                diagnosisGroupId: editingState?.diagnosisGroupId,
                 captureViewTag: editingState?.captureViewTag || screenCaptureViewTagRef.current,
                 captureImageKind: editingState?.captureImageKind || 'physical_product',
                 captureSource: editingState?.captureSource || 'screen',
@@ -723,13 +730,6 @@ const App: React.FC = () => {
     const runDiagnosis = useCallback(async (imageId: string, retrievalMode: RetrievalMode = 'hybrid') => {
         const image = capturedImages.find(img => img.id === imageId);
         if (!image) return;
-        const sessionImages = collectSessionDiagnosisImages(image, capturedImages);
-        const sessionImageIds = sessionImages.map(item => item.id);
-        if (
-            sessionImages.length === 0
-            || sessionImageIds.some(id => isAnalyzing.has(id))
-        ) return;
-
         const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
         if (!captureAssessment.ready) {
             setCapturedImages(prev => prev.map(img => img.id === imageId
@@ -738,6 +738,13 @@ const App: React.FC = () => {
             ));
             return;
         }
+
+        const sessionImages = collectSessionDiagnosisImages(image, capturedImages);
+        const sessionImageIds = sessionImages.map(item => item.id);
+        if (
+            sessionImages.length === 0
+            || sessionImageIds.some(id => isAnalyzing.has(id))
+        ) return;
 
         if (!isOnline) {
             setCapturedImages(prev => prev.map(img => img.id === imageId ? { ...img, analysisError: "인터넷 연결 필요" } : img));
@@ -784,7 +791,9 @@ const App: React.FC = () => {
             const usableImages = preparedViews.map(item => item.image);
             const usableAssessment = summarizeCaptureSession(
                 usableImages,
-                image.captureSessionId
+                image.captureSessionId,
+                image.recaptureSource,
+                image.diagnosisGroupId
             );
             if (!usableAssessment.ready) {
                 throw new Error(`다중 시점 촬영 확인 필요: ${usableAssessment.message}`);
@@ -1385,6 +1394,7 @@ const App: React.FC = () => {
             activeDimensionCalibrationId: image.activeDimensionCalibrationId,
             coordinateSpaceVersion: image.coordinateSpaceVersion,
             captureSessionId: image.captureSessionId,
+            diagnosisGroupId: image.diagnosisGroupId,
             captureViewTag: image.captureViewTag,
             captureImageKind: image.captureImageKind,
             captureSource: image.captureSource,
@@ -1427,6 +1437,7 @@ const App: React.FC = () => {
                 ? {
                     ...image,
                     captureSessionId: plan.targetSessionId,
+                    diagnosisGroupId: plan.targetDiagnosisGroupId,
                     analysis: undefined,
                     analysisError: undefined,
                     visionQuality: undefined,
@@ -1440,8 +1451,8 @@ const App: React.FC = () => {
         ));
 
         const message = plan.readyAfterMerge
-            ? `사진 증거 통합 완료: ${plan.selectedCount}장 · 필수 시점 충족`
-            : `사진 증거 통합 완료: ${plan.selectedCount}장 · 추가 필요 ${plan.missingViewLabels.join(', ')}`;
+            ? `동일 결함 위치 묶기 완료: ${plan.selectedCount}장 · 필수 시점 충족`
+            : `동일 결함 위치 묶기 완료: ${plan.selectedCount}장 · 추가 필요 ${plan.missingViewLabels.join(', ')}`;
         setCopyNotification(message);
         setTimeout(() => setCopyNotification(''), 4000);
     };
@@ -1955,16 +1966,24 @@ const App: React.FC = () => {
                                 {activeCaptureSessionId.slice(-12)}
                             </span>
                             <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                                activeCaptureSummary.ready
+                                activeDiagnosisGroupReady
                                     ? 'bg-emerald-900/70 text-emerald-200'
                                     : 'bg-amber-900/60 text-amber-100'
                             }`}>
-                                필수 시점 {activeCaptureSummary.availableViews.filter(view => activeCaptureSummary.requiredViews.includes(view)).length}/{activeCaptureSummary.requiredViews.length}
+                                {activeDiagnosisGroupReady
+                                    ? '진단 그룹 준비'
+                                    : activeCaptureSummary.ready
+                                        ? '사진 확보 · 그룹 미지정'
+                                        : `필수 시점 ${activeCaptureSummary.availableViews.filter(view => activeCaptureSummary.requiredViews.includes(view)).length}/${activeCaptureSummary.requiredViews.length}`}
                             </span>
                         </div>
                         <p className="mt-2 text-xs text-gray-400">
                             {activeCaptureSummary.imageCount > 0
-                                ? activeCaptureSummary.message
+                                ? activeDiagnosisGroupReady
+                                    ? '동일 결함 위치의 사진 그룹이 준비되어 비전 진단을 실행할 수 있습니다.'
+                                    : activeCaptureSummary.ready
+                                        ? '사진 시점은 확보됐습니다. 동일 결함 위치의 사진만 선택해 묶어 주세요.'
+                                        : activeCaptureSummary.message
                                 : pendingRecaptureSource
                                     ? `이 작업지시의 필수 시점 ${activeCaptureSummary.requiredViews.length}개를 같은 세션에 추가하세요.`
                                     : '같은 제품의 전체 사진과 결함 근접 사진을 이 세션에 추가하세요.'}
@@ -2024,7 +2043,7 @@ const App: React.FC = () => {
                                         className="px-3 py-1.5 rounded text-sm text-white flex items-center gap-2 transition-colors bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <CameraIcon className="w-4 h-4" />
-                                        사진 증거 통합
+                                        동일 결함 사진 묶기
                                     </button>
                                 )}
 
@@ -2053,7 +2072,17 @@ const App: React.FC = () => {
                                 const isSel = selectedImageIds.has(image.id);
                                 const isThisAnalyzing = isAnalyzing.has(image.id);
                                 const captureAssessment = assessCaptureImageForDiagnosis(image, capturedImages);
-                                const captureSummary = summarizeCaptureSession(capturedImages, image.captureSessionId);
+                                const captureSummary = summarizeCaptureSession(
+                                    capturedImages,
+                                    image.captureSessionId,
+                                    image.recaptureSource,
+                                    image.diagnosisGroupId
+                                );
+                                const analysisMatchesCurrentGroup = Boolean(
+                                    image.analysis
+                                    && image.diagnosisGroupId
+                                    && captureAssessment.ready
+                                );
                                 const activePanel = openInspectionCardPanels[image.id];
                                 const sampleLabel = `Sample ${index + 1}`;
                                 return (
@@ -2105,8 +2134,10 @@ const App: React.FC = () => {
                                                     <span className="flex items-center gap-1 rounded border border-indigo-700 bg-indigo-900/90 px-2 py-1 text-[10px] font-bold text-indigo-100 shadow-sm">
                                                         <SpinnerIcon className="h-3 w-3" /> 분석 중
                                                     </span>
-                                                ) : image.analysis ? (
+                                                ) : analysisMatchesCurrentGroup ? (
                                                     <span className="rounded border border-green-700 bg-green-900/90 px-2 py-1 text-[10px] font-bold text-green-100 shadow-sm">진단 완료</span>
+                                                ) : image.analysis ? (
+                                                    <span className="rounded border border-amber-700 bg-amber-950/90 px-2 py-1 text-[10px] font-bold text-amber-100">재분석 필요</span>
                                                 ) : image.analysisError ? (
                                                     <span className="rounded border border-red-700 bg-red-900/90 px-2 py-1 text-[10px] font-bold text-red-100">오류</span>
                                                 ) : (
@@ -2118,9 +2149,9 @@ const App: React.FC = () => {
                                         <div className="p-3">
                                             <div className="flex min-w-0 items-start justify-between gap-2">
                                                 <div className="min-w-0">
-                                                    <h3 className="truncate text-sm font-bold text-white">{image.analysis?.defectType || `Sample #${index + 1}`}</h3>
+                                                    <h3 className="truncate text-sm font-bold text-white">{analysisMatchesCurrentGroup ? image.analysis?.defectType : `Sample #${index + 1}`}</h3>
                                                     <p className="truncate text-[10px] text-gray-500">
-                                                        {image.analysis?.severity ? `${image.analysis.severity} Severity` : '분석 대기중'}
+                                                        {analysisMatchesCurrentGroup && image.analysis?.severity ? `${image.analysis.severity} Severity` : '분석 대기중'}
                                                     </p>
                                                 </div>
                                                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${captureAssessment.ready ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-200'}`}>
@@ -2203,7 +2234,7 @@ const App: React.FC = () => {
                                                         </label>
                                                     </div>
                                                     <p className="mt-2 text-[9px] text-gray-500">
-                                                        세션 {captureSummary.imageCount}장 · 필수 시점 {captureSummary.availableViews.filter(view => captureSummary.requiredViews.includes(view)).length}/{captureSummary.requiredViews.length}
+                                                        결함 그룹 {image.diagnosisGroupId?.slice(-8) || '미지정'} · {captureSummary.imageCount}장 · 필수 시점 {captureSummary.availableViews.filter(view => captureSummary.requiredViews.includes(view)).length}/{captureSummary.requiredViews.length}
                                                     </p>
                                                 </div>
                                             )}
@@ -2230,20 +2261,25 @@ const App: React.FC = () => {
 
                                             {activePanel === 'analysis' && (
                                                 <div data-testid="inspection-card-panel" role="tabpanel" className="mt-3 rounded-lg border border-indigo-900/70 bg-indigo-950/10 p-3">
+                                                    {image.analysis && !analysisMatchesCurrentGroup && (
+                                                        <p className="mb-2 rounded border border-amber-800/70 bg-amber-950/30 px-2 py-1.5 text-[10px] text-amber-100">
+                                                            이전 분석은 결함 위치 그룹이 없어 결과에서 제외되었습니다. 동일 부위 사진을 묶은 뒤 재분석하세요.
+                                                        </p>
+                                                    )}
                                                     <div className="mb-2 flex flex-wrap gap-1 text-[9px]">
-                                                        {image.analysis?.retrievalSummary && <span className="rounded bg-sky-950 px-2 py-1 text-sky-300">{image.analysis.retrievalSummary.modeUsed} · 근거 {image.analysis.retrievalSummary.evidenceCount}</span>}
+                                                        {analysisMatchesCurrentGroup && image.analysis?.retrievalSummary && <span className="rounded bg-sky-950 px-2 py-1 text-sky-300">{image.analysis.retrievalSummary.modeUsed} · 근거 {image.analysis.retrievalSummary.evidenceCount}</span>}
                                                         {image.visionQuality && <span className={`rounded px-2 py-1 ${image.visionQuality.status === 'pass' ? 'bg-emerald-950 text-emerald-300' : image.visionQuality.status === 'warn' ? 'bg-amber-950 text-amber-300' : 'bg-red-950 text-red-300'}`}>사진 품질 {image.visionQuality.score}점</span>}
-                                                        {image.analysis?.visionSummary && <span className="rounded bg-cyan-950 px-2 py-1 text-cyan-300">비전 후보 {image.analysis.visionSummary.candidates.length}개</span>}
+                                                        {analysisMatchesCurrentGroup && image.analysis?.visionSummary && <span className="rounded bg-cyan-950 px-2 py-1 text-cyan-300">비전 후보 {image.analysis.visionSummary.candidates.length}개</span>}
                                                     </div>
                                                     {image.analysisError && <p className="mb-2 rounded border border-red-800/70 bg-red-950/30 px-2 py-1.5 text-[10px] text-red-200">{image.analysisError}</p>}
                                                     <div className="grid grid-cols-3 gap-1.5">
                                                         <button
                                                             onClick={() => handleAnalyzeClick(image.id)}
-                                                            disabled={isThisAnalyzing || (!captureAssessment.ready && !image.analysis)}
-                                                            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[10px] font-bold text-white transition-colors ${image.analysis ? 'bg-green-700 hover:bg-green-600' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:cursor-not-allowed disabled:opacity-50`}
+                                                            disabled={isThisAnalyzing || !captureAssessment.ready}
+                                                            className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[10px] font-bold text-white transition-colors ${analysisMatchesCurrentGroup ? 'bg-green-700 hover:bg-green-600' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:cursor-not-allowed disabled:opacity-50`}
                                                         >
                                                             {isThisAnalyzing ? <SpinnerIcon className="h-4 w-4" /> : <SparklesIcon className="h-4 w-4" />}
-                                                            {image.analysis ? '결과 보기' : (image.shapes && image.shapes.length > 0 ? 'ROI 진단' : 'AI 진단')}
+                                                            {analysisMatchesCurrentGroup ? '결과 보기' : (image.shapes && image.shapes.length > 0 ? 'ROI 진단' : 'AI 진단')}
                                                         </button>
                                                         <button
                                                             onClick={() => handleGraphAnalyzeClick(image.id)}

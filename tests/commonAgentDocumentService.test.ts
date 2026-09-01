@@ -443,6 +443,113 @@ test('Vision Graph grounding maps only approved causes actions and path citation
     );
 });
 
+test('lower-ranked Graph paths never appear as evidence for an unsupported top Vision candidate', () => {
+    const response = {
+        image_id: 'image-mixed-graph',
+        file_name: 'mixed-defect-sites.png',
+        mime_type: 'image/png',
+        source_system: 'test',
+        observation: {
+            contract_version: 'vision-observation/v2',
+            image_kind: 'physical_product' as const,
+            normality_status: 'defect_visible' as const,
+            observations: [{
+                observation_id: 'obs-rib',
+                category: 'boundary' as const,
+                description: '리브 모서리에 불규칙한 밝은 돌출 형상',
+                region: '리브 교차부',
+                confidence: 0.86
+            }, {
+                observation_id: 'obs-scratch',
+                category: 'surface' as const,
+                description: '평탄면을 가로지르는 가는 선형 자국',
+                region: '평탄면',
+                confidence: 0.81
+            }],
+            candidates: [{
+                defect_type: '플래시 또는 버',
+                confidence: 0.72,
+                supporting_observation_ids: ['obs-rib']
+            }, {
+                defect_type: '스크래치/패임',
+                confidence: 0.52,
+                supporting_observation_ids: ['obs-scratch']
+            }],
+            decision_status: 'needs_review' as const,
+            decision_reason: 'multiview_candidate_conflict'
+        },
+        evidence: [],
+        graph_grounding: {
+            contract_version: 'vision-graph-grounding/v1' as const,
+            candidate_grounding: [{
+                defect_type: '플래시 또는 버',
+                vision_rank: 1,
+                vision_confidence: 0.72,
+                status: 'unsupported' as const,
+                direct_match_score: 0,
+                multihop_score: 0,
+                context_match_score: 0,
+                graph_support_score: 0,
+                approved_path_count: 0,
+                causes: [],
+                countermeasures: [],
+                citations: [],
+                rejected_path_reasons: ['approved_path_missing']
+            }, {
+                defect_type: '스크래치/패임',
+                vision_rank: 2,
+                vision_confidence: 0.52,
+                status: 'supported' as const,
+                direct_match_score: 0.9,
+                multihop_score: 0.8,
+                context_match_score: 0.7,
+                graph_support_score: 0.85,
+                approved_path_count: 3,
+                causes: ['하위 후보용 원인'],
+                countermeasures: ['하위 후보용 대책'],
+                citations: [{
+                    path_id: 'lower-path-1',
+                    document_id: 'mismatched-card',
+                    path_text: '스크래치 -> 하위 후보 원인 -> 하위 후보 대책',
+                    hop_count: 2,
+                    score: 0.85,
+                    review_status: 'approved',
+                    evidence_ids: ['lower-evidence']
+                }],
+                rejected_path_reasons: []
+            }],
+            graph_grounded: false,
+            top_candidate_supported: false,
+            vision_graph_conflict: false,
+            approved_path_count: 3,
+            citation_count: 1,
+            grounded_causes: [],
+            grounded_countermeasures: [],
+            requires_human_review: true,
+            auto_finalize_allowed: false,
+            llm_supplement_allowed: false,
+            llm_supplement_training_eligible: false as const,
+            decision_status: 'needs_review' as const,
+            decision_reason: 'approved_graph_evidence_missing'
+        }
+    } as any;
+
+    const analysis = CommonAgentApiService.toDefectAnalysis(response);
+
+    assert.deepEqual(analysis.retrievalSummary?.citations, []);
+    assert.deepEqual(analysis.retrievalSummary?.graphTrace, []);
+    assert.equal(analysis.retrievalSummary?.evidenceCount, 0);
+    assert.equal(analysis.retrievalSummary?.graphGrounded, false);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.approvedPathCount, 0);
+    assert.equal(analysis.retrievalSummary?.graphValidation?.citationCount, 0);
+    assert.equal(
+        analysis.retrievalSummary?.graphValidation?.candidateGrounding[1].approvedPathCount,
+        3
+    );
+    assert.equal(analysis.possibleCauses, '');
+    assert.equal(analysis.countermeasures, '');
+});
+
 test('Vision classifier disagreement blocks Graph finalization even when Graph grounding exists', () => {
     const response = {
         image_id: 'image-classifier-conflict',
@@ -542,7 +649,7 @@ test('Vision classifier disagreement blocks Graph finalization even when Graph g
 
     const analysis = CommonAgentApiService.toDefectAnalysis(response);
 
-    assert.equal(analysis.defectType, '판정 보류 (백화 후보 검토 필요)');
+    assert.equal(analysis.defectType, '판정 보류 (후보 미검증)');
     assert.equal(analysis.possibleCauses, '');
     assert.equal(analysis.countermeasures, '');
     assert.equal(analysis.visionSummary?.decisionStatus, 'needs_review');
@@ -628,7 +735,7 @@ test('Graph-missing LLM supplement never populates specification cause or action
 
     const analysis = CommonAgentApiService.toDefectAnalysis(response);
 
-    assert.equal(analysis.defectType, '판정 보류 (미분류 표면 결함 후보 검토 필요)');
+    assert.equal(analysis.defectType, '판정 보류 (후보 미검증)');
     assert.equal(analysis.possibleCauses, '');
     assert.equal(analysis.countermeasures, '');
     assert.equal(analysis.visionSummary?.decisionStatus, 'needs_review');

@@ -14,7 +14,8 @@ export interface CaptureViewOption {
 
 export interface CaptureSessionSummary {
   sessionId?: string;
-  status: 'ready' | 'needs_views' | 'needs_metadata' | 'not_visually_verifiable';
+  diagnosisGroupId?: string;
+  status: 'ready' | 'needs_views' | 'needs_metadata' | 'needs_group' | 'not_visually_verifiable';
   ready: boolean;
   imageCount: number;
   physicalImageCount: number;
@@ -36,6 +37,7 @@ export interface CaptureEvidenceMergePlan {
   protocolVersion: 'capture-evidence-merge/v1';
   canMerge: boolean;
   targetSessionId: string;
+  targetDiagnosisGroupId: string;
   selectedCount: number;
   physicalImageCount: number;
   availableViews: CaptureViewTag[];
@@ -52,6 +54,7 @@ export interface CaptureEvidenceMergePlan {
 
 export interface CaptureMetadata {
   capture_session_id?: string;
+  diagnosis_group_id?: string;
   capture_view_tags: CaptureViewTag[];
   vision_image_kind: CaptureImageKind;
   capture_source: CaptureSource;
@@ -130,10 +133,17 @@ export function createCaptureSessionId(
   random?: () => number
 ): string;
 
+export function createDiagnosisGroupId(
+  source?: string,
+  now?: number,
+  random?: () => number
+): string;
+
 export function summarizeCaptureSession(
   images: Array<Partial<CapturedImage>>,
   sessionId?: string,
-  recaptureSource?: Partial<RecaptureSource>
+  recaptureSource?: Partial<RecaptureSource>,
+  diagnosisGroupId?: string
 ): CaptureSessionSummary;
 
 export function findResumableRecaptureSession(
@@ -149,6 +159,7 @@ export function buildCaptureEvidenceMergePlan(options?: {
   images?: Array<Partial<CapturedImage>>;
   selectedIds?: Iterable<string> | string[];
   targetSessionId?: string;
+  targetDiagnosisGroupId?: string;
   fallbackSessionId?: string;
   recaptureSource?: Partial<RecaptureSource>;
 }): CaptureEvidenceMergePlan;

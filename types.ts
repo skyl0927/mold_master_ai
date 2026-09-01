@@ -496,6 +496,7 @@ export interface CapturedImage {
     bboxGroundingProfileId?: string;
   };
   captureSessionId?: string;
+  diagnosisGroupId?: string;
   captureViewTag?: CaptureViewTag;
   captureImageKind?: CaptureImageKind;
   captureSource?: CaptureSource;

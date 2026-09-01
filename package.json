@@ -179,6 +179,7 @@
     "test:electron:capture-workspace-restart": "npm run build && node scripts/electron-capture-workspace-restart-smoke.js",
     "test:electron:dimension": "npm run build && node scripts/electron-calibrated-dimension-smoke.js",
     "test:electron:inspection-card": "npm run build && node scripts/electron-inspection-card-compact-smoke.js",
+    "test:electron:diagnosis-group": "npm run build && node scripts/electron-defect-evidence-group-smoke.js",
     "test:electron:clipboard-image": "npm run build && node scripts/electron-annotated-clipboard-smoke.js",
     "test:electron:angle": "npm run build && node scripts/electron-angle-measurement-smoke.js",
     "test:electron:dimension:perspective": "npm run build && node scripts/electron-perspective-dimension-smoke.js",
