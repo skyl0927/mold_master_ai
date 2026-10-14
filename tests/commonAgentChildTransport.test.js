@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const fs=require('node:fs');
 const path=require('node:path');
+const {fork}=require('node:child_process');
 const present=fs.existsSync(path.join(__dirname,'../commonAgentChildTransport.js'));
 const api=present?require('../commonAgentChildTransport'):{};
 
@@ -67,4 +68,19 @@ test('transport chooses protected parent mode when the child marker is set',asyn
   const main=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
   assert(main.includes('attachChildBroker'));
   assert(main.includes("serialization: 'advanced'"));
+});
+test('an actual child receives binary IPC and exits without an orphaned channel',async()=>{
+  const child=fork(path.join(__dirname,'fixtures/commonAgentChildProcessFixture.js'),['http://127.0.0.1:9123'],{
+    silent:true,serialization:'advanced',env:{...process.env,MOLD_MASTER_COMMON_AGENT_BROKER:'1'},
+  });
+  api.attachChildBroker({child,getBaseUrl:()=> 'http://127.0.0.1:9123',gateway:{
+    fetch:async()=>new Response(new Uint8Array([1,2,3]),{headers:{'Content-Type':'image/png'}})}});
+  let output='';child.stdout.on('data',data=>{output+=data.toString();});
+  const result=await new Promise(resolve=>{
+    const timer=setTimeout(()=>{child.kill();resolve({timedOut:true});},1500);
+    child.on('close',code=>{clearTimeout(timer);resolve({code});});
+  });
+  assert(!result.timedOut,'Completed child remains alive because the IPC channel is still referenced');
+  assert.equal(result.code,0);
+  assert.equal(JSON.parse(output.trim()).status,'passed');
 });
