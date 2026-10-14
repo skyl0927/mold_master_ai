@@ -1,14 +1,14 @@
 // Headless native crypto + real child IPC; never opens or controls a desktop UI.
-const {app,safeStorage}=require('electron');
 const fs=require('node:fs');
 const path=require('node:path');
 const {fork}=require('node:child_process');
 const assert=require('node:assert/strict');
-const {createCredentialVault,createSecureGateway}=require('../commonAgentSecureGateway');
-const {attachChildBroker}=require('../commonAgentChildTransport');
+const packageResources=process.env.MOLD_MASTER_AUTH_PROBE_PACKAGE_RESOURCES;
+if(packageResources && (!path.isAbsolute(packageResources) || path.basename(packageResources)!=='resources'))throw Error('Explicit packaged resources required');
+const parentModules=packageResources?path.join(packageResources,'app.asar'):path.resolve(__dirname,'..');
 
 if(process.env.MOLD_MASTER_AUTH_WIRE_CHILD==='1') {
-  const {fetchWithCommonAgentPolicy}=require('../commonAgentTransport');
+  const {fetchWithCommonAgentPolicy}=require(path.join(packageResources || parentModules,'commonAgentTransport'));
   globalThis.fetch=async()=>{throw Error('Anonymous child fetch forbidden');};
   let step='status';
   (async()=>{
@@ -39,7 +39,9 @@ if(process.env.MOLD_MASTER_AUTH_WIRE_CHILD==='1') {
     console.log(JSON.stringify({test_only:true,status:'passed',kind:identity.kind,views:4,anonymous_requests:0}));
   })().catch(error=>{console.error(JSON.stringify({status:'failed',step,error_type:error.name,detail:error.message.slice(0,300)}));process.exitCode=1;});
 } else {
+  const {app,safeStorage}=require('electron');
   let stage='input';
+  let protectedToken;
   const root=process.env.MOLD_MASTER_AUTH_PROBE_ROOT;
   if(!root || !path.isAbsolute(root) || path.basename(root)!=='native-key-wire')throw Error('Explicit owned native profile required');
   fs.mkdirSync(root,{recursive:true});app.setPath('userData',root);
@@ -51,6 +53,10 @@ if(process.env.MOLD_MASTER_AUTH_WIRE_CHILD==='1') {
   } catch {input=Promise.reject(Error('Invalid owned wire configuration'));}
   finally {if(fs.existsSync(configPath))fs.unlinkSync(configPath);}
   Promise.all([app.whenReady(),input]).then(async([,config])=>{
+    protectedToken=config.grant.token;
+    stage='load-parent-modules';
+    const {createCredentialVault,createSecureGateway}=require(path.join(parentModules,'commonAgentSecureGateway'));
+    const {attachChildBroker}=require(path.join(parentModules,'commonAgentChildTransport'));
     stage='protected-install';
     const base=new URL(config.base_url);
     assert.equal(base.hostname,'127.0.0.1');assert(!['8000','3400','5432'].includes(base.port));
@@ -76,7 +82,8 @@ if(process.env.MOLD_MASTER_AUTH_WIRE_CHILD==='1') {
       const childEnv={...process.env,ELECTRON_RUN_AS_NODE:'1',MOLD_MASTER_AUTH_WIRE_CHILD:'1',
         MOLD_MASTER_COMMON_AGENT_BROKER:'1',COMMON_AGENT_URL:config.base_url};
       assert(!JSON.stringify(childEnv).includes(config.grant.token));
-      child=fork(__filename,[],{execPath:process.execPath,silent:true,serialization:'advanced',windowsHide:true,env:childEnv});
+      const childExecutable=packageResources?path.join(path.dirname(packageResources),'Capture & Annotate Pro.exe'):process.execPath;
+      child=fork(__filename,[],{execPath:childExecutable,silent:true,serialization:'advanced',windowsHide:true,env:childEnv});
       assert(!child.spawnargs.some(argument=>argument.includes(config.grant.token)));
       attachChildBroker({child,getBaseUrl:()=>config.base_url,gateway:diagnosticGateway});
       let output='',childError='';child.stdout.on('data',part=>{output+=part.toString();});
@@ -88,21 +95,49 @@ if(process.env.MOLD_MASTER_AUTH_WIRE_CHILD==='1') {
       });
       if(code!==0) {
         assert(!childError.includes(config.grant.token));
-        console.error(childError.slice(0,1000));
+        console.error(childError.split(/\r?\n/).filter(line=>line.trim()).slice(-16).join('\n').slice(-3000));
       }
       assert.equal(code,0);
       assert(!output.includes(config.grant.token));
       assert.equal(JSON.parse(output.trim()).status,'passed');
+      if(packageResources) {
+        stage='packaged-production-runner';
+        const manifest=path.join(root,'test-only-empty-manifest.json');
+        const report=path.join(root,'test-only-validate-report.json');
+        fs.writeFileSync(manifest,JSON.stringify({cases:[]}));
+        child=fork(path.join(packageResources,'scripts/run-multimodal-vision-benchmark.js'),
+          ['--validate-only','--manifest',manifest,'--output',report],{
+            execPath:childExecutable,cwd:packageResources,silent:true,serialization:'advanced',windowsHide:true,
+            env:{...childEnv,MOLD_MASTER_AUTH_WIRE_CHILD:'0'}});
+        attachChildBroker({child,getBaseUrl:()=>config.base_url,gateway:diagnosticGateway});
+        const runnerCode=await new Promise((resolve,reject)=>{
+          const timer=setTimeout(()=>{child.kill();reject(Error('Packaged runner timeout'));},20000);
+          child.on('error',error=>{clearTimeout(timer);reject(error);});
+          child.on('close',code=>{clearTimeout(timer);resolve(code);});
+        });
+        assert.equal(runnerCode,0);
+        const validation=JSON.parse(fs.readFileSync(report,'utf8'));
+        assert.equal(validation.mode,'validate-only');assert.equal(validation.configuredCases,0);
+      }
       console.log(JSON.stringify({test_only:true,status:'passed',native_protected_storage:true,
         server_issued_key:true,actual_child_binary_ipc:true,view_count:4,
         raw_key_in_child_environment_or_arguments:false,credential_returned:false,
         scope_and_conflicting_claims_rejected:true,human_mutation_rejected:true,
         runtime_node_version:process.versions.node,runtime_electron_version:process.versions.electron,
+        packaged_archive_gateway_verified:Boolean(packageResources),
+        packaged_executable_child_verified:Boolean(packageResources),
+        packaged_production_runner_loaded:Boolean(packageResources),
+        vision_quality_evaluated:false,
         browser_or_operating_dataset_used:false,paid_models:0}));
     } finally {
       if(child && child.exitCode===null)child.kill();
       if(fs.existsSync(filePath))fs.unlinkSync(filePath);
     }
     app.exit(0);
-  }).catch(error=>{console.error(JSON.stringify({status:'failed',stage,error_type:error.name}));app.exit(1);});
+  }).catch(error=>{
+    const detail=String(error.stack || error.message);
+    console.error(JSON.stringify({status:'failed',stage,error_type:error.name,
+      detail:protectedToken && detail.includes(protectedToken)?'Protected detail withheld':detail.slice(0,1600)}));
+    app.exit(1);
+  });
 }

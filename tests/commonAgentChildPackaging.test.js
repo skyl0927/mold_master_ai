@@ -3,12 +3,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const packageJson = require('../package.json');
+const packageMirror = require('../scripts/package-common-agent-runtime');
 
 test('packaged main and external evaluation scripts have their protected transport dependencies', () => {
   const files = packageJson.build.files;
   assert(files.includes('commonAgentChildTransport.js'), 'Packaged main cannot load its child broker');
   for (const name of ['scriptCommonAgentFetch.js', 'commonAgentTransport.js', 'commonAgentChildTransport.js']) {
-    assert(packageJson.build.extraResources.some(resource => resource.from === name && resource.to === name), `External script cannot resolve ${name}`);
+    assert(packageMirror.RUNTIME_FILES.includes(name) || packageJson.build.extraResources.some(resource => resource.from === name && resource.to === name), `External script cannot resolve ${name}`);
   }
 });
 
@@ -24,6 +25,7 @@ test('packaged evaluation scripts use parent-owned advanced IPC and cannot overr
 test('external resource scripts contain their complete local require dependency closure', () => {
   const root = path.resolve(__dirname, '..');
   const resources = new Map();
+  for (const file of packageMirror.RUNTIME_FILES) resources.set(file, path.join(root, file));
   for (const resource of packageJson.build.extraResources) {
     const source = path.join(root, resource.from);
     if (fs.statSync(source).isFile()) resources.set(resource.to, source);

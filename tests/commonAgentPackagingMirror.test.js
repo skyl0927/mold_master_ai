@@ -47,7 +47,7 @@ test('post-archive mirror copies only the four source-exact runtime helpers', as
   });
   await hook({appOutDir:root});
   const resources = path.join(root, 'resources');
-  assert.deepEqual(fs.readdirSync(resources).sort(), ['commonAgentChildTransport.js', 'commonAgentTransport.js', 'shared', 'visionCaptureProtocol.js']);
+  assert.deepEqual(fs.readdirSync(resources).sort(), ['commonAgentChildTransport.js', 'commonAgentTransport.js', 'package.json', 'shared', 'visionCaptureProtocol.js']);
   assert.deepEqual(fs.readdirSync(path.join(resources, 'shared')), ['defect-taxonomy.js']);
   for (const file of hook.RUNTIME_FILES) {
     assert.deepEqual(fs.readFileSync(path.join(resources, file)), fs.readFileSync(path.join(__dirname, '..', file)));
