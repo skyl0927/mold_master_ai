@@ -87,7 +87,7 @@ test('an actual child receives binary IPC and exits without an orphaned channel'
 test('send callback and synchronous channel failures reject rather than leave requests pending',async()=>{
   for(const mode of ['callback','throw']) {
     const channel=new EventEmitter();channel.connected=true;
-    channel.send=(_message,callback)=>{if(mode==='throw')throw Error('closed');callback(Error('closed'));};
+    channel.send=(_message,callback)=>{if(mode==='throw')throw Error('closed');callback?.(Error('closed'));};
     const bridge=api.createChildBridge(channel);
     await assert.rejects(bridge.commonAgentRequest({url:'http://127.0.0.1:9123/healthz',requestId:'failed-send-0001'}),/unavailable/);
     assert.equal(await bridge.cancelCommonAgentRequest('failed-send-0001'),false);
