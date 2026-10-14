@@ -14,6 +14,7 @@ const {
   buildGraphRetrievalQuestion
 } = require('./lib/vision-benchmark-harness');
 const { normalizeVisionObservation } = require('../visionObservation');
+const { createScriptFetch } = require('../scriptCommonAgentFetch');
 
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -30,6 +31,7 @@ const artifactPath = path.resolve(
 );
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const qaUrl = (process.env.COMMON_AGENT_QA_URL || 'http://127.0.0.1:8103').replace(/\/+$/, '');
+const fetch = createScriptFetch({agentUrl:baseUrl,qaUrl});
 const concurrency = Math.max(1, Math.min(4, Number(valueAfter('--concurrency') || 2)));
 const mimeTypeFor = imagePath => ({
   '.jpg': 'image/jpeg',

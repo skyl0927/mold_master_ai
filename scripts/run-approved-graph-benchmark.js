@@ -1,10 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { createScriptFetch } = require('../scriptCommonAgentFetch');
 
 const root = process.cwd();
 const fixturePath = path.join(root, 'eval', 'graph', 'approved-graph-benchmark.json');
 const artifactPath = path.join(root, 'artifacts', 'approved-graph-benchmark-report.json');
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const fetch = createScriptFetch({agentUrl:baseUrl});
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 const normalize = value => String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();

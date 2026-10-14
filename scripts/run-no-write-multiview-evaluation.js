@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { createScriptFetch } = require('../scriptCommonAgentFetch');
 
 const {
   assessNoWriteDiagnosis,
@@ -49,10 +50,7 @@ const validateEndpoint = rawUrl => {
   return parsed.toString().replace(/\/$/, '');
 };
 
-const fetchWithTimeout = (url, options = {}, timeoutMs = 180000) => fetch(url, {
-  ...options,
-  signal: AbortSignal.timeout(timeoutMs)
-});
+const fetchWithTimeout = createScriptFetch({agentUrl:baseUrl});
 
 const fetchDatasetSnapshot = async endpoint => {
   const [datasetResponse, statusResponse] = await Promise.all([

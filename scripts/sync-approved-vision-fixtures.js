@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { createScriptFetch } = require('../scriptCommonAgentFetch');
 const {
   REQUIRED_DEFECT_CLASSES,
   canonicalDefectClass,
@@ -18,6 +19,7 @@ const {
 
 const root = process.cwd();
 const baseUrl = (process.env.COMMON_AGENT_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const fetch = createScriptFetch({agentUrl:baseUrl});
 const outputDir = path.resolve(
   process.argv[2] || path.join(root, 'eval', 'vision-approved')
 );

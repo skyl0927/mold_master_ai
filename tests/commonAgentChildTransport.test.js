@@ -84,3 +84,24 @@ test('an actual child receives binary IPC and exits without an orphaned channel'
   assert.equal(result.code,0);
   assert.equal(JSON.parse(output.trim()).status,'passed');
 });
+test('send callback and synchronous channel failures reject rather than leave requests pending',async()=>{
+  for(const mode of ['callback','throw']) {
+    const channel=new EventEmitter();channel.connected=true;
+    channel.send=(_message,callback)=>{if(mode==='throw')throw Error('closed');callback(Error('closed'));};
+    const bridge=api.createChildBridge(channel);
+    await assert.rejects(bridge.commonAgentRequest({url:'http://127.0.0.1:9123/healthz',requestId:'failed-send-0001'}),/unavailable/);
+    assert.equal(await bridge.cancelCommonAgentRequest('failed-send-0001'),false);
+  }
+  assert.throws(()=>api.createChildBridge({connected:false}),/unavailable/);
+});
+test('invalid and duplicate identifiers cannot add a second upstream request',async()=>{
+  const f=fixture();
+  await assert.rejects(f.bridge.commonAgentRequest({requestId:'!'}),/identifier/);
+  const input={url:'http://127.0.0.1:9123/slow',requestId:'duplicate-0001'};
+  const pending=f.bridge.commonAgentRequest(input);
+  await assert.rejects(f.bridge.commonAgentRequest(input),/duplicate/);
+  await new Promise(resolve=>setImmediate(resolve));
+  await f.bridge.cancelCommonAgentRequest(input.requestId);
+  await assert.rejects(pending,/cancelled/);
+  assert.equal(f.calls.length,1);
+});
