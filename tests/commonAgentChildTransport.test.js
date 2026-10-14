@@ -51,9 +51,19 @@ test('lost parent channel fails closed, not anonymous fetch',async()=>{
   await assert.rejects(pending,/disconnect|unavailable/i);
   await assert.rejects(f.bridge.commonAgentRequest({url:'http://127.0.0.1:9123/healthz',requestId:'request-0007'}),/disconnect|unavailable/i);
 });
-test('transport chooses protected parent mode when the child marker is set',()=>{
-  const source=fs.readFileSync(path.join(__dirname,'../commonAgentTransport.js'),'utf8');
-  assert(source.includes('MOLD_MASTER_COMMON_AGENT_BROKER'),'Child mode must not fall through to anonymous fetch');
+test('transport chooses protected parent mode when the child marker is set',async()=>{
+  const previous=process.env.MOLD_MASTER_COMMON_AGENT_BROKER;
+  process.env.MOLD_MASTER_COMMON_AGENT_BROKER='1';
+  let anonymous=0;
+  try {
+    const {fetchWithCommonAgentPolicy}=require('../commonAgentTransport');
+    await assert.rejects(async()=>fetchWithCommonAgentPolicy('http://127.0.0.1:9123/healthz',{},
+      {fetchImpl:async()=>{anonymous++;return new Response('unsafe');}}),/parent channel unavailable/i);
+    assert.equal(anonymous,0,'Disconnected broker must not fall through to anonymous fetch');
+  } finally {
+    if(previous===undefined)delete process.env.MOLD_MASTER_COMMON_AGENT_BROKER;
+    else process.env.MOLD_MASTER_COMMON_AGENT_BROKER=previous;
+  }
   const main=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
   assert(main.includes('attachChildBroker'));
   assert(main.includes("serialization: 'advanced'"));
