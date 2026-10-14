@@ -43,7 +43,13 @@ function createChildBridge(channel) {
     },
     async cancelCommonAgentRequest(requestId) {
       if(closed || !pending.has(requestId))return false;
-      channel.send({type:CANCEL,requestId});return true;
+      const fail=()=>{
+        const task=pending.get(requestId);
+        if(task) {pending.delete(requestId);idle();task.reject(Error('Protected parent channel unavailable'));}
+      };
+      try {
+        channel.send({type:CANCEL,requestId},error=>{if(error)fail();});return true;
+      } catch {fail();return false;}
     },
   };
 }
