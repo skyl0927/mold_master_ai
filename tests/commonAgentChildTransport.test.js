@@ -105,3 +105,17 @@ test('invalid and duplicate identifiers cannot add a second upstream request',as
   await assert.rejects(pending,/cancelled/);
   assert.equal(f.calls.length,1);
 });
+
+test('a channel lost during cancellation settles the request without an unhandled rejection',async()=>{
+  for(const mode of ['callback','throw']) {
+    const channel=new EventEmitter();channel.connected=true;channel.send=()=>{};
+    const bridge=api.createChildBridge(channel);
+    const pending=bridge.commonAgentRequest({requestId:'cancel-race-0001'});
+    const outcome=pending.then(()=> 'resolved',()=> 'rejected');
+    channel.send=(_message,callback)=>{if(mode==='throw')throw Error('closed');callback(Error('closed'));};
+    try {
+      assert.equal(await bridge.cancelCommonAgentRequest('cancel-race-0001'),mode!=='throw');
+      assert.equal(await Promise.race([outcome,new Promise(resolve=>setTimeout(()=>resolve('pending'),20))]),'rejected');
+    } finally {channel.emit('disconnect');await outcome;}
+  }
+});
