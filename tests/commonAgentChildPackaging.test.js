@@ -20,3 +20,27 @@ test('packaged evaluation scripts use parent-owned advanced IPC and cannot overr
   assert(spawn.indexOf('MOLD_MASTER_COMMON_AGENT_BROKER') > spawn.indexOf('...envOverrides'));
   assert(spawn.includes('attachChildBroker'));
 });
+
+test('external resource scripts contain their complete local require dependency closure', () => {
+  const root = path.resolve(__dirname, '..');
+  const resources = new Map();
+  for (const resource of packageJson.build.extraResources) {
+    const source = path.join(root, resource.from);
+    if (fs.statSync(source).isFile()) resources.set(resource.to, source);
+    else for (const item of resource.filter) {
+      assert(!/[*?]/.test(item), 'Explicit resource filters are required by this closure audit');
+      resources.set(path.posix.join(resource.to, item), path.join(source, item));
+    }
+  }
+  const missing = [];
+  for (const [target, source] of resources) {
+    if (!source.endsWith('.js')) continue;
+    for (const match of fs.readFileSync(source, 'utf8').matchAll(/require\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g)) {
+      const required = path.posix.normalize(path.posix.join(path.posix.dirname(target), match[1]));
+      if (![required, `${required}.js`, `${required}/index.js`].some(file => resources.has(file))) {
+        missing.push({from:target, required});
+      }
+    }
+  }
+  assert.deepEqual(missing, [], 'Packaged external scripts cannot resolve all local dependencies');
+});
