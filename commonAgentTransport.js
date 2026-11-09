@@ -1,6 +1,7 @@
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const DEFAULT_TIMEOUT_MS = 45000;
 const VISION_DIAGNOSIS_TIMEOUT_MS = 180000;
+const { getRuntimeChildBridge } = require('./commonAgentChildTransport');
 
 const parseCommonAgentUrl = value => {
   const candidate = String(value || '').trim();
@@ -29,9 +30,26 @@ const normalizeCommonAgentBaseUrl = value =>
 const fetchWithCommonAgentPolicy = async (
   url,
   options = {},
-  { fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}
+  { fetchImpl, timeoutMs = DEFAULT_TIMEOUT_MS, bridge = globalThis.window?.electronAPI || getRuntimeChildBridge() } = {}
 ) => {
   const validatedUrl = parseCommonAgentUrl(url).toString();
+  if (!fetchImpl && bridge?.commonAgentRequest) {
+    if (options.signal?.aborted) throw new Error('Common Agent request cancelled');
+    const request = new Request(validatedUrl, { method: options.method || 'GET', headers: options.headers, body: options.body });
+    const requestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    const body = options.body == null ? undefined : new Uint8Array(await request.arrayBuffer());
+    const cancel = () => { void bridge.cancelCommonAgentRequest?.(requestId); };
+    options.signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      if (options.signal?.aborted) throw new Error('Common Agent request cancelled');
+      const result = await bridge.commonAgentRequest({ url: validatedUrl, method: request.method,
+        headers: Object.fromEntries(request.headers), body, timeoutMs, requestId });
+      if (options.signal?.aborted) throw new Error('Common Agent request cancelled');
+      return new Response([204, 205, 304].includes(result.status) ? null : result.body,
+        { status: result.status, headers: result.headers });
+    } finally { options.signal?.removeEventListener('abort', cancel); }
+  }
+  fetchImpl = fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') {
     throw new Error('Common Agent 요청에 사용할 fetch 구현이 없습니다.');
   }
@@ -66,9 +84,19 @@ const fetchWithCommonAgentPolicy = async (
   }
 };
 
+const getAuthenticatedImageUrl = async (url, transportOptions = {}) => {
+  const response = await fetchWithCommonAgentPolicy(url, {}, transportOptions);
+  if (!response.ok) throw new Error(`Common Agent image request failed: ${response.status}`);
+  if (!/^image\/(png|jpeg|webp)(?:;|$)/i.test(response.headers.get('content-type') || '')) {
+    throw new Error('Common Agent returned an unsupported image format');
+  }
+  return URL.createObjectURL(await response.blob());
+};
+
 module.exports = {
   DEFAULT_TIMEOUT_MS,
   VISION_DIAGNOSIS_TIMEOUT_MS,
   fetchWithCommonAgentPolicy,
+  getAuthenticatedImageUrl,
   normalizeCommonAgentBaseUrl
 };

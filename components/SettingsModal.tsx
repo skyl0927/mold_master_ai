@@ -349,6 +349,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [proxyUrl, setProxyUrl] = useState(initialConfig?.proxyUrl || '');
   const [shortcut, setShortcut] = useState(initialConfig?.shortcut || 'CommandOrControl+Shift+C');
   const [agentServerUrl, setAgentServerUrl] = useState(initialConfig?.agentServerUrl || '');
+  const [programAuthMessage, setProgramAuthMessage] = useState('프로그램 인증 상태 확인 중');
+  const [programAuthBusy, setProgramAuthBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const read = window.electronAPI?.getCommonAgentCredentialStatus;
+    if (!read) { setProgramAuthMessage('프로그램 인증은 업데이트된 데스크톱 앱에서 등록할 수 있습니다.'); return; }
+    void read().then(status => {
+      if (active) setProgramAuthMessage(status.configured ? `인증 ${status.state || '등록됨'}${status.expires_at ? ` · 만료 ${status.expires_at}` : ''}` : '프로그램 키 미등록 · 현재 서버의 개발 접속 설정을 사용합니다.');
+    }).catch(() => { if (active) setProgramAuthMessage('인증 상태를 읽지 못했습니다. 앱 연결을 확인하세요.'); });
+    return () => { active = false; };
+  }, []);
+  const importProgramCredential = async () => {
+    const importCredential = window.electronAPI?.importCommonAgentCredential;
+    if (!importCredential) return;
+    setProgramAuthBusy(true);
+    try {
+      const status = await importCredential();
+      setProgramAuthMessage(status.configured ? `인증 ${status.state || '등록됨'}${status.expires_at ? ` · 만료 ${status.expires_at}` : ''}` : '인증 등록을 취소했습니다.');
+    } catch { setProgramAuthMessage('등록하지 못했습니다. 발급 파일·만료·보호 저장소를 확인하세요.'); }
+    finally { setProgramAuthBusy(false); }
+  };
   const [visionQaServerUrl, setVisionQaServerUrl] = useState(initialConfig?.visionQaServerUrl || '');
   const [visionReferenceBenchmarkGateMode, setVisionReferenceBenchmarkGateMode] =
     useState<VisionReferenceBenchmarkGateMode>(
@@ -3122,6 +3143,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <p className="text-xs text-gray-500 mt-1">Vision, Graph, 문서 자동작성, HITL API의 기준 주소입니다. 외부 주소는 HTTPS만 허용하며, 비워두면 {DEFAULT_AGENT_SERVER_URL}을 사용합니다.</p>
+            <div className="mt-3 rounded-md border border-gray-600 p-3">
+              <p className="text-sm text-gray-300" role="status">{programAuthMessage}</p>
+              <button type="button" onClick={() => void importProgramCredential()}
+                disabled={programAuthBusy || !window.electronAPI?.importCommonAgentCredential || agentServerUrl.trim() !== (initialConfig?.agentServerUrl || '').trim()}
+                className="mt-2 rounded-md bg-sky-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+                {programAuthBusy ? '인증 등록 중' : '발급 인증 파일 등록 또는 교체'}
+              </button>
+              <p className="mt-2 text-xs text-gray-400">서버 주소를 바꿨다면 먼저 저장한 뒤 설정을 다시 여세요. 키는 보호 저장소에만 보관합니다. 프로그램 인증으로 사람의 수정·승인·삭제 권한을 대신하지 않습니다.</p>
+            </div>
             <label htmlFor="vision-qa-server-url" className="mt-3 block text-sm font-medium text-gray-300">
                 Vision QA URL (선택 사항)
             </label>

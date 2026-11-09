@@ -214,6 +214,7 @@
   "dependencies": {
     "@google/genai": "^0.14.0",
     "better-sqlite3": "^11.10.0",
+    "busboy": "1.6.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
@@ -244,6 +245,7 @@
     "vite": "^5.3.1"
   },
   "build": {
+    "afterPack": "scripts/package-common-agent-runtime.js",
     "appId": "com.example.capture-annotate-pro",
     "productName": "Capture & Annotate Pro",
     "files": [
@@ -251,6 +253,10 @@
       "main.js",
       "clipboardImagePayload.js",
       "commonAgentTransport.js",
+      "commonAgentChildTransport.js",
+      "commonAgentSecureGateway.js",
+      "commonAgentMultipart.js",
+      "commonAgentIpc.js",
       "apiConfigDefaults.js",
       "localVisionCandidate.js",
       "migrationGateStatus.js",
@@ -279,6 +285,10 @@
     },
     "extraResources": [
       {
+        "from": "scriptCommonAgentFetch.js",
+        "to": "scriptCommonAgentFetch.js"
+      },
+      {
         "from": "scripts",
         "to": "scripts",
         "filter": [
@@ -286,20 +296,17 @@
           "sync-approved-vision-fixtures.js",
           "crop-benchmark-roi.py",
           "lib/approved-vision-fixture-quality.js",
+          "lib/vision-benchmark-harness.js",
           "lib/multimodal-benchmark.js"
         ]
-      },
-      {
-        "from": "shared/defect-taxonomy.js",
-        "to": "shared/defect-taxonomy.js"
       },
       {
         "from": "visionObservation.js",
         "to": "visionObservation.js"
       },
       {
-        "from": "visionCaptureProtocol.js",
-        "to": "visionCaptureProtocol.js"
+        "from": "visionStructuredOutputSchema.js",
+        "to": "visionStructuredOutputSchema.js"
       }
     ],
     "win": {

@@ -6,6 +6,7 @@ const { Menu } = require('electron');
 const http = require('http');
 const os = require('os');
 const crypto = require('crypto');
+const { pathToFileURL } = require('node:url');
 const QRCode = require('qrcode');
 const { mapSelectionToImage } = require('./captureGeometry');
 const { createCaptureFrameCache } = require('./captureFrameCache');
@@ -24,6 +25,9 @@ const {
     fetchWithCommonAgentPolicy,
     normalizeCommonAgentBaseUrl
 } = require('./commonAgentTransport');
+const { createCredentialVault, createSecureGateway } = require('./commonAgentSecureGateway');
+const { registerCommonAgentIpc } = require('./commonAgentIpc');
+const { attachChildBroker } = require('./commonAgentChildTransport');
 const {
     loadLatestOperationalStatusBundle
 } = require('./latestOperationalStatusBundle');
@@ -46,6 +50,10 @@ const captureFrameCache = createCaptureFrameCache();
 let captureProcessGeneration = 0;
 let apiConfig = null;
 const apiConfigPath = path.join(app.getPath('userData'), 'apiConfig.json');
+const commonAgentCredentialVault = createCredentialVault({
+    filePath: path.join(app.getPath('userData'), 'common-agent-credential.enc'), safeStorage
+});
+const commonAgentGateway = createSecureGateway({ vault: commonAgentCredentialVault });
 const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+C';
 const CAPTURE_DEBUG_LOG = path.join(app.getPath('temp'), 'mold-master-capture-debug.jsonl');
 const VISION_BENCHMARK_ROOT = path.join(app.getPath('userData'), 'vision-benchmark');
@@ -137,8 +145,21 @@ const configuredCommonAgentEndpoints = () => {
     return { agentUrl, qaUrl };
 };
 
-const fetchWithTimeout = (url, options = {}, timeoutMs = 45000) =>
-    fetchWithCommonAgentPolicy(url, options, { timeoutMs });
+const fetchWithTimeout = (url, options = {}, timeoutMs = 45000) => {
+    const { agentUrl } = configuredCommonAgentEndpoints();
+    if (url === agentUrl || url.startsWith(`${agentUrl}/`)) {
+        return commonAgentGateway.fetch(url, options, timeoutMs);
+    }
+    // The separate QA service never receives a Common Agent program key.
+    return fetchWithCommonAgentPolicy(url, options, { timeoutMs });
+};
+
+registerCommonAgentIpc({ ipcMain,
+    getOwner: () => mainWindow?.webContents, getWindow: () => mainWindow,
+    expectedUrl: pathToFileURL(path.join(__dirname, 'index.html')).href,
+    getBaseUrl: () => configuredCommonAgentEndpoints().agentUrl,
+    vault: commonAgentCredentialVault, gateway: commonAgentGateway, dialog
+});
 
 const runBundledNodeScript = (scriptName, args, envOverrides = {}) => new Promise((resolve, reject) => {
     const scriptsRoot = app.isPackaged
@@ -148,12 +169,16 @@ const runBundledNodeScript = (scriptName, args, envOverrides = {}) => new Promis
     const child = spawn(process.execPath, [scriptPath, ...args], {
         cwd: app.isPackaged ? process.resourcesPath : __dirname,
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        serialization: 'advanced',
         env: {
             ...process.env,
             ELECTRON_RUN_AS_NODE: '1',
-            ...envOverrides
+            ...envOverrides,
+            MOLD_MASTER_COMMON_AGENT_BROKER: '1'
         }
     });
+    attachChildBroker({ child, getBaseUrl: () => configuredCommonAgentEndpoints().agentUrl, gateway: commonAgentGateway });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
@@ -731,6 +756,9 @@ ipcMain.handle('GET_LATEST_OPERATIONAL_STATUS_BUNDLE', () => {
     return loadLatestOperationalStatusBundle({ roots });
 });
 ipcMain.handle('SET_API_CONFIG', (event, config) => {
+    if (/ca_service_v1\.[a-f0-9]{32}\.[a-f0-9]{64}/.test(JSON.stringify(config))) {
+        throw new Error('Program credentials belong in OS protected storage, not API config');
+    }
     const validatedConfig = { ...config };
     for (const field of ['agentServerUrl', 'visionQaServerUrl']) {
         const value = String(validatedConfig[field] || '').trim();

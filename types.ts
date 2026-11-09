@@ -1051,6 +1051,10 @@ export interface IElectronAPI {
   onCaptureSessionEnded: (callback: () => void) => () => void;
 
   getApiConfig: () => Promise<ApiConfig | null>;
+  getCommonAgentCredentialStatus?: () => Promise<{ configured: boolean; state?: string; base_url?: string; expires_at?: string }>;
+  importCommonAgentCredential?: () => Promise<{ configured: boolean; state?: string; base_url?: string; expires_at?: string }>;
+  commonAgentRequest?: (request: { url: string; method: string; headers: Record<string, string>; body?: Uint8Array; timeoutMs: number; requestId: string }) => Promise<{ status: number; headers: Record<string, string>; body: Uint8Array }>;
+  cancelCommonAgentRequest?: (requestId: string) => Promise<boolean>;
   saveCaptureWorkspaceImage: (image: CapturedImage) => Promise<{
     id: string;
     persistedAt: string;

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { loadImageUrls, releaseImageUrls } from '../commonAgentImageUrls';
 import {
     DBStats,
     LocalVisionCandidate,
@@ -300,6 +301,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     const [visionItems, setVisionItems] = useState<VisionDatasetItem[]>([]);
     const [visionReadiness, setVisionReadiness] = useState<VisionDatasetReadiness | null>(null);
     const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+    const imageLoadGeneration = useRef(0);
+    useEffect(() => () => { imageLoadGeneration.current++; }, []);
+    useEffect(() => () => releaseImageUrls(imageUrls), [imageUrls]);
     const [editedLabels, setEditedLabels] = useState<Record<string, string>>({});
     const [isLoadingVision, setIsLoadingVision] = useState(false);
     const [updatingImageId, setUpdatingImageId] = useState<string | null>(null);
@@ -349,20 +353,21 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
     };
 
     const fetchVisionData = async (options: { clearStatus?: boolean } = {}) => {
+        const generation = ++imageLoadGeneration.current;
         setIsLoadingVision(true);
         if (options.clearStatus !== false) setVisionStatus('');
         try {
             const items = await CommonAgentApiService.loadImageDatasetsWithContentHashes();
             const readiness = calculateVisionDatasetReadiness(items);
-            const urls = Object.fromEntries(await Promise.all(
-                items.map(async item => [
-                    item.image_id,
-                    await CommonAgentApiService.getImageDatasetFileUrl(item.image_id)
-                ])
-            ));
+            const { urls, failures } = await loadImageUrls(items, id => CommonAgentApiService.getImageDatasetFileUrl(id));
+            if (generation !== imageLoadGeneration.current) {
+                releaseImageUrls(urls);
+                return;
+            }
             setVisionItems(items);
             setVisionReadiness(readiness);
             setImageUrls(urls);
+            if (failures.length) setVisionStatus(`이미지 ${failures.length}개를 불러오지 못했습니다. 인증·파일 상태를 확인하세요. 나머지 목록은 유지합니다.`);
             setEditedLabels(Object.fromEntries(
                 items.map(item => [
                     item.image_id,
@@ -383,11 +388,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ stats, onClose }) => {
                 }
             ])));
         } catch (error) {
+            if (generation !== imageLoadGeneration.current) return;
             setVisionStatus(
                 error instanceof Error ? `Common Agent 조회 실패: ${error.message}` : 'Common Agent 조회 실패'
             );
         } finally {
-            setIsLoadingVision(false);
+            if (generation === imageLoadGeneration.current) setIsLoadingVision(false);
         }
     };
 

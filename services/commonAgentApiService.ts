@@ -15,6 +15,7 @@ import { compactDefectAnalysis } from './reportContentFormatter';
 import type { VisionDatasetItem } from './visionDatasetReadinessService';
 import {
     fetchWithCommonAgentPolicy,
+    getAuthenticatedImageUrl,
     VISION_DIAGNOSIS_TIMEOUT_MS
 } from '../commonAgentTransport';
 import { COMMON_AGENT_HEALTH_PATHS } from '../commonAgentHealthPolicy';
@@ -878,7 +879,7 @@ export class CommonAgentApiService {
     }
 
     static async getImageDatasetFileUrl(imageId: string): Promise<string> {
-        return await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(imageId)}/file`);
+        return await getAuthenticatedImageUrl(await getAgentUrl(`/v1/datasets/images/${encodeURIComponent(imageId)}/file`));
     }
 
     static async loadLearningReadyVisionExport(options: {

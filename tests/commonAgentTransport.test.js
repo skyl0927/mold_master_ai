@@ -1,9 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+globalThis.fetch = async () => { throw new Error('Anonymous browser fetch forbidden by isolated fixture'); };
 
 const {
   normalizeCommonAgentBaseUrl,
-  fetchWithCommonAgentPolicy
+  fetchWithCommonAgentPolicy,
+  getAuthenticatedImageUrl
 } = require('../commonAgentTransport');
 
 test('Common Agent transport permits HTTP only for loopback development endpoints', () => {
@@ -88,4 +90,56 @@ test('Common Agent transport passes a validated URL and abort signal to fetch', 
   assert.equal(observed.url, 'https://agent.example.com/v1/ask');
   assert.equal(observed.options.method, 'POST');
   assert.equal(observed.options.signal instanceof AbortSignal, true);
+});
+
+test('renderer requests use the native bridge without invoking browser fetch', async () => {
+  let received;
+  const bridge = { commonAgentRequest: async request => {
+    received = request;
+    return { status: 200, headers: { 'content-type': 'application/json' }, body: new TextEncoder().encode('{"ok":true}') };
+  } };
+  const response = await fetchWithCommonAgentPolicy('http://localhost:8000/v1/ask', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"question":"test"}'
+  }, { bridge });
+  assert.equal(received?.method, 'POST');
+  assert.equal(new TextDecoder().decode(received.body), '{"question":"test"}');
+  assert.deepEqual(await response.json(), { ok: true });
+});
+
+test('multipart serialization retains repeated view files and no-write mode', async () => {
+  let received;
+  const form = new FormData();
+  form.append('persist_mode', 'never');
+  form.append('view_files', new Blob(['one'], { type: 'image/png' }), 'one.png');
+  form.append('view_files', new Blob(['two'], { type: 'image/png' }), 'two.png');
+  await fetchWithCommonAgentPolicy('http://localhost:8000/v1/vision/diagnose', { method: 'POST', body: form }, {
+    bridge: { commonAgentRequest: async request => {
+      received = request;
+      return { status: 200, body: new Uint8Array() };
+    } }
+  });
+  const reconstructed = await new Response(received.body, { headers: received.headers }).formData();
+  assert.equal(reconstructed.get('persist_mode'), 'never');
+  assert.equal(reconstructed.getAll('view_files').length, 2);
+});
+
+test('a failing native bridge does not silently fall back to anonymous HTTP', async () => {
+  await assert.rejects(fetchWithCommonAgentPolicy('http://localhost:8000/healthz', {}, {
+    bridge: { commonAgentRequest: async () => { throw new Error('credential expired'); } }
+  }), /credential expired/);
+});
+
+test('image URLs are local blobs made by authenticated transport, not token-bearing remote URLs', async () => {
+  const url = await getAuthenticatedImageUrl('http://localhost:8000/v1/datasets/images/test/file', {
+    bridge: { commonAgentRequest: async () => ({ status: 200, headers: { 'content-type': 'image/png' }, body: new Uint8Array([137, 80, 78, 71]) }) }
+  });
+  try { assert.equal(url.startsWith('blob:'), true); } finally { URL.revokeObjectURL(url); }
+});
+
+test('an unauthenticated or unsupported image response does not create a usable image URL', async () => {
+  for (const response of [{ status: 401 }, { status: 200, headers: { 'content-type': 'text/html' } }]) {
+    await assert.rejects(getAuthenticatedImageUrl('http://localhost:8000/v1/datasets/images/test/file', {
+      bridge: { commonAgentRequest: async () => ({ ...response, body: new Uint8Array() }) }
+    }));
+  }
 });

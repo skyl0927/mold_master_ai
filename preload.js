@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     debugCapturePointer: (payload) => ipcRenderer.invoke('DEBUG_CAPTURE_POINTER', payload),
 
     getApiConfig: () => ipcRenderer.invoke('GET_API_CONFIG'),
+    getCommonAgentCredentialStatus: () => ipcRenderer.invoke('GET_COMMON_AGENT_CREDENTIAL_STATUS'),
+    importCommonAgentCredential: () => ipcRenderer.invoke('IMPORT_COMMON_AGENT_CREDENTIAL'),
+    commonAgentRequest: (request) => ipcRenderer.invoke('COMMON_AGENT_REQUEST', request),
+    cancelCommonAgentRequest: (requestId) => ipcRenderer.invoke('CANCEL_COMMON_AGENT_REQUEST', requestId),
     saveCaptureWorkspaceImage: (image) => ipcRenderer.invoke('SAVE_CAPTURE_WORKSPACE_IMAGE', image),
     listCaptureWorkspaceImages: () => ipcRenderer.invoke('LIST_CAPTURE_WORKSPACE_IMAGES'),
     deleteCaptureWorkspaceImage: (imageId) => ipcRenderer.invoke('DELETE_CAPTURE_WORKSPACE_IMAGE', imageId),
